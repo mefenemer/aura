@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service | Aura</title>
+    <!--    <script src="https://cdn.tailwindcss.com"></script>-->
+    <link href="./style.css" rel="stylesheet">
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<div id="nav-placeholder"></div>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-3xl mx-auto px-4 py-16">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-8">Terms of Service</h1>
+        <p class="text-gray-500 mb-8">Last updated: May 27, 2026</p>
+
+        <div class="prose prose-emerald max-w-none text-gray-600 space-y-6">
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">1. Overview</h2>
+                <p>These Terms of Service govern your use of Aura's automation services. By subscribing to our service, you agree to these terms.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">2. Our Responsibilities</h2>
+                <p>Aura is responsible for:</p>
+                <ul class="list-disc pl-5 space-y-2">
+                    <li>Designing, building, and hosting your custom digital assistants based on your provided requirements.</li>
+                    <li>Maintaining the technical infrastructure and ensuring assistant connectivity.</li>
+                    <li>Providing agreed-upon monthly updates/tweaks to your assistant's job instructions.</li>
+                    <li>Ensuring your data remains isolated and secure.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">3. Client Responsibilities</h2>
+                <p>As the client, you are responsible for:</p>
+                <ul class="list-disc pl-5 space-y-2">
+                    <li>Providing accurate instructions and business requirements during the intake process.</li>
+                    <li>Ensuring you have the necessary rights and permissions for the apps and data you instruct us to connect.</li>
+                    <li>Reviewing and approving the digital assistant's outputs as needed.</li>
+                    <li>Setting and monitoring your monthly compute budget caps.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">4. Service Limitations & Updates</h2>
+                <p>While we strive for 100% uptime, automation depends on third-party APIs. We are not responsible for service outages caused by third-party platforms (e.g., Gmail, Meta, Slack). Included monthly updates apply to changes in job instructions; requested technical redesigns beyond the initial scope may incur additional fees.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">5. Subscription & Cancellation</h2>
+                <p>Aura operates on a rolling monthly subscription. You may cancel your service at any time. Cancellations will take effect at the end of the current billing cycle.</p>
+            </section>
+        </div>
+    </main>
+
+<script>
+    // Component Loader Engine
+    async function loadComponent(placeholderId, filePath) {
+        try {
+            const response = await fetch(filePath);
+            if (response.ok) {
+                document.getElementById(placeholderId).innerHTML = await response.text();
+            }
+        } catch (error) {
+            console.error(`Error loading component ${filePath}:`, error);
+        }
+    }
+
+    // Execute System Router Checks
+    document.addEventListener("DOMContentLoaded", async () => {
+        // 1. Core payload inject
+        await loadComponent("nav-placeholder", "./components/nav.html");
+        loadComponent("footer-placeholder", "./components/footer.html");
+
+        // 2. Identify active URL path filename
+        const currentPage = window.location.pathname.split("/").pop();
+
+        // 3. Dynamic Title Routing Dictionary
+        const titleMap = {
+            "index.html": "Welcome",
+            "": "Welcome", // Fallback parameter for root folders
+            "pricing.html": "Pricing",
+            "dashboard.html": "Dashboard",
+            "billing.html": "Billing",
+            "logout.html": "See you Soon"
+        };
+
+        // Inject Context Title seamlessly
+        const targetTitleSpan = document.getElementById("nav-page-title");
+        if (targetTitleSpan && titleMap[currentPage]) {
+            targetTitleSpan.innerText = `| ${titleMap[currentPage]}`;
+        }
+
+        // 4. Internal App Portal State Management
+        if (currentPage === "dashboard.html" || currentPage === "billing.html") {
+            const publicMenu = document.getElementById("nav-public-links");
+            const appMenu = document.getElementById("nav-app-links");
+
+            if (publicMenu && appMenu) {
+                publicMenu.classList.add("hidden");
+                appMenu.classList.remove("hidden");
+
+                // Highlight active links based on context
+                if (currentPage === "dashboard.html") {
+                    const dashTab = document.getElementById("nav-link-dashboard");
+                    if (dashTab) dashTab.classList.add("text-emerald-700", "font-bold");
+                } else if (currentPage === "billing.html") {
+                    const billTab = document.getElementById("nav-link-billing");
+                    if (billTab) billTab.classList.add("text-emerald-700", "font-bold");
+                }
+            }
+        }
+    });
+</script>
+<div id="footer-placeholder"></div>
+
+</body>
+</html>

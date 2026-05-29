@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy | Aura</title>
+    <!--    <script src="https://cdn.tailwindcss.com"></script>-->
+    <link href="./style.css" rel="stylesheet">
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<div id="nav-placeholder"></div>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-3xl mx-auto px-4 py-16">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-8">Privacy Policy</h1>
+        <p class="text-gray-500 mb-8">Last updated: May 27, 2026</p>
+
+        <div class="prose prose-emerald max-w-none text-gray-600 space-y-6">
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">1. Our Commitment to Data Privacy</h2>
+                <p>At Aura, we understand that you are trusting us with your business operations and data. We operate on a principle of strict data isolation: your business data belongs to you, and we do not use your information to train public AI models.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">2. Data We Collect</h2>
+                <p>We collect information necessary to build and manage your digital assistants, including:</p>
+                <ul class="list-disc pl-5 space-y-2">
+                    <li>Contact details provided during onboarding.</li>
+                    <li>Workflow instructions and business process logic.</li>
+                    <li>Data processed by your assistants (e.g., email content, lead form data) solely for the purpose of executing the tasks you have requested.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">3. Data Isolation and Security</h2>
+                <p>Your digital assistant's "memory" is stored in a secure, isolated vault specific to your account. We employ enterprise-grade encryption for all data at rest and in transit. We ensure that your proprietary information—such as your customer lists, pricing, or internal communications—remains confidential and is not shared with third-party model providers for training purposes.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">4. How We Use Your Data</h2>
+                <p>We use your data exclusively to:</p>
+                <ul class="list-disc pl-5 space-y-2">
+                    <li>Build, test, and deploy your custom digital assistants.</li>
+                    <li>Monitor assistant performance to ensure reliability.</li>
+                    <li>Communicate with you regarding updates to your workflows or service notifications.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">5. Your Control</h2>
+                <p>You maintain full ownership of your workflows and your proprietary business data. You may request the deletion of your data or the cancellation of your assistant at any time.</p>
+                
+                <p class="mt-4 font-semibold">Migration Policy:</p>
+                <p>Upon request, we will provide you with a plain-text export of your assistant's job instructions and workflow logic. Please note that while you own the logic, the specific technical architecture and integrations we have built are proprietary to Aura. We do not provide direct migration of technical infrastructure or "plug-and-play" files to third-party agencies. If you choose to switch providers, we will facilitate the handover by providing your documented instructions, and upon final confirmation, we will securely purge your account-specific assistant memory and associated data.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-bold text-gray-900">6. Changes to This Policy</h2>
+                <p>We may update this policy periodically to reflect changes in our service or legal requirements. We will notify all active subscribers of significant updates.</p>
+            </section>
+        </div>
+    </main>
+
+<script>
+    // Component Loader Engine
+    async function loadComponent(placeholderId, filePath) {
+        try {
+            const response = await fetch(filePath);
+            if (response.ok) {
+                document.getElementById(placeholderId).innerHTML = await response.text();
+            }
+        } catch (error) {
+            console.error(`Error loading component ${filePath}:`, error);
+        }
+    }
+
+    // Execute System Router Checks
+    document.addEventListener("DOMContentLoaded", async () => {
+        // 1. Core payload inject
+        await loadComponent("nav-placeholder", "./components/nav.html");
+        loadComponent("footer-placeholder", "./components/footer.html");
+
+        // 2. Identify active URL path filename
+        const currentPage = window.location.pathname.split("/").pop();
+
+        // 3. Dynamic Title Routing Dictionary
+        const titleMap = {
+            "index.html": "Welcome",
+            "": "Welcome", // Fallback parameter for root folders
+            "pricing.html": "Pricing",
+            "dashboard.html": "Dashboard",
+            "billing.html": "Billing",
+            "logout.html": "See you Soon"
+        };
+
+        // Inject Context Title seamlessly
+        const targetTitleSpan = document.getElementById("nav-page-title");
+        if (targetTitleSpan && titleMap[currentPage]) {
+            targetTitleSpan.innerText = `| ${titleMap[currentPage]}`;
+        }
+
+        // 4. Internal App Portal State Management
+        if (currentPage === "dashboard.html" || currentPage === "billing.html") {
+            const publicMenu = document.getElementById("nav-public-links");
+            const appMenu = document.getElementById("nav-app-links");
+
+            if (publicMenu && appMenu) {
+                publicMenu.classList.add("hidden");
+                appMenu.classList.remove("hidden");
+
+                // Highlight active links based on context
+                if (currentPage === "dashboard.html") {
+                    const dashTab = document.getElementById("nav-link-dashboard");
+                    if (dashTab) dashTab.classList.add("text-emerald-700", "font-bold");
+                } else if (currentPage === "billing.html") {
+                    const billTab = document.getElementById("nav-link-billing");
+                    if (billTab) billTab.classList.add("text-emerald-700", "font-bold");
+                }
+            }
+        }
+    });
+</script>
+<div id="footer-placeholder"></div>
+
+</body>
+</html>

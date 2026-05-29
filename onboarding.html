@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Onboarding | Aura</title>
+    <link href="./style.css" rel="stylesheet">
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<!-- Upsell Modal Overlay -->
+<div id="upsell-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform scale-95 transition-transform duration-300" id="upsell-modal-content">
+        <div class="flex justify-between items-center mb-2">
+            <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 text-2xl">✨</div>
+            <button onclick="closeUpsellModal()" class="text-gray-400 hover:text-gray-800 text-3xl leading-none transition">&times;</button>
+        </div>
+        <h3 class="text-2xl font-extrabold text-gray-900 mt-4 mb-2">Upgrade Required</h3>
+        <p id="upsell-message" class="text-gray-600 mb-8 leading-relaxed">To use this feature, you need to upgrade your tier.</p>
+        <div class="flex flex-col sm:flex-row gap-3">
+            <button onclick="closeUpsellModal()" class="px-5 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-lg transition w-full sm:w-auto">Keep Current Plan</button>
+            <a href="pricing.html" class="px-5 py-3 bg-green-600 text-white text-center font-bold rounded-lg shadow hover:bg-green-700 transition w-full">View Plans</a>
+        </div>
+    </div>
+</div>
+
+<!-- Waitlist Modal Overlay -->
+<div id="waitlist-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform scale-95 transition-transform duration-300" id="waitlist-modal-content">
+        <div class="flex justify-between items-center mb-2">
+            <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 text-2xl">🚧</div>
+            <button onclick="closeWaitlistModal()" class="text-gray-400 hover:text-gray-800 text-3xl leading-none transition">&times;</button>
+        </div>
+
+        <div id="waitlist-form-container">
+            <h3 class="text-2xl font-extrabold text-gray-900 mt-4 mb-2">Coming Soon</h3>
+            <p class="text-gray-600 mb-6 leading-relaxed">Our <b><span id="waitlist-role-name"></span></b> assistant is currently in private beta. Drop your email below and we'll notify you the moment it opens to the public.</p>
+            <form onsubmit="submitWaitlist(event)" class="flex flex-col gap-3">
+                <input type="email" id="waitlist-email" required placeholder="Enter your best email" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm">
+                <button type="submit" class="px-5 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition w-full">Join the Waitlist</button>
+            </form>
+        </div>
+
+        <div id="waitlist-success" class="hidden text-center py-6">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-3xl mx-auto mb-4">✓</div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">You're on the list!</h3>
+            <p class="text-gray-600">We'll reach out as soon as this assistant is ready for deployment.</p>
+            <button onclick="closeWaitlistModal()" class="mt-6 px-5 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg transition w-full border border-gray-200">Close</button>
+        </div>
+    </div>
+</div>
+
+<nav class="bg-white shadow-sm sticky top-0 z-40">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16 items-center">
+            <div class="flex items-center">
+                <a href="index.html" class="flex items-center">
+                    <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura</span>
+                </a>
+                <span id="nav-page-title" class="text-base font-medium text-gray-400 ml-2 transition-opacity duration-300">| Get Started</span>
+            </div>
+            <div id="tier-badge" class="hidden items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 tracking-wide uppercase shadow-sm">
+            </div>
+        </div>
+    </div>
+</nav>
+
+<main class="flex-grow flex items-center justify-center p-4 sm:p-6 mb-20">
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 w-full max-w-2xl overflow-hidden mt-4">
+
+        <div class="bg-gray-100 h-2 w-full">
+            <div class="bg-emerald-700 h-2 transition-all duration-500 ease-out" style="width: 12.5%;"></div>
+        </div>
+
+        <div class="p-8 sm:p-12">
+            <form id="intake-form" onsubmit="event.preventDefault(); proceedToRole();">
+
+                <div id="step-1" class="step-active">
+                    <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 1 of 8</span>
+                    <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's get to know you and your mission.</h2>
+                    <p class="text-gray-500 mb-8">First, tell us a bit about yourself, then select the specific Digital Assistant role you want to hire us to build.</p>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                        <div class="relative">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Full Name *</label>
+                            <input type="text" id="client_name" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="e.g., Jane Doe">
+                            <span class="error-msg hidden text-red-500 text-xs font-bold mt-1">Please enter your full name.</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Business Name (Optional)</label>
+                            <input type="text" id="business_name" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="e.g., Vance & Co.">
+                        </div>
+                    </div>
+
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Select your Digital Assistant role:</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="role-selection-grid">
+
+                        <label class="relative cursor-pointer role-card" data-role="social_media" onclick="checkRoleAccess(event, 'social_media')">
+                            <input type="radio" name="category" value="social_media" class="sr-only" checked>
+                            <div class="p-4 border border-gray-200 rounded-lg hover:border-emerald-300 transition h-full">
+                                <div class="flex items-center mb-2 justify-between">
+                                    <div class="flex items-center">
+                                        <div class="radio-indicator h-4 w-4 rounded-full border border-gray-300 mr-3 flex-shrink-0"></div>
+                                        <span class="font-bold text-gray-900">📱 Social Media Manager</span>
+                                    </div>
+                                    <span id="lock_social_media" class="hidden text-xs font-bold text-gray-400 uppercase tracking-wide bg-gray-100 px-2 py-1 rounded">Locked</span>
+                                </div>
+                                <span class="block text-sm text-gray-500 ml-7">Organic content creation and automated publishing scheduling.</span>
+                            </div>
+                        </label>
+
+                        <label class="relative cursor-pointer role-card opacity-60 hover:opacity-100 transition" onclick="showWaitlistModal(event, 'Community Manager')">
+                            <input type="radio" name="category" value="community_mgmt" class="sr-only" disabled>
+                            <div class="p-4 border border-gray-200 rounded-lg bg-gray-50 transition h-full">
+                                <div class="flex items-center mb-2 justify-between">
+                                    <div class="flex items-center">
+                                        <div class="radio-indicator h-4 w-4 rounded-full border border-gray-300 mr-3 flex-shrink-0"></div>
+                                        <span class="font-bold text-gray-900">💬 Community Manager</span>
+                                    </div>
+                                    <span class="text-[10px] font-bold text-gray-600 uppercase tracking-wide bg-gray-200 px-2 py-1 rounded">Coming Soon</span>
+                                </div>
+                                <span class="block text-sm text-gray-500 ml-7">Monitoring comments, answering DMs, and engaging with followers.</span>
+                            </div>
+                        </label>
+
+                        <label class="relative cursor-pointer role-card" data-role="paid_ads" onclick="checkRoleAccess(event, 'paid_ads')">
+                            <input type="radio" name="category" value="paid_ads" class="sr-only">
+                            <div class="p-4 border border-gray-200 rounded-lg hover:border-emerald-300 transition h-full">
+                                <div class="flex items-center mb-2 justify-between">
+                                    <div class="flex items-center">
+                                        <div class="radio-indicator h-4 w-4 rounded-full border border-gray-300 mr-3 flex-shrink-0"></div>
+                                        <span class="font-bold text-gray-900">🎯 Performance Marketer</span>
+                                    </div>
+                                    <span id="lock_paid_ads" class="hidden text-xs font-bold text-gray-400 uppercase tracking-wide bg-gray-100 px-2 py-1 rounded">Locked</span>
+                                </div>
+                                <span class="block text-sm text-gray-500 ml-7">Ad generation, campaign publishing, and audience targeting.</span>
+                            </div>
+                        </label>
+
+                        <label class="relative cursor-pointer role-card" data-role="data_entry" onclick="checkRoleAccess(event, 'data_entry')">
+                            <input type="radio" name="category" value="data_entry" class="sr-only">
+                            <div class="p-4 border border-gray-200 rounded-lg hover:border-emerald-300 transition h-full">
+                                <div class="flex items-center mb-2 justify-between">
+                                    <div class="flex items-center">
+                                        <div class="radio-indicator h-4 w-4 rounded-full border border-gray-300 mr-3 flex-shrink-0"></div>
+                                        <span class="font-bold text-gray-900">📦 Inventory & Order Manager</span>
+                                    </div>
+                                    <span id="lock_data_entry" class="hidden text-xs font-bold text-gray-400 uppercase tracking-wide bg-gray-100 px-2 py-1 rounded">Locked</span>
+                                </div>
+                                <span class="block text-sm text-gray-500 ml-7">Managing cross-platform orders, syncing stock, and automating fulfillment logs.</span>
+                            </div>
+                        </label>
+
+                        <label class="relative cursor-pointer role-card opacity-60 hover:opacity-100 transition" onclick="showWaitlistModal(event, 'Customer Support Specialist')">
+                            <input type="radio" name="category" value="inbox" class="sr-only" disabled>
+                            <div class="p-4 border border-gray-200 rounded-lg bg-gray-50 transition h-full">
+                                <div class="flex items-center mb-2 justify-between">
+                                    <div class="flex items-center">
+                                        <div class="radio-indicator h-4 w-4 rounded-full border border-gray-300 mr-3 flex-shrink-0"></div>
+                                        <span class="font-bold text-gray-900">📥 Support Specialist</span>
+                                    </div>
+                                    <span class="text-[10px] font-bold text-gray-600 uppercase tracking-wide bg-gray-200 px-2 py-1 rounded">Coming Soon</span>
+                                </div>
+                                <span class="block text-sm text-gray-500 ml-7">Categorizing emails, drafting replies, or handling customer queries.</span>
+                            </div>
+                        </label>
+
+                        <label class="relative cursor-pointer role-card opacity-60 hover:opacity-100 transition" onclick="showWaitlistModal(event, 'Data Analyst')">
+                            <input type="radio" name="category" value="reporting" class="sr-only" disabled>
+                            <div class="p-4 border border-gray-200 rounded-lg bg-gray-50 transition h-full">
+                                <div class="flex items-center mb-2 justify-between">
+                                    <div class="flex items-center">
+                                        <div class="radio-indicator h-4 w-4 rounded-full border border-gray-300 mr-3 flex-shrink-0"></div>
+                                        <span class="font-bold text-gray-900">📊 Data Analyst</span>
+                                    </div>
+                                    <span class="text-[10px] font-bold text-gray-600 uppercase tracking-wide bg-gray-200 px-2 py-1 rounded">Coming Soon</span>
+                                </div>
+                                <span class="block text-sm text-gray-500 ml-7">Generating summaries, pulling metrics, or creating dashboards.</span>
+                            </div>
+                        </label>
+
+                        <label class="relative cursor-pointer sm:col-span-2 role-card" data-role="custom" onclick="checkRoleAccess(event, 'custom')">
+                            <input type="radio" name="category" value="custom" class="sr-only">
+                            <div class="p-4 border border-gray-200 rounded-lg hover:border-emerald-300 transition h-full">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center">
+                                        <div class="radio-indicator h-4 w-4 rounded-full border border-gray-300 mr-3 flex-shrink-0"></div>
+                                        <span class="font-bold text-gray-900">⚙️ Operations Manager (Custom)</span>
+                                    </div>
+                                    <span id="lock_custom" class="hidden text-xs font-bold text-gray-400 uppercase tracking-wide bg-gray-100 px-2 py-1 rounded">Locked</span>
+                                </div>
+                                <span class="block text-sm text-gray-500 ml-7">A unique, multi-step process that doesn't fit the roles above.</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mt-10 pt-6 border-t border-gray-100 flex justify-end items-center">
+                    <button type="button" onclick="proceedToRole()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
+                        Next Step
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+</main>
+
+<div id="footer-placeholder"></div>
+
+<script>
+    // --- PLG TIER ENGINE ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTierKey = urlParams.get('tier') || sessionStorage.getItem('aura_tier');
+
+    const tierConfig = {
+        'buster': { name: 'The Busywork Buster', lockedRoles: ['paid_ads', 'custom', 'data_entry'] },
+        'saver': { name: 'The Workflow Saver', lockedRoles: ['custom'] },
+        'employee': { name: 'The Digital Employee', lockedRoles: [] }
+    };
+
+    const activeTier = (currentTierKey && tierConfig[currentTierKey]) ? tierConfig[currentTierKey] : { name: '', lockedRoles: [] };
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        loadComponent("footer-placeholder", "./components/footer.html");
+
+        const badge = document.getElementById('tier-badge');
+        if (badge && activeTier.name !== '') {
+            badge.innerText = activeTier.name;
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+        }
+
+        // Apply visual locks based on tier
+        activeTier.lockedRoles.forEach(role => {
+            const card = document.querySelector(`.role-card[data-role="${role}"]`);
+            if(card) {
+                card.classList.add('opacity-50');
+                const lockIcon = card.querySelector(`#lock_${role}`);
+                if (lockIcon) lockIcon.classList.remove('hidden');
+            }
+        });
+
+        // Clear error styling on input
+        document.querySelectorAll('input').forEach(el => {
+            el.addEventListener('input', function() {
+                this.classList.remove('input-error');
+                const errorMsg = this.parentNode.querySelector('.error-msg');
+                if(errorMsg) errorMsg.classList.add('hidden');
+            });
+        });
+    });
+
+    async function loadComponent(placeholderId, filePath) {
+        try {
+            const response = await fetch(filePath);
+            if (response.ok) {
+                document.getElementById(placeholderId).innerHTML = await response.text();
+            }
+        } catch (error) { console.error(`Error loading ${filePath}:`, error); }
+    }
+
+    // Role Access & Routing
+    function checkRoleAccess(event, role) {
+        if (activeTier.lockedRoles.includes(role)) {
+            event.preventDefault();
+            let requiredTier = role === 'custom' ? 'The Digital Employee' : 'The Workflow Saver';
+            showUpsellModal(`<b>${activeTier.name}</b> does not support this setup. To unlock it, upgrade to <b>${requiredTier}</b>.`);
+        }
+    }
+
+    function proceedToRole() {
+        const nameInput = document.getElementById('client_name');
+        if (nameInput.value.trim() === '') {
+            nameInput.classList.add('input-error');
+            nameInput.parentNode.querySelector('.error-msg').classList.remove('hidden');
+            return;
+        }
+
+        const role = document.querySelector('input[name="category"]:checked').value;
+        const bizName = document.getElementById('business_name').value;
+
+        // Save data to session storage so child pages can use it
+        sessionStorage.setItem('aura_client_name', nameInput.value);
+        sessionStorage.setItem('aura_business_name', bizName);
+        if(currentTierKey) sessionStorage.setItem('aura_tier', currentTierKey);
+
+        const routeMap = {
+            'social_media': 'onboarding-social-media.html',
+            'paid_ads': 'onboarding-performance.html',
+            'data_entry': 'onboarding-inventory.html',
+            'custom': 'onboarding-custom.html'
+        };
+
+        let targetUrl = routeMap[role];
+
+        // Append the tier to the URL for robust state management
+        if (currentTierKey) {
+            targetUrl += `?tier=${currentTierKey}`;
+        }
+
+        window.location.href = targetUrl;
+    }
+
+    // Modal Handlers
+    function showWaitlistModal(event, roleName) {
+        event.preventDefault();
+        document.getElementById('waitlist-role-name').innerText = roleName;
+        document.getElementById('waitlist-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+    }
+    function closeWaitlistModal() {
+        document.getElementById('waitlist-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
+    }
+    function submitWaitlist(event) {
+        event.preventDefault();
+        document.getElementById('waitlist-form-container').classList.add('hidden');
+        document.getElementById('waitlist-success').classList.remove('hidden');
+    }
+    function showUpsellModal(message) {
+        document.getElementById('upsell-message').innerHTML = message;
+        document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+    }
+    function closeUpsellModal() {
+        document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
+    }
+</script>
+</body>
+</html>

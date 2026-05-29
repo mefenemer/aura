@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Performance Marketer Setup | Aura</title>
+  <link href="./style.css" rel="stylesheet">
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<!-- Upsell Modal Overlay -->
+<div id="upsell-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform scale-95 transition-transform duration-300" id="upsell-modal-content">
+    <div class="flex justify-between items-center mb-2">
+      <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 text-2xl">✨</div>
+      <button onclick="closeUpsellModal()" class="text-gray-400 hover:text-gray-800 text-3xl leading-none transition">&times;</button>
+    </div>
+    <h3 class="text-2xl font-extrabold text-gray-900 mt-4 mb-2">Upgrade Required</h3>
+    <p id="upsell-message" class="text-gray-600 mb-8 leading-relaxed">To connect more apps or add complex steps, you need to upgrade your tier.</p>
+    <div class="flex flex-col sm:flex-row gap-3">
+      <button onclick="closeUpsellModal()" class="px-5 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-lg transition w-full sm:w-auto">Keep Current Plan</button>
+      <a href="pricing.html" class="px-5 py-3 bg-green-600 text-white text-center font-bold rounded-lg shadow hover:bg-green-700 transition w-full">View Plans</a>
+    </div>
+  </div>
+</div>
+
+<nav class="bg-white shadow-sm sticky top-0 z-40">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-16 items-center">
+      <div class="flex items-center">
+        <a href="index.html" class="flex items-center">
+          <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura</span>
+        </a>
+        <span class="text-base font-medium text-gray-400 ml-2">| Performance Marketer Blueprint</span>
+      </div>
+      <div id="tier-badge" class="hidden items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 tracking-wide uppercase shadow-sm">
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main class="flex-grow flex items-center justify-center p-4 sm:p-6 mb-20">
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 w-full max-w-2xl overflow-hidden mt-4">
+
+    <div class="bg-gray-100 h-2 w-full">
+      <div id="progress-bar" class="bg-emerald-700 h-2 transition-all duration-500 ease-out" style="width: 25%;"></div>
+    </div>
+
+    <div class="p-8 sm:p-12">
+      <form id="intake-form" onsubmit="event.preventDefault();">
+
+        <!-- STEP 2: The Problem -->
+        <div id="step-2" class="step-active">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 2 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's automate your ad staging & research.</h2>
+          <p class="text-gray-500 mb-8">In your own words, what is the most frustrating part of researching angles, writing copy, and staging campaigns in your ad manager?</p>
+
+          <div class="relative">
+            <textarea id="user_story_problem" rows="5" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none" placeholder="e.g., I spend 5 hours a week spying on competitors in the Ad Library, writing 10 variations of primary text, and manually staging the campaigns..."></textarea>
+            <span class="error-msg hidden text-red-500 text-xs font-bold mt-1">Please provide a bit more detail (at least 10 characters).</span>
+          </div>
+        </div>
+
+        <!-- STEP 3: Initiation & Sourcing -->
+        <div id="step-3" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 3 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Initiation & Sourcing</h2>
+          <p class="text-gray-500 mb-8">Tell us how this job begins and where the information comes from.</p>
+
+          <h3 class="font-bold text-gray-900 mb-3 text-lg">1. How should the assistant know it's time to research and draft new ads?</h3>
+          <div class="space-y-4 mb-8">
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="trigger_type" value="on_demand" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleScheduleDetails()">
+              <div class="ml-4">
+                <span class="block font-bold text-gray-900">On Demand</span>
+                <span class="block text-sm text-gray-500">When I push a button, forward an email, or upload a file to a specific folder.</span>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="trigger_type" value="reactive" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleScheduleDetails()">
+              <div class="ml-4">
+                <span class="block font-bold text-gray-900">Reactively</span>
+                <span class="block text-sm text-gray-500">When something happens automatically (like a new brief arrives, or a form is submitted).</span>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="trigger_type" value="scheduled" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleScheduleDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">On a Schedule</span>
+                <span class="block text-sm text-gray-500 mb-2">On a specific routine (like every Monday morning).</span>
+                <div id="schedule_detail" class="hidden mt-3 space-y-3">
+                  <input type="text" id="schedule_frequency" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="What is the exact frequency?">
+                  <input type="text" id="schedule_timezone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="What is your Timezone?">
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <hr class="border-gray-200 mb-8">
+
+          <h3 class="font-bold text-gray-900 mb-3 text-lg">2. Where should it look for market research, competitor ads, or inspiration?</h3>
+          <div class="space-y-4">
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="content_source" value="client_provided" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleContentSourceDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">I will provide the raw inputs</span>
+                <span class="block text-sm text-gray-500 mb-2">I will supply the drafts, data, or notes. The assistant just processes it.</span>
+                <div class="content-source-detail hidden mt-3">
+                  <input type="text" id="source_client" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="Where should it look? (e.g., A Notion board, Google Drive folder...)">
+                </div>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="content_source" value="assistant_generated" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleContentSourceDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">The assistant should generate it</span>
+                <span class="block text-sm text-gray-500 mb-2">The assistant will create the content or gather the data from scratch.</span>
+                <div class="content-source-detail hidden mt-3">
+                  <input type="text" id="source_ai" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="Any specific websites or competitor feeds to monitor?">
+                </div>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="content_source" value="hybrid" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleContentSourceDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">A mix of both (Hybrid)</span>
+                <span class="block text-sm text-gray-500 mb-2">I will provide a brief or bullet points, and the assistant will expand it.</span>
+                <div class="content-source-detail hidden mt-3">
+                  <input type="text" id="source_hybrid" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="Explain how you will collaborate...">
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- STEP 4: Format & Execution -->
+        <div id="step-4" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 4 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Where does the finished work go?</h2>
+          <p class="text-gray-500 mb-6">Configure the ad platforms where your assistant will stage these new campaigns as drafts.</p>
+
+          <label class="block text-sm font-bold text-gray-900 mb-3">Select Delivery Destinations:</label>
+
+          <!-- Pre-Checked Social Media Block -->
+          <div id="social_platforms_container" class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-4 mb-6">
+            <p class="text-sm font-bold text-emerald-800 mb-2">Select platforms & enter your Ad Account IDs:</p>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_fb" value="Facebook" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('fb_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Facebook / Meta Ads</span>
+              </label>
+              <div id="fb_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="text" id="fb_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="Ad Account ID or Business Manager URL">
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_ig" value="Instagram" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('ig_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Instagram Ads</span>
+              </label>
+              <div id="ig_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="text" id="ig_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="@handle">
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_li" value="LinkedIn" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('li_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">LinkedIn Campaign Manager</span>
+              </label>
+              <div id="li_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="text" id="li_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="Account ID">
+              </div>
+            </div>
+          </div>
+
+          <!-- Secondary Actions (e.g. Save copy to Google Drive) -->
+          <div class="border border-emerald-200 rounded-lg bg-emerald-50 overflow-hidden mb-6">
+            <button type="button" class="w-full px-4 py-3 text-left hover:bg-emerald-100 font-bold text-emerald-800 flex justify-between items-center transition" onclick="toggleAccordion('secondary_accordion_body', 'secondary_accordion_icon')">
+              <span>+ Add secondary archiving (e.g., save ad copy to a Google Sheet)</span>
+              <span id="secondary_accordion_icon" class="text-xl leading-none font-normal">+</span>
+            </button>
+            <div id="secondary_accordion_body" class="hidden p-4 border-t border-emerald-200 bg-white">
+              <input type="text" id="other_apps" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm" placeholder="e.g., Also log all drafted ad copy into my Master Spreadsheet...">
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 5: Performance Marketer Specifics -->
+        <div id="step-5" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 5 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">The Details (Ad Parameters)</h2>
+          <p class="text-gray-500 mb-4">Based on your mission, we need a few specific details to build the logic correctly.</p>
+
+          <!-- Mandatory Spending Safeguards -->
+          <div class="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-lg shadow-sm">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-amber-600 text-xl">⚠️</span>
+              <h3 class="text-lg font-bold text-gray-900">Required Spending Controls</h3>
+            </div>
+            <p class="text-sm text-gray-600 mb-6">Because this assistant creates live financial drafts, these parameters cannot be bypassed and are strictly mandatory.</p>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Budget Allocation: *</label>
+                <input type="text" id="val_ad_budget" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., $50 Daily per Ad Set, or $500 Lifetime">
+                <span class="error-msg hidden text-red-500 text-xs font-bold mt-1">Budget allocation limits are required.</span>
+              </div>
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Campaign Duration: *</label>
+                <input type="text" id="val_ad_duration" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Run continuously, or Run for 14 days exactly">
+                <span class="error-msg hidden text-red-500 text-xs font-bold mt-1">Campaign timeframe boundaries are required.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <!-- Campaign Structure -->
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Campaign Objective Type: *</label>
+              <select id="val_ad_objective" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white">
+                <option value="Sales / Conversions">Sales / Conversions</option>
+                <option value="Leads">Leads</option>
+                <option value="Traffic / Link Clicks">Traffic / Link Clicks</option>
+                <option value="Engagement / Video Views">Engagement / Video Views</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Special Ad Category Declaration: *</label>
+              <p class="text-xs text-gray-500 mb-2">Meta requires this definition upfront to avoid immediate compliance bans.</p>
+              <select id="val_ad_category" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white">
+                <option value="NONE">None - Our offers do not fall into restricted industries</option>
+                <option value="HOUSING">Housing</option>
+                <option value="EMPLOYMENT">Employment</option>
+                <option value="CREDIT">Credit</option>
+                <option value="ISSUES_POLITICS_ELECTION">Social Issues, Elections, or Politics</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Budget Optimization Model: *</label>
+              <div class="space-y-2 mt-2">
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                  <input type="radio" name="ad_budget_type" value="CBO" checked class="text-emerald-700 focus:ring-emerald-700">
+                  <span><strong>Advantage+ Campaign Budget (CBO)</strong></span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                  <input type="radio" name="ad_budget_type" value="ABO" class="text-emerald-700 focus:ring-emerald-700">
+                  <span><strong>Ad Set Budget Optimization (ABO)</strong></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="border-t border-gray-200 pt-6">
+              <label class="block text-sm font-bold text-gray-700 mb-1">Conversion Location & Pixel Optimization Token: *</label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                <select id="val_ad_conv_location" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white">
+                  <option value="Website">Website Landing Page</option>
+                  <option value="Instant Experience">Meta Instant Lead Form</option>
+                  <option value="Messenger/WhatsApp">Direct Message Hub</option>
+                </select>
+                <input type="text" id="val_ad_pixel_event" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Purchase, Lead, CompleteRegistration">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Target Destination URL & Global Tracking Strings: *</label>
+              <div class="space-y-3 mt-2">
+                <input type="url" id="val_ad_dest_url" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="https://yourbrand.com/landing-page">
+                <input type="text" id="val_ad_utms" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="Optional UTMs (e.g., utm_source=meta&utm_medium=cpc)">
+              </div>
+            </div>
+
+            <div class="border-t border-gray-200 pt-6">
+              <label class="block text-sm font-bold text-gray-700 mb-1">Brand Assets & Competitor Swipe Files:</label>
+              <input type="url" id="val_braintrust" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="Link to your Facebook Ad Library competitors or brand guidelines.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Campaign Objectives & Angles to Test:</label>
+              <input type="text" id="val_pillars" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="What specific pain points or hooks should these new ads test?">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Ad Copy Style & Tone:</label>
+              <input type="text" id="val_tone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="e.g., Direct response, founder story, listicle, urgency-driven.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Targeting & Audience Parameters:</label>
+              <input type="text" id="val_audience" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="e.g., Broad, 1% Purchasers LAL, US Only.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Creative Asset Setup:</label>
+              <select id="val_visuals" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white">
+                <option>I will provide ready-to-post assets in a linked folder</option>
+                <option>Generate AI Images (e.g., Midjourney / DALL-E)</option>
+                <option>Apply my branded templates (Requires Canva/Bannerbear setup)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Bid Strategy / Cost Caps (Optional):</label>
+              <input type="text" id="val_ad_cpa" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="e.g., Target CPA $30">
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 6: Workflow & Guardrails -->
+        <div id="step-6" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 6 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Workflow & Guardrails</h2>
+
+          <label class="block text-sm font-bold text-gray-700 mb-2 mt-6">Step-by-Step Workflow: *</label>
+          <p class="text-xs text-gray-500 mb-4">List the exact steps the assistant should take to complete this job for you.</p>
+          <div id="workflow-steps-container" class="space-y-4 mb-4">
+            <div class="flex items-start workflow-step-row">
+              <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">1</div>
+              <div class="w-full relative ml-4">
+                <input type="text" id="workflow_step_1" class="workflow-step-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="e.g., Analyze the competitor swipe file and draft 3 primary texts.">
+              </div>
+            </div>
+          </div>
+          <button type="button" onclick="addWorkflowStep()" class="text-emerald-700 font-bold hover:text-emerald-800 transition flex items-center mb-8">
+            <span class="text-xl mr-1">+</span> Add Next Step
+          </button>
+
+          <label class="block text-sm font-bold text-gray-700 mb-2">Strict Rules & Exceptions: *</label>
+          <div class="relative mb-6">
+            <textarea id="acceptance_criteria_rules" rows="3" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none" placeholder="e.g., Never bid over the Cost Cap."></textarea>
+          </div>
+
+          <label class="block text-sm font-bold text-gray-700 mb-2">How will you approve the assistant's work?</label>
+          <select id="success_metric" class="w-full border border-gray-300 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white">
+            <option>Leave as Drafts in Ads Manager for my approval</option>
+            <option>Send me a Slack message before pushing campaigns live</option>
+            <option>Silent background operation (No news is good news)</option>
+          </select>
+        </div>
+
+        <!-- STEP 7: Review the Build Brief -->
+        <div id="step-7" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 7 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Review Your Blueprint</h2>
+          <p class="text-gray-500 mb-6">We have compiled your answers into the engineering brief below. Feel free to edit this text directly before submission.</p>
+          <textarea id="generated_brief" rows="18" class="w-full font-mono text-sm border border-gray-300 rounded-lg p-4 mb-4 focus:ring-2 focus:ring-emerald-700 transition shadow-inner bg-gray-50"></textarea>
+        </div>
+
+        <!-- STEP 8: Handoff & Compliance -->
+        <div id="step-8" class="step-hidden text-center py-4">
+          <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold mx-auto mb-6 text-4xl">📋</div>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Perfect. Let's start the build.</h2>
+
+          <div class="mb-6 text-left">
+            <label class="block text-sm font-bold text-gray-700 mb-2">Work Email (where we send build updates):</label>
+            <input type="email" id="client_email" class="w-full border border-gray-300 rounded-lg p-3 mb-6 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="name@company.com" required>
+          </div>
+
+          <div class="mt-4 space-y-4 text-left text-sm text-gray-600 border-t border-gray-100 pt-6">
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name="legal_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
+              <span>I grant Aura permission to process my business data for the sole purpose of executing my requested workflows.</span>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name="no_training_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
+              <span>I acknowledge that Aura does <strong>not</strong> use my proprietary business data to train public AI models.</span>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name="tos_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
+              <span>I agree to the <a href="#" class="text-emerald-700 font-bold underline">Terms of Service</a> and <a href="#" class="text-emerald-700 font-bold underline">Privacy Policy</a>.</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Form Navigation Buttons -->
+        <div class="mt-10 pt-6 border-t border-gray-100 flex justify-between items-center">
+          <button type="button" id="btn-back" onclick="prevStep()" class="text-gray-500 font-semibold hover:text-gray-900 transition">
+            ← Back
+          </button>
+          <button type="button" id="btn-next" onclick="nextStep()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
+            Next Step
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</main>
+
+<div id="footer-placeholder"></div>
+
+<script>
+  let currentStep = 2;
+  const totalSteps = 8;
+  let workflowStepCount = 1;
+  const missingFallback = "⚠️ [MISSING - PLEASE UPDATE]";
+
+  const currentTierKey = sessionStorage.getItem('aura_tier') || 'employee';
+  const tierConfig = {
+    'buster': { maxApps: 1, maxSteps: 1 },
+    'saver': { maxApps: 3, maxSteps: 4 },
+    'employee': { maxApps: 99, maxSteps: 5 }
+  };
+  const activeTier = tierConfig[currentTierKey];
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    loadComponent("footer-placeholder", "./components/footer.html");
+
+    document.querySelectorAll('input, textarea, select').forEach(el => {
+      el.addEventListener('input', function() {
+        this.classList.remove('input-error');
+        const errorMsg = this.parentNode.querySelector('.error-msg');
+        if(errorMsg) errorMsg.classList.add('hidden');
+      });
+    });
+  });
+
+  async function loadComponent(placeholderId, filePath) {
+    try {
+      const response = await fetch(filePath);
+      if (response.ok) document.getElementById(placeholderId).innerHTML = await response.text();
+    } catch (error) { console.error(`Error loading ${filePath}:`, error); }
+  }
+
+  function showUpsellModal(message) {
+    document.getElementById('upsell-message').innerHTML = message;
+    document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+  }
+  function closeUpsellModal() {
+    document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
+  }
+
+  function toggleScheduleDetails() {
+    const triggerEl = document.querySelector('input[name="trigger_type"][value="scheduled"]');
+    document.getElementById('schedule_detail').classList.toggle('hidden', !(triggerEl && triggerEl.checked));
+  }
+
+  function toggleContentSourceDetails() {
+    document.querySelectorAll('.content-source-detail').forEach(el => el.classList.add('hidden'));
+    const checked = document.querySelector('input[name="content_source"]:checked');
+    if(checked) checked.closest('label').querySelector('.content-source-detail').classList.remove('hidden');
+  }
+
+  function toggleHandleInput(containerId, isChecked) {
+    document.getElementById(containerId).classList.toggle('hidden', !isChecked);
+  }
+
+  function toggleAccordion(bodyId, iconId) {
+    const body = document.getElementById(bodyId);
+    const icon = document.getElementById(iconId);
+    body.classList.toggle('hidden');
+    icon.innerText = body.classList.contains('hidden') ? '+' : '-';
+  }
+
+  function validateCurrentStep() {
+    let isValid = true;
+
+    if (currentStep === 2) {
+      const prob = document.getElementById('user_story_problem');
+      if (prob.value.trim().length < 10) { prob.classList.add('input-error'); prob.nextElementSibling.classList.remove('hidden'); isValid = false; }
+    } else if (currentStep === 3) {
+      const trigger = document.querySelector('input[name="trigger_type"]:checked');
+      if (!trigger) { alert("Please select a trigger type."); isValid = false; }
+      const source = document.querySelector('input[name="content_source"]:checked');
+      if (!source) { alert("Please select an input source."); isValid = false; }
+    } else if (currentStep === 5) {
+      // Validate Financials
+      const b = document.getElementById('val_ad_budget');
+      const d = document.getElementById('val_ad_duration');
+      if (b.value.trim() === '') { b.classList.add('input-error'); b.nextElementSibling.classList.remove('hidden'); isValid = false; }
+      if (d.value.trim() === '') { d.classList.add('input-error'); d.nextElementSibling.classList.remove('hidden'); isValid = false; }
+
+      // Validate Meta Arch
+      ['val_ad_objective', 'val_ad_category', 'val_ad_conv_location', 'val_ad_pixel_event', 'val_ad_dest_url'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el.value.trim() === '') { el.classList.add('input-error'); isValid = false; }
+      });
+    }
+    return isValid;
+  }
+
+  function generateBrief() {
+    const clientName = sessionStorage.getItem('aura_client_name') || 'N/A';
+    const businessName = sessionStorage.getItem('aura_business_name') || 'N/A';
+    const problem = document.getElementById('user_story_problem').value || missingFallback;
+
+    let dynamicSpecifics = "";
+    dynamicSpecifics += `- Budget: ${document.getElementById('val_ad_budget').value || missingFallback}\n`;
+    dynamicSpecifics += `- Duration: ${document.getElementById('val_ad_duration').value || missingFallback}\n`;
+    dynamicSpecifics += `- Objective: ${document.getElementById('val_ad_objective').value || missingFallback}\n`;
+    dynamicSpecifics += `- Category: ${document.getElementById('val_ad_category').value || missingFallback}\n`;
+    dynamicSpecifics += `- Pixel Event: ${document.getElementById('val_ad_pixel_event').value || missingFallback}\n`;
+    dynamicSpecifics += `- Dest URL: ${document.getElementById('val_ad_dest_url').value || missingFallback}\n`;
+    dynamicSpecifics += `- Pillars: ${document.getElementById('val_pillars').value || missingFallback}\n`;
+
+    let workflowText = "";
+    document.querySelectorAll('.workflow-step-input').forEach((input, i) => {
+      if(input.value.trim() !== '') workflowText += `${i + 1}. ${input.value}\n`;
+    });
+
+    const compiledBrief = `===========================================
+    AURA ENGINEERING BLUEPRINT: PAID MEDIA
+===========================================
+
+CLIENT DETAILS
+- Name: ${clientName}
+- Business: ${businessName}
+
+1. THE BOTTLENECK / CURRENT PROCESS
+${problem}
+
+2. TECHNICAL SPECIFIC REQUIREMENTS
+${dynamicSpecifics}
+
+3. WORKFLOW LOGIC
+${workflowText || missingFallback}
+
+4. STRICT RULES
+${document.getElementById('acceptance_criteria_rules').value || missingFallback}
+`;
+    document.getElementById('generated_brief').value = compiledBrief;
+  }
+
+  function updateUI() {
+    for (let i = 2; i <= totalSteps; i++) {
+      const stepEl = document.getElementById(`step-${i}`);
+      if(stepEl) { stepEl.classList.remove('step-active'); stepEl.classList.add('step-hidden'); }
+    }
+    document.getElementById(`step-${currentStep}`).classList.remove('step-hidden');
+    document.getElementById(`step-${currentStep}`).classList.add('step-active');
+
+    document.getElementById('progress-bar').style.width = `${(currentStep / totalSteps) * 100}%`;
+
+    const btnNext = document.getElementById('btn-next');
+    if (currentStep === totalSteps - 1) {
+      btnNext.innerText = "Confirm & Proceed";
+      btnNext.className = "px-8 py-3 bg-gray-800 text-white font-bold rounded-lg shadow hover:bg-gray-900 transition";
+    } else if (currentStep === totalSteps) {
+      btnNext.innerText = "Proceed to Secure Checkout";
+      btnNext.className = "px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition";
+    } else {
+      btnNext.innerText = "Next Step";
+      btnNext.className = "px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition";
+    }
+  }
+
+  function nextStep() {
+    if (!validateCurrentStep()) return;
+    if (currentStep === 6) generateBrief();
+    if (currentStep < totalSteps) { currentStep++; updateUI(); }
+    else { alert("Blueprint finalized! Redirecting to checkout..."); }
+  }
+
+  function prevStep() {
+    if (currentStep > 2) { currentStep--; updateUI(); }
+    else { window.location.href = `onboarding.html?tier=${currentTierKey}`; }
+  }
+
+  function addWorkflowStep() {
+    if (workflowStepCount >= activeTier.maxSteps) {
+      showUpsellModal(`Your plan supports up to ${activeTier.maxSteps} workflow steps. Please upgrade.`);
+      return;
+    }
+    workflowStepCount++;
+    const stepHtml = `
+            <div class="flex items-start workflow-step-row step-active mt-4">
+                <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
+                <div class="w-full relative ml-4">
+                    <input type="text" id="workflow_step_${workflowStepCount}" class="workflow-step-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="Describe the next action...">
+                </div>
+            </div>`;
+    document.getElementById('workflow-steps-container').insertAdjacentHTML('beforeend', stepHtml);
+  }
+</script>
+</body>
+</html>

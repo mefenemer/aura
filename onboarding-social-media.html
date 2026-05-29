@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Social Media Setup | Aura</title>
+  <link href="./style.css" rel="stylesheet">
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<div id="upsell-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform scale-95 transition-transform duration-300" id="upsell-modal-content">
+    <div class="flex justify-between items-center mb-2">
+      <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 text-2xl">✨</div>
+      <button onclick="closeUpsellModal()" class="text-gray-400 hover:text-gray-800 text-3xl leading-none transition">&times;</button>
+    </div>
+    <h3 class="text-2xl font-extrabold text-gray-900 mt-4 mb-2">Upgrade Required</h3>
+    <p id="upsell-message" class="text-gray-600 mb-8 leading-relaxed">To connect more apps or add complex steps, you need to upgrade your tier.</p>
+    <div class="flex flex-col sm:flex-row gap-3">
+      <button onclick="closeUpsellModal()" class="px-5 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-lg transition w-full sm:w-auto">Keep Current Plan</button>
+      <a href="pricing.html" class="px-5 py-3 bg-green-600 text-white text-center font-bold rounded-lg shadow hover:bg-green-700 transition w-full">View Plans</a>
+    </div>
+  </div>
+</div>
+
+<nav class="bg-white shadow-sm sticky top-0 z-40">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-16 items-center">
+      <div class="flex items-center">
+        <a href="index.html" class="flex items-center">
+          <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura</span>
+        </a>
+        <span class="text-base font-medium text-gray-400 ml-2">| Social Media Manager Blueprint</span>
+      </div>
+      <div id="tier-badge" class="hidden items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 tracking-wide uppercase shadow-sm">
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main class="flex-grow flex items-center justify-center p-4 sm:p-6 mb-20">
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 w-full max-w-2xl overflow-hidden mt-4">
+
+    <div class="bg-gray-100 h-2 w-full">
+      <div id="progress-bar" class="bg-emerald-700 h-2 transition-all duration-500 ease-out" style="width: 25%;"></div>
+    </div>
+
+    <div class="p-8 sm:p-12">
+      <form id="intake-form" onsubmit="event.preventDefault();">
+
+        <div id="step-2" class="step-active">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 2 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's get this off your plate.</h2>
+          <p class="text-gray-500 mb-6">In your own words, what is the repetitive, boring, or frustrating task you want to hand off to your digital assistant?</p>
+
+          <div class="mb-6">
+            <p class="text-sm font-bold text-gray-700 mb-3">Quick Start Suggestions (Click to apply):</p>
+            <div class="flex flex-col gap-2">
+              <button type="button" title="I spend hours every week researching topics, writing captions, finding the right images, and remembering to schedule posts." onclick="populateProblem('I spend hours every week researching topics, writing captions, finding the right images, and remembering to schedule posts.')" class="text-left text-sm bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg p-3 hover:bg-emerald-100 hover:border-emerald-300 transition shadow-sm cursor-pointer">
+                <span class="font-bold block mb-1">The Full Process Bottleneck</span>
+                "I spend hours every week researching topics, writing captions, finding the right images..."
+              </button>
+              <button type="button" title="I want to maintain a consistent posting schedule of 3 times a week, but I run out of ideas and forget to post on time." onclick="populateProblem('I want to maintain a consistent posting schedule of 3 times a week, but I run out of ideas and forget to post on time.')" class="text-left text-sm bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg p-3 hover:bg-emerald-100 hover:border-emerald-300 transition shadow-sm cursor-pointer">
+                <span class="font-bold block mb-1">The Consistency Struggle</span>
+                "I want to maintain a consistent schedule, but I run out of ideas and forget to post..."
+              </button>
+              <button type="button" title="I waste time taking one core message and rewriting it to fit perfectly across Facebook, Instagram, and LinkedIn." onclick="populateProblem('I waste time taking one core message and rewriting it to fit perfectly across Facebook, Instagram, and LinkedIn.')" class="text-left text-sm bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg p-3 hover:bg-emerald-100 hover:border-emerald-300 transition shadow-sm cursor-pointer">
+                <span class="font-bold block mb-1">The Multi-Platform Headache</span>
+                "I waste time taking one core message and rewriting it to fit perfectly across platforms..."
+              </button>
+            </div>
+          </div>
+
+          <div class="relative">
+            <label class="block text-sm font-bold text-gray-700 mb-2">Your Bottleneck: *</label>
+            <textarea id="user_story_problem" rows="5" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none" placeholder="e.g., I spend 4 hours a week researching trends, writing captions in Notion, and manually posting to Instagram..."></textarea>
+            <span class="error-msg hidden text-red-500 text-xs font-bold mt-1">Please provide a bit more detail (at least 10 characters).</span>
+          </div>
+        </div>
+
+        <div id="step-3" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 3 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Ideation & Sourcing</h2>
+          <p class="text-gray-500 mb-8">Tell us how this job begins and where the raw content ideas come from.</p>
+
+          <h3 class="font-bold text-gray-900 mb-3 text-lg">1. How should your assistant know it is time to get to work? *</h3>
+          <div class="space-y-4 mb-2">
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="trigger_type" value="on_demand" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleScheduleDetails()">
+              <div class="ml-4">
+                <span class="block font-bold text-gray-900">On Demand</span>
+                <span class="block text-sm text-gray-500">When I push a button, forward an email, or upload a file to a specific folder.</span>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="trigger_type" value="reactive" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleScheduleDetails()">
+              <div class="ml-4">
+                <span class="block font-bold text-gray-900">Reactively</span>
+                <span class="block text-sm text-gray-500">When something happens automatically (like a new client brief arrives).</span>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="trigger_type" value="scheduled" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleScheduleDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">On a Schedule</span>
+                <span class="block text-sm text-gray-500 mb-2">On a specific routine (like every morning at 8:00 AM, or every Friday).</span>
+                <div id="schedule_detail" class="hidden mt-3 space-y-3">
+                  <input type="text" id="schedule_frequency" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="What is the exact frequency? (e.g., 3x a week at 9:00 AM)">
+                  <input type="text" id="schedule_timezone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="What is your Timezone? (e.g., GMT, EST, CET)">
+                </div>
+              </div>
+            </label>
+          </div>
+          <span id="error-trigger" class="error-msg hidden text-red-500 text-xs font-bold mb-8 block">Please select a trigger type to let the assistant know when to start.</span>
+
+          <hr class="border-gray-200 mb-8">
+
+          <h3 class="font-bold text-gray-900 mb-3 text-lg">2. Who provides the raw inputs? *</h3>
+          <div class="space-y-4 mb-2">
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="content_source" value="client_provided" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleContentSourceDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">I will provide the raw inputs</span>
+                <span class="block text-sm text-gray-500 mb-2">I will supply the drafts, data, or notes. The assistant just processes it.</span>
+                <div class="content-source-detail hidden mt-3">
+                  <input type="text" id="source_client" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="Where should it look? (e.g., A Notion board, Google Drive folder...)">
+                </div>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="content_source" value="assistant_generated" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleContentSourceDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">The assistant should generate it</span>
+                <span class="block text-sm text-gray-500 mb-2">The assistant will create the content or gather the data from scratch.</span>
+                <div class="content-source-detail hidden mt-3">
+                  <input type="text" id="source_ai" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="Any specific websites or feeds to monitor?">
+                </div>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="content_source" value="hybrid" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleContentSourceDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">A mix of both (Hybrid)</span>
+                <span class="block text-sm text-gray-500 mb-2">I will provide a brief or bullet points, and the assistant will expand it.</span>
+                <div class="content-source-detail hidden mt-3">
+                  <input type="text" id="source_hybrid" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="Explain how you will collaborate (e.g., I drop a voice note, it writes the post...)">
+                </div>
+              </div>
+            </label>
+          </div>
+          <span id="error-source" class="error-msg hidden text-red-500 text-xs font-bold mb-4 block">Please select who will provide the raw input content.</span>
+        </div>
+
+        <div id="step-4" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 4 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Creative Strategy</h2>
+          <p class="text-gray-500 mb-6">Define the core message and personality of your content. These details are required so the assistant sounds exactly like your brand.</p>
+
+          <div class="space-y-6">
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Target Audience: *</label>
+              <input type="text" id="val_audience" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Women founders looking to optimize their business operations.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Brand Voice & Tone: *</label>
+              <p class="text-xs text-gray-500 mb-2">Describe the personality. (e.g., Nurturing, honest, professional, casual, supportive).</p>
+              <input type="text" id="val_tone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Friendly and supportive, avoiding overly salesy language.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Content Pillars / Core Topics: *</label>
+              <p class="text-xs text-gray-500 mb-2">What are the core topics, themes, or keywords the assistant should focus on?</p>
+              <input type="text" id="val_pillars" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Wellness tips, stress relief, product spotlights.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Knowledge Base / Brain Trust Link (Optional):</label>
+              <p class="text-xs text-gray-500 mb-2">Where can the AI read your personal anecdotes, life experiences, or company wikis so it sounds authentic?</p>
+              <input type="url" id="val_braintrust" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Link to a Google Doc or Notion page">
+            </div>
+          </div>
+        </div>
+
+        <div id="step-5" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 5 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Visuals & Publishing</h2>
+          <p class="text-gray-500 mb-6">Select your visual approach and configure the platforms where your assistant will stage or publish the content.</p>
+
+          <div class="space-y-6 mb-8 border-b border-gray-200 pb-8">
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Visual Strategy: *</label>
+              <p class="text-xs text-gray-500 mb-2">How should the assistant handle images or video?</p>
+              <select id="val_visuals" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white">
+                <option>Text Only (No visuals needed)</option>
+                <option>Generate AI Images (e.g., Midjourney / DALL-E)</option>
+                <option>Use Free Stock Photos (e.g., Unsplash - Static Only)</option>
+                <option>Apply my branded templates (Requires Canva/Bannerbear setup)</option>
+                <option>I will provide ready-to-post assets in a linked folder</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Link to Reference Style / Visual Assets (Optional):</label>
+              <p class="text-xs text-gray-500 mb-2">Provide a URL to a past post you love, or a Google Drive link with your brand guidelines.</p>
+              <input type="url" id="val_reference" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="https://...">
+            </div>
+          </div>
+
+          <label class="block text-sm font-bold text-gray-900 mb-3">Select Platforms & Enter Handles: *</label>
+          <div id="social_platforms_container" class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-4 mb-6">
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_fb" value="Facebook" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('fb_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Facebook Page</span>
+              </label>
+              <div id="fb_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="text" id="fb_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="Page Name or URL">
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_ig" value="Instagram" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('ig_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Instagram</span>
+              </label>
+              <div id="ig_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="text" id="ig_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="@handle">
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_li" value="LinkedIn" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('li_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">LinkedIn</span>
+              </label>
+              <div id="li_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="text" id="li_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="Profile or Company URL">
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_x" value="X" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('x_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">X (Twitter)</span>
+              </label>
+              <div id="x_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="text" id="x_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="@handle">
+              </div>
+            </div>
+          </div>
+
+
+        </div>
+
+        <div id="step-6" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 6 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Workflow & Guardrails</h2>
+
+          <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start shadow-sm">
+            <span class="text-blue-600 text-xl mr-3 leading-none">✨</span>
+            <div>
+              <p class="text-sm text-blue-800 font-medium">We've auto-generated a workflow based on your answers. Review and edit them below.</p>
+            </div>
+          </div>
+
+          <label class="block text-sm font-bold text-gray-700 mb-2">Step-by-Step Workflow: *</label>
+          <div id="workflow-steps-container" class="space-y-4 mb-4">
+          </div>
+          <button type="button" onclick="addWorkflowStep()" class="text-emerald-700 font-bold hover:text-emerald-800 transition flex items-center mb-8">
+            <span class="text-xl mr-1">+</span> Add Next Step
+          </button>
+
+          <label class="block text-sm font-bold text-gray-700 mb-2">Strict Rules & Exceptions: *</label>
+          <textarea id="acceptance_criteria_rules" rows="5" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none" placeholder="e.g., Never use more than 3 hashtags per post."></textarea>
+
+          <div class="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <p class="text-sm font-bold text-emerald-800 mb-1">Approval Protocol:</p>
+            <p class="text-sm text-emerald-900">
+              All requests requiring approval will be stored in your <strong>Aura Workspace</strong>.
+              You will be notified by email the moment a new request is ready for your review.
+            </p>
+          </div>
+        </div>
+
+        <div id="step-7" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 7 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Review Your Blueprint</h2>
+          <p class="text-gray-500 mb-6">We have compiled your answers into the engineering brief below. Feel free to edit this text directly before submission.</p>
+          <textarea id="generated_brief" rows="22" class="w-full font-mono text-sm border border-gray-300 rounded-lg p-4 mb-4 focus:ring-2 focus:ring-emerald-700 transition shadow-inner bg-gray-50"></textarea>
+        </div>
+
+        <div id="step-8" class="step-hidden text-center py-4">
+          <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold mx-auto mb-6 text-4xl">📋</div>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Perfect. Let's start the build.</h2>
+
+          <div class="mb-6 text-left">
+            <label class="block text-sm font-bold text-gray-700 mb-2">Work Email (where we send build updates):</label>
+            <input type="email" id="client_email" class="w-full border border-gray-300 rounded-lg p-3 mb-6 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="name@company.com" required>
+          </div>
+
+          <div class="mt-4 space-y-4 text-left text-sm text-gray-600 border-t border-gray-100 pt-6">
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name="legal_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
+              <span>I grant Aura permission to process my business data for the sole purpose of executing my requested workflows.</span>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name="no_training_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
+              <span>I acknowledge that Aura does <strong>not</strong> use my proprietary business data to train public AI models.</span>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name="tos_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
+              <span>I agree to the <a href="#" class="text-emerald-700 font-bold underline">Terms of Service</a> and <a href="#" class="text-emerald-700 font-bold underline">Privacy Policy</a>.</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="mt-10 pt-6 border-t border-gray-100 flex justify-between items-center">
+          <button type="button" id="btn-back" onclick="prevStep()" class="text-gray-500 font-semibold hover:text-gray-900 transition">
+            ← Back
+          </button>
+          <button type="button" id="btn-next" onclick="nextStep()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
+            Next Step
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</main>
+
+<div id="footer-placeholder"></div>
+
+<script>
+  let currentStep = 2; // Starts at 2 because 1 was the Hub Router
+  const totalSteps = 8;
+  let workflowStepCount = 1;
+  const missingFallback = "⚠️ [MISSING - PLEASE UPDATE]";
+
+  const currentTierKey = sessionStorage.getItem('aura_tier') || 'employee';
+  const tierConfig = {
+    'buster': { maxApps: 1, maxSteps: 1 },
+    'saver': { maxApps: 3, maxSteps: 4 },
+    'employee': { maxApps: 99, maxSteps: 5 }
+  };
+  const activeTier = tierConfig[currentTierKey];
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    loadComponent("footer-placeholder", "./components/footer.html");
+
+    document.querySelectorAll('input, textarea').forEach(el => {
+      el.addEventListener('input', function() {
+        this.classList.remove('input-error');
+        const errorMsg = this.parentNode.querySelector('.error-msg');
+        if(errorMsg) errorMsg.classList.add('hidden');
+      });
+    });
+
+    // Clear inline radio errors on change
+    document.querySelectorAll('input[type="radio"]').forEach(el => {
+      el.addEventListener('change', function() {
+        if (this.name === 'trigger_type') document.getElementById('error-trigger')?.classList.add('hidden');
+        if (this.name === 'content_source') document.getElementById('error-source')?.classList.add('hidden');
+      });
+    });
+  });
+
+  async function loadComponent(placeholderId, filePath) {
+    try {
+      const response = await fetch(filePath);
+      if (response.ok) document.getElementById(placeholderId).innerHTML = await response.text();
+    } catch (error) { console.error(`Error loading ${filePath}:`, error); }
+  }
+
+  function showUpsellModal(message) {
+    document.getElementById('upsell-message').innerHTML = message;
+    document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+  }
+  function closeUpsellModal() {
+    document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
+  }
+
+  // --- Suggestion Populator Engine w/ Animation ---
+  function populateProblem(text) {
+    const textarea = document.getElementById('user_story_problem');
+    textarea.value = text;
+
+    // Clear any previous error states
+    textarea.classList.remove('input-error');
+    const errorMsg = textarea.parentNode.querySelector('.error-msg');
+    if (errorMsg) errorMsg.classList.add('hidden');
+
+    // Apply temporary inline styles to create a "Pulse/Glow" effect
+    textarea.style.transition = 'all 0.3s ease';
+    textarea.style.backgroundColor = '#ecfdf5'; // Tailwind emerald-50
+    textarea.style.borderColor = '#10b981';     // Tailwind emerald-500
+    textarea.style.transform = 'scale(1.02)';
+    textarea.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.2)'; // Emerald ring
+
+    // Revert back to original state after 400ms
+    setTimeout(() => {
+      textarea.style.backgroundColor = '';
+      textarea.style.borderColor = '';
+      textarea.style.transform = 'scale(1)';
+      textarea.style.boxShadow = '';
+    }, 400);
+  }
+
+  function toggleScheduleDetails() {
+    const triggerEl = document.querySelector('input[name="trigger_type"][value="scheduled"]');
+    document.getElementById('schedule_detail').classList.toggle('hidden', !(triggerEl && triggerEl.checked));
+  }
+
+  function toggleContentSourceDetails() {
+    document.querySelectorAll('.content-source-detail').forEach(el => el.classList.add('hidden'));
+    const checked = document.querySelector('input[name="content_source"]:checked');
+    if(checked) checked.closest('label').querySelector('.content-source-detail').classList.remove('hidden');
+  }
+
+  function toggleHandleInput(containerId, isChecked) {
+    document.getElementById(containerId).classList.toggle('hidden', !isChecked);
+  }
+
+  function toggleAccordion(bodyId, iconId) {
+    const body = document.getElementById(bodyId);
+    const icon = document.getElementById(iconId);
+    body.classList.toggle('hidden');
+    icon.innerText = body.classList.contains('hidden') ? '+' : '-';
+  }
+
+  function validateCurrentStep() {
+    let isValid = true;
+
+    if (currentStep === 2) {
+      const prob = document.getElementById('user_story_problem');
+      if (prob.value.trim().length < 10) { prob.classList.add('input-error'); prob.nextElementSibling.classList.remove('hidden'); isValid = false; }
+    } else if (currentStep === 3) {
+      const trigger = document.querySelector('input[name="trigger_type"]:checked');
+      const errorTrigger = document.getElementById('error-trigger');
+      if (!trigger) {
+        if(errorTrigger) errorTrigger.classList.remove('hidden');
+        isValid = false;
+      } else {
+        if(errorTrigger) errorTrigger.classList.add('hidden');
+        if (trigger.value === 'scheduled') {
+          const freq = document.getElementById('schedule_frequency');
+          const tz = document.getElementById('schedule_timezone');
+          if (freq && freq.value.trim() === '') { freq.classList.add('input-error'); isValid = false; }
+          if (tz && tz.value.trim() === '') { tz.classList.add('input-error'); isValid = false; }
+        }
+      }
+
+      const source = document.querySelector('input[name="content_source"]:checked');
+      const errorSource = document.getElementById('error-source');
+      if (!source) {
+        if(errorSource) errorSource.classList.remove('hidden');
+        isValid = false;
+      } else {
+        if(errorSource) errorSource.classList.add('hidden');
+        if (source.value !== 'assistant_generated') {
+          const detailInput = source.closest('label').querySelector('.content-source-detail input');
+          if (detailInput && detailInput.value.trim() === '') {
+            detailInput.classList.add('input-error');
+            isValid = false;
+          }
+        }
+      }
+    } else if (currentStep === 4) {
+      ['val_audience', 'val_tone', 'val_pillars'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el.value.trim() === '') { el.classList.add('input-error'); isValid = false; }
+      });
+    } else if (currentStep === 5) {
+      let hasPlatform = false;
+      ['fb', 'ig', 'li', 'x'].forEach(p => {
+        const chk = document.getElementById(`chk_${p}`);
+        if (chk && chk.checked) {
+          hasPlatform = true;
+          const handle = document.getElementById(`${p}_handle`);
+          if (handle.value.trim() === '') {
+            handle.classList.add('input-error');
+            isValid = false;
+          }
+        }
+      });
+      if (!hasPlatform) {
+        alert("Please select at least one social media platform and enter a handle.");
+        isValid = false;
+      }
+    }
+    return isValid;
+  }
+
+  function autoGenerateWorkflowAndRules() {
+    const firstStepInput = document.getElementById('workflow_step_1');
+    const rulesInput = document.getElementById('acceptance_criteria_rules');
+
+    if (firstStepInput && firstStepInput.value.trim() !== '') return;
+
+    const source = document.querySelector('input[name="content_source"]:checked')?.value || 'client_provided';
+    const audience = document.getElementById('val_audience')?.value || '[Target Audience]';
+    const tone = document.getElementById('val_tone')?.value || '[Brand Tone]';
+    const pillars = document.getElementById('val_pillars')?.value || '[Core Topics]';
+    const visuals = document.getElementById('val_visuals')?.value || 'Text Only';
+    const braintrust = document.getElementById('val_braintrust')?.value;
+    const archiving = document.getElementById('other_apps')?.value;
+
+    let platforms = [];
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      if (document.getElementById(`chk_${p}`)?.checked) {
+        platforms.push(document.getElementById(`chk_${p}`).value);
+      }
+    });
+    const platformText = platforms.length > 0 ? platforms.join(', ') : '[Selected Platforms]';
+
+    let steps = [];
+
+    if (source === 'assistant_generated') {
+      steps.push(`Monitor specified feeds and autonomously research relevant industry news concerning: ${pillars}.`);
+    } else if (source === 'hybrid') {
+      steps.push(`Receive the initial brief or client notes and expand upon them using the core content pillars.`);
+    } else {
+      steps.push(`Ingest the raw drafts and notes provided by the client upon trigger.`);
+    }
+
+    steps.push(`Draft social media copy specifically tailored for ${audience}, ensuring the tone is strictly applied.`);
+
+    if (visuals !== 'Text Only (No visuals needed)') {
+      steps.push(`Process and format visual assets according to the strategy: ${visuals}.`);
+    }
+
+    steps.push(`Format the final content and stage the posts for delivery to: ${platformText}.`);
+
+    if (archiving && archiving.trim() !== '') {
+      steps.push(`Archive the finalized drafts and assets to: ${archiving}.`);
+    }
+
+    const container = document.getElementById('workflow-steps-container');
+    container.innerHTML = '';
+    workflowStepCount = 0;
+
+    const maxStepsAllowed = activeTier.maxSteps;
+    const stepsToRender = steps.slice(0, maxStepsAllowed);
+
+    stepsToRender.forEach(stepText => {
+      workflowStepCount++;
+      const stepHtml = `
+              <div class="flex items-start workflow-step-row step-active mt-4">
+                  <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
+                  <div class="w-full relative ml-4">
+                      <input type="text" id="workflow_step_${workflowStepCount}" class="workflow-step-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" value="${stepText}">
+                  </div>
+              </div>`;
+      container.insertAdjacentHTML('beforeend', stepHtml);
+    });
+
+    if (rulesInput && rulesInput.value.trim() === '') {
+      let rulesText = `- Tone Constraint: You must strictly maintain a ${tone} voice. Never deviate.\n`;
+      rulesText += `- Audience Alignment: Ensure all language and hooks appeal directly to ${audience}.\n`;
+      rulesText += `- Topic Focus: Confine content exclusively to these pillars: ${pillars}.\n`;
+      if (braintrust && braintrust.trim() !== '') {
+        rulesText += `- Brand Accuracy: Always cross-reference the provided Knowledge Base (${braintrust}) for factual accuracy and brand style.\n`;
+      }
+      rulesInput.value = rulesText;
+    }
+  }
+
+  function generateBrief() {
+    const clientName = sessionStorage.getItem('aura_client_name') || 'N/A';
+    const businessName = sessionStorage.getItem('aura_business_name') || 'N/A';
+    const problem = document.getElementById('user_story_problem').value || missingFallback;
+
+    const triggerEl = document.querySelector('input[name="trigger_type"]:checked');
+    let triggerText = triggerEl ? triggerEl.nextElementSibling.querySelector('span').innerText : missingFallback;
+    if (triggerEl && triggerEl.value === 'scheduled') {
+      triggerText += ` (${document.getElementById('schedule_frequency').value})`;
+    }
+
+    const sourceEl = document.querySelector('input[name="content_source"]:checked');
+    let sourceText = sourceEl ? sourceEl.nextElementSibling.querySelector('span').innerText : missingFallback;
+    if (sourceEl) {
+      const detailInput = sourceEl.closest('label').querySelector('.content-source-detail input');
+      if (detailInput && detailInput.value) sourceText += `: ${detailInput.value}`;
+    }
+
+    let platforms = [];
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      const chk = document.getElementById(`chk_${p}`);
+      if (chk && chk.checked) {
+        const handleEl = document.getElementById(`${p}_handle`);
+        const handle = handleEl ? handleEl.value : missingFallback;
+        platforms.push(`${chk.value} (${handle})`);
+      }
+    });
+    const platformText = platforms.length > 0 ? platforms.join(', ') : missingFallback;
+
+    let strategy = "";
+    strategy += `- Audience: ${document.getElementById('val_audience').value || missingFallback}\n`;
+    strategy += `- Brand Tone: ${document.getElementById('val_tone').value || missingFallback}\n`;
+    strategy += `- Pillars: ${document.getElementById('val_pillars').value || missingFallback}\n`;
+    strategy += `- Visuals: ${document.getElementById('val_visuals').value || missingFallback}\n`;
+    const brainTrust = document.getElementById('val_braintrust').value;
+    if(brainTrust) strategy += `- Brain Trust: ${brainTrust}\n`;
+
+    let workflowText = "";
+    document.querySelectorAll('.workflow-step-input').forEach((input, i) => {
+      if(input.value.trim() !== '') workflowText += `${i + 1}. ${input.value}\n`;
+    });
+
+    const compiledBrief = `===========================================
+    AURA ENGINEERING BRIEF: SOCIAL MEDIA
+===========================================
+
+CLIENT DETAILS
+- Name: ${clientName}
+- Business: ${businessName}
+
+1. PROCESS BOTTLENECK
+${problem}
+
+2. SOURCING & TRIGGER
+- Trigger: ${triggerText}
+- Source: ${sourceText}
+
+3. CREATIVE STRATEGY
+${strategy}
+4. PUBLISHING
+- Platforms: ${platformText}
+
+5. WORKFLOW LOGIC
+${workflowText || missingFallback}
+
+6. RULES & APPROVALS
+- Strict Rules: \n${document.getElementById('acceptance_criteria_rules').value || missingFallback}
+- Approval Protocol: All requests requiring your sign-off are managed exclusively through your Aura Workspace. You will be notified by email immediately upon the creation of any new request.
+`;
+    document.getElementById('generated_brief').value = compiledBrief;
+  }
+
+  function updateUI() {
+    for (let i = 2; i <= totalSteps; i++) {
+      const stepEl = document.getElementById(`step-${i}`);
+      if(stepEl) { stepEl.classList.remove('step-active'); stepEl.classList.add('step-hidden'); }
+    }
+    document.getElementById(`step-${currentStep}`).classList.remove('step-hidden');
+    document.getElementById(`step-${currentStep}`).classList.add('step-active');
+
+    document.getElementById('progress-bar').style.width = `${(currentStep / totalSteps) * 100}%`;
+
+    const btnNext = document.getElementById('btn-next');
+    if (currentStep === totalSteps - 1) {
+      btnNext.innerText = "Confirm & Proceed";
+      btnNext.className = "px-8 py-3 bg-gray-800 text-white font-bold rounded-lg shadow hover:bg-gray-900 transition";
+    } else if (currentStep === totalSteps) {
+      btnNext.innerText = "Proceed to Secure Checkout";
+      btnNext.className = "px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition";
+    } else {
+      btnNext.innerText = "Next Step";
+      btnNext.className = "px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition";
+    }
+  }
+
+  function nextStep() {
+    if (!validateCurrentStep()) return;
+
+    // Trigger auto-generation exactly when leaving Step 5
+    if (currentStep === 5) autoGenerateWorkflowAndRules();
+
+    if (currentStep === 6) generateBrief();
+
+    if (currentStep < totalSteps) { currentStep++; updateUI(); }
+    else { alert("Blueprint finalized! Redirecting to checkout..."); }
+  }
+
+  function prevStep() {
+    if (currentStep > 2) { currentStep--; updateUI(); }
+    else { window.location.href = `onboarding.html?tier=${currentTierKey}`; }
+  }
+
+  function addWorkflowStep() {
+    if (workflowStepCount >= activeTier.maxSteps) {
+      showUpsellModal(`Your plan supports up to ${activeTier.maxSteps} workflow steps. Please upgrade.`);
+      return;
+    }
+    workflowStepCount++;
+    const stepHtml = `
+            <div class="flex items-start workflow-step-row step-active mt-4">
+                <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
+                <div class="w-full relative ml-4">
+                    <input type="text" id="workflow_step_${workflowStepCount}" class="workflow-step-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="Describe the next action...">
+                </div>
+            </div>`;
+    document.getElementById('workflow-steps-container').insertAdjacentHTML('beforeend', stepHtml);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+/* ==========================================================================
+   AURA MASTER UTILITY & BRAND STYLESHEET (input.css)
+   ========================================================================== */
+
+/* 1. Dynamic modern typography stream injection */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&display=swap');
+
+/* 2. Initialize core Tailwind compilation engine framework */
+@import "tailwindcss";
+
+@layer theme {
+    @theme default {
+        /* 3. Assign structural typeface tokens globally */
+        --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+
+        /* 4. Warm Tactile Aesthetic Palette overrides */
+        --color-gray-50: #fdfcf9;   /* Soft warm cream canvas backdrop */
+        --color-gray-100: #f6f3eb;  /* Linen divider accent */
+        --color-gray-200: #eae4d7;  /* Defined border frame layer */
+        --color-gray-500: #787263;  /* Soft text reading contrast */
+        --color-gray-900: #1f1e1b;  /* Deep espresso premium dark type */
+
+        /* 5. PRIMARY ACCENT: Remap emerald tokens to Neon Pink hues */
+        --color-emerald-50: #fff0f5;   /* Ultra-soft pink background wash */
+        --color-emerald-100: #ffd6e8;  /* Soft pink border highlight */
+        --color-emerald-200: #ffb3d1;  /* Medium pink accent */
+        --color-emerald-700: #ff007f;  /* Core vibrant Neon Pink accent */
+        --color-emerald-800: #d6006b;  /* Deep pink hover state contrast */
+
+        /* 6. SECONDARY COMPLEMENT: Remap standard green tokens to Cyber Neon Green
+              This instantly upgrades checkmarks and action/checkout buttons */
+        --color-green-50: #f0fff5;     /* Soft glowing mint background wash */
+        --color-green-500: #00ff66;    /* Pure blinding Cyber Neon Green */
+        --color-green-600: #00e55c;    /* Solid neon green for solid button backdrops */
+        --color-green-700: #00b347;    /* Deep, highly legible neon green text state */
+
+        /* Ambient cloud shadow definition */
+        --shadow-lg: 0 20px 40px -15px rgba(120, 114, 99, 0.12);
+    }
+}
+
+/* ==========================================================================
+   CUSTOM INTERACTIVE & INTERFACE UTILITIES
+   ========================================================================== */
+
+/* Springy accordion transition parameters */
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] summary ~ * { animation: sweep .35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+@keyframes sweep {
+    0%    { opacity: 0; transform: translateY(-8px); }
+    100%  { opacity: 1; transform: translateY(0); }
+}
+
+/* Wizard step transitions */
+.step-hidden { display: none; }
+.step-active { display: block; animation: fadeIn 0.5s cubic-bezier(0.25, 1, 0.5, 1); }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Tactile card click feedback states (Neon Pink Core Identity) */
+input[type="radio"]:checked + div {
+    border-color: #ff007f;
+    background-color: #fff0f5;
+    transform: scale(1.015) translateY(-2px);
+    box-shadow: 0 12px 24px -10px rgba(255, 0, 127, 0.15);
+}
+
+input[type="radio"]:checked + div .radio-indicator {
+    background-color: #ff007f;
+    border-color: #ff007f;
+    transform: scale(1.1);
+}
+
+/* Global transition smoothers across functional states */
+.role-card, label, button, select, input, textarea {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.role-card:hover:not(.locked-role) {
+    transform: translateY(-2px);
+    border-color: #ff007f;
+    box-shadow: 0 10px 20px -10px rgba(255, 0, 127, 0.05);
+}
+
+/* Shaking validation execution states */
+.input-error {
+    border-color: #ef4444 !important;
+    background-color: #fef2f2 !important;
+    animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
+/* Escape hatch blurred layout parameters */
+.dimmed-section {
+    opacity: 0.3;
+    filter: blur(0.5px);
+    pointer-events: none;
+}
+
+/* Tiered scoping constraint parameters */
+.locked-role {
+    opacity: 0.4;
+    cursor: not-allowed !important;
+    filter: grayscale(100%);
+}

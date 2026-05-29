@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom Operations Setup | Aura</title>
+  <link href="./style.css" rel="stylesheet">
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<div id="upsell-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform scale-95 transition-transform duration-300" id="upsell-modal-content">
+    <div class="flex justify-between items-center mb-2">
+      <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 text-2xl">✨</div>
+      <button onclick="closeUpsellModal()" class="text-gray-400 hover:text-gray-800 text-3xl leading-none transition">&times;</button>
+    </div>
+    <h3 class="text-2xl font-extrabold text-gray-900 mt-4 mb-2">Upgrade Required</h3>
+    <p id="upsell-message" class="text-gray-600 mb-8 leading-relaxed">To connect more apps or add complex steps, you need to upgrade your tier.</p>
+    <div class="flex flex-col sm:flex-row gap-3">
+      <button onclick="closeUpsellModal()" class="px-5 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-lg transition w-full sm:w-auto">Keep Current Plan</button>
+      <a href="pricing.html" class="px-5 py-3 bg-green-600 text-white text-center font-bold rounded-lg shadow hover:bg-green-700 transition w-full">View Plans</a>
+    </div>
+  </div>
+</div>
+
+<nav class="bg-white shadow-sm sticky top-0 z-40">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-16 items-center">
+      <div class="flex items-center">
+        <a href="index.html" class="flex items-center">
+          <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura</span>
+        </a>
+        <span class="text-base font-medium text-gray-400 ml-2">| Custom Operations Blueprint</span>
+      </div>
+      <div id="tier-badge" class="hidden items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 tracking-wide uppercase shadow-sm">
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main class="flex-grow flex items-center justify-center p-4 sm:p-6 mb-20">
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 w-full max-w-2xl overflow-hidden mt-4">
+
+    <div class="bg-gray-100 h-2 w-full">
+      <div id="progress-bar" class="bg-emerald-700 h-2 transition-all duration-500 ease-out" style="width: 25%;"></div>
+    </div>
+
+    <div class="p-8 sm:p-12">
+      <form id="intake-form" onsubmit="event.preventDefault();">
+
+        <div id="step-2" class="step-active">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 2 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's map out your custom process.</h2>
+          <p class="text-gray-500 mb-8">In your own words, what is the complex, multi-step bottleneck you need our engineering team to solve?</p>
+
+          <div class="relative">
+            <textarea id="user_story_problem" rows="5" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none" placeholder="e.g., We have a highly secure B2B client intake process that requires routing confidential forms from our portal into specific encrypted Google Drive folders, alerting the team in Slack, and drafting a calendar invite..."></textarea>
+            <span class="error-msg hidden text-red-500 text-xs font-bold mt-1">Please provide a bit more detail (at least 10 characters).</span>
+          </div>
+        </div>
+
+        <div id="step-3" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 3 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Initiation & Sourcing</h2>
+          <p class="text-gray-500 mb-8">Tell us how this bespoke job begins and where the baseline information comes from.</p>
+
+          <h3 class="font-bold text-gray-900 mb-3 text-lg">1. How should the system know it is time to trigger the workflow?</h3>
+          <div class="space-y-4 mb-8">
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="trigger_type" value="on_demand" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleScheduleDetails()">
+              <div class="ml-4">
+                <span class="block font-bold text-gray-900">Manual / On Demand</span>
+                <span class="block text-sm text-gray-500">When I push a button, forward an email, or upload a file to a staging folder.</span>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="trigger_type" value="reactive" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleScheduleDetails()">
+              <div class="ml-4">
+                <span class="block font-bold text-gray-900">Event-Driven / Reactive</span>
+                <span class="block text-sm text-gray-500">When an API webhook fires, a form is submitted, or a database record changes.</span>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="trigger_type" value="scheduled" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleScheduleDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">CRON / Scheduled</span>
+                <span class="block text-sm text-gray-500 mb-2">On a specific chronological routine (e.g., Daily at midnight UTC).</span>
+                <div id="schedule_detail" class="hidden mt-3 space-y-3">
+                  <input type="text" id="schedule_frequency" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="What is the exact frequency?">
+                  <input type="text" id="schedule_timezone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="What is your Timezone?">
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <hr class="border-gray-200 mb-8">
+
+          <h3 class="font-bold text-gray-900 mb-3 text-lg">2. Who provides the raw inputs?</h3>
+          <div class="space-y-4">
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="content_source" value="client_provided" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleContentSourceDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">Deterministic (Provided Data)</span>
+                <span class="block text-sm text-gray-500 mb-2">The system will process exact data, files, or text provided by me or my clients.</span>
+                <div class="content-source-detail hidden mt-3">
+                  <input type="text" id="source_client" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="Where is this data coming from? (e.g., Intake portal, CRM...)">
+                </div>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="content_source" value="assistant_generated" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleContentSourceDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">Generative (AI Sourced)</span>
+                <span class="block text-sm text-gray-500 mb-2">The assistant will scrape, compile, or generate the required assets autonomously.</span>
+                <div class="content-source-detail hidden mt-3">
+                  <input type="text" id="source_ai" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="Any specific databases or URLs to monitor?">
+                </div>
+              </div>
+            </label>
+            <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition">
+              <input type="radio" name="content_source" value="hybrid" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="toggleContentSourceDetails()">
+              <div class="ml-4 w-full">
+                <span class="block font-bold text-gray-900">Hybrid Processing</span>
+                <span class="block text-sm text-gray-500 mb-2">A mix of strict deterministic data mapping combined with generative expansion.</span>
+                <div class="content-source-detail hidden mt-3">
+                  <input type="text" id="source_hybrid" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="Explain the interaction (e.g., Read client brief, generate custom proposal...)">
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div id="step-4" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 4 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">The Pipeline Destinations</h2>
+          <p class="text-gray-500 mb-6">Select the destination platforms and output types required for this custom pipeline.</p>
+
+          <div id="format_container" class="mb-8 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <label class="block text-sm font-bold text-gray-900 mb-2">What is the primary output format?</label>
+            <select id="output_format" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-gray-50">
+              <option value="Platform Action">Platform Action (e.g., Updating CRM fields, routing data)</option>
+              <option value="Document File">Document File (e.g., PDF, Word Doc, Image)</option>
+              <option value="Plain Text">Plain Text (e.g., Email Body, Slack Message)</option>
+              <option value="Spreadsheet Data">Spreadsheet Data (e.g., CSV, Excel rows)</option>
+            </select>
+          </div>
+
+          <label class="block text-sm font-bold text-gray-900 mb-3">Select System Endpoints (Select all that apply):</label>
+
+          <div id="main_apps_grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <label class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition bg-white">
+              <input type="checkbox" id="app_email" name="app_selection" value="Email" class="h-5 w-5 text-emerald-700 focus:ring-emerald-700 rounded border-gray-300" onchange="if(checkAppLimits(this)) toggleNestedPlatform('email_platforms_container', this.checked)">
+              <span class="ml-3 font-medium text-gray-800">Email Routing</span>
+            </label>
+
+            <label class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition bg-white">
+              <input type="checkbox" id="app_cloud" name="app_selection" value="Cloud Storage" class="h-5 w-5 text-emerald-700 focus:ring-emerald-700 rounded border-gray-300" onchange="if(checkAppLimits(this)) toggleNestedPlatform('cloud_platforms_container', this.checked)">
+              <span class="ml-3 font-medium text-gray-800">Cloud Storage / Archives</span>
+            </label>
+
+            <label class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition bg-white">
+              <input type="checkbox" id="app_sheets" name="app_selection" value="Spreadsheets" class="h-5 w-5 text-emerald-700 focus:ring-emerald-700 rounded border-gray-300" onchange="if(checkAppLimits(this)) toggleNestedPlatform('sheets_platforms_container', this.checked)">
+              <span class="ml-3 font-medium text-gray-800">Databases / Spreadsheets</span>
+            </label>
+
+            <label class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition bg-white">
+              <input type="checkbox" id="app_social" name="app_selection" value="Social Media" class="h-5 w-5 text-emerald-700 focus:ring-emerald-700 rounded border-gray-300" onchange="if(checkAppLimits(this)) toggleNestedPlatform('social_platforms_container', this.checked)">
+              <span class="ml-3 font-medium text-gray-800">Social Media / Paid Ads</span>
+            </label>
+          </div>
+
+          <div id="email_platforms_container" class="hidden bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4 mb-6">
+            <p class="text-sm font-bold text-gray-800 mb-2">Select provider & enter email address to use:</p>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_gmail" value="Gmail" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('gmail_input_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Gmail / Google Workspace</span>
+              </label>
+              <div id="gmail_input_container" class="hidden mt-2 ml-6 relative">
+                <input type="email" id="gmail_handle" class="w-full sm:w-2/3 border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="e.g., hello@company.com">
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_outlook" value="Outlook" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('outlook_input_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Outlook / Office 365</span>
+              </label>
+              <div id="outlook_input_container" class="hidden mt-2 ml-6 relative">
+                <input type="email" id="outlook_handle" class="w-full sm:w-2/3 border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="e.g., hello@company.com">
+              </div>
+            </div>
+          </div>
+
+          <div id="cloud_platforms_container" class="hidden bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4 mb-6">
+            <p class="text-sm font-bold text-gray-800 mb-2">Select provider & enter target folder URL:</p>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_gdrive" value="Google Drive" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('gdrive_input_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Google Drive</span>
+              </label>
+              <div id="gdrive_input_container" class="hidden mt-2 ml-6 relative">
+                <input type="url" id="gdrive_handle" class="w-full sm:w-2/3 border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="URL to the specific folder">
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_onedrive" value="OneDrive" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('onedrive_input_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Microsoft OneDrive</span>
+              </label>
+              <div id="onedrive_input_container" class="hidden mt-2 ml-6 relative">
+                <input type="url" id="onedrive_handle" class="w-full sm:w-2/3 border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="URL to the specific folder">
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_dropbox" value="Dropbox" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('dropbox_input_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Dropbox</span>
+              </label>
+              <div id="dropbox_input_container" class="hidden mt-2 ml-6 relative">
+                <input type="url" id="dropbox_handle" class="w-full sm:w-2/3 border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="URL to the specific folder">
+              </div>
+            </div>
+          </div>
+
+          <div id="sheets_platforms_container" class="hidden bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4 mb-6">
+            <p class="text-sm font-bold text-gray-800 mb-2">Select provider & enter spreadsheet URL:</p>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_gsheets" value="Google Sheets" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('gsheets_input_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Google Sheets</span>
+              </label>
+              <div id="gsheets_input_container" class="hidden mt-2 ml-6 relative">
+                <input type="url" id="gsheets_handle" class="w-full sm:w-2/3 border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="URL to the specific spreadsheet">
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_excel" value="Excel" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('excel_input_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Microsoft Excel / Airtable Base</span>
+              </label>
+              <div id="excel_input_container" class="hidden mt-2 ml-6 relative">
+                <input type="url" id="excel_handle" class="w-full sm:w-2/3 border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="URL to the database base">
+              </div>
+            </div>
+          </div>
+
+          <div id="social_platforms_container" class="hidden bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-4 mb-6">
+            <p class="text-sm font-bold text-emerald-800 mb-2">Select platforms & enter your handles:</p>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_fb" value="Facebook" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('fb_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Facebook / Meta</span>
+              </label>
+              <div id="fb_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="text" id="fb_handle" class="w-full sm:w-2/3 border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="Page Name, Ad Account ID, or URL">
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_li" value="LinkedIn" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('li_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">LinkedIn</span>
+              </label>
+              <div id="li_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="text" id="li_handle" class="w-full sm:w-2/3 border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="Profile or Company URL">
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Custom / Bespoke APIs (CRMs, ERPs, specialized software)</label>
+            <input type="text" id="other_apps" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm" placeholder="e.g., Custom internal CMS, Snowflake DB, HubSpot...">
+          </div>
+        </div>
+
+        <div id="step-5" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 5 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Engineering Parameters</h2>
+          <p class="text-gray-500 mb-4">Provide any relevant rules, tokens, or variables required to execute this architecture.</p>
+
+          <div class="mb-8 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start cursor-pointer hover:bg-emerald-100 transition shadow-sm" onclick="toggleTechEscape()">
+            <input type="checkbox" id="tech_escape_hatch" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-400 rounded cursor-pointer">
+            <div class="ml-3">
+              <span class="block font-bold text-gray-900">Let Aura's engineers scope the exact endpoints (Recommended)</span>
+              <span class="block text-sm text-gray-600">Skip providing API details below. Our team will review your goal and request access securely during onboarding.</span>
+            </div>
+          </div>
+
+          <div id="technical_specifics_wrapper" class="space-y-6 transition-all duration-300">
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Target Endpoints / Authentication Context:</label>
+              <input type="text" id="val_endpoints" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Salesforce Instance URL, specific webhook keys, or Airtable API scopes.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Data Extraction Needs:</label>
+              <input type="text" id="val_extraction" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Parse PDF attachments for client name, DOB, and total liabilities.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Core Logic & Validation Rules:</label>
+              <input type="text" id="val_logic" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., If total > $5,000 route to High Tier pipeline, else Standard pipeline.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Tone & Communication Style (If applicable):</label>
+              <input type="text" id="val_tone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Highly professional, legal/corporate tone for client facing emails.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Escalation Protocol:</label>
+              <input type="text" id="val_escalation" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., If API returns 404, send SMS to IT lead.">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Additional Knowledge Bases:</label>
+              <input type="url" id="val_braintrust" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="Link to SOPs, internal wikis, or logic documentation.">
+            </div>
+          </div>
+        </div>
+
+        <div id="step-6" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 6 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Workflow & Guardrails</h2>
+
+          <label class="block text-sm font-bold text-gray-700 mb-2 mt-6">Step-by-Step Execution Flow: *</label>
+          <p class="text-xs text-gray-500 mb-4">List the exact sequence of events the system must follow.</p>
+          <div id="workflow-steps-container" class="space-y-4 mb-4">
+            <div class="flex items-start workflow-step-row">
+              <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">1</div>
+              <div class="w-full relative ml-4">
+                <input type="text" id="workflow_step_1" class="workflow-step-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="e.g., Receive new lead payload from Typeform webhook.">
+              </div>
+            </div>
+          </div>
+          <button type="button" onclick="addWorkflowStep()" class="text-emerald-700 font-bold hover:text-emerald-800 transition flex items-center mb-8">
+            <span class="text-xl mr-1">+</span> Add Next Step
+          </button>
+
+          <label class="block text-sm font-bold text-gray-700 mb-2">Absolute Constraints / Never-Do Rules: *</label>
+          <div class="relative mb-6">
+            <textarea id="acceptance_criteria_rules" rows="3" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none" placeholder="e.g., Never modify existing database rows, only append new records."></textarea>
+          </div>
+
+          <label class="block text-sm font-bold text-gray-700 mb-2">Approval & Verification Path:</label>
+          <select id="success_metric" class="w-full border border-gray-300 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white">
+            <option>Silent background operation (See data updated correctly in target apps)</option>
+            <option>Send a daily digest of all executed tasks</option>
+            <option>Wait for human approval at a specific staging point before continuing</option>
+          </select>
+        </div>
+
+        <div id="step-7" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 7 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Review Your Blueprint</h2>
+          <p class="text-gray-500 mb-6">We have compiled your answers into the engineering brief below. Feel free to edit this text directly before submission.</p>
+          <textarea id="generated_brief" rows="18" class="w-full font-mono text-sm border border-gray-300 rounded-lg p-4 mb-4 focus:ring-2 focus:ring-emerald-700 transition shadow-inner bg-gray-50"></textarea>
+        </div>
+
+        <div id="step-8" class="step-hidden text-center py-4">
+          <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold mx-auto mb-6 text-4xl">📋</div>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Perfect. Let's start the build.</h2>
+
+          <div class="mb-6 text-left">
+            <label class="block text-sm font-bold text-gray-700 mb-2">Work Email (where we send build updates):</label>
+            <input type="email" id="client_email" class="w-full border border-gray-300 rounded-lg p-3 mb-6 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="name@company.com" required>
+          </div>
+
+          <div class="mt-4 space-y-4 text-left text-sm text-gray-600 border-t border-gray-100 pt-6">
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name="legal_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
+              <span>I grant Aura permission to process my business data for the sole purpose of executing my requested workflows.</span>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name="no_training_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
+              <span>I acknowledge that Aura does <strong>not</strong> use my proprietary business data to train public AI models.</span>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name="tos_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
+              <span>I agree to the <a href="#" class="text-emerald-700 font-bold underline">Terms of Service</a> and <a href="#" class="text-emerald-700 font-bold underline">Privacy Policy</a>.</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="mt-10 pt-6 border-t border-gray-100 flex justify-between items-center">
+          <button type="button" id="btn-back" onclick="prevStep()" class="text-gray-500 font-semibold hover:text-gray-900 transition">
+            ← Back
+          </button>
+          <button type="button" id="btn-next" onclick="nextStep()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
+            Next Step
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</main>
+
+<div id="footer-placeholder"></div>
+
+<script>
+  let currentStep = 2;
+  const totalSteps = 8;
+  let workflowStepCount = 1;
+  const missingFallback = "⚠️ [MISSING - PLEASE UPDATE]";
+
+  const currentTierKey = sessionStorage.getItem('aura_tier') || 'employee';
+  const tierConfig = {
+    'buster': { maxApps: 1, maxSteps: 1 },
+    'saver': { maxApps: 3, maxSteps: 4 },
+    'employee': { maxApps: 99, maxSteps: 5 }
+  };
+  const activeTier = tierConfig[currentTierKey];
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    loadComponent("footer-placeholder", "./components/footer.html");
+
+    document.querySelectorAll('input, textarea, select').forEach(el => {
+      el.addEventListener('input', function() {
+        this.classList.remove('input-error');
+        const errorMsg = this.parentNode.querySelector('.error-msg');
+        if(errorMsg) errorMsg.classList.add('hidden');
+      });
+    });
+  });
+
+  async function loadComponent(placeholderId, filePath) {
+    try {
+      const response = await fetch(filePath);
+      if (response.ok) document.getElementById(placeholderId).innerHTML = await response.text();
+    } catch (error) { console.error(`Error loading ${filePath}:`, error); }
+  }
+
+  function showUpsellModal(message) {
+    document.getElementById('upsell-message').innerHTML = message;
+    document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+  }
+  function closeUpsellModal() {
+    document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
+  }
+
+  function checkAppLimits(checkboxEl) {
+    const checkedCount = document.querySelectorAll('input[name="app_selection"]:checked').length;
+    if (checkedCount > activeTier.maxApps) {
+      checkboxEl.checked = false;
+      showUpsellModal(`Your plan includes up to ${activeTier.maxApps} integrations. Upgrade to add more.`);
+      return false;
+    }
+    return true;
+  }
+
+  function toggleTechEscape() {
+    const isChecked = document.getElementById('tech_escape_hatch').checked;
+    const wrapper = document.getElementById('technical_specifics_wrapper');
+    if (isChecked) {
+      wrapper.classList.add('opacity-40', 'pointer-events-none', 'grayscale', 'dimmed-section');
+      wrapper.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+    } else {
+      wrapper.classList.remove('opacity-40', 'pointer-events-none', 'grayscale', 'dimmed-section');
+    }
+  }
+
+  function toggleScheduleDetails() {
+    const triggerEl = document.querySelector('input[name="trigger_type"][value="scheduled"]');
+    document.getElementById('schedule_detail').classList.toggle('hidden', !(triggerEl && triggerEl.checked));
+  }
+
+  function toggleContentSourceDetails() {
+    document.querySelectorAll('.content-source-detail').forEach(el => el.classList.add('hidden'));
+    const checked = document.querySelector('input[name="content_source"]:checked');
+    if(checked) checked.closest('label').querySelector('.content-source-detail').classList.remove('hidden');
+  }
+
+  function toggleHandleInput(containerId, isChecked) {
+    document.getElementById(containerId).classList.toggle('hidden', !isChecked);
+  }
+
+  function toggleAccordion(bodyId, iconId) {
+    const body = document.getElementById(bodyId);
+    const icon = document.getElementById(iconId);
+    body.classList.toggle('hidden');
+    icon.innerText = body.classList.contains('hidden') ? '+' : '-';
+  }
+
+  function validateCurrentStep() {
+    let isValid = true;
+
+    if (currentStep === 2) {
+      const prob = document.getElementById('user_story_problem');
+      if (prob.value.trim().length < 10) { prob.classList.add('input-error'); prob.nextElementSibling.classList.remove('hidden'); isValid = false; }
+    } else if (currentStep === 3) {
+      const trigger = document.querySelector('input[name="trigger_type"]:checked');
+      if (!trigger) { alert("Please select a trigger type."); isValid = false; }
+      const source = document.querySelector('input[name="content_source"]:checked');
+      if (!source) { alert("Please select an input source."); isValid = false; }
+    } else if (currentStep === 4) {
+      const hasCheckedApp = document.querySelectorAll('input[name="app_selection"]:checked').length > 0;
+      const hasOtherApp = document.getElementById('other_apps').value.trim() !== '';
+      if (!hasCheckedApp && !hasOtherApp) {
+        alert("Please select at least one delivery destination or system endpoint.");
+        isValid = false;
+      }
+    } else if (currentStep === 5 && !document.getElementById('tech_escape_hatch').checked) {
+      ['val_endpoints', 'val_logic'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el.value.trim() === '') { el.classList.add('input-error'); isValid = false; }
+      });
+    } else if (currentStep === 6) {
+      const firstStep = document.getElementById('workflow_step_1');
+      if (firstStep.value.trim() === '') { firstStep.classList.add('input-error'); isValid = false; }
+      const rules = document.getElementById('acceptance_criteria_rules');
+      if (rules.value.trim() === '') { rules.classList.add('input-error'); isValid = false; }
+    }
+    return isValid;
+  }
+
+  function generateBrief() {
+    const clientName = sessionStorage.getItem('aura_client_name') || 'N/A';
+    const businessName = sessionStorage.getItem('aura_business_name') || 'N/A';
+    const problem = document.getElementById('user_story_problem').value || missingFallback;
+
+    let dynamicSpecifics = "";
+    if (document.getElementById('tech_escape_hatch').checked) {
+      dynamicSpecifics = "Client opted to let engineering team scope endpoints and technical configuration.";
+    } else {
+      dynamicSpecifics += `- Endpoints: ${document.getElementById('val_endpoints').value || missingFallback}\n`;
+      dynamicSpecifics += `- Extraction: ${document.getElementById('val_extraction').value || missingFallback}\n`;
+      dynamicSpecifics += `- Logic: ${document.getElementById('val_logic').value || missingFallback}\n`;
+      dynamicSpecifics += `- Tone: ${document.getElementById('val_tone').value || 'N/A'}\n`;
+      dynamicSpecifics += `- Escalation: ${document.getElementById('val_escalation').value || missingFallback}\n`;
+    }
+
+    let workflowText = "";
+    document.querySelectorAll('.workflow-step-input').forEach((input, i) => {
+      if(input.value.trim() !== '') workflowText += `${i + 1}. ${input.value}\n`;
+    });
+
+    const compiledBrief = `===========================================
+    AURA ENGINEERING BLUEPRINT: CUSTOM OPS
+===========================================
+
+CLIENT DETAILS
+- Name: ${clientName}
+- Business: ${businessName}
+
+1. THE BOTTLENECK / COMPLEX WORKFLOW
+${problem}
+
+2. TECHNICAL SPECIFIC REQUIREMENTS
+${dynamicSpecifics}
+
+3. WORKFLOW LOGIC
+${workflowText || missingFallback}
+
+4. STRICT RULES & CONSTRAINTS
+${document.getElementById('acceptance_criteria_rules').value || missingFallback}
+`;
+    document.getElementById('generated_brief').value = compiledBrief;
+  }
+
+  function updateUI() {
+    for (let i = 2; i <= totalSteps; i++) {
+      const stepEl = document.getElementById(`step-${i}`);
+      if(stepEl) { stepEl.classList.remove('step-active'); stepEl.classList.add('step-hidden'); }
+    }
+    document.getElementById(`step-${currentStep}`).classList.remove('step-hidden');
+    document.getElementById(`step-${currentStep}`).classList.add('step-active');
+
+    document.getElementById('progress-bar').style.width = `${(currentStep / totalSteps) * 100}%`;
+
+    const btnNext = document.getElementById('btn-next');
+    if (currentStep === totalSteps - 1) {
+      btnNext.innerText = "Confirm & Proceed";
+      btnNext.className = "px-8 py-3 bg-gray-800 text-white font-bold rounded-lg shadow hover:bg-gray-900 transition";
+    } else if (currentStep === totalSteps) {
+      btnNext.innerText = "Proceed to Secure Checkout";
+      btnNext.className = "px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition";
+    } else {
+      btnNext.innerText = "Next Step";
+      btnNext.className = "px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition";
+    }
+  }
+
+  function nextStep() {
+    if (!validateCurrentStep()) return;
+    if (currentStep === 6) generateBrief();
+    if (currentStep < totalSteps) { currentStep++; updateUI(); }
+    else { alert("Blueprint finalized! Redirecting to checkout..."); }
+  }
+
+  function prevStep() {
+    if (currentStep > 2) { currentStep--; updateUI(); }
+    else { window.location.href = `onboarding.html?tier=${currentTierKey}`; }
+  }
+
+  function addWorkflowStep() {
+    if (workflowStepCount >= activeTier.maxSteps) {
+      showUpsellModal(`Your plan supports up to ${activeTier.maxSteps} workflow steps. Please upgrade.`);
+      return;
+    }
+    workflowStepCount++;
+    const stepHtml = `
+            <div class="flex items-start workflow-step-row step-active mt-4">
+                <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
+                <div class="w-full relative ml-4">
+                    <input type="text" id="workflow_step_${workflowStepCount}" class="workflow-step-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="Describe the next action...">
+                </div>
+            </div>`;
+    document.getElementById('workflow-steps-container').insertAdjacentHTML('beforeend', stepHtml);
+  }
+</script>
+</body>
+</html>
