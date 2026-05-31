@@ -56,6 +56,12 @@
         </div>
     </main>
 
+</main>
+
+<div id="footer-placeholder"></div>
+
+<script src="./mobileMenu.js"></script>
+
 <script>
     // Component Loader Engine
     async function loadComponent(placeholderId, filePath) {
@@ -75,14 +81,19 @@
         await loadComponent("nav-placeholder", "./components/nav.html");
         loadComponent("footer-placeholder", "./components/footer.html");
 
-        // 2. Identify active URL path filename
+        // 2. Initialize the mobile menu now that the nav is in the DOM
+        setupMobileMenu();
+
+        // 3. Identify active URL path filename
         const currentPage = window.location.pathname.split("/").pop();
 
-        // 3. Dynamic Title Routing Dictionary
+        // 4. Dynamic Title Routing Dictionary (Added Terms of Service & Privacy!)
         const titleMap = {
             "index.html": "Welcome",
             "": "Welcome", // Fallback parameter for root folders
             "pricing.html": "Pricing",
+            "privacy.html": "Privacy Policy",
+            "terms_of_service.html": "Terms of Service",
             "dashboard.html": "Dashboard",
             "billing.html": "Billing",
             "logout.html": "See you Soon"
@@ -94,7 +105,7 @@
             targetTitleSpan.innerText = `| ${titleMap[currentPage]}`;
         }
 
-        // 4. Internal App Portal State Management
+        // 5. Internal App Portal State Management
         if (currentPage === "dashboard.html" || currentPage === "billing.html") {
             const publicMenu = document.getElementById("nav-public-links");
             const appMenu = document.getElementById("nav-app-links");
@@ -115,7 +126,6 @@
         }
     });
 </script>
-<div id="footer-placeholder"></div>
 
 </body>
 </html>

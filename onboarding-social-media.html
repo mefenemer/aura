@@ -157,6 +157,22 @@
           <p class="text-gray-500 mb-6">Define the core message and personality of your content. These details are required so the assistant sounds exactly like your brand.</p>
 
           <div class="space-y-6">
+            <!-- Assistant Naming Section -->
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Name Your Digital Assistant: *</label>
+              <p class="text-xs text-gray-500 mb-2">Give your assistant a custom name, or leave it to us.</p>
+              <div class="flex items-center gap-4 mb-3">
+                <label class="flex items-center cursor-pointer">
+                  <input type="radio" name="assistant_name_pref" value="custom" class="h-4 w-4 text-emerald-700 focus:ring-emerald-700 border-gray-300" checked onchange="document.getElementById('val_assistant_name').classList.remove('hidden')">
+                  <span class="ml-2 text-sm text-gray-800">I'll name it</span>
+                </label>
+                <label class="flex items-center cursor-pointer">
+                  <input type="radio" name="assistant_name_pref" value="ai_decide" class="h-4 w-4 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="document.getElementById('val_assistant_name').classList.add('hidden')">
+                  <span class="ml-2 text-sm text-gray-800">Let the Assistant decide</span>
+                </label>
+              </div>
+              <input type="text" id="val_assistant_name" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Chloe, ContentBot 9000...">
+            </div>
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Target Audience: *</label>
               <input type="text" id="val_audience" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Women founders looking to optimize their business operations.">
@@ -263,7 +279,32 @@
           <button type="button" onclick="addWorkflowStep()" class="text-emerald-700 font-bold hover:text-emerald-800 transition flex items-center mb-8">
             <span class="text-xl mr-1">+</span> Add Next Step
           </button>
-
+          <!-- Algorithm & Hashtag Preferences -->
+          <label class="block text-sm font-bold text-gray-700 mb-2">Platform Algorithm Helpers (Hashtags/Keywords): *</label>
+          <p class="text-xs text-gray-500 mb-3">Choose how the assistant should handle platform-specific visibility.</p>
+          <div class="space-y-3 mb-6 bg-white border border-gray-200 p-4 rounded-lg">
+            <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+              <input type="radio" name="algo_strategy" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags').classList.remove('hidden')">
+              <div class="ml-3">
+                <span class="block text-sm font-bold">Only use my specific tags</span>
+              </div>
+            </label>
+            <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+              <input type="radio" name="algo_strategy" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags').classList.remove('hidden')">
+              <div class="ml-3">
+                <span class="block text-sm font-bold">Use mine, and add relevant ones</span>
+              </div>
+            </label>
+            <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+              <input type="radio" name="algo_strategy" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags').classList.add('hidden')">
+              <div class="ml-3">
+                <span class="block text-sm font-bold">Let the Digital Assistant decide</span>
+              </div>
+            </label>
+            <div id="algo_custom_tags" class="mt-3 pl-7">
+              <input type="text" id="val_algo_tags" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #productivity #founder #SaaS">
+            </div>
+          </div>
           <label class="block text-sm font-bold text-gray-700 mb-2">Strict Rules & Exceptions: *</label>
           <textarea id="acceptance_criteria_rules" rows="5" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none" placeholder="e.g., Never use more than 3 hashtags per post."></textarea>
 
@@ -554,6 +595,17 @@
       if (braintrust && braintrust.trim() !== '') {
         rulesText += `- Brand Accuracy: Always cross-reference the provided Knowledge Base (${braintrust}) for factual accuracy and brand style.\n`;
       }
+      // --- New Logic: Inject Algorithm Strategy ---
+      const algoPref = document.querySelector('input[name="algo_strategy"]:checked')?.value;
+      const customTags = document.getElementById('val_algo_tags')?.value || '[Your specific tags]';
+
+      if (algoPref === 'strict_custom') {
+        rulesText += `- Algorithm/Tags: ONLY use the following specific hashtags/keywords: ${customTags}. Do not add any others.\n`;
+      } else if (algoPref === 'hybrid') {
+        rulesText += `- Algorithm/Tags: Always include these baseline tags: ${customTags}. Furthermore, append 2-3 highly relevant, algorithm-friendly tags based on the specific post content.\n`;
+      } else if (algoPref === 'ai_decide') {
+        rulesText += `- Algorithm/Tags: The assistant has full autonomy to research and apply the highest-performing, contextually relevant hashtags and keywords for each respective platform.\n`;
+      }
       rulesInput.value = rulesText;
     }
   }
@@ -562,7 +614,11 @@
     const clientName = sessionStorage.getItem('aura_client_name') || 'N/A';
     const businessName = sessionStorage.getItem('aura_business_name') || 'N/A';
     const problem = document.getElementById('user_story_problem').value || missingFallback;
-
+    const namePref = document.querySelector('input[name="assistant_name_pref"]:checked')?.value;
+    const customNameInput = document.getElementById('val_assistant_name')?.value;
+    const finalAssistantName = namePref === 'ai_decide'
+            ? '[Assistant to self-determine name]'
+            : (customNameInput || missingFallback);
     const triggerEl = document.querySelector('input[name="trigger_type"]:checked');
     let triggerText = triggerEl ? triggerEl.nextElementSibling.querySelector('span').innerText : missingFallback;
     if (triggerEl && triggerEl.value === 'scheduled') {
@@ -607,6 +663,7 @@
 CLIENT DETAILS
 - Name: ${clientName}
 - Business: ${businessName}
+- Assistant Name: ${finalAssistantName}
 
 1. PROCESS BOTTLENECK
 ${problem}
@@ -662,7 +719,7 @@ ${workflowText || missingFallback}
     if (currentStep === 6) generateBrief();
 
     if (currentStep < totalSteps) { currentStep++; updateUI(); }
-    else { alert("Blueprint finalized! Redirecting to checkout..."); }
+    else { submitToBackend(); }
   }
 
   function prevStep() {
@@ -684,6 +741,71 @@ ${workflowText || missingFallback}
                 </div>
             </div>`;
     document.getElementById('workflow-steps-container').insertAdjacentHTML('beforeend', stepHtml);
+  }
+  async function submitToBackend() {
+    const email = document.getElementById('client_email').value;
+
+    const fullName = sessionStorage.getItem('aura_client_name') || 'New User';
+    const companyName = sessionStorage.getItem('aura_business_name') || '';
+    const tier = sessionStorage.getItem('aura_tier') || 'employee';
+    const assistantName = sessionStorage.getItem('aura_assistant_name') || 'Aura Digital Assistant';
+    const blueprint = document.getElementById('generated_brief').value;
+
+    // --- NEW: Capture Custom Name & Algorithm Data ---
+    const customNameInput = document.getElementById('val_assistant_name')?.value;
+    const namePref = document.querySelector('input[name="assistant_name_pref"]:checked')?.value;
+    const finalAssistantName = namePref === 'ai_decide' ? '' : customNameInput;
+
+    const algoPref = document.querySelector('input[name="algo_strategy"]:checked')?.value || 'strict_custom';
+    const customTags = document.getElementById('val_algo_tags')?.value || '';
+
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    const btn = document.getElementById('btn-next');
+    btn.innerText = "Processing Blueprint...";
+    btn.disabled = true;
+    btn.classList.add('opacity-75', 'cursor-not-allowed');
+
+    try {
+      const response = await fetch('/.netlify/functions/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          companyName,
+          tier,
+          blueprint,
+          assistantName, // The Role (e.g., Social Media Manager)
+          customAssistantName: finalAssistantName, // The User's custom name
+          algorithmConfig: {                       // Stored in the JSONB configuration
+            strategy: algoPref,
+            tags: customTags
+          }
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log(data.message);
+        window.location.href = 'checkout.html';
+      } else {
+        alert("Error creating account: " + data.error);
+        btn.innerText = "Proceed to Secure Checkout";
+        btn.disabled = false;
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+      }
+    } catch (err) {
+      console.error("Network Error:", err);
+      alert("Failed to connect to the server. Please try again.");
+      btn.innerText = "Proceed to Secure Checkout";
+      btn.disabled = false;
+      btn.classList.remove('opacity-75', 'cursor-not-allowed');
+    }
   }
 </script>
 </body>

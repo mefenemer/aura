@@ -280,9 +280,20 @@
         const role = document.querySelector('input[name="category"]:checked').value;
         const bizName = document.getElementById('business_name').value;
 
-        // Save data to session storage so child pages can use it
+        // NEW: Map the internal route value to the human-readable Assistant Name
+        const assistantNameMap = {
+            'social_media': 'Social Media Manager',
+            'paid_ads': 'Performance Marketer',
+            'data_entry': 'Inventory & Order Manager',
+            'custom': 'Operations Manager'
+        };
+        const assistantDisplayName = assistantNameMap[role] || 'Aura Digital Assistant';
+
+        // Save all data to session storage so child pages (and the backend) can use it
         sessionStorage.setItem('aura_client_name', nameInput.value);
         sessionStorage.setItem('aura_business_name', bizName);
+        sessionStorage.setItem('aura_assistant_name', assistantDisplayName); // NEW!
+
         if(currentTierKey) sessionStorage.setItem('aura_tier', currentTierKey);
 
         const routeMap = {

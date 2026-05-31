@@ -135,8 +135,13 @@
 
     </main>
 
+</main>
+
+<div id="footer-placeholder"></div>
+
+<script src="./mobileMenu.js"></script>
+
 <script>
-    // Component Loader Engine
     async function loadComponent(placeholderId, filePath) {
         try {
             const response = await fetch(filePath);
@@ -148,91 +153,36 @@
         }
     }
 
-    // Execute System Router Checks
     document.addEventListener("DOMContentLoaded", async () => {
         // 1. Core payload inject
         await loadComponent("nav-placeholder", "./components/nav.html");
         loadComponent("footer-placeholder", "./components/footer.html");
 
-        // 2. Identify active URL path filename
+        // 2. Initialize the mobile menu
+        setupMobileMenu();
+
+        // 3. Identify active URL path filename
         const currentPage = window.location.pathname.split("/").pop();
 
-        // 3. Dynamic Title Routing Dictionary
-        const titleMap = {
-            "index.html": "Welcome",
-            "": "Welcome", // Fallback parameter for root folders
-            "pricing.html": "Pricing",
-            "dashboard.html": "Dashboard",
-            "billing.html": "Billing",
-            "logout.html": "See you Soon"
-        };
-
-        // Inject Context Title seamlessly
-        const targetTitleSpan = document.getElementById("nav-page-title");
-        if (targetTitleSpan && titleMap[currentPage]) {
-            targetTitleSpan.innerText = `| ${titleMap[currentPage]}`;
-        }
-
-        // 4. Internal App Portal State Management
-        if (currentPage === "dashboard.html" || currentPage === "billing.html") {
-            const publicMenu = document.getElementById("nav-public-links");
-            const appMenu = document.getElementById("nav-app-links");
-
-            if (publicMenu && appMenu) {
-                publicMenu.classList.add("hidden");
-                appMenu.classList.remove("hidden");
-
-                // Highlight active links based on context
-                if (currentPage === "dashboard.html") {
-                    const dashTab = document.getElementById("nav-link-dashboard");
-                    if (dashTab) dashTab.classList.add("text-emerald-700", "font-bold");
-                } else if (currentPage === "billing.html") {
-                    const billTab = document.getElementById("nav-link-billing");
-                    if (billTab) billTab.classList.add("text-emerald-700", "font-bold");
-                }
-            }
-        }
-    });
-</script>
-<script>
-    // Component Loader Engine
-    async function loadComponent(placeholderId, filePath) {
-        try {
-            const response = await fetch(filePath);
-            if (response.ok) {
-                document.getElementById(placeholderId).innerHTML = await response.text();
-            }
-        } catch (error) {
-            console.error(`Error loading component ${filePath}:`, error);
-        }
-    }
-
-    // Execute System Router Checks
-    document.addEventListener("DOMContentLoaded", async () => {
-        // 1. Core payload inject - Wait for navigation to load before manipulating it
-        await loadComponent("nav-placeholder", "./components/nav.html");
-        loadComponent("footer-placeholder", "./components/footer.html");
-
-        // 2. Identify active URL path filename
-        const currentPage = window.location.pathname.split("/").pop();
-
-        // 3. Dynamic Title Routing Dictionary
+        // 4. Dynamic Title Routing Dictionary
         const titleMap = {
             "index.html": "Welcome",
             "": "Welcome",
             "pricing.html": "Pricing",
+            "privacy.html": "Privacy Policy",
+            "terms_of_service.html": "Terms of Service",
             "dashboard.html": "Dashboard",
             "billing.html": "Billing",
             "logout.html": "See you Soon"
         };
 
-        // Inject Context Title next to the Aura Logo
+        // Inject Context Title
         const targetTitleSpan = document.getElementById("nav-page-title");
         if (targetTitleSpan && titleMap[currentPage]) {
             targetTitleSpan.innerText = `| ${titleMap[currentPage]}`;
         }
 
-        // 4. Internal App Portal State Management
+        // 5. Internal App Portal State Management
         if (currentPage === "dashboard.html" || currentPage === "billing.html") {
             const publicMenu = document.getElementById("nav-public-links");
             const appMenu = document.getElementById("nav-app-links");
@@ -242,7 +192,7 @@
                 publicMenu.classList.add("hidden");
                 appMenu.classList.remove("hidden");
 
-                // Active Page Highlighting (Neon Pink text state)
+                // Active Page Highlighting
                 if (currentPage === "dashboard.html") {
                     const dashTab = document.getElementById("nav-link-dashboard");
                     if (dashTab) {
@@ -260,7 +210,5 @@
         }
     });
 </script>
-    <div id="footer-placeholder"></div>
-
 </body>
 </html>

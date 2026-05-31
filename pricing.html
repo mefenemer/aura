@@ -239,8 +239,11 @@
 
 <div id="footer-placeholder"></div>
 
-<!-- Integrated UI Tabs Controller & Layout Async Component Hydrator -->
+<script src="./mobileMenu.js"></script>
+
 <script>
+    // CRITICAL: This function must stay OUTSIDE the DOMContentLoaded block
+    // so your HTML buttons can access it!
     function switchTab(tabId) {
         const consumerTab = document.getElementById('tab-consumer');
         const businessTab = document.getElementById('tab-business');
@@ -268,6 +271,7 @@
         }
     }
 
+    // Component loader must also be in the global scope
     async function loadComponent(placeholderId, filePath) {
         try {
             const response = await fetch(filePath);
@@ -279,10 +283,16 @@
         }
     }
 
+    // The router logic stays safely inside the listener
     document.addEventListener("DOMContentLoaded", async () => {
+        // 1. Core payload inject
         await loadComponent("nav-placeholder", "./components/nav.html");
         loadComponent("footer-placeholder", "./components/footer.html");
 
+        // 2. Initialize the mobile menu now that the nav is in the DOM
+        setupMobileMenu();
+
+        // 3. Set the active title
         const currentPage = window.location.pathname.split("/").pop();
         const titleMap = {
             "index.html": "Welcome",

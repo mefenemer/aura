@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aura | Delegate the Work You Hate</title>
     <!--    <script src="https://cdn.tailwindcss.com"></script>-->
-    <link href="./style.css" rel="stylesheet">
+    <link id="stylesheet" href="./style.css" rel="stylesheet">
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 <div id="nav-placeholder"></div>
@@ -18,7 +18,7 @@
             </div>
             <h1 class="text-5xl md:text-6xl font-extrabold text-gray-900 tracking-tight leading-tight mb-6">
                 Stop managing software.<br>
-                <span class="text-emerald-700">Start delegating chores.</span>
+                <span class="text-emerald-700">Start delegating tasks.</span>
             </h1>
             <p class="text-2xl text-emerald-700 font-medium mb-8">
                 Your invisible digital team. Constantly working in the background to turn your daily chaos into complete calm.
@@ -380,10 +380,15 @@
 </section>
 
     <!-- Expert Team Section -->
-    <section class="py-16 bg-emerald-700 text-white text-center">
-        <h2 class="text-2xl font-bold mb-4">You’re not buying a platform. You’re hiring a team.</h2>
-        <p class="max-w-xl mx-auto opacity-90">We are a team of real people using the latest technology to run your digital assistant. If an app updates or something stops working, we handle the fix behind the scenes—giving you the power of modern automation with zero tech stress.</p>
-    </section>
+<section class="py-16 bg-emerald-700 text-white text-center">
+    <h2 class="text-2xl font-bold mb-4">You’re not buying a platform. You’re hiring a team.</h2>
+    <p class="max-w-xl mx-auto opacity-90">We are a team of real people using the latest technology to run your digital assistant. If an app updates or something stops working, we handle the fix behind the scenes—giving you the power of modern automation with zero tech stress.</p>
+</section>
+
+<div id="footer-placeholder"></div>
+
+<script src="./mobileMenu.js"></script>
+
 <script>
     // Component Loader Engine
     async function loadComponent(placeholderId, filePath) {
@@ -403,10 +408,13 @@
         await loadComponent("nav-placeholder", "./components/nav.html");
         loadComponent("footer-placeholder", "./components/footer.html");
 
-        // 2. Identify active URL path filename
+        // 2. Initialize the mobile menu now that the nav is in the DOM
+        setupMobileMenu();
+
+        // 3. Identify active URL path filename
         const currentPage = window.location.pathname.split("/").pop();
 
-        // 3. Dynamic Title Routing Dictionary
+        // 4. Dynamic Title Routing Dictionary
         const titleMap = {
             "index.html": "Welcome",
             "": "Welcome", // Fallback parameter for root folders
@@ -416,13 +424,13 @@
             "logout.html": "See you Soon"
         };
 
-        // Inject Context Title seamlessly
+        // 5. Inject Context Title seamlessly
         const targetTitleSpan = document.getElementById("nav-page-title");
         if (targetTitleSpan && titleMap[currentPage]) {
             targetTitleSpan.innerText = `| ${titleMap[currentPage]}`;
         }
 
-        // 4. Internal App Portal State Management
+        // 6. Internal App Portal State Management
         if (currentPage === "dashboard.html" || currentPage === "billing.html") {
             const publicMenu = document.getElementById("nav-public-links");
             const appMenu = document.getElementById("nav-app-links");
@@ -443,6 +451,5 @@
         }
     });
 </script>
-    <div id="footer-placeholder"></div>
 </body>
 </html>

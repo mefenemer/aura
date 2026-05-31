@@ -1,41 +1,53 @@
-<!-- Navigation -->
-<nav class="bg-white shadow-sm sticky top-0 z-50">
+<nav class="bg-white shadow-sm sticky top-0 z-50 w-full relative">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex justify-between h-16 items-center">
+    <div class="flex justify-between h-16 items-center w-full">
 
-      <!-- Logo & Dynamic Page Title Block -->
       <div class="flex-shrink-0 flex items-center">
         <a href="index.html" class="flex items-center">
-          <!-- Anchored explicitly to Neon Pink brand identity -->
           <span class="font-extrabold text-2xl tracking-tight transition-colors" style="color: #ff007f;">Aura</span>
         </a>
-        <!-- The Dynamic Context Holder -->
         <span id="nav-page-title" class="text-base font-medium text-gray-400 ml-2 transition-opacity duration-300"></span>
       </div>
 
-      <!-- Main Navigation Control Wrapper -->
       <div class="hidden md:flex items-center">
-
-        <!-- PUBLIC MARKETING MENU (Visible by default) -->
         <div id="nav-public-links" class="flex items-center space-x-8">
           <a href="index.html#how-it-works" class="text-gray-600 hover:text-emerald-700 font-medium transition">How it Works</a>
           <a href="pricing.html" class="text-gray-600 hover:text-emerald-700 font-medium transition">Pricing</a>
-          <!-- Remapped token automatically renders this secondary CTA button in Neon Green -->
-          <a href="dashboard.html" id="nav-auth-btn" class="px-5 py-2 text-sm font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-100 transition shadow-sm">
-            Log In
-          </a>
+          <a href="dashboard.html" class="px-5 py-2 text-sm font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-100 transition shadow-sm">Log In</a>
         </div>
-
-        <!-- INTERNAL PORTAL MENU (Hidden by default) -->
         <div id="nav-app-links" class="hidden flex items-center space-x-8">
           <a href="dashboard.html" id="nav-link-dashboard" class="text-gray-600 hover:text-emerald-700 font-medium transition">Dashboard</a>
           <a href="billing.html" id="nav-link-billing" class="text-gray-600 hover:text-emerald-700 font-medium transition">Billing</a>
-          <a href="logout.html" class="px-5 py-2 text-sm font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100 transition shadow-sm">
-            Log Out
-          </a>
+          <a href="logout.html" class="px-5 py-2 text-sm font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100 transition shadow-sm">Log Out</a>
         </div>
-
       </div>
+
+      <div class="flex items-center md:hidden">
+        <button id="mobile-menu-button" class="focus:outline-none p-2" aria-label="Toggle menu" style="cursor: pointer;">
+          <svg style="width: 28px; height: 28px; stroke: #1f1e1b;" fill="none" viewBox="0 0 24 24">
+            <path id="menu-icon-path" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="mobile-menu" class="md:hidden border-t border-gray-100 bg-white absolute w-full left-0 shadow-xl z-50" style="display: none; top: 100%;">
+    <div class="px-4 pt-4 pb-6 space-y-2">
+
+      <div id="mobile-public-links" style="display: flex; flex-direction: column; gap: 8px;">
+        <a href="index.html#how-it-works" class="block px-4 py-3 rounded-md text-base font-bold text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition">How it Works</a>
+        <a href="pricing.html" class="block px-4 py-3 rounded-md text-base font-bold text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition">Pricing</a>
+        <a href="dashboard.html" class="block mt-4 px-4 py-3 text-center text-base font-bold text-emerald-700 bg-emerald-50 rounded-lg border border-emerald-100 shadow-sm">Log In</a>
+      </div>
+
+      <div id="mobile-app-links" style="display: none; flex-direction: column; gap: 8px;">
+        <a href="dashboard.html" class="block px-4 py-3 rounded-md text-base font-bold text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition">Dashboard</a>
+        <a href="billing.html" class="block px-4 py-3 rounded-md text-base font-bold text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition">Billing</a>
+        <a href="logout.html" class="block mt-4 px-4 py-3 text-center text-base font-bold text-red-700 bg-red-50 rounded-lg border border-red-100 shadow-sm">Log Out</a>
+      </div>
+
     </div>
   </div>
 </nav>

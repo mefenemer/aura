@@ -1,0 +1,4 @@
+[build]
+  functions = "netlify/functions"
+[dev]
+  functions = "netlify/functions"

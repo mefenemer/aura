@@ -18,6 +18,10 @@
         --color-gray-100: #f6f3eb;  /* Linen divider accent */
         --color-gray-200: #eae4d7;  /* Defined border frame layer */
         --color-gray-500: #787263;  /* Soft text reading contrast */
+        /* Add these missing hex codes so mobile browsers don't crash on oklch() */
+        --color-gray-600: #5c564b;  /* Used for your burger menu button */
+        --color-gray-700: #444036;
+        --color-gray-800: #2d2a23;
         --color-gray-900: #1f1e1b;  /* Deep espresso premium dark type */
 
         /* 5. PRIMARY ACCENT: Remap emerald tokens to Neon Pink hues */
