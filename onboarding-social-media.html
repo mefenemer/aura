@@ -661,17 +661,12 @@
 
   function autoGenerateWorkflowAndRules() {
     const firstStepInput = document.getElementById('workflow_step_1');
-    const rulesInput = document.getElementById('acceptance_criteria_rules');
-
     if (firstStepInput && firstStepInput.value.trim() !== '') return;
 
     const source = document.querySelector('input[name="content_source"]:checked')?.value || 'client_provided';
     const audience = document.getElementById('val_audience')?.value || '[Target Audience]';
-    const tone = document.getElementById('val_tone')?.value || '[Brand Tone]';
     const pillars = document.getElementById('val_pillars')?.value || '[Core Topics]';
     const visuals = document.getElementById('val_visuals')?.value || 'Text Only';
-    const braintrust = document.getElementById('val_braintrust')?.value;
-    const archiving = document.getElementById('other_apps')?.value;
 
     let platforms = [];
     ['fb', 'ig', 'li', 'x'].forEach(p => {
@@ -691,7 +686,7 @@
       steps.push(`Ingest the raw drafts and notes provided by the client upon trigger.`);
     }
 
-    steps.push(`Draft social media copy specifically tailored for ${audience}, ensuring the tone is strictly applied.`);
+    steps.push(`Draft social media copy specifically tailored for ${audience}.`);
 
     if (visuals !== 'Text Only (No visuals needed)') {
       steps.push(`Process and format visual assets according to the strategy: ${visuals}.`);
@@ -699,16 +694,11 @@
 
     steps.push(`Format the final content and stage the posts for delivery to: ${platformText}.`);
 
-    if (archiving && archiving.trim() !== '') {
-      steps.push(`Archive the finalized drafts and assets to: ${archiving}.`);
-    }
-
     const container = document.getElementById('workflow-steps-container');
     container.innerHTML = '';
-    workflowStepCount = 0;
+    let workflowStepCount = 0;
 
-    const maxStepsAllowed = activeTier.maxSteps;
-    const stepsToRender = steps.slice(0, maxStepsAllowed);
+    const stepsToRender = steps.slice(0, activeTier.maxSteps);
 
     stepsToRender.forEach(stepText => {
       workflowStepCount++;
@@ -721,24 +711,17 @@
               </div>`;
       container.insertAdjacentHTML('beforeend', stepHtml);
     });
-
-    if (rulesInput && rulesInput.value.trim() === '') {
-      let rulesText = `- Tone Constraint: You must strictly maintain a ${tone} voice. Never deviate.\n`;
-      rulesText += `- Audience Alignment: Ensure all language and hooks appeal directly to ${audience}.\n`;
-      rulesText += `- Topic Focus: Confine content exclusively to these pillars: ${pillars}.\n`;
-      if (braintrust && braintrust.trim() !== '') {
-        rulesText += `- Brand Accuracy: Always cross-reference the provided Knowledge Base (${braintrust}) for factual accuracy and brand style.\n`;
-      }
-
-      // Algorithm logic is intentionally removed from here so it doesn't get trapped in the text box.
-      rulesInput.value = rulesText;
-    }
   }
-
   function generateBrief() {
+    const missingFallback = "[MISSING - PLEASE UPDATE]";
+
+    // SCENARIO 4: Function to ignore empty or skipped fields entirely
+    const hasValue = (val) => val && val.trim() !== '' && val !== missingFallback;
+
     const clientName = sessionStorage.getItem('aura_client_name') || 'N/A';
     const businessName = sessionStorage.getItem('aura_business_name') || 'N/A';
     const problem = document.getElementById('user_story_problem').value || missingFallback;
+
     const namePref = document.querySelector('input[name="assistant_name_pref"]:checked')?.value;
     const customNameInput = document.getElementById('val_assistant_name')?.value;
     const finalAssistantName = namePref === 'ai_decide'
@@ -748,7 +731,8 @@
     const triggerEl = document.querySelector('input[name="trigger_type"]:checked');
     let triggerText = triggerEl ? triggerEl.nextElementSibling.querySelector('span').innerText : missingFallback;
     if (triggerEl && triggerEl.value === 'scheduled') {
-      triggerText += ` (${document.getElementById('schedule_frequency').value})`;
+      const freq = document.getElementById('schedule_frequency')?.value;
+      if(freq) triggerText += ` (${freq})`;
     }
 
     const sourceEl = document.querySelector('input[name="content_source"]:checked');
@@ -769,62 +753,88 @@
     });
     const platformText = platforms.length > 0 ? platforms.join(', ') : missingFallback;
 
-    let strategy = "";
-    strategy += `- Audience: ${document.getElementById('val_audience').value || missingFallback}\n`;
-    strategy += `- Brand Tone: ${document.getElementById('val_tone').value || missingFallback}\n`;
-    strategy += `- Pillars: ${document.getElementById('val_pillars').value || missingFallback}\n`;
-    strategy += `- Visuals: ${document.getElementById('val_visuals').value || missingFallback}\n`;
-    const brainTrust = document.getElementById('val_braintrust').value;
-    if(brainTrust) strategy += `- Brain Trust: ${brainTrust}\n`;
+    // --- SCENARIOS 1, 2 & 3: THE EVALUATION ENGINE ---
+    let generalPreferences = [];
+    let strictRules = [];
+
+    const audience = document.getElementById('val_audience')?.value;
+    const tone = document.getElementById('val_tone')?.value;
+    const pillars = document.getElementById('val_pillars')?.value;
+    const visuals = document.getElementById('val_visuals')?.value;
+    const brainTrust = document.getElementById('val_braintrust')?.value;
+
+    // Evaluate standard fields
+    if (hasValue(audience)) generalPreferences.push(`- Target Audience: Cater content to ${audience}.`);
+    if (hasValue(pillars)) generalPreferences.push(`- Core Topics: Focus on ${pillars}.`);
+    if (hasValue(visuals)) generalPreferences.push(`- Visual Strategy: ${visuals}.`);
+
+    // Simple NLP Evaluation for Tone
+    if (hasValue(tone)) {
+      const tLower = tone.toLowerCase();
+      // If user typed absolute constraints, escalate to Strict Rule
+      if (tLower.includes('never') || tLower.includes('must') || tLower.includes('always') || tLower.includes('no ')) {
+        strictRules.push(`- MUST DO (Tone): Strictly adhere to this boundary: "${tone}"`);
+      } else {
+        generalPreferences.push(`- Preferred Tone: ${tone}`);
+      }
+    }
+
+    if (hasValue(brainTrust)) strictRules.push(`- MUST DO: Always cross-reference facts with Knowledge Base at ${brainTrust}`);
+
+    // Evaluate Platform Algorithms
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      const chk = document.getElementById(`chk_${p}`);
+      if (chk && chk.checked) {
+        const platformName = chk.value;
+        const algoPref = document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value;
+        const customTags = document.getElementById(`val_algo_tags_${p}`)?.value;
+
+        // Tags Logic Evaluation
+        if (algoPref === 'strict_custom' && hasValue(customTags)) {
+          strictRules.push(`- MUST DO (${platformName}): ONLY use exactly these tags: ${customTags}. NEVER add others.`);
+        } else if (algoPref === 'hybrid' && hasValue(customTags)) {
+          generalPreferences.push(`- ${platformName} Tags: Baseline tags (${customTags}) + 2-3 relevant tags.`);
+        } else if (algoPref === 'ai_decide') {
+          generalPreferences.push(`- ${platformName} Tags: AI full autonomy.`);
+        }
+
+        // Format Logic Evaluation
+        if (p === 'fb') {
+          if (document.getElementById('fb_opt_groups')?.checked) generalPreferences.push(`- ${platformName} Format: Auto-draft secondary version optimized for Groups.`);
+          if (document.getElementById('fb_opt_hooks')?.checked) strictRules.push(`- MUST DO (${platformName}): ALWAYS end posts with high-engagement conversational hooks.`);
+        } else if (p === 'ig') {
+          const format = document.getElementById('ig_opt_format')?.value;
+          if (hasValue(format)) generalPreferences.push(`- ${platformName} Format Priority: ${format}.`);
+          if (document.getElementById('ig_opt_audio')?.checked) generalPreferences.push(`- ${platformName} Audio: Suggest trending audio concepts.`);
+        } else if (p === 'li') {
+          if (document.getElementById('li_opt_links')?.checked) strictRules.push(`- NEVER DO (${platformName}): Do NOT place external URLs in the main text. MUST place them in the first comment.`);
+          if (document.getElementById('li_opt_sliders')?.checked) generalPreferences.push(`- ${platformName} Format: Structure educational posts as PDF Slider outlines.`);
+        } else if (p === 'x') {
+          const length = document.getElementById('x_opt_length')?.value;
+          if (hasValue(length)) generalPreferences.push(`- ${platformName} Post Style: ${length}.`);
+          if (document.getElementById('x_opt_media')?.checked) generalPreferences.push(`- ${platformName} Media: Include placeholders for GIFs/Images.`);
+        }
+      }
+    });
+
+    // Capture User's custom typed rules from Step 6
+    const userRules = document.getElementById('acceptance_criteria_rules')?.value;
+    if (hasValue(userRules)) {
+      userRules.split('\n').forEach(rule => {
+        if (hasValue(rule)) strictRules.push(`- NON-NEGOTIABLE: ${rule.trim()}`);
+      });
+    }
 
     let workflowText = "";
     document.querySelectorAll('.workflow-step-input').forEach((input, i) => {
       if(input.value.trim() !== '') workflowText += `${i + 1}. ${input.value}\n`;
     });
 
-    // --- NEW: Dynamically grab per-platform Algorithm & Format Strategy ---
-    let algoText = "";
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-      const chk = document.getElementById(`chk_${p}`);
-      if (chk && chk.checked) {
-        const platformName = chk.value;
-        const algoPref = document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value;
-        const customTags = document.getElementById(`val_algo_tags_${p}`)?.value || '[Specific tags]';
+    // Compile Evaluated Sections
+    const prefsStr = generalPreferences.length > 0 ? generalPreferences.join('\n') : '- No general preferences configured.';
+    const rulesStr = strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configured.';
 
-        let tagText = "";
-        if (algoPref === 'strict_custom') tagText = `ONLY use: ${customTags}. No others.`;
-        else if (algoPref === 'hybrid') tagText = `Baseline tags (${customTags}) + 2-3 relevant tags.`;
-        else if (algoPref === 'ai_decide') tagText = `AI full autonomy.`;
-
-        let extraText = "";
-        if (p === 'fb') {
-          const groups = document.getElementById('fb_opt_groups')?.checked;
-          const hooks = document.getElementById('fb_opt_hooks')?.checked;
-          if (groups) extraText += `\n    - Auto-draft secondary version optimized for Group sharing.`;
-          if (hooks) extraText += `\n    - End posts with high-engagement conversational hooks.`;
-        } else if (p === 'ig') {
-          const format = document.getElementById('ig_opt_format')?.value;
-          const audio = document.getElementById('ig_opt_audio')?.checked;
-          extraText += `\n    - Format Priority: ${format}.`;
-          if (audio) extraText += `\n    - Suggest trending audio concepts.`;
-        } else if (p === 'li') {
-          const links = document.getElementById('li_opt_links')?.checked;
-          const sliders = document.getElementById('li_opt_sliders')?.checked;
-          if (links) extraText += `\n    - ANTI-PENALTY: Place external URLs in the first comment only.`;
-          if (sliders) extraText += `\n    - Format educational posts as PDF Slider/Carousel outlines.`;
-        } else if (p === 'x') {
-          const length = document.getElementById('x_opt_length')?.value;
-          const media = document.getElementById('x_opt_media')?.checked;
-          extraText += `\n    - Post Style: ${length}.`;
-          if (media) extraText += `\n    - Include placeholders for media (GIFs/Images).`;
-        }
-
-        algoText += `- ${platformName} Strategy:\n    - Tags: ${tagText}${extraText}\n`;
-      }
-    });
-
-    if (algoText === "") algoText = "- Algorithm/Tags: Not configured.\n";
-
+    // SCENARIO 5: Inject into the UI text box so the user can review and edit
     const compiledBrief = `===========================================
     AURA ENGINEERING BRIEF: SOCIAL MEDIA
 ===========================================
@@ -835,24 +845,28 @@ CLIENT DETAILS
 - Assistant Name: ${finalAssistantName}
 
 1. PROCESS BOTTLENECK
-${problem}
+${problem || missingFallback}
 
 2. SOURCING & TRIGGER
 - Trigger: ${triggerText}
 - Source: ${sourceText}
 
-3. CREATIVE STRATEGY
-${strategy}
-4. PUBLISHING
+3. PUBLISHING DESTINATIONS
 - Platforms: ${platformText}
+
+4. GENERAL PREFERENCES & STRATEGY
+${prefsStr}
 
 5. WORKFLOW LOGIC
 ${workflowText || missingFallback}
 
-6. RULES & APPROVALS
-${algoText}- Strict Rules: \n${document.getElementById('acceptance_criteria_rules').value || missingFallback}
-- Approval Protocol: All requests requiring your sign-off are managed exclusively through your Aura Workspace. You will be notified by email immediately upon the creation of any new request.
+6. NON-NEGOTIABLE STRICT RULES
+${rulesStr}
+
+7. APPROVAL PROTOCOL
+- All requests requiring your sign-off are managed exclusively through your Aura Workspace. You will be notified by email immediately upon the creation of any new request.
 `;
+
     document.getElementById('generated_brief').value = compiledBrief;
   }
 
