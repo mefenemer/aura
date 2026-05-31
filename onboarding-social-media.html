@@ -614,11 +614,13 @@
     const clientName = sessionStorage.getItem('aura_client_name') || 'N/A';
     const businessName = sessionStorage.getItem('aura_business_name') || 'N/A';
     const problem = document.getElementById('user_story_problem').value || missingFallback;
+
     const namePref = document.querySelector('input[name="assistant_name_pref"]:checked')?.value;
     const customNameInput = document.getElementById('val_assistant_name')?.value;
     const finalAssistantName = namePref === 'ai_decide'
             ? '[Assistant to self-determine name]'
             : (customNameInput || missingFallback);
+
     const triggerEl = document.querySelector('input[name="trigger_type"]:checked');
     let triggerText = triggerEl ? triggerEl.nextElementSibling.querySelector('span').innerText : missingFallback;
     if (triggerEl && triggerEl.value === 'scheduled') {
@@ -643,11 +645,26 @@
     });
     const platformText = platforms.length > 0 ? platforms.join(', ') : missingFallback;
 
+    // --- NEW: Extract Algorithm / Hashtag Strategy ---
+    const algoPref = document.querySelector('input[name="algo_strategy"]:checked')?.value;
+    const customTags = document.getElementById('val_algo_tags')?.value || missingFallback;
+
+    let algoText = missingFallback;
+    if (algoPref === 'strict_custom') {
+      algoText = `Strictly use specific tags only: ${customTags}`;
+    } else if (algoPref === 'hybrid') {
+      algoText = `Hybrid (Use provided tags + AI context additions): ${customTags}`;
+    } else if (algoPref === 'ai_decide') {
+      algoText = `Let AI decide platform-specific tags autonomously`;
+    }
+
     let strategy = "";
     strategy += `- Audience: ${document.getElementById('val_audience').value || missingFallback}\n`;
     strategy += `- Brand Tone: ${document.getElementById('val_tone').value || missingFallback}\n`;
     strategy += `- Pillars: ${document.getElementById('val_pillars').value || missingFallback}\n`;
     strategy += `- Visuals: ${document.getElementById('val_visuals').value || missingFallback}\n`;
+    strategy += `- Algorithm/Tags: ${algoText}\n`; // Injected into the brief
+
     const brainTrust = document.getElementById('val_braintrust').value;
     if(brainTrust) strategy += `- Brain Trust: ${brainTrust}\n`;
 
