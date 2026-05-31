@@ -967,6 +967,7 @@ ${rulesStr}
   }
   async function submitToBackend() {
     const email = document.getElementById('client_email').value;
+
     const fullName = sessionStorage.getItem('aura_client_name') || 'New User';
     const companyName = sessionStorage.getItem('aura_business_name') || '';
     const tier = sessionStorage.getItem('aura_tier') || 'employee';
@@ -977,7 +978,7 @@ ${rulesStr}
     const namePref = document.querySelector('input[name="assistant_name_pref"]:checked')?.value;
     const finalAssistantName = namePref === 'ai_decide' ? '' : customNameInput;
 
-    // --- NEW: Generate the JSON Config for selected platforms & format options ---
+    // --- Generate the JSON Config for selected platforms & format options ---
     const algorithmConfig = {};
     ['fb', 'ig', 'li', 'x'].forEach(p => {
       const chk = document.getElementById(`chk_${p}`);
@@ -1005,6 +1006,11 @@ ${rulesStr}
       }
     });
 
+    // --- NEW: Capture Compliance Checkbox States ---
+    const consentDataProcessing = document.querySelector('input[name="legal_consent"]')?.checked || false;
+    const consentNoTraining = document.querySelector('input[name="no_training_consent"]')?.checked || false;
+    const consentToS = document.querySelector('input[name="tos_consent"]')?.checked || false;
+
     const nameParts = fullName.split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ') || '';
@@ -1027,7 +1033,15 @@ ${rulesStr}
           blueprint,
           assistantName,
           customAssistantName: finalAssistantName,
-          algorithmConfig: algorithmConfig
+          algorithmConfig: algorithmConfig,
+
+          // --- NEW: Inject the consents and timestamp into the payload ---
+          consents: {
+            dataProcessing: consentDataProcessing,
+            noTraining: consentNoTraining,
+            termsOfService: consentToS,
+            agreedAt: new Date().toISOString() // Captures exact UTC time of submission for the audit trail
+          }
         })
       });
 
