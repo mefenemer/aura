@@ -259,8 +259,88 @@
             </div>
           </div>
 
+          <div id="algorithm_helpers_container" class="hidden mt-8 border-t border-gray-200 pt-6">
+            <label class="block text-sm font-bold text-gray-900 mb-2">Platform Algorithm Helpers (Hashtags/Keywords): *</label>
+            <p class="text-sm text-gray-500 mb-4">Define the visibility strategy for each of your selected platforms.</p>
 
+            <div id="algo_block_fb" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+              <h4 class="font-bold text-gray-800 text-sm mb-2">Facebook Strategy</h4>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_fb" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
+              </label>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_fb" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
+              </label>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_fb" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_fb').classList.add('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
+              </label>
+              <div id="algo_custom_tags_fb" class="mt-3 pl-7">
+                <input type="text" id="val_algo_tags_fb" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #FacebookTips #Community">
+              </div>
+            </div>
+
+            <div id="algo_block_ig" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+              <h4 class="font-bold text-gray-800 text-sm mb-2">Instagram Strategy</h4>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_ig" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_ig').classList.remove('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
+              </label>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_ig" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_ig').classList.remove('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
+              </label>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_ig" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_ig').classList.add('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
+              </label>
+              <div id="algo_custom_tags_ig" class="mt-3 pl-7">
+                <input type="text" id="val_algo_tags_ig" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #InstaGood #Visuals">
+              </div>
+            </div>
+
+            <div id="algo_block_li" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+              <h4 class="font-bold text-gray-800 text-sm mb-2">LinkedIn Strategy</h4>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_li" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_li').classList.remove('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
+              </label>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_li" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_li').classList.remove('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
+              </label>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_li" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_li').classList.add('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
+              </label>
+              <div id="algo_custom_tags_li" class="mt-3 pl-7">
+                <input type="text" id="val_algo_tags_li" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #Leadership #B2B">
+              </div>
+            </div>
+
+            <div id="algo_block_x" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+              <h4 class="font-bold text-gray-800 text-sm mb-2">X (Twitter) Strategy</h4>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_x" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_x').classList.remove('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
+              </label>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_x" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_x').classList.remove('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
+              </label>
+              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
+                <input type="radio" name="algo_strategy_x" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_x').classList.add('hidden')">
+                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
+              </label>
+              <div id="algo_custom_tags_x" class="mt-3 pl-7">
+                <input type="text" id="val_algo_tags_x" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #TechTrends #BuildInPublic">
+              </div>
+            </div>
+          </div>
         </div>
+
 
         <div id="step-6" class="step-hidden">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 6 of 8</span>
@@ -279,32 +359,7 @@
           <button type="button" onclick="addWorkflowStep()" class="text-emerald-700 font-bold hover:text-emerald-800 transition flex items-center mb-8">
             <span class="text-xl mr-1">+</span> Add Next Step
           </button>
-          <!-- Algorithm & Hashtag Preferences -->
-          <label class="block text-sm font-bold text-gray-700 mb-2">Platform Algorithm Helpers (Hashtags/Keywords): *</label>
-          <p class="text-xs text-gray-500 mb-3">Choose how the assistant should handle platform-specific visibility.</p>
-          <div class="space-y-3 mb-6 bg-white border border-gray-200 p-4 rounded-lg">
-            <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-              <input type="radio" name="algo_strategy" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags').classList.remove('hidden')">
-              <div class="ml-3">
-                <span class="block text-sm font-bold">Only use my specific tags</span>
-              </div>
-            </label>
-            <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-              <input type="radio" name="algo_strategy" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags').classList.remove('hidden')">
-              <div class="ml-3">
-                <span class="block text-sm font-bold">Use mine, and add relevant ones</span>
-              </div>
-            </label>
-            <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-              <input type="radio" name="algo_strategy" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags').classList.add('hidden')">
-              <div class="ml-3">
-                <span class="block text-sm font-bold">Let the Digital Assistant decide</span>
-              </div>
-            </label>
-            <div id="algo_custom_tags" class="mt-3 pl-7">
-              <input type="text" id="val_algo_tags" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #productivity #founder #SaaS">
-            </div>
-          </div>
+
           <label class="block text-sm font-bold text-gray-700 mb-2">Strict Rules & Exceptions: *</label>
           <textarea id="acceptance_criteria_rules" rows="5" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none" placeholder="e.g., Never use more than 3 hashtags per post."></textarea>
 
@@ -453,6 +508,25 @@
 
   function toggleHandleInput(containerId, isChecked) {
     document.getElementById(containerId).classList.toggle('hidden', !isChecked);
+
+    // Toggle the corresponding Algorithm Helper block based on the checkbox
+    const platformKey = containerId.split('_')[0]; // Extacts 'fb', 'ig', etc.
+    const algoBlock = document.getElementById(`algo_block_${platformKey}`);
+    if (algoBlock) {
+      algoBlock.classList.toggle('hidden', !isChecked);
+    }
+
+    // Check if ANY platform is selected. If yes, show the master algorithm container.
+    let hasPlatform = false;
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      const chk = document.getElementById(`chk_${p}`);
+      if (chk && chk.checked) hasPlatform = true;
+    });
+
+    const algoMasterContainer = document.getElementById('algorithm_helpers_container');
+    if (algoMasterContainer) {
+      algoMasterContainer.classList.toggle('hidden', !hasPlatform);
+    }
   }
 
   function toggleAccordion(bodyId, iconId) {
@@ -648,18 +722,26 @@
       if(input.value.trim() !== '') workflowText += `${i + 1}. ${input.value}\n`;
     });
 
-    // --- NEW: Dynamically grab the Algorithm Strategy right before generating ---
-    const algoPref = document.querySelector('input[name="algo_strategy"]:checked')?.value;
-    const customTags = document.getElementById('val_algo_tags')?.value || '[Your specific tags]';
-
+    // --- NEW: Dynamically grab per-platform Algorithm Strategy ---
     let algoText = "";
-    if (algoPref === 'strict_custom') {
-      algoText = `- Algorithm/Tags: ONLY use the following specific hashtags/keywords: ${customTags}. Do not add any others.`;
-    } else if (algoPref === 'hybrid') {
-      algoText = `- Algorithm/Tags: Use baseline tags (${customTags}) and append 2-3 highly relevant, algorithm-friendly tags.`;
-    } else if (algoPref === 'ai_decide') {
-      algoText = `- Algorithm/Tags: Assistant has full autonomy to research and apply the highest-performing, contextually relevant tags.`;
-    }
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      const chk = document.getElementById(`chk_${p}`);
+      if (chk && chk.checked) {
+        const platformName = chk.value;
+        const algoPref = document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value;
+        const customTags = document.getElementById(`val_algo_tags_${p}`)?.value || '[Specific tags]';
+
+        if (algoPref === 'strict_custom') {
+          algoText += `- ${platformName} Tags: ONLY use: ${customTags}. No others.\n`;
+        } else if (algoPref === 'hybrid') {
+          algoText += `- ${platformName} Tags: Baseline tags (${customTags}) + 2-3 relevant tags.\n`;
+        } else if (algoPref === 'ai_decide') {
+          algoText += `- ${platformName} Tags: AI full autonomy.\n`;
+        }
+      }
+    });
+
+    if (algoText === "") algoText = "- Algorithm/Tags: Not configured.\n";
 
     const compiledBrief = `===========================================
     AURA ENGINEERING BRIEF: SOCIAL MEDIA
@@ -686,8 +768,7 @@ ${strategy}
 ${workflowText || missingFallback}
 
 6. RULES & APPROVALS
-${algoText}
-- Strict Rules: \n${document.getElementById('acceptance_criteria_rules').value || missingFallback}
+${algoText}- Strict Rules: \n${document.getElementById('acceptance_criteria_rules').value || missingFallback}
 - Approval Protocol: All requests requiring your sign-off are managed exclusively through your Aura Workspace. You will be notified by email immediately upon the creation of any new request.
 `;
     document.getElementById('generated_brief').value = compiledBrief;
@@ -790,20 +871,27 @@ ${algoText}
   }
   async function submitToBackend() {
     const email = document.getElementById('client_email').value;
-
     const fullName = sessionStorage.getItem('aura_client_name') || 'New User';
     const companyName = sessionStorage.getItem('aura_business_name') || '';
     const tier = sessionStorage.getItem('aura_tier') || 'employee';
     const assistantName = sessionStorage.getItem('aura_assistant_name') || 'Aura Digital Assistant';
     const blueprint = document.getElementById('generated_brief').value;
 
-    // --- NEW: Capture Custom Name & Algorithm Data ---
     const customNameInput = document.getElementById('val_assistant_name')?.value;
     const namePref = document.querySelector('input[name="assistant_name_pref"]:checked')?.value;
     const finalAssistantName = namePref === 'ai_decide' ? '' : customNameInput;
 
-    const algoPref = document.querySelector('input[name="algo_strategy"]:checked')?.value || 'strict_custom';
-    const customTags = document.getElementById('val_algo_tags')?.value || '';
+    // --- NEW: Generate the JSON Config for selected platforms ---
+    const algorithmConfig = {};
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      const chk = document.getElementById(`chk_${p}`);
+      if (chk && chk.checked) {
+        algorithmConfig[p] = {
+          strategy: document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value || 'strict_custom',
+          tags: document.getElementById(`val_algo_tags_${p}`)?.value || ''
+        };
+      }
+    });
 
     const nameParts = fullName.split(' ');
     const firstName = nameParts[0];
@@ -825,12 +913,9 @@ ${algoText}
           companyName,
           tier,
           blueprint,
-          assistantName, // The Role (e.g., Social Media Manager)
-          customAssistantName: finalAssistantName, // The User's custom name
-          algorithmConfig: {                       // Stored in the JSONB configuration
-            strategy: algoPref,
-            tags: customTags
-          }
+          assistantName,
+          customAssistantName: finalAssistantName,
+          algorithmConfig: algorithmConfig // Now properly structured per platform
         })
       });
 
