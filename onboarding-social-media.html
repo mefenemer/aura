@@ -688,15 +688,37 @@ ${workflowText || missingFallback}
   }
 
   function updateUI() {
+    // Hide all steps
     for (let i = 2; i <= totalSteps; i++) {
       const stepEl = document.getElementById(`step-${i}`);
       if(stepEl) { stepEl.classList.remove('step-active'); stepEl.classList.add('step-hidden'); }
     }
-    document.getElementById(`step-${currentStep}`).classList.remove('step-hidden');
-    document.getElementById(`step-${currentStep}`).classList.add('step-active');
 
+    // Show the new target step
+    const activeStepEl = document.getElementById(`step-${currentStep}`);
+    activeStepEl.classList.remove('step-hidden');
+    activeStepEl.classList.add('step-active');
+
+    // SCENARIO 1 & 3: Scroll to the absolute top of the window consistently
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // SCENARIO 2: Programmatically shift keyboard/DOM focus for Accessibility
+    // Set a small 50ms timeout to allow the browser to paint the step's visibility first
+    setTimeout(() => {
+      // Target the primary heading of the newly visible step
+      const focusTarget = activeStepEl.querySelector('h2');
+      if (focusTarget) {
+        // Add tabindex="-1" so the heading can receive programmatic focus
+        // without interfering with the user's normal tab flow
+        focusTarget.setAttribute('tabindex', '-1');
+        focusTarget.focus({ preventScroll: true });
+      }
+    }, 50);
+
+    // Update the progress bar
     document.getElementById('progress-bar').style.width = `${(currentStep / totalSteps) * 100}%`;
 
+    // Update the button states
     const btnNext = document.getElementById('btn-next');
     if (currentStep === totalSteps - 1) {
       btnNext.innerText = "Confirm & Proceed";
@@ -711,7 +733,25 @@ ${workflowText || missingFallback}
   }
 
   function nextStep() {
-    if (!validateCurrentStep()) return;
+    // SCENARIO 4: Dynamic error validation handling
+    if (!validateCurrentStep()) {
+      // Find the first input field that failed validation
+      const firstInvalidField = document.querySelector('.input-error');
+
+      if (firstInvalidField) {
+        // Smoothly scroll to center the input, then focus it
+        firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstInvalidField.focus({ preventScroll: true });
+      } else {
+        // Fallback: If the error was a radio button group (which lacks the .input-error class),
+        // find the first visible error message text and scroll to that instead
+        const firstErrorMsg = document.querySelector('.error-msg:not(.hidden)');
+        if (firstErrorMsg) {
+          firstErrorMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      return; // Stop the function here so the user cannot progress
+    }
 
     // Trigger auto-generation exactly when leaving Step 5
     if (currentStep === 5) autoGenerateWorkflowAndRules();
