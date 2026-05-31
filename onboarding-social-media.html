@@ -595,17 +595,10 @@
       if (braintrust && braintrust.trim() !== '') {
         rulesText += `- Brand Accuracy: Always cross-reference the provided Knowledge Base (${braintrust}) for factual accuracy and brand style.\n`;
       }
-      // --- New Logic: Inject Algorithm Strategy ---
-      const algoPref = document.querySelector('input[name="algo_strategy"]:checked')?.value;
-      const customTags = document.getElementById('val_algo_tags')?.value || '[Your specific tags]';
 
-      if (algoPref === 'strict_custom') {
-        rulesText += `- Algorithm/Tags: ONLY use the following specific hashtags/keywords: ${customTags}. Do not add any others.\n`;
-      } else if (algoPref === 'hybrid') {
-        rulesText += `- Algorithm/Tags: Always include these baseline tags: ${customTags}. Furthermore, append 2-3 highly relevant, algorithm-friendly tags based on the specific post content.\n`;
-      } else if (algoPref === 'ai_decide') {
-        rulesText += `- Algorithm/Tags: The assistant has full autonomy to research and apply the highest-performing, contextually relevant hashtags and keywords for each respective platform.\n`;
-      }
+      // We removed the premature Algorithm/Tags injection from here.
+      // It is now handled dynamically in generateBrief() when the user actually submits Step 6!
+
       rulesInput.value = rulesText;
     }
   }
