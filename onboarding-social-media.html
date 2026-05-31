@@ -631,13 +631,26 @@
         const chk = document.getElementById(`chk_${p}`);
         if (chk && chk.checked) {
           hasPlatform = true;
+
+          // 1. Validate the Social Media Handle
           const handle = document.getElementById(`${p}_handle`);
           if (handle.value.trim() === '') {
             handle.classList.add('input-error');
             isValid = false;
           }
+
+          // 2. NEW: Validate the Custom Tags input if required
+          const algoPref = document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value;
+          if (algoPref === 'strict_custom' || algoPref === 'hybrid') {
+            const tagInput = document.getElementById(`val_algo_tags_${p}`);
+            if (tagInput && tagInput.value.trim() === '') {
+              tagInput.classList.add('input-error');
+              isValid = false;
+            }
+          }
         }
       });
+
       if (!hasPlatform) {
         alert("Please select at least one social media platform and enter a handle.");
         isValid = false;
