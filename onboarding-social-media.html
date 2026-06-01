@@ -455,24 +455,18 @@
   // --- 4. VALIDATION LOGIC ---
   async function validateHandle(platform, inputEl) {
     const errorMsg = inputEl.parentNode.querySelector('.handle-feedback') || createErrorEl(inputEl);
+
+    // Bypass format check (Keep this)
     if (!handlePatterns[platform].regex.test(inputEl.value.trim())) {
-      showError(inputEl, errorMsg, `Invalid format. Try: ${handlePatterns[platform].example}`);
+      showError(inputEl, errorMsg, `Invalid format.`);
       return false;
     }
+
+    // MOCKING SUCCESS (Replace this entire try/catch block with this until backend is ready)
     showLoading(inputEl);
-    try {
-      const response = await fetch(`/.netlify/functions/verify-handle?platform=${platform}&handle=${encodeURIComponent(inputEl.value.trim())}`);
-      const data = await response.json();
-      if (data.exists) {
-        showSuccess(inputEl, errorMsg);
-        return true;
-      }
-      showError(inputEl, errorMsg, "Account not found. Please check for typos.");
-      return false;
-    } catch (e) {
-      showError(inputEl, errorMsg, "Verification service unavailable.");
-      return false;
-    }
+    await new Promise(resolve => setTimeout(resolve, 800)); // Simulate network lag
+    showSuccess(inputEl, errorMsg);
+    return true;
   }
 
   function validateCurrentStep() {
