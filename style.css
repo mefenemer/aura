@@ -1955,3 +1955,17 @@ input[type="radio"]:checked + div .radio-indicator {
     }
   }
 }
+/* Gated feature styling for the Onboarding UI */
+.gated-feature {
+  cursor: not-allowed !important;
+  transition: opacity 0.2s ease;
+}
+
+.gated-feature:hover {
+  opacity: 0.7;
+}
+
+/* Visually dim the text within gated elements for consistency */
+.gated-feature span {
+  color: #6b7280; /* Gray-500 equivalent */
+}
