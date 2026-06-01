@@ -1978,3 +1978,6 @@ input[type="radio"]:checked + div .radio-indicator {
   width: 100%;
   display: block;
 }
+.input-error { border-color: #ef4444 !important; background-color: #fef2f2 !important; }
+.handle-feedback { font-size: 0.75rem; font-weight: 700; margin-top: 0.25rem; }
+.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }

@@ -270,128 +270,50 @@
             <label class="block text-sm font-bold text-gray-900 mb-2">Platform Algorithm Helpers (Hashtags/Keywords): *</label>
             <p class="text-sm text-gray-500 mb-4">Define the visibility and formatting strategy for each of your selected platforms.</p>
 
-            <!-- FB Block -->
-            <div id="algo_block_fb" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-              <h4 class="font-bold text-gray-800 text-sm mb-2">Facebook Strategy</h4>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_fb" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_fb" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_fb" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_fb').classList.add('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
-              </label>
-              <div id="algo_custom_tags_fb" class="mt-3 pl-7">
-                <input type="text" id="val_algo_tags_fb" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #FacebookTips #Community">
-              </div>
-              <hr class="my-3 border-gray-100">
-              <h5 class="font-bold text-gray-800 text-xs mb-2">Content Optimization</h5>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature"
-                     onclick="if(!checkTier('saver', 'Facebook Group Optimization')) { event.preventDefault(); return false; }">
-                <input type="checkbox" id="fb_opt_groups" class="h-4 w-4 text-emerald-700 rounded border-gray-300">
-                <span class="ml-2 text-sm text-gray-700 font-bold text-emerald-900">Draft version for niche Facebook Groups (Saver+)</span>
-              </label>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition">
-                <input type="checkbox" id="fb_opt_hooks" class="h-4 w-4 text-emerald-700 rounded border-gray-300" checked>
-                <span class="ml-2 text-sm text-gray-700">End posts with high-engagement hooks (questions/CTAs)</span>
-              </label>
-            </div>
+            <div id="algorithm_helpers_container" class="hidden mt-8 border-t border-gray-200 pt-6">
+              <label class="block text-sm font-bold text-gray-900 mb-2">Platform Algorithm Helpers (Hashtags/Keywords): *</label>
+              <p class="text-sm text-gray-500 mb-4">Define the visibility and formatting strategy for each of your selected platforms.</p>
 
-            <!-- IG Block -->
-            <div id="algo_block_ig" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-              <h4 class="font-bold text-gray-800 text-sm mb-2">Instagram Strategy</h4>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_ig" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_ig').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_ig" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_ig').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_ig" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_ig').classList.add('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
-              </label>
-              <div id="algo_custom_tags_ig" class="mt-3 pl-7">
-                <input type="text" id="val_algo_tags_ig" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #InstaGood #Visuals">
+              <div id="algo_block_fb" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                <h4 class="font-bold text-gray-800 text-sm mb-2">Facebook Strategy</h4>
+                <div class="space-y-2">
+                  <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700" checked onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')"><span class="ml-3 text-sm font-bold">Only use my specific tags</span></label>
+                  <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700" onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')"><span class="ml-3 text-sm font-bold">Use mine, and add relevant ones</span></label>
+                  <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700" onchange="document.getElementById('algo_custom_tags_fb').classList.add('hidden')"><span class="ml-3 text-sm font-bold">Let the Digital Assistant decide</span></label>
+                </div>
+                <input type="text" id="algo_custom_tags_fb" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #FacebookTips #Community">
+                <hr class="border-gray-100">
+                <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Facebook Group Optimization')">
+                  <input type="checkbox" id="fb_opt_groups" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm font-bold text-emerald-900">Draft version for niche Facebook Groups (Saver+)</span>
+                </label>
               </div>
-              <hr class="my-3 border-gray-100">
-              <h5 class="font-bold text-gray-800 text-xs mb-2">Content Format</h5>
-              <select id="ig_opt_format" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white mb-3">
-                <option value="mix">Optimize for a Mix (Reels, Carousels, Static)</option>
-                <option value="reels">Prioritize Reels (Short, punchy captions)</option>
-                <option value="carousels">Prioritize Carousels (Educational, swipeable steps)</option>
-                <option value="static">Prioritize Static Images</option>
-              </select>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Trending Audio Monitoring')">
-                <input type="checkbox" id="ig_opt_audio" class="h-4 w-4 text-emerald-700 rounded border-gray-300" checked>
-                <span class="ml-2 text-sm text-gray-700">Suggest trending audio concepts for Reels (Saver+)</span>
-              </label>
-            </div>
 
-            <!-- LI Block -->
-            <div id="algo_block_li" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-              <h4 class="font-bold text-gray-800 text-sm mb-2">LinkedIn Strategy</h4>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_li" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_li').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_li" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_li').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_li" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_li').classList.add('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
-              </label>
-              <div id="algo_custom_tags_li" class="mt-3 pl-7">
-                <input type="text" id="val_algo_tags_li" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #Leadership #B2B">
+              <div id="algo_block_ig" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                <h4 class="font-bold text-gray-800 text-sm mb-2">Instagram Strategy</h4>
+                <input type="text" id="algo_custom_tags_ig" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #InstaGood">
+                <select id="ig_opt_format" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
+                  <option value="mix">Optimize for a Mix (Reels, Carousels, Static)</option>
+                  <option value="reels">Prioritize Reels</option>
+                </select>
+                <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Trending Audio Monitoring')">
+                  <input type="checkbox" id="ig_opt_audio" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Suggest trending audio concepts (Saver+)</span>
+                </label>
               </div>
-              <hr class="my-3 border-gray-100">
-              <h5 class="font-bold text-gray-800 text-xs mb-2">Algorithm & Dwell Time</h5>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition mb-2">
-                <input type="checkbox" id="li_opt_links" class="h-4 w-4 text-emerald-700 rounded border-gray-300" checked>
-                <span class="ml-2 text-sm text-gray-700">Anti-Penalty: Place external URLs in the first comment</span>
-              </label>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'PDF Slider Generation')">
-                <input type="checkbox" id="li_opt_sliders" class="h-4 w-4 text-emerald-700 rounded border-gray-300">
-                <span class="ml-2 text-sm text-gray-700">Format educational posts as PDF Slider/Carousel outlines (Saver+)</span>
-              </label>
-            </div>
 
-            <!-- X Block -->
-            <div id="algo_block_x" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-              <h4 class="font-bold text-gray-800 text-sm mb-2">X (Twitter) Strategy</h4>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_x" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_x').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_x" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_x').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_x" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_x').classList.add('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
-              </label>
-              <div id="algo_custom_tags_x" class="mt-3 pl-7">
-                <input type="text" id="val_algo_tags_x" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #TechTrends #BuildInPublic">
+              <div id="algo_block_li" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                <h4 class="font-bold text-gray-800 text-sm mb-2">LinkedIn Strategy</h4>
+                <label class="flex items-center cursor-pointer hover:text-emerald-800 transition"><input type="checkbox" id="li_opt_links" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Anti-Penalty: URLs in first comment</span></label>
+                <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'PDF Slider Generation')"><input type="checkbox" id="li_opt_sliders" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">PDF Slider/Carousel outlines (Saver+)</span></label>
               </div>
-              <hr class="my-3 border-gray-100">
-              <h5 class="font-bold text-gray-800 text-xs mb-2">Format & Velocity</h5>
-              <select id="x_opt_length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white mb-3">
-                <option value="mix">Mix of Threads and Single Posts</option>
-                <option value="single">Strictly single punchy posts (under 280 chars)</option>
-                <option value="threads">Prioritize educational Threads (Deep-dives)</option>
-              </select>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Automated Media Sourcing')">
-                <input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded border-gray-300" checked>
-                <span class="ml-2 text-sm text-gray-700">Include placeholders for me to attach GIFs/Images (Saver+)</span>
-              </label>
+
+              <div id="algo_block_x" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                <h4 class="font-bold text-gray-800 text-sm mb-2">X (Twitter) Strategy</h4>
+                <select id="x_opt_length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
+                  <option value="mix">Mix of Threads and Single Posts</option>
+                </select>
+                <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Automated Media Sourcing')"><input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Include placeholders for media (Saver+)</span></label>
+              </div>
+            </div>
             </div>
           </div>
         </div>
@@ -479,11 +401,12 @@
 <div id="footer-placeholder"></div>
 
 <script>
-  let currentStep = 2; // Starts at 2 because 1 was the Hub Router
+  let currentStep = 2;
   const totalSteps = 8;
   let workflowStepCount = 1;
   const missingFallback = "⚠️ [MISSING - PLEASE UPDATE]";
 
+  // Tier Gating Logic
   const currentTierKey = sessionStorage.getItem('aura_tier') || 'employee';
   const tierConfig = {
     'buster': { maxApps: 1, maxSteps: 1 },
@@ -494,6 +417,7 @@
 
   document.addEventListener("DOMContentLoaded", async () => {
     loadComponent("footer-placeholder", "./components/footer.html");
+    autoExpandTextareas(); // Corrected: Use the unified expander
 
     document.querySelectorAll('input, textarea').forEach(el => {
       el.addEventListener('input', function() {
@@ -501,10 +425,8 @@
         const errorMsg = this.parentNode.querySelector('.error-msg');
         if(errorMsg) errorMsg.classList.add('hidden');
       });
-      initAutoExpand();
     });
 
-    // Clear inline radio errors on change
     document.querySelectorAll('input[type="radio"]').forEach(el => {
       el.addEventListener('change', function() {
         if (this.name === 'trigger_type') document.getElementById('error-trigger')?.classList.add('hidden');
@@ -513,6 +435,89 @@
     });
   });
 
+  // --- Auto-Expansion Logic (Scenario 1, 3, 4) ---
+  function autoExpandTextareas() {
+    document.querySelectorAll('.auto-expand-textarea').forEach(textarea => {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 400);
+      textarea.style.height = newHeight + 'px';
+      textarea.style.overflowY = textarea.scrollHeight > 400 ? 'scroll' : 'hidden';
+    });
+  }
+
+  document.addEventListener('input', (e) => {
+    if (e.target.classList.contains('auto-expand-textarea')) {
+      autoExpandTextareas();
+    }
+  });
+
+  // --- Validation Patterns (Scenario 1 & 3) ---
+  const handlePatterns = {
+    'fb': { regex: /^(https?:\/\/)?(www\.)?facebook\.com\/[\w.-]+$/, example: "https://facebook.com/yourpage" },
+    'ig': { regex: /^@?[a-zA-Z0-9._]{1,30}$/, example: "@yourbrand" },
+    'li': { regex: /^(https?:\/\/)?(www\.)?linkedin\.com\/(in|company)\/[\w-]+\/?$/, example: "https://linkedin.com/in/yourprofile" },
+    'x':  { regex: /^@?[a-zA-Z0-9_]{1,15}$/, example: "@yourhandle" }
+  };
+
+  async function validateHandle(platform, inputEl) {
+    const errorMsg = inputEl.parentNode.querySelector('.handle-feedback');
+    if (!handlePatterns[platform].regex.test(inputEl.value.trim())) {
+      showError(inputEl, errorMsg, `Invalid format. Try: ${handlePatterns[platform].example}`);
+      return false;
+    }
+    showLoading(inputEl);
+    try {
+      const response = await fetch(`/.netlify/functions/verify-handle?platform=${platform}&handle=${encodeURIComponent(inputEl.value.trim())}`);
+      const data = await response.json();
+      if (data.exists) {
+        showSuccess(inputEl, errorMsg);
+        return true;
+      }
+      showError(inputEl, errorMsg, "Account not found. Please check for typos.");
+      return false;
+    } catch (e) {
+      showError(inputEl, errorMsg, "Verification unavailable.");
+      return false;
+    }
+  }
+
+  function showError(el, err, msg) {
+    el.classList.remove('animate-pulse', 'border-green-500');
+    el.classList.add('input-error');
+    err.innerText = msg; err.classList.remove('hidden');
+  }
+  function showSuccess(el, err) {
+    el.classList.remove('animate-pulse', 'input-error');
+    el.classList.add('border-green-500');
+    err.innerText = '✓ Verified'; err.classList.remove('hidden'); err.classList.add('text-green-500');
+  }
+  function showLoading(el) { el.classList.add('animate-pulse'); }
+
+  // --- Step Validation Logic (Scenarios 2 & 4) ---
+  function validateCurrentStep() {
+    let isValid = true;
+    if (currentStep === 2 && document.getElementById('user_story_problem').value.trim().length < 10) {
+      document.getElementById('user_story_problem').classList.add('input-error');
+      isValid = false;
+    } else if (currentStep === 5) {
+      let hasPlatform = false;
+      for (const p of ['fb', 'ig', 'li', 'x']) {
+        const chk = document.getElementById(`chk_${p}`);
+        if (chk?.checked) {
+          hasPlatform = true;
+          const handleEl = document.getElementById(`${p}_handle`);
+          if (!handleEl.classList.contains('border-green-500')) {
+            isValid = false;
+            validateHandle(p, handleEl); // Trigger validation if not verified
+          }
+        }
+      }
+      if (!hasPlatform) { alert("Please select a platform."); isValid = false; }
+    }
+    return isValid;
+  }
+
+  // --- UI & Helper Functions (Kept exactly as yours) ---
   async function loadComponent(placeholderId, filePath) {
     try {
       const response = await fetch(filePath);
@@ -528,24 +533,21 @@
     document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
   }
 
-  // --- Suggestion Populator Engine w/ Animation ---
   function populateProblem(text) {
     const textarea = document.getElementById('user_story_problem');
     textarea.value = text;
-
-    // Clear any previous error states
     textarea.classList.remove('input-error');
     const errorMsg = textarea.parentNode.querySelector('.error-msg');
     if (errorMsg) errorMsg.classList.add('hidden');
 
+    // Trigger expansion after populating
+    autoExpandTextareas();
     // Apply temporary inline styles to create a "Pulse/Glow" effect
     textarea.style.transition = 'all 0.3s ease';
-    textarea.style.backgroundColor = '#ecfdf5'; // Tailwind emerald-50
-    textarea.style.borderColor = '#10b981';     // Tailwind emerald-500
+    textarea.style.backgroundColor = '#ecfdf5';
+    textarea.style.borderColor = '#10b981';
     textarea.style.transform = 'scale(1.02)';
-    textarea.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.2)'; // Emerald ring
-
-    // Revert back to original state after 400ms
+    textarea.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.2)';
     setTimeout(() => {
       textarea.style.backgroundColor = '';
       textarea.style.borderColor = '';
@@ -605,7 +607,7 @@
         prob.nextElementSibling.classList.remove('hidden');
         isValid = false;
       }
-    } else if (currentStep === 3) {
+     } else if (currentStep === 3) {
       const trigger = document.querySelector('input[name="trigger_type"]:checked');
       const errorTrigger = document.getElementById('error-trigger');
       if (!trigger) {
@@ -643,36 +645,34 @@
       });
     } else if (currentStep === 5) {
       let hasPlatform = false;
-      ['fb', 'ig', 'li', 'x'].forEach(p => {
+      let allHandlesValid = true;
+
+      for (const p of ['fb', 'ig', 'li', 'x']) {
         const chk = document.getElementById(`chk_${p}`);
         if (chk && chk.checked) {
           hasPlatform = true;
+          const handleEl = document.getElementById(`${p}_handle`);
 
-          const handle = document.getElementById(`${p}_handle`);
-          if (handle.value.trim() === '') {
-            handle.classList.add('input-error');
-            isValid = false;
+          // Check empty
+          if (handleEl.value.trim() === '') {
+            handleEl.classList.add('input-error');
+            allHandlesValid = false;
           }
-
-          const algoPref = document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value;
-          if (algoPref === 'strict_custom' || algoPref === 'hybrid') {
-            const tagInput = document.getElementById(`val_algo_tags_${p}`);
-            if (tagInput && tagInput.value.trim() === '') {
-              tagInput.classList.add('input-error');
-              isValid = false;
-            }
+          // Check verification (must have green border)
+          else if (!handleEl.classList.contains('border-green-500')) {
+            allHandlesValid = false;
+            validateHandle(p, handleEl); // Trigger validation if it wasn't done
           }
         }
-      });
+      }
 
       if (!hasPlatform) {
-        alert("Please select at least one social media platform and enter a handle.");
+        alert("Please select at least one social media platform.");
+        isValid = false;
+      } else if (!allHandlesValid) {
         isValid = false;
       }
     }
-
-    // Step 6 validation block removed to allow Buster plan unlimited workflow steps
-
     return isValid;
   }
 
@@ -928,8 +928,9 @@
     const rulesStr = strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configured.';
 
     // SCENARIO 5: Inject into the UI text box so the user can review and edit
-    const compiledBrief = `===========================================
-    AURA ENGINEERING BRIEF: SOCIAL MEDIA
+    const compiledBrief = `
+===========================================
+AURA ENGINEERING BRIEF: SOCIAL MEDIA MANAGER BLUEPRINT
 ===========================================
 
 CLIENT DETAILS
@@ -1163,34 +1164,7 @@ ${rulesStr}
     }
     return true;
   }
-  function initAutoExpand() {
-    document.querySelectorAll('textarea').forEach(textarea => {
-      // Satisfies Scenario 4: Set height based on current content on load
-      adjustHeight(textarea);
 
-      textarea.addEventListener('input', function() {
-        adjustHeight(this);
-      });
-    });
-  }
-
-  function adjustHeight(el) {
-    // Reset height to 'auto' to allow shrinking when deleting text
-    el.style.height = 'auto';
-
-    // Calculate the new height
-    const newHeight = el.scrollHeight;
-
-    // Satisfies Scenario 3: Enforce max-height constraint
-    const maxHeight = 400;
-    if (newHeight >= maxHeight) {
-      el.style.height = maxHeight + 'px';
-      el.style.overflowY = 'scroll'; // Show scrollbar when max reached
-    } else {
-      el.style.height = newHeight + 'px';
-      el.style.overflowY = 'hidden'; // Hide scrollbar during expansion
-    }
-  }
   function autoExpandTextareas() {
     document.querySelectorAll('.auto-expand-textarea').forEach(textarea => {
       textarea.style.height = 'auto';
@@ -1211,6 +1185,55 @@ ${rulesStr}
   document.addEventListener("DOMContentLoaded", () => {
     autoExpandTextareas();
   });
+
+  // Validation Patterns
+  const handlePatterns = {
+    'fb': { regex: /^(https?:\/\/)?(www\.)?facebook\.com\/[\w.-]+$/, example: "https://facebook.com/yourpage" },
+    'ig': { regex: /^@?[a-zA-Z0-9._]{1,30}$/, example: "@yourbrand" },
+    'li': { regex: /^(https?:\/\/)?(www\.)?linkedin\.com\/(in|company)\/[\w-]+\/?$/, example: "https://linkedin.com/in/yourprofile" },
+    'x':  { regex: /^@?[a-zA-Z0-9_]{1,15}$/, example: "@yourhandle" }
+  };
+
+  async function validateHandle(platform, inputEl) {
+    const value = inputEl.value.trim();
+    const errorMsg = inputEl.parentNode.querySelector('.handle-error') || createErrorEl(inputEl);
+
+    // 1. Format Check (Scenario 1 & 2)
+    if (!handlePatterns[platform].regex.test(value)) {
+      showError(inputEl, errorMsg, `Invalid format. Try: ${handlePatterns[platform].example}`);
+      return false;
+    }
+
+    // 2. Live Verification (Scenario 3 & 4)
+    showLoading(inputEl);
+    try {
+      const response = await fetch(`/.netlify/functions/verify-handle?platform=${platform}&handle=${encodeURIComponent(value)}`);
+      const data = await response.json();
+
+      if (data.exists) {
+        showSuccess(inputEl, errorMsg);
+        return true;
+      } else {
+        showError(inputEl, errorMsg, "Account not found. Please check for typos.");
+        return false;
+      }
+    } catch (e) {
+      showError(inputEl, errorMsg, "Verification service unavailable. Try again later.");
+      return false;
+    }
+  }
+
+  // Helper UI functions
+  function createErrorEl(el) {
+    const div = document.createElement('div');
+    div.className = 'handle-error text-red-500 text-xs font-bold mt-1';
+    el.parentNode.appendChild(div);
+    return div;
+  }
+
+  function showLoading(el) { /* Add spinner CSS here */ el.classList.add('animate-pulse'); }
+  function showSuccess(el, err) { el.classList.remove('animate-pulse'); el.classList.add('border-green-500'); err.innerText = '✓ Verified'; err.classList.add('text-green-500'); }
+  function showError(el, err, msg) { el.classList.remove('animate-pulse'); el.classList.add('input-error'); err.innerText = msg; err.classList.remove('hidden'); }
 </script>
 </body>
 </html>
