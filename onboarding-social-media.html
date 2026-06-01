@@ -541,9 +541,96 @@
   }
 
   function generateBrief() {
-    const problem = document.getElementById('user_story_problem').value;
-    const workflow = Array.from(document.querySelectorAll('.workflow-step-input')).map(el => el.value).join('\n');
-    document.getElementById('generated_brief').value = `ENGINEERING BRIEF\n\nProblem: ${problem}\n\nWorkflow:\n${workflow}`;
+    const missingFallback = "[MISSING - PLEASE UPDATE]";
+    const hasValue = (val) => val && val.trim() !== '' && val !== missingFallback;
+
+    const clientName = sessionStorage.getItem('aura_client_name') || 'New User';
+    const businessName = sessionStorage.getItem('aura_business_name') || 'Business';
+    const problem = document.getElementById('user_story_problem').value || missingFallback;
+
+    const namePref = document.querySelector('input[name="assistant_name_pref"]:checked')?.value;
+    const customNameInput = document.getElementById('val_assistant_name')?.value;
+    const finalAssistantName = namePref === 'ai_decide' ? '[Assistant to self-determine name]' : (customNameInput || missingFallback);
+
+    const triggerEl = document.querySelector('input[name="trigger_type"]:checked');
+    let triggerText = triggerEl ? triggerEl.nextElementSibling.querySelector('span').innerText : missingFallback;
+    if (triggerEl && triggerEl.value === 'scheduled') {
+      const freq = document.getElementById('schedule_frequency')?.value;
+      if(freq) triggerText += ` (${freq})`;
+    }
+
+    const sourceEl = document.querySelector('input[name="content_source"]:checked');
+    let sourceText = sourceEl ? sourceEl.nextElementSibling.querySelector('span').innerText : missingFallback;
+    if (sourceEl) {
+      const detailInput = sourceEl.closest('label').querySelector('.content-source-detail input');
+      if (detailInput && detailInput.value) sourceText += `: ${detailInput.value}`;
+    }
+
+    let platforms = [];
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      const chk = document.getElementById(`chk_${p}`);
+      if (chk && chk.checked) {
+        const handleEl = document.getElementById(`${p}_handle`);
+        const handle = handleEl ? handleEl.value : missingFallback;
+        platforms.push(`${chk.value} (${handle})`);
+      }
+    });
+    const platformText = platforms.length > 0 ? platforms.join(', ') : missingFallback;
+
+    let generalPreferences = [];
+    let strictRules = [];
+
+    const audience = document.getElementById('val_audience')?.value;
+    const tone = document.getElementById('val_tone')?.value;
+    const pillars = document.getElementById('val_pillars')?.value;
+    const visuals = document.getElementById('val_visuals')?.value;
+    const brainTrust = document.getElementById('val_braintrust')?.value;
+
+    if (hasValue(audience)) generalPreferences.push(`- Target Audience: Cater content to ${audience}.`);
+    if (hasValue(pillars)) generalPreferences.push(`- Core Topics: Focus on ${pillars}.`);
+    if (hasValue(visuals)) generalPreferences.push(`- Visual Strategy: ${visuals}.`);
+    if (hasValue(tone)) generalPreferences.push(`- Preferred Tone: ${tone}`);
+    if (hasValue(brainTrust)) strictRules.push(`- MUST DO: Always cross-reference facts with Knowledge Base at ${brainTrust}`);
+
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      const chk = document.getElementById(`chk_${p}`);
+      if (chk && chk.checked) {
+        const platformName = chk.value;
+        const algoPref = document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value;
+        const customTags = document.getElementById(`val_algo_tags_${p}`)?.value;
+
+        if (algoPref === 'strict_custom' && hasValue(customTags)) {
+          strictRules.push(`- MUST DO (${platformName}): ONLY use exactly these tags: ${customTags}.`);
+        }
+        if (p === 'fb' && document.getElementById('fb_opt_hooks')?.checked) strictRules.push(`- MUST DO (Facebook): ALWAYS end posts with high-engagement hooks.`);
+        if (p === 'li' && document.getElementById('li_opt_links')?.checked) strictRules.push(`- NEVER DO (LinkedIn): External URLs in first comment only.`);
+      }
+    });
+
+    const userRules = document.getElementById('acceptance_criteria_rules')?.value;
+    if (hasValue(userRules)) {
+      userRules.split('\n').forEach(rule => { if (hasValue(rule)) strictRules.push(`- NON-NEGOTIABLE: ${rule.trim()}`); });
+    }
+
+    let workflowText = "";
+    document.querySelectorAll('.workflow-step-input').forEach((input, i) => {
+      if(input.value.trim() !== '') workflowText += `${i + 1}. ${input.value}\n`;
+    });
+
+    const compiledBrief = `
+===========================================
+AURA ENGINEERING BRIEF: SOCIAL MEDIA BLUEPRINT
+===========================================
+CLIENT: ${clientName} | BUSINESS: ${businessName} | ASSISTANT: ${finalAssistantName}
+
+1. PROCESS BOTTLENECK: ${problem}
+2. SOURCING & TRIGGER: ${triggerText} | Source: ${sourceText}
+3. PLATFORMS: ${platformText}
+4. STRATEGY: \n${generalPreferences.join('\n')}
+5. WORKFLOW:\n${workflowText}
+6. STRICT RULES:\n${strictRules.join('\n')}
+`;
+    document.getElementById('generated_brief').value = compiledBrief;
     autoExpandTextareas();
   }
 
