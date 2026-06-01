@@ -234,7 +234,11 @@
                 <span class="ml-2 text-sm text-gray-800">Facebook Page</span>
               </label>
               <div id="fb_handle_container" class="hidden mt-2 ml-6 relative">
-                <label for="fb_handle"></label><input type="text" id="fb_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="yourpage-name">
+                <div class="flex items-center gap-2">
+                  <label for="fb_handle"></label><input type="text" id="fb_handle" oninput="updateLink('fb_handle', 'fb_link')" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="yourpage-name">
+                  <a id="fb_link" href="#" target="_blank" class="text-xs text-emerald-700 font-bold underline hidden">Open</a>
+                </div>
+                <div class="handle-feedback"></div>
               </div>
             </div>
             <div>
@@ -756,7 +760,18 @@ ${strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configure
     body.classList.toggle('hidden');
     document.getElementById(icon).innerText = body.classList.contains('hidden') ? '+' : '-';
   }
+  function updateLink(inputId, linkId) {
+    const input = document.getElementById(inputId);
+    const link = document.getElementById(linkId);
+    const value = input.value.trim();
 
+    if (value.startsWith('http')) {
+      link.href = value;
+      link.classList.remove('hidden');
+    } else {
+      link.classList.add('hidden');
+    }
+  }
 </script>
 </body>
 </html>
