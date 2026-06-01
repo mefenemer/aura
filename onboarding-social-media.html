@@ -810,6 +810,23 @@ ${strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configure
       link.classList.add('hidden');
     }
   }
+  // Add a timer variable at the top of your script section
+  let validationTimer;
+
+  // Update the event listener for your inputs
+  document.querySelectorAll('input[id$="_handle"]').forEach(input => {
+    input.addEventListener('input', function() {
+      clearTimeout(validationTimer);
+
+      // Extract platform code from ID (e.g., "fb_handle" -> "fb")
+      const platform = this.id.split('_')[0];
+
+      // Wait 800ms after last keystroke before verifying
+      validationTimer = setTimeout(() => {
+        validateHandle(platform, this);
+      }, 800);
+    });
+  });
 </script>
 </body>
 </html>
