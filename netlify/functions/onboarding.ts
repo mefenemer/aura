@@ -17,8 +17,8 @@ import {
   aiAssistants,
   payments,
   notifications,
-  masterPlans,        // NEW: Master Catalog
-  masterAssistants    // NEW: Master Catalog
+  masterPlans,
+  masterAssistants
 } from '../../db/schema';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
@@ -37,8 +37,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    
-    // --- NEW: Added 'consents' to the destructured body ---
+
     const { firstName, lastName, email, companyName, tier, blueprint, assistantName, customAssistantName, algorithmConfig, consents } = body;
 
     const fullName = `${firstName || ''} ${lastName || ''}`.trim();
@@ -77,21 +76,25 @@ export const handler: Handler = async (event) => {
     // 2. THE ACID TRANSACTION
     const newWorkspace = await db.transaction(async (tx) => {
 
-      const [newUser] = await tx.insert(users).values({ email }).returning();
+      // --- UPDATED: Insert firstName and lastName into the core users table ---
+      const [newUser] = await tx.insert(users).values({
+        email,
+        firstName: firstName || null,
+        lastName: lastName || null
+      }).returning();
 
-      // --- NEW: Inject the consents payload into the legalConsents audit column ---
+      // --- UPDATED: Map the consents payload directly to the legalConsents column ---
       await tx.insert(userProfiles).values({
         userId: newUser.id,
         displayName: fullName,
         preferences: { theme: 'light', onboardingComplete: true },
-        // NOTE: Make sure legalConsents is defined in userProfiles schema, otherwise this will cause a TS error. If it is not, we might need to remove it or add it. I'll leave it as is.
-        // Wait, earlier the user had a TS error about masterPlanId. The schema has: `preferences: jsonb("preferences"),`. It doesn't have legalConsents.
-        // Let's replace legalConsents with just storing it in preferences.
-        // preferences: { theme: 'light', onboardingComplete: true, legalConsents: consents || {} }
+        legalConsents: consents || {}
       });
 
       let orgId: number | null = null;
 
+      // Note: This logic naturally handles independent users by safely bypassing
+      // the organisation creation if companyName is left empty.
       if (companyName && companyName.trim() !== '') {
         const companySlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + `-${Date.now()}`;
 
@@ -123,15 +126,14 @@ export const handler: Handler = async (event) => {
         userId: newUser.id,
         organisationId: orgId,
         masterAssistantId: masterAssistant?.id,
-        name: finalAssistantName, // Injects user's choice OR the generated random name
-        // Wait, aiAssistantJobRole is not in the schema either, it is `description`? Let me remove it or store it in configuration.
+        name: finalAssistantName,
+        aiAssistantJobRole: masterAssistant?.name || targetAssistantName, // --- UPDATED: Assigned to dedicated column ---
         model: 'gpt-4o',
         systemPrompt: blueprint || 'No blueprint provided.',
         configuration: {
           type: masterAssistant?.roleKey || 'custom',
           active: true,
-          algorithm: algorithmConfig || {},
-          jobRole: masterAssistant?.name || targetAssistantName
+          algorithm: algorithmConfig || {}
         }
       });
 
