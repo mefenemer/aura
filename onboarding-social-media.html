@@ -471,33 +471,64 @@
 
   function validateCurrentStep() {
     let isValid = true;
+
+    // --- Step 2 Validation ---
     if (currentStep === 2) {
       const prob = document.getElementById('user_story_problem');
-      if (prob.value.trim().length < 10) { prob.classList.add('input-error'); isValid = false; }
-    } else if (currentStep === 3) {
-      if (!document.querySelector('input[name="trigger_type"]:checked')) { document.getElementById('error-trigger')?.classList.remove('hidden'); isValid = false; }
-      if (!document.querySelector('input[name="content_source"]:checked')) { document.getElementById('error-source')?.classList.remove('hidden'); isValid = false; }
-    } else if (currentStep === 4) {
+      if (prob.value.trim().length < 10) {
+        prob.classList.add('input-error');
+        prob.nextElementSibling.classList.remove('hidden');
+        isValid = false;
+      }
+    }
+    // --- Step 3 Validation ---
+    else if (currentStep === 3) {
+      if (!document.querySelector('input[name="trigger_type"]:checked')) {
+        document.getElementById('error-trigger')?.classList.remove('hidden');
+        isValid = false;
+      }
+      if (!document.querySelector('input[name="content_source"]:checked')) {
+        document.getElementById('error-source')?.classList.remove('hidden');
+        isValid = false;
+      }
+    }
+    // --- Step 4 Validation ---
+    else if (currentStep === 4) {
       ['val_audience', 'val_tone', 'val_pillars'].forEach(id => {
         const el = document.getElementById(id);
         if (el.value.trim() === '') { el.classList.add('input-error'); isValid = false; }
       });
-    } else if (currentStep === 5) {
+    }
+    // --- Step 5 Validation (With Auto-Prefixing) ---
+    else if (currentStep === 5) {
       let hasPlatform = false, allHandlesValid = true;
+      const prefixes = { 'fb': 'https://facebook.com/', 'li': 'https://linkedin.com/' };
+
       for (const p of ['fb', 'ig', 'li', 'x']) {
         const chk = document.getElementById(`chk_${p}`);
         if (chk?.checked) {
           hasPlatform = true;
           const handleEl = document.getElementById(`${p}_handle`);
-          if (handleEl.value.trim() === '' || !handleEl.classList.contains('border-green-500')) {
+          let val = handleEl.value.trim();
+
+          // Apply auto-prefixing if needed
+          if (prefixes[p] && val !== '' && !val.startsWith('http')) {
+            val = prefixes[p] + val.replace(/^\//, '');
+            handleEl.value = val;
+          }
+
+          // Validate format and verification
+          if (val === '' || !handlePatterns[p].regex.test(val) || !handleEl.classList.contains('border-green-500')) {
             allHandlesValid = false;
-            validateHandle(p, handleEl);
+            handleEl.classList.add('input-error');
+            validateHandle(p, handleEl); // Trigger async validation
           }
         }
       }
       if (!hasPlatform) { alert("Please select a platform."); isValid = false; }
       else if (!allHandlesValid) isValid = false;
     }
+
     return isValid;
   }
 
