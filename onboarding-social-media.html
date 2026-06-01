@@ -608,6 +608,19 @@
   function showUpsellModal(m) { document.getElementById('upsell-message').innerHTML = m; document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0'); }
   function closeUpsellModal() { document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0'); }
   function checkTier(tier, feat) { const tiers = ['buster', 'saver', 'employee']; if (tiers.indexOf(currentTierKey) < tiers.indexOf(tier)) { showUpsellModal(`Upgrade to ${tier} for ${feat}`); return false; } return true; }
+
+  // --- 8. STEP 3 UI HELPERS ---
+  function toggleScheduleDetails() {
+    const triggerEl = document.querySelector('input[name="trigger_type"][value="scheduled"]');
+    document.getElementById('schedule_detail').classList.toggle('hidden', !(triggerEl && triggerEl.checked));
+  }
+
+  function toggleContentSourceDetails() {
+    document.querySelectorAll('.content-source-detail').forEach(el => el.classList.add('hidden'));
+    const checked = document.querySelector('input[name="content_source"]:checked');
+    if(checked) checked.closest('label').querySelector('.content-source-detail').classList.remove('hidden');
+  }
+
 </script>
 </body>
 </html>
