@@ -498,6 +498,7 @@
         const errorMsg = this.parentNode.querySelector('.error-msg');
         if(errorMsg) errorMsg.classList.add('hidden');
       });
+      initAutoExpand();
     });
 
     // Clear inline radio errors on change
@@ -1159,6 +1160,34 @@ ${rulesStr}
       return false;
     }
     return true;
+  }
+  function initAutoExpand() {
+    document.querySelectorAll('textarea').forEach(textarea => {
+      // Satisfies Scenario 4: Set height based on current content on load
+      adjustHeight(textarea);
+
+      textarea.addEventListener('input', function() {
+        adjustHeight(this);
+      });
+    });
+  }
+
+  function adjustHeight(el) {
+    // Reset height to 'auto' to allow shrinking when deleting text
+    el.style.height = 'auto';
+
+    // Calculate the new height
+    const newHeight = el.scrollHeight;
+
+    // Satisfies Scenario 3: Enforce max-height constraint
+    const maxHeight = 400;
+    if (newHeight >= maxHeight) {
+      el.style.height = maxHeight + 'px';
+      el.style.overflowY = 'scroll'; // Show scrollbar when max reached
+    } else {
+      el.style.height = newHeight + 'px';
+      el.style.overflowY = 'hidden'; // Hide scrollbar during expansion
+    }
   }
 </script>
 </body>
