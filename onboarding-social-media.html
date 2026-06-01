@@ -759,11 +759,14 @@
               <div class="flex items-start workflow-step-row step-active mt-4">
                   <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
                   <div class="w-full relative ml-4">
-                      <input type="text" id="workflow_step_${workflowStepCount}" class="workflow-step-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" value="${stepText}">
+                      <textarea id="workflow_step_${workflowStepCount}" class="workflow-step-input auto-expand-textarea w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm">${stepText}</textarea>
                   </div>
               </div>`;
       container.insertAdjacentHTML('beforeend', stepHtml);
     });
+
+    // Call expand here too
+    autoExpandTextareas();
 
        // 5. Auto-Populate the Strict Guardrails & Exceptions text area
     let rules = [];
@@ -1042,10 +1045,11 @@ ${rulesStr}
           <div class="flex items-start workflow-step-row step-active mt-4">
               <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
               <div class="w-full relative ml-4">
-                  <input type="text" id="workflow_step_${workflowStepCount}" class="workflow-step-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="Describe the next action...">
+                  <textarea id="workflow_step_${workflowStepCount}" class="workflow-step-input auto-expand-textarea w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="Describe the next action..."></textarea>
               </div>
           </div>`;
     document.getElementById('workflow-steps-container').insertAdjacentHTML('beforeend', stepHtml);
+    autoExpandTextareas();
   }
 
   async function submitToBackend() {
