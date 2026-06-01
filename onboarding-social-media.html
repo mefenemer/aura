@@ -80,7 +80,7 @@
             <label class="block text-sm font-bold text-gray-700 mb-1">Your Bottleneck: *</label>
             <!-- NEW HELPER TEXT -->
             <p class="text-xs text-gray-500 mb-2">Click a suggestion above, or type your own unique bottleneck below.</p>
-            <textarea id="user_story_problem" rows="5" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none" placeholder="e.g., I spend 4 hours a week researching trends, writing captions in Notion, and manually posting to Instagram..."></textarea>
+            <textarea id="user_story_problem" class="auto-expand-textarea w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm" placeholder="e.g., I spend 4 hours a week researching trends, writing captions in Notion, and manually posting to Instagram..."></textarea>
             <span class="error-msg hidden text-red-500 text-xs font-bold mt-1">Please provide a bit more detail (at least 10 characters).</span>
           </div>
         </div>
@@ -416,7 +416,9 @@
           </button>
 
           <label class="block text-sm font-bold text-gray-700 mb-2">Strict Rules & Exceptions: *</label>
-          <textarea id="acceptance_criteria_rules" rows="5" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none" placeholder="e.g., Never use more than 3 hashtags per post."></textarea>
+          <textarea id="acceptance_criteria_rules"
+                    class="auto-expand-textarea w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none"
+                    placeholder="e.g., Never use more than 3 hashtags per post."></textarea>
 
           <div class="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
             <p class="text-sm font-bold text-emerald-800 mb-1">Approval Protocol:</p>
@@ -431,7 +433,8 @@
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 7 of 8</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Review Your Blueprint</h2>
           <p class="text-gray-500 mb-6">We have compiled your answers into the engineering brief below. Feel free to edit this text directly before submission.</p>
-          <textarea id="generated_brief" rows="22" class="w-full font-mono text-sm border border-gray-300 rounded-lg p-4 mb-4 focus:ring-2 focus:ring-emerald-700 transition shadow-inner bg-gray-50"></textarea>
+          <textarea id="generated_brief"
+                    class="auto-expand-textarea w-full font-mono text-sm border border-gray-300 rounded-lg p-4 mb-4 focus:ring-2 focus:ring-emerald-700 transition shadow-inner bg-gray-50"></textarea>
         </div>
 
         <div id="step-8" class="step-hidden text-center py-4">
@@ -759,9 +762,7 @@
               <div class="flex items-start workflow-step-row step-active mt-4">
                   <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
                   <div class="w-full relative ml-4">
-                      <textarea id="workflow_step_${workflowStepCount}" class="workflow-step-input auto-expand-textarea w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm">${stepText}</textarea>
-                  </div>
-              </div>`;
+                  <textarea id="workflow_step_${workflowStepCount}" class="workflow-step-input auto-expand-textarea w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm">${stepText}</textarea>              </div>`;
       container.insertAdjacentHTML('beforeend', stepHtml);
     });
 
