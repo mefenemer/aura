@@ -270,10 +270,6 @@
             <label class="block text-sm font-bold text-gray-900 mb-2">Platform Algorithm Helpers (Hashtags/Keywords): *</label>
             <p class="text-sm text-gray-500 mb-4">Define the visibility and formatting strategy for each of your selected platforms.</p>
 
-            <div id="algorithm_helpers_container" class="hidden mt-8 border-t border-gray-200 pt-6">
-              <label class="block text-sm font-bold text-gray-900 mb-2">Platform Algorithm Helpers (Hashtags/Keywords): *</label>
-              <p class="text-sm text-gray-500 mb-4">Define the visibility and formatting strategy for each of your selected platforms.</p>
-
               <div id="algo_block_fb" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
                 <h4 class="font-bold text-gray-800 text-sm mb-2">Facebook Strategy</h4>
                 <div class="space-y-2">
@@ -315,9 +311,6 @@
               </div>
             </div>
             </div>
-          </div>
-        </div>
-
 
         <div id="step-6" class="step-hidden">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 6 of 8</span>
@@ -434,16 +427,6 @@
       });
     });
   });
-
-  // --- Auto-Expansion Logic (Scenario 1, 3, 4) ---
-  function autoExpandTextareas() {
-    document.querySelectorAll('.auto-expand-textarea').forEach(textarea => {
-      textarea.style.height = 'auto';
-      const newHeight = Math.min(textarea.scrollHeight, 400);
-      textarea.style.height = newHeight + 'px';
-      textarea.style.overflowY = textarea.scrollHeight > 400 ? 'scroll' : 'hidden';
-    });
-  }
 
   document.addEventListener('input', (e) => {
     if (e.target.classList.contains('auto-expand-textarea')) {
