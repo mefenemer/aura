@@ -228,6 +228,7 @@
 
           <label class="block text-sm font-bold text-gray-900 mb-3">Select Platforms & Enter Handles: *</label>
           <div id="social_platforms_container" class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-4 mb-6">
+            <!-- Facebook -->
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_fb" value="Facebook" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('fb_handle_container', this.checked)">
@@ -235,37 +236,55 @@
               </label>
               <div id="fb_handle_container" class="hidden mt-2 ml-6 relative">
                 <div class="flex items-center gap-2">
-                  <label for="fb_handle"></label><input type="text" id="fb_handle" oninput="updateLink('fb_handle', 'fb_link')" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="yourpage-name">
+                  <input type="text" id="fb_handle" oninput="updateLink('fb_handle', 'fb_link')" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="yourpage-name">
                   <a id="fb_link" href="#" target="_blank" class="text-xs text-emerald-700 font-bold underline hidden">Open</a>
                 </div>
                 <div class="handle-feedback"></div>
               </div>
             </div>
+
+            <!-- Instagram -->
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_ig" value="Instagram" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('ig_handle_container', this.checked)">
                 <span class="ml-2 text-sm text-gray-800">Instagram</span>
               </label>
               <div id="ig_handle_container" class="hidden mt-2 ml-6 relative">
-                <input type="text" id="ig_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="@handle">
+                <div class="flex items-center gap-2">
+                  <input type="text" id="ig_handle" oninput="updateLink('ig_handle', 'ig_link')" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="@handle">
+                  <a id="ig_link" href="#" target="_blank" class="text-xs text-emerald-700 font-bold underline hidden">Open</a>
+                </div>
+                <div class="handle-feedback"></div>
               </div>
             </div>
+
+            <!-- LinkedIn -->
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_li" value="LinkedIn" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('li_handle_container', this.checked)">
                 <span class="ml-2 text-sm text-gray-800">LinkedIn</span>
               </label>
               <div id="li_handle_container" class="hidden mt-2 ml-6 relative">
-                <input type="text" id="li_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="Profile or Company URL">
+                <div class="flex items-center gap-2">
+                  <input type="text" id="li_handle" oninput="updateLink('li_handle', 'li_link')" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="in/yourprofile">
+                  <a id="li_link" href="#" target="_blank" class="text-xs text-emerald-700 font-bold underline hidden">Open</a>
+                </div>
+                <div class="handle-feedback"></div>
               </div>
             </div>
+
+            <!-- X -->
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_x" value="X" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('x_handle_container', this.checked)">
                 <span class="ml-2 text-sm text-gray-800">X (Twitter)</span>
               </label>
               <div id="x_handle_container" class="hidden mt-2 ml-6 relative">
-                <input type="text" id="x_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="@handle">
+                <div class="flex items-center gap-2">
+                  <input type="text" id="x_handle" oninput="updateLink('x_handle', 'x_link')" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="@handle">
+                  <a id="x_link" href="#" target="_blank" class="text-xs text-emerald-700 font-bold underline hidden">Open</a>
+                </div>
+                <div class="handle-feedback"></div>
               </div>
             </div>
           </div>
@@ -459,18 +478,37 @@
   // --- 4. VALIDATION LOGIC ---
   async function validateHandle(platform, inputEl) {
     const errorMsg = inputEl.parentNode.querySelector('.handle-feedback') || createErrorEl(inputEl);
+    const handle = inputEl.value.trim();
 
-    // Bypass format check (Keep this)
-    if (!handlePatterns[platform].regex.test(inputEl.value.trim())) {
+    // 1. Format check
+    if (!handlePatterns[platform].regex.test(handle)) {
       showError(inputEl, errorMsg, `Invalid format.`);
       return false;
     }
 
-    // MOCKING SUCCESS (Replace this entire try/catch block with this until backend is ready)
+    // 2. API Verification
     showLoading(inputEl);
-    await new Promise(resolve => setTimeout(resolve, 800)); // Simulate network lag
-    showSuccess(inputEl, errorMsg);
-    return true;
+    try {
+      const response = await fetch('/.netlify/functions/verify-handle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, handle })
+      });
+
+      const result = await response.json();
+
+      if (result.isLive) {
+        showSuccess(inputEl, errorMsg);
+        inputEl.classList.add('border-green-500'); // Ensure classes match
+        return true;
+      } else {
+        showError(inputEl, errorMsg, "Username not found.");
+        return false;
+      }
+    } catch (err) {
+      showError(inputEl, errorMsg, "Verification unavailable.");
+      return false;
+    }
   }
 
   function validateCurrentStep() {
