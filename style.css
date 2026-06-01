@@ -1969,3 +1969,17 @@ input[type="radio"]:checked + div .radio-indicator {
 .gated-feature span {
   color: #6b7280; /* Gray-500 equivalent */
 }
+/* Auto-expanding textarea styling */
+.auto-expand-textarea {
+  min-height: 120px;
+  max-height: 400px; /* Satisfies Scenario 3 constraints */
+  resize: vertical;  /* Satisfies Scenario 2 (manual resize) */
+
+  /* Modern CSS property for auto-expansion */
+  field-sizing: content;
+
+  /* Fallback for browsers not supporting field-sizing */
+  overflow-y: auto;
+  transition: height 0.1s ease;
+  width: 100%;
+}
