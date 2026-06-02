@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import * as path from 'path';
+import jwt from 'jsonwebtoken';
 
 // Try to load .env from the root of the project
 config({ path: path.resolve(process.cwd(), '.env') });
@@ -26,7 +27,10 @@ const connectionString = process.env.NETLIFY_DATABASE_URL;
 if (!connectionString) {
   throw new Error("CRITICAL: NETLIFY_DATABASE_URL is missing from the environment.");
 }
-
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  throw new Error("CRITICAL: JWT_SECRET is missing.");
+}
 const sql = postgres(connectionString);
 const db = drizzle({ client: sql });
 
@@ -40,13 +44,23 @@ export const handler: Handler = async (event) => {
     // 1. AUTHENTICATION & SESSION EXTRACTION
     // ----------------------------------------------------------------------
     const cookieHeader = event.headers.cookie || '';
-    const sessionMatch = cookieHeader.match(/aura_session=simulated_jwt_for_user_(\d+)/);
+    const match = cookieHeader.match(/aura_session=([^;]+)/);
+    const token = match ? match[1] : null;
 
-    if (!sessionMatch) {
-      return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized. Please log in or verify your account.' }) };
+    if (!token) {
+      return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized: No session token found.' }) };
     }
 
-    const currentUserId = parseInt(sessionMatch[1], 10);
+    let currentUserId: number;
+
+    // Mathematically verify and decode the JWT
+    try {
+      const decoded = jwt.verify(token, jwtSecret) as { userId: number, email: string };
+      currentUserId = decoded.userId;
+    } catch (error) {
+      console.error('JWT Verification Failed:', error);
+      return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized: Invalid or expired session.' }) };
+    }
 
     const [existingUser] = await db.select()
         .from(users)
