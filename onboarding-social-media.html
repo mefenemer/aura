@@ -229,112 +229,111 @@
           <label class="block text-sm font-bold text-gray-900 mb-3">Select Platforms & Enter Handles: *</label>
           <div id="social_platforms_container" class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-4 mb-6">
             <!-- Facebook -->
-            <div id="social_platforms_container" class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-4 mb-6">
-              <div>
-                <label class="flex items-center cursor-pointer">
-                  <input type="checkbox" id="chk_fb" value="Facebook" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('fb_handle_container', this.checked)">
-                  <span class="ml-2 text-sm text-gray-800">Facebook Page</span>
-                </label>
-                <div id="fb_handle_container" class="hidden mt-2 ml-6 relative">
-                  <input type="url" id="fb_handle"
-                         class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
-                         value="https://facebook.com/"
-                         placeholder="https://facebook.com/yourpage">
-                  <div class="handle-feedback"></div>
-                </div>
-              </div>
-
-            <!-- Instagram -->
-              <div>
-                <label class="flex items-center cursor-pointer">
-                  <input type="checkbox" id="chk_ig" value="Instagram" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('ig_handle_container', this.checked)">
-                  <span class="ml-2 text-sm text-gray-800">Instagram</span>
-                </label>
-                <div id="ig_handle_container" class="hidden mt-2 ml-6 relative">
-                  <input type="url" id="ig_handle"
-                         class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
-                         value="https://instagram.com/"
-                         placeholder="https://instagram.com/yourhandle">
-                  <div class="handle-feedback"></div>
-                </div>
-              </div>
-
-            <!-- LinkedIn -->
-              <div>
-                <label class="flex items-center cursor-pointer">
-                  <input type="checkbox" id="chk_li" value="LinkedIn" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('li_handle_container', this.checked)">
-                  <span class="ml-2 text-sm text-gray-800">LinkedIn</span>
-                </label>
-                <div id="li_handle_container" class="hidden mt-2 ml-6 relative">
-                  <input type="url" id="li_handle"
-                         class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
-                         value="https://linkedin.com/in/"
-                         placeholder="https://linkedin.com/in/yourprofile">
-                  <div class="handle-feedback"></div>
-                </div>
-              </div>
-
-            <!-- X -->
-              <div>
-                <label class="flex items-center cursor-pointer">
-                  <input type="checkbox" id="chk_x" value="X" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('x_handle_container', this.checked)">
-                  <span class="ml-2 text-sm text-gray-800">X (Twitter)</span>
-                </label>
-                <div id="x_handle_container" class="hidden mt-2 ml-6 relative">
-                  <input type="url" id="x_handle"
-                         class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
-                         value="https://x.com/"
-                         placeholder="https://x.com/yourhandle">
-                  <div class="handle-feedback"></div>
-                </div>
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_fb" value="Facebook" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('fb_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Facebook Page</span>
+              </label>
+              <div id="fb_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="url" id="fb_handle"
+                       class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
+                       value="https://facebook.com/"
+                       placeholder="https://facebook.com/yourpage">
+                <div class="handle-feedback"></div>
               </div>
             </div>
+
+            <!-- Instagram -->
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_ig" value="Instagram" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('ig_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">Instagram</span>
+              </label>
+              <div id="ig_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="url" id="ig_handle"
+                       class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
+                       value="https://instagram.com/"
+                       placeholder="https://instagram.com/yourhandle">
+                <div class="handle-feedback"></div>
+              </div>
+            </div>
+
+            <!-- LinkedIn -->
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_li" value="LinkedIn" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('li_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">LinkedIn</span>
+              </label>
+              <div id="li_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="url" id="li_handle"
+                       class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
+                       value="https://linkedin.com/in/"
+                       placeholder="https://linkedin.com/in/yourprofile">
+                <div class="handle-feedback"></div>
+              </div>
+            </div>
+
+            <!-- X -->
+            <div>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="chk_x" value="X" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('x_handle_container', this.checked)">
+                <span class="ml-2 text-sm text-gray-800">X (Twitter)</span>
+              </label>
+              <div id="x_handle_container" class="hidden mt-2 ml-6 relative">
+                <input type="url" id="x_handle"
+                       class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
+                       value="https://x.com/"
+                       placeholder="https://x.com/yourhandle">
+                <div class="handle-feedback"></div>
+              </div>
+            </div>
+          </div>
 
           <div id="algorithm_helpers_container" class="hidden mt-8 border-t border-gray-200 pt-6">
             <label class="block text-sm font-bold text-gray-900 mb-2">Platform Algorithm Helpers (Hashtags/Keywords): *</label>
             <p class="text-sm text-gray-500 mb-4">Define the visibility and formatting strategy for each of your selected platforms.</p>
 
-              <div id="algo_block_fb" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-                <h4 class="font-bold text-gray-800 text-sm mb-2">Facebook Strategy</h4>
-                <div class="space-y-2">
-                  <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700" checked onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')"><span class="ml-3 text-sm font-bold">Only use my specific tags</span></label>
-                  <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700" onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')"><span class="ml-3 text-sm font-bold">Use mine, and add relevant ones</span></label>
-                  <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700" onchange="document.getElementById('algo_custom_tags_fb').classList.add('hidden')"><span class="ml-3 text-sm font-bold">Let the Digital Assistant decide</span></label>
-                </div>
-                <input type="text" id="algo_custom_tags_fb" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #FacebookTips #Community">
-                <hr class="border-gray-100">
-                <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Facebook Group Optimization')">
-                  <input type="checkbox" id="fb_opt_groups" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm font-bold text-emerald-900">Draft version for niche Facebook Groups (Saver+)</span>
-                </label>
+            <div id="algo_block_fb" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+              <h4 class="font-bold text-gray-800 text-sm mb-2">Facebook Strategy</h4>
+              <div class="space-y-2">
+                <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700" checked onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')"><span class="ml-3 text-sm font-bold">Only use my specific tags</span></label>
+                <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700" onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')"><span class="ml-3 text-sm font-bold">Use mine, and add relevant ones</span></label>
+                <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700" onchange="document.getElementById('algo_custom_tags_fb').classList.add('hidden')"><span class="ml-3 text-sm font-bold">Let the Digital Assistant decide</span></label>
               </div>
-
-              <div id="algo_block_ig" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-                <h4 class="font-bold text-gray-800 text-sm mb-2">Instagram Strategy</h4>
-                <input type="text" id="algo_custom_tags_ig" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #InstaGood">
-                <select id="ig_opt_format" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
-                  <option value="mix">Optimize for a Mix (Reels, Carousels, Static)</option>
-                  <option value="reels">Prioritize Reels</option>
-                </select>
-                <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Trending Audio Monitoring')">
-                  <input type="checkbox" id="ig_opt_audio" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Suggest trending audio concepts (Saver+)</span>
-                </label>
-              </div>
-
-              <div id="algo_block_li" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-                <h4 class="font-bold text-gray-800 text-sm mb-2">LinkedIn Strategy</h4>
-                <label class="flex items-center cursor-pointer hover:text-emerald-800 transition"><input type="checkbox" id="li_opt_links" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Anti-Penalty: URLs in first comment</span></label>
-                <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'PDF Slider Generation')"><input type="checkbox" id="li_opt_sliders" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">PDF Slider/Carousel outlines (Saver+)</span></label>
-              </div>
-
-              <div id="algo_block_x" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-                <h4 class="font-bold text-gray-800 text-sm mb-2">X (Twitter) Strategy</h4>
-                <select id="x_opt_length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
-                  <option value="mix">Mix of Threads and Single Posts</option>
-                </select>
-                <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Automated Media Sourcing')"><input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Include placeholders for media (Saver+)</span></label>
-              </div>
+              <input type="text" id="algo_custom_tags_fb" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #FacebookTips #Community">
+              <hr class="border-gray-100">
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Facebook Group Optimization')">
+                <input type="checkbox" id="fb_opt_groups" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm font-bold text-emerald-900">Draft version for niche Facebook Groups (Saver+)</span>
+              </label>
             </div>
+
+            <div id="algo_block_ig" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+              <h4 class="font-bold text-gray-800 text-sm mb-2">Instagram Strategy</h4>
+              <input type="text" id="algo_custom_tags_ig" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #InstaGood">
+              <select id="ig_opt_format" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
+                <option value="mix">Optimize for a Mix (Reels, Carousels, Static)</option>
+                <option value="reels">Prioritize Reels</option>
+              </select>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Trending Audio Monitoring')">
+                <input type="checkbox" id="ig_opt_audio" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Suggest trending audio concepts (Saver+)</span>
+              </label>
             </div>
+
+            <div id="algo_block_li" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+              <h4 class="font-bold text-gray-800 text-sm mb-2">LinkedIn Strategy</h4>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition"><input type="checkbox" id="li_opt_links" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Anti-Penalty: URLs in first comment</span></label>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'PDF Slider Generation')"><input type="checkbox" id="li_opt_sliders" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">PDF Slider/Carousel outlines (Saver+)</span></label>
+            </div>
+
+            <div id="algo_block_x" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+              <h4 class="font-bold text-gray-800 text-sm mb-2">X (Twitter) Strategy</h4>
+              <select id="x_opt_length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
+                <option value="mix">Mix of Threads and Single Posts</option>
+              </select>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Automated Media Sourcing')"><input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Include placeholders for media (Saver+)</span></label>
+            </div>
+          </div>
+          </div>
 
         <div id="step-6" class="step-hidden">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 6 of 8</span>
