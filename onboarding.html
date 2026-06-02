@@ -9,17 +9,18 @@
         // ----------------------------------------------------------------------
         // 1. Session Verification Check
         // ----------------------------------------------------------------------
+        // ----------------------------------------------------------------------
+        // 1. Session Verification Check
+        // ----------------------------------------------------------------------
         function enforceAuthentication() {
-            // Look for the specific session cookie set by your verify.ts endpoint
             const hasSession = document.cookie.split('; ').find(row => row.startsWith('aura_session='));
 
             if (!hasSession) {
-                // If the cookie is missing, the user is not verified.
-                // Save their intended destination (optional, but good UX)
+                // If they have no session, they haven't registered or logged in yet.
                 sessionStorage.setItem('return_url', window.location.href);
 
-                // Redirect them to the email check page
-                window.location.href = '/check-email.html';
+                // FIX: Redirect them to the registration page, NOT check-email
+                window.location.href = '/register.html';
             }
         }
 
