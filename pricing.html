@@ -4,14 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pricing | Aura</title>
-    <!--    <script src="https://cdn.tailwindcss.com"></script>-->
     <link href="./style.css" rel="stylesheet">
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
 <div id="nav-placeholder"></div>
 
-<!-- Pricing Header -->
 <header class="py-16 text-center max-w-4xl mx-auto px-4">
     <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">Choose How Much Time to Save</h1>
     <p class="text-xl text-gray-500 mb-6">
@@ -23,10 +21,8 @@
     </div>
 </header>
 
-<!-- Main Pricing Content -->
 <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full mb-20">
 
-    <!-- Tab Controls -->
     <div class="flex justify-center mb-12">
         <div class="inline-flex bg-gray-200 rounded-lg p-1">
             <button id="btn-consumer" onclick="switchTab('consumer')" class="px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 bg-white text-gray-900 shadow-sm cursor-pointer">
@@ -38,11 +34,9 @@
         </div>
     </div>
 
-    <!-- CONSUMER TIER CONTENT -->
     <div id="tab-consumer" class="block animate-fade-in">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
 
-            <!-- Tier 1 -->
             <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 flex flex-col hover:border-emerald-300 transition relative">
                 <div class="h-32 mb-6 rounded-xl overflow-hidden shadow-sm">
                     <img src="https://images.pexels.com/photos/3799830/pexels-photo-3799830.jpeg?auto=compress&cs=tinysrgb&w=800"
@@ -64,10 +58,9 @@
                     <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume:</strong> We handle the maintenance.</span></li>
                     <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>1 Update per month.</strong></span></li>
                 </ul>
-                <a href="onboarding.html" onclick="sessionStorage.setItem('aura_tier', 'buster')" class="...">Delegate This Task</a>
+                <a href="onboarding.html" onclick="sessionStorage.setItem('aura_tier', 'buster')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition mt-auto">Delegate This Task</a>
             </div>
 
-            <!-- Tier 2 (Most Popular) -->
             <div class="bg-white border-2 border-emerald-700 rounded-2xl shadow-md p-8 flex flex-col relative transform md:-translate-y-2">
                 <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-emerald-700 text-white px-4 py-1 rounded-full text-xs font-bold tracking-wide">MOST POPULAR</div>
                 <div class="h-32 mb-6 rounded-xl overflow-hidden shadow-sm">
@@ -90,10 +83,9 @@
                     <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume:</strong> Scales instantly.</span></li>
                     <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>2 Updates per month.</strong></span></li>
                 </ul>
-                <a href="onboarding.html" onclick="sessionStorage.setItem('aura_tier', 'saver')" class="...">Automate My Workflow</a>
+                <a href="onboarding.html" onclick="sessionStorage.setItem('aura_tier', 'saver')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">Automate My Workflow</a>
             </div>
 
-            <!-- Tier 3 -->
             <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 flex flex-col hover:border-emerald-300 transition">
                 <div class="h-32 mb-6 rounded-xl overflow-hidden shadow-sm">
                     <img src="https://images.pexels.com/photos/3807755/pexels-photo-3807755.jpeg?auto=compress&cs=tinysrgb&w=800"
@@ -114,12 +106,11 @@
                     <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Knows your business:</strong> Uses your real data.</span></li>
                     <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume & Tweaks.</strong></span></li>
                 </ul>
-                <a href="onboarding.html" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="...">Hire Your Assistant</a>            </div>
+                <a href="onboarding.html" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-purple-600 bg-purple-50 hover:bg-purple-100 transition mt-auto">Hire Your Assistant</a>            </div>
 
         </div>
     </div>
 
-    <!-- BUSINESS TIER CONTENT -->
     <div id="tab-business" class="hidden animate-fade-in">
         <div class="text-center mb-10">
             <h2 class="text-2xl font-bold text-gray-800">Enterprise-grade automation.</h2>
@@ -137,7 +128,7 @@
                     <li class="flex items-start"><span class="text-gray-800 mr-2">✓</span> <span class="text-gray-600">Up to 3 interconnected digital assistants</span></li>
                     <li class="flex items-start"><span class="text-gray-800 mr-2">✓</span> <span class="text-gray-600">Continuous background optimization</span></li>
                 </ul>
-                <a href="onboarding.html" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="...">Draft Your Custom Brief</a>            </div>
+                <a href="onboarding.html" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-gray-900 bg-gray-100 hover:bg-gray-200 transition mt-auto">Draft Your Custom Brief</a>            </div>
 
             <div class="bg-gray-900 border border-gray-800 rounded-2xl shadow-lg p-8 flex flex-col text-white">
                 <h3 class="text-2xl font-bold text-white mb-2">Custom Architecture</h3>
@@ -150,12 +141,11 @@
                     <li class="flex items-start"><span class="text-emerald-500 mr-2">✓</span> <span class="text-gray-300">Fully bespoke, multi-system integration</span></li>
                     <li class="flex items-start"><span class="text-emerald-500 mr-2">✓</span> <span class="text-gray-300">It reads and remembers your internal company databases</span></li>
                 </ul>
-                <a href="onboarding.html" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="...">Scope Your Architecture</a>
+                <a href="onboarding.html" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-600 transition mt-auto">Scope Your Architecture</a>
             </div>
         </div>
     </div>
 
-    <!-- FAQ SECTION -->
     <div class="max-w-3xl mx-auto mt-24">
         <h2 class="text-3xl font-bold text-center text-gray-900 mb-10">Frequently Asked Questions</h2>
 
