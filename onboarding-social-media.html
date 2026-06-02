@@ -490,10 +490,10 @@
             .replace('@', '')
             .replace(/\/$/, ''); // remove trailing slash
 
-    // 1. Format check using the extracted cleanHandle
-    if (!handlePatterns[platform].regex.test(cleanHandle)) {
-      // Note: You may need to adjust your regexes to be less strict
-      // if you want them to support the raw input format
+    // 1. Format check: Pass if either the full URL or the extracted handle matches the regex
+    const isValidFormat = handlePatterns[platform].regex.test(fullUrl) || handlePatterns[platform].regex.test(cleanHandle);
+
+    if (!isValidFormat) {
       showError(inputEl, errorMsg, `Invalid format.`);
       return false;
     }
@@ -504,7 +504,6 @@
       const response = await fetch('/.netlify/functions/verify-handle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Send the CLEAN handle to your backend
         body: JSON.stringify({ platform, handle: cleanHandle })
       });
 
@@ -512,7 +511,6 @@
 
       if (result.isLive) {
         showSuccess(inputEl, errorMsg);
-        inputEl.classList.add('border-green-500'); // Ensure classes match
         return true;
       } else {
         showError(inputEl, errorMsg, "Username not found.");
@@ -522,6 +520,21 @@
       showError(inputEl, errorMsg, "Verification unavailable.");
       return false;
     }
+  }
+
+  // Inject strict Tailwind text colors to override default div styling
+  function showSuccess(el, err) {
+    el.classList.remove('animate-pulse', 'input-error', 'border-red-500');
+    el.classList.add('border-green-500');
+    err.innerText = '✓ Verified';
+    err.className = 'handle-feedback text-sm font-bold text-green-600 mt-1';
+  }
+
+  function showError(el, err, msg) {
+    el.classList.remove('animate-pulse', 'border-green-500');
+    el.classList.add('input-error', 'border-red-500');
+    err.innerText = msg;
+    err.className = 'handle-feedback text-sm font-bold text-red-600 mt-1';
   }
 
   function validateCurrentStep() {
