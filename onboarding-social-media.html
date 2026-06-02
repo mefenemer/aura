@@ -168,11 +168,11 @@
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Name Your Digital Assistant: *</label>
               <p class="text-xs text-gray-500 mb-2">Give your assistant a custom name, or let us pick one for you.</p>
-              <div class="flex items-center gap-2 mb-1">
+              <div class="flex items-center gap-3 mb-1">
                 <label for="val_assistant_name" class="sr-only">Assistant Name</label>
                 <input type="text" id="val_assistant_name" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., ContentBot 9000...">
-                <button type="button" onclick="generateRandomName()" class="whitespace-nowrap px-4 py-3 bg-emerald-100 text-emerald-800 font-bold rounded-lg hover:bg-emerald-200 transition shadow-sm flex items-center gap-2" title="Generate a random name">
-                  <span>✨</span> Surprise Me
+                <button type="button" onclick="generateRandomName()" class="whitespace-nowrap px-3 py-2 text-sm bg-emerald-100 text-emerald-800 font-bold rounded-lg hover:bg-emerald-200 transition shadow-sm flex items-center gap-1.5" title="Generate a random name">
+                  <span class="text-base">✨</span> Surprise Me
                 </button>
               </div>
               <span id="error-assistant-name" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">Please enter a name or generate a random one.</span>
@@ -440,11 +440,20 @@
     loadComponent("footer-placeholder", "./components/footer.html");
     autoExpandTextareas();
 
+    // Clears standard errors on typing
     document.querySelectorAll('input, textarea').forEach(el => {
       el.addEventListener('input', function() {
         this.classList.remove('input-error');
         const errorMsg = this.parentNode.querySelector('.error-msg');
         if(errorMsg) errorMsg.classList.add('hidden');
+      });
+    });
+
+    // ADD THIS: Trigger instant format validation for social handles on input
+    document.querySelectorAll('input[id$="_handle"]').forEach(input => {
+      input.addEventListener('input', function() {
+        const platform = this.id.split('_')[0]; // gets 'fb', 'ig', etc.
+        validateHandle(platform, this);
       });
     });
 
@@ -570,16 +579,21 @@
             handleEl.value = val;
           }
 
-          // Validate format and verification
-          if (val === '' || !handlePatterns[p].regex.test(val) || !handleEl.classList.contains('border-green-500')) {
+          // Use the newly synchronous validateHandle to check format
+          const isFormatValid = validateHandle(p, handleEl);
+          if (!isFormatValid) {
             allHandlesValid = false;
             handleEl.classList.add('input-error');
-            validateHandle(p, handleEl); // Trigger async validation
           }
         }
       }
-      if (!hasPlatform) { alert("Please select a platform."); isValid = false; }
-      else if (!allHandlesValid) isValid = false;
+
+      if (!hasPlatform) {
+        alert("Please select a platform.");
+        isValid = false;
+      } else if (!allHandlesValid) {
+        isValid = false;
+      }
     }
 
     return isValid;
@@ -778,8 +792,7 @@ ${strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configure
   function showSuccess(el, err) {
     el.classList.remove('animate-pulse', 'input-error', 'border-red-500');
     el.classList.add('border-green-500');
-    err.innerText = '✓ Verified';
-    // Completely reset classes to ensure it is visible and green
+    err.innerText = '✓ Valid format'; // Changed to be more accurate
     err.className = 'handle-feedback text-xs font-bold text-green-600 mt-1 block';
   }
 
