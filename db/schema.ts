@@ -9,7 +9,7 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
-// Core users table — the central entity all other tables reference
+// Organisations table — companies or groups users belong to
 export const organisations = pgTable('organisations', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
@@ -18,16 +18,23 @@ export const organisations = pgTable('organisations', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
-// Organisations table — companies or groups users belong to
+// Core users table — the central entity all other tables reference
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   firstName: text('first_name'),
   lastName: text('last_name'),
   organisationId: integer('organisation_id').references(() => organisations.id),
   email: text('email').notNull().unique(),
+
+  // Authentication & Verification State
+  status: text('status').notNull().default('pending_verification'),
+  verificationToken: text('verification_token'),
+  tokenExpiresAt: timestamp('token_expires_at'),
+
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
+
 // Junction table linking users to organisations with a role
 export const userOrganisations = pgTable("user_organisations", {
   id: serial().primaryKey(),
@@ -44,12 +51,13 @@ export const userOrganisations = pgTable("user_organisations", {
 // Plans table — subscription or service plans associated with a user
 export const plans = pgTable("plans", {
   id: serial().primaryKey(),
-  userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+  // FIX: Made userId optional to fully support the Org-centric architecture
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
   masterPlanId: integer("master_plan_id").references(() => masterPlans.id),
   planName: text("plan_name").notNull(),
-  planType: text("plan_type").notNull(),
+  // FIX: Added default fallback for planType
+  planType: text("plan_type").notNull().default("subscription"),
   status: text("status").notNull().default("active"),
   maxSeats: integer("max_seats"),
   startedAt: timestamp("started_at").defaultNow().notNull(),
@@ -83,10 +91,8 @@ export const payments = pgTable("payments", {
   userId: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-  // NEW: Link to Organisation
   organisationId: integer("organisation_id")
       .references(() => organisations.id, { onDelete: "cascade" }),
-  // NEW: Link to the specific Plan
   planId: integer("plan_id")
       .references(() => plans.id, { onDelete: "cascade" }),
   masterPlanId: integer("master_plan_id").references(() => masterPlans.id),
@@ -107,10 +113,10 @@ export const aiAssistants = pgTable("ai_assistants", {
   userId: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-  organisationId: integer("organisation_id").references(() => organisations.id, {
-    onDelete: "cascade",
-  }),
-  // NEW: Link to the Master Catalog
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id,
+      {
+        onDelete: "cascade",
+      }),
   masterAssistantId: integer("master_assistant_id").references(() => masterAssistants.id),
   name: text("name").notNull(),
   aiAssistantJobRole: text("ai_assistant_job_role"),
@@ -121,6 +127,7 @@ export const aiAssistants = pgTable("ai_assistants", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
 // User profiles table — extended profile details for a user
 export const userProfiles = pgTable("user_profiles", {
   id: serial().primaryKey(),
@@ -171,14 +178,15 @@ export const systemConnections = pgTable("system_connections", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
 // -----------------------------------------------------------------------------
 // MASTER CATALOG TABLES (Single Source of Truth for Pricing & Features)
 // -----------------------------------------------------------------------------
 
 export const masterPlans = pgTable("master_plans", {
   id: serial().primaryKey(),
-  tierKey: text("tier_key").notNull().unique(), // e.g., 'buster', 'saver', 'employee'
-  name: text("name").notNull(),                 // e.g., 'The Busywork Buster'
+  tierKey: text("tier_key").notNull().unique(),
+  name: text("name").notNull(),
   monthlyPriceGbp: numeric("monthly_price_gbp", { precision: 10, scale: 2 }).notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -186,8 +194,8 @@ export const masterPlans = pgTable("master_plans", {
 
 export const masterAssistants = pgTable("master_assistants", {
   id: serial().primaryKey(),
-  roleKey: text("role_key").notNull().unique(), // e.g., 'social_media', 'paid_ads'
-  name: text("name").notNull(),                 // e.g., 'Social Media Manager'
+  roleKey: text("role_key").notNull().unique(),
+  name: text("name").notNull(),
   description: text("description"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),

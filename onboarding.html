@@ -5,6 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Onboarding | Aura</title>
     <link href="./style.css" rel="stylesheet">
+    <script>
+        // ----------------------------------------------------------------------
+        // 1. Session Verification Check
+        // ----------------------------------------------------------------------
+        function enforceAuthentication() {
+            // Look for the specific session cookie set by your verify.ts endpoint
+            const hasSession = document.cookie.split('; ').find(row => row.startsWith('aura_session='));
+
+            if (!hasSession) {
+                // If the cookie is missing, the user is not verified.
+                // Save their intended destination (optional, but good UX)
+                sessionStorage.setItem('return_url', window.location.href);
+
+                // Redirect them to the email check page
+                window.location.href = '/check-email.html';
+            }
+        }
+
+        // Run the check immediately
+        enforceAuthentication();
+
+        // ----------------------------------------------------------------------
+        // 2. Handling Backend Rejections (Failsafe)
+        // ----------------------------------------------------------------------
+        // When your form submits to the /api/provision-workspace endpoint,
+        // it should elegantly handle the 401/403 errors we set up in the backend.
+
+        async function submitOnboardingForm(payload) {
+            try {
+                const response = await fetch('/.netlify/functions/onboarding', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.status === 401 || response.status === 403) {
+                    // The backend caught an unverified user that bypassed the frontend check
+                    alert("Your account is pending verification. Please check your email.");
+                    window.location.href = '/check-email.html';
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Success! Redirect to the dashboard
+                    window.location.href = '/dashboard.html';
+                } else {
+                    console.error("Provisioning Error:", data.error);
+                    alert(data.error || "Something went wrong.");
+                }
+            } catch (error) {
+                console.error("Network Error:", error);
+            }
+        }
+    </script>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 

@@ -36,126 +36,128 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const body = JSON.parse(event.body || '{}');
-
-    const { firstName, lastName, email, companyName, tier, blueprint, assistantName, customAssistantName, algorithmConfig, consents } = body;
-
-    const fullName = `${firstName || ''} ${lastName || ''}`.trim();
-    const planKey = tier?.toLowerCase() || 'employee';
-    const targetAssistantName = assistantName || 'Social Media Manager';
-
     // ----------------------------------------------------------------------
-    // Random Name Generator for when the user selects "Let AI Decide"
+    // 1. AUTHENTICATION & SESSION EXTRACTION
     // ----------------------------------------------------------------------
-    const auraNames = ['Chloe', 'Atlas', 'Nova', 'Echo', 'Orion', 'Lyra', 'Sage', 'Finn', 'Maya', 'Theo'];
-    const randomName = auraNames[Math.floor(Math.random() * auraNames.length)];
+    const cookieHeader = event.headers.cookie || '';
+    const sessionMatch = cookieHeader.match(/aura_session=simulated_jwt_for_user_(\d+)/);
 
-    // If the user provided a custom name, use it. Otherwise, assign the random name.
-    const finalAssistantName = customAssistantName && customAssistantName.trim() !== ''
-        ? customAssistantName.trim()
-        : randomName;
+    if (!sessionMatch) {
+      return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized. Please log in or verify your account.' }) };
+    }
 
-    // 1. QUERY THE MASTER CATALOG
-    const [masterPlan] = await db.select()
-        .from(masterPlans)
-        .where(eq(masterPlans.tierKey, planKey))
+    const currentUserId = parseInt(sessionMatch[1], 10);
+
+    const [existingUser] = await db.select()
+        .from(users)
+        .where(eq(users.id, currentUserId))
         .limit(1);
 
-    const [masterAssistant] = await db.select()
-        .from(masterAssistants)
-        .where(eq(masterAssistants.name, targetAssistantName))
+    if (!existingUser || existingUser.status !== 'active') {
+      return { statusCode: 403, body: JSON.stringify({ error: 'Account pending verification or does not exist.' }) };
+    }
+
+    const body = JSON.parse(event.body || '{}');
+    const { companyName, tier, blueprint, assistantName, customAssistantName, algorithmConfig, consents } = body;
+
+    // ----------------------------------------------------------------------
+    // 2. QUERY THE MASTER CATALOG
+    // ----------------------------------------------------------------------
+    const [masterPlan] = await db.select()
+        .from(masterPlans)
+        .where(eq(masterPlans.tierKey, tier?.toLowerCase() || 'employee'))
         .limit(1);
 
     if (!masterPlan) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Invalid subscription tier selected.' }) };
     }
 
-    const planAmount = masterPlan.monthlyPriceGbp;
-    const formalPlanName = masterPlan.name;
-
-    // 2. THE ACID TRANSACTION
+    // ----------------------------------------------------------------------
+    // 3. THE ACID TRANSACTION (Workspace Provisioning)
+    // ----------------------------------------------------------------------
     const newWorkspace = await db.transaction(async (tx) => {
 
-      // --- UPDATED: Insert firstName and lastName into the core users table ---
-      const [newUser] = await tx.insert(users).values({
-        email,
-        firstName: firstName || null,
-        lastName: lastName || null
-      }).returning();
-
-      // --- UPDATED: Map the consents payload directly to the legalConsents column ---
+      // Insert User Profile
       await tx.insert(userProfiles).values({
-        userId: newUser.id,
-        displayName: fullName,
+        userId: existingUser.id,
+        displayName: `${existingUser.firstName || ''} ${existingUser.lastName || ''}`.trim() || 'Aura User',
         preferences: { theme: 'light', onboardingComplete: true },
         legalConsents: consents || {}
       });
 
-      let orgId: number | null = null;
+      // Handle organisation naming (Solopreneur vs Business)
+      const finalCompanyName = (companyName && companyName.trim() !== '')
+          ? companyName.trim()
+          : `${existingUser.firstName}'s Workspace`;
 
-      // Note: This logic naturally handles independent users by safely bypassing
-      // the organisation creation if companyName is left empty.
-      if (companyName && companyName.trim() !== '') {
-        const companySlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + `-${Date.now()}`;
+      const companySlug = finalCompanyName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + `-${Date.now()}`;
 
-        const [newOrg] = await tx.insert(organisations).values({
-          name: companyName.trim(),
-          slug: companySlug,
-        }).returning();
+      // Create organisation
+      const [newOrg] = await tx.insert(organisations).values({
+        name: finalCompanyName,
+        slug: companySlug,
+      }).returning();
 
-        orgId = newOrg.id;
+      // Link user to organisation
+      await tx.insert(userOrganisations).values({
+        userId: existingUser.id,
+        organisationId: newOrg.id,
+        role: 'owner'
+      });
 
-        await tx.insert(userOrganisations).values({
-          userId: newUser.id,
-          organisationId: orgId,
-          role: 'owner'
-        });
-      }
-
+      // Create plan (FIX: Included planType and userId explicitly to satisfy TypeScript types)
       const [newPlan] = await tx.insert(plans).values({
-        userId: newUser.id,
+        organisationId: newOrg.id,
+        userId: existingUser.id,
         masterPlanId: masterPlan.id,
-        planName: formalPlanName,
+        planName: masterPlan.name,
         planType: 'subscription'
       }).returning();
 
-      // ----------------------------------------------------------------------
-      // AI Assistant Insertion
-      // ----------------------------------------------------------------------
+      // Look up assistant (Using TX for atomicity)
+      const [assistantRecord] = await tx.select()
+          .from(masterAssistants)
+          .where(eq(masterAssistants.name, assistantName || 'Social Media Manager'))
+          .limit(1);
+
+      // Create AI assistant
       await tx.insert(aiAssistants).values({
-        userId: newUser.id,
-        organisationId: orgId,
-        masterAssistantId: masterAssistant?.id,
-        name: finalAssistantName,
-        aiAssistantJobRole: masterAssistant?.name || targetAssistantName, // --- UPDATED: Assigned to dedicated column ---
+        organisationId: newOrg.id,
+        userId: existingUser.id,
+        masterAssistantId: assistantRecord?.id || null,
+        name: (customAssistantName && customAssistantName.trim() !== '') ? customAssistantName.trim() : 'Digital Assistant',
         model: 'gpt-4o',
-        systemPrompt: blueprint || 'No blueprint provided.',
+        aiAssistantJobRole: assistantRecord?.name || 'General Assistant',
+        systemPrompt: blueprint || 'No system prompt provided.',
         configuration: {
-          type: masterAssistant?.roleKey || 'custom',
+          type: assistantRecord ? assistantRecord.roleKey : 'custom',
           active: true,
           algorithm: algorithmConfig || {}
-        }
+        },
+        isActive: true
       });
 
+      // Record payment
       await tx.insert(payments).values({
-        userId: newUser.id,
-        organisationId: orgId,
+        userId: existingUser.id,
+        organisationId: newOrg.id,
         planId: newPlan.id,
-        amount: planAmount,
+        amount: masterPlan.monthlyPriceGbp,
         currency: 'GBP',
         status: 'pending',
-        description: `Aura ${formalPlanName} Setup`
+        description: `Aura ${masterPlan.name} Setup`
       });
 
+      // Notify user
       await tx.insert(notifications).values({
-        userId: newUser.id,
+        userId: existingUser.id,
         type: 'onboarding_complete',
         title: 'Workspace Provisioned',
-        message: 'Your Aura setup is complete. We are awaiting final payment confirmation to activate your services.',
-        metadata: orgId ? { organisationId: orgId } : {}
+        message: 'Your Aura setup is complete.',
+        metadata: { organisationId: newOrg.id }
       });
 
-      return { userId: newUser.id, organisationId: orgId, paymentAmount: planAmount };
+      return { userId: existingUser.id, organisationId: newOrg.id };
     });
 
     return {
