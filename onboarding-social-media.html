@@ -235,10 +235,10 @@
                 <span class="ml-2 text-sm text-gray-800">Facebook Page</span>
               </label>
               <div id="fb_handle_container" class="hidden mt-2 ml-6 relative">
-                <div class="flex items-center gap-2">
-                  <input type="text" id="fb_handle" oninput="updateLink('fb_handle', 'fb_link')" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="yourpage-name">
-                  <a id="fb_link" href="#" target="_blank" class="text-xs text-emerald-700 font-bold underline hidden">Open</a>
-                </div>
+                <input type="url" id="fb_handle"
+                       class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
+                       value="https://facebook.com/"
+                       placeholder="https://facebook.com/yourpage">
                 <div class="handle-feedback"></div>
               </div>
             </div>
@@ -478,10 +478,22 @@
   // --- 4. VALIDATION LOGIC ---
   async function validateHandle(platform, inputEl) {
     const errorMsg = inputEl.parentNode.querySelector('.handle-feedback') || createErrorEl(inputEl);
-    const handle = inputEl.value.trim();
+    let fullUrl = inputEl.value.trim();
 
-    // 1. Format check
-    if (!handlePatterns[platform].regex.test(handle)) {
+    // EXTRACTION LOGIC: Normalize full URLs to just the handle/path
+    let cleanHandle = rawValue
+            .replace(/^https?:\/\/(www\.)?facebook\.com\//i, '')
+            .replace(/^https?:\/\/(www\.)?instagram\.com\//i, '')
+            .replace(/^https?:\/\/(www\.)?linkedin\.com\/(in|company)\//i, '')
+            .replace(/^https?:\/\/(www\.)?twitter\.com\//i, '')
+            .replace(/^https?:\/\/(www\.)?x\.com\//i, '')
+            .replace('@', '')
+            .replace(/\/$/, ''); // remove trailing slash
+
+    // 1. Format check using the extracted cleanHandle
+    if (!handlePatterns[platform].regex.test(cleanHandle)) {
+      // Note: You may need to adjust your regexes to be less strict
+      // if you want them to support the raw input format
       showError(inputEl, errorMsg, `Invalid format.`);
       return false;
     }
@@ -492,7 +504,8 @@
       const response = await fetch('/.netlify/functions/verify-handle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, handle })
+        // Send the CLEAN handle to your backend
+        body: JSON.stringify({ platform, handle: cleanHandle })
       });
 
       const result = await response.json();
