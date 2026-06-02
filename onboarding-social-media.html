@@ -488,13 +488,14 @@
             .replace(/^https?:\/\/(www\.)?twitter\.com\//i, '')
             .replace(/^https?:\/\/(www\.)?x\.com\//i, '')
             .replace('@', '')
-            .replace(/\/$/, ''); // remove trailing slash
+            .replace(/\/$/, '');
 
-    // 1. Format check: Pass if either the full URL or the extracted handle matches the regex
+    // 1. Format check
     const isValidFormat = handlePatterns[platform].regex.test(fullUrl) || handlePatterns[platform].regex.test(cleanHandle);
 
     if (!isValidFormat) {
-      showError(inputEl, errorMsg, `Invalid format.`);
+      // FIX: Use platform-specific helper text from AC
+      showError(inputEl, errorMsg, `Please enter a valid format, e.g., ${handlePatterns[platform].example}`);
       return false;
     }
 
@@ -507,18 +508,24 @@
         body: JSON.stringify({ platform, handle: cleanHandle })
       });
 
+      if (!response.ok) {
+        showError(inputEl, errorMsg, "Verification unavailable right now. Try again.");
+        return true;
+      }
+
       const result = await response.json();
 
       if (result.isLive) {
         showSuccess(inputEl, errorMsg);
         return true;
       } else {
-        showError(inputEl, errorMsg, "Username not found.");
+        // FIX: Use the specific text requested in Scenario 4
+        showError(inputEl, errorMsg, "We couldn't find an active account with this handle. Please check for typos and try again.");
         return false;
       }
     } catch (err) {
       showError(inputEl, errorMsg, "Verification unavailable.");
-      return false;
+      return true;
     }
   }
 
@@ -793,9 +800,28 @@ ${strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configure
   function loadComponent(id, file) { fetch(file).then(r => r.ok && r.text().then(t => document.getElementById(id).innerHTML = t)); }
   function populateProblem(t) { const el = document.getElementById('user_story_problem'); el.value = t; autoExpandTextareas(); }
   function showLoading(el) { el.classList.add('animate-pulse'); }
-  function showSuccess(el, err) { el.classList.remove('animate-pulse', 'input-error'); el.classList.add('border-green-500'); err.innerText = '✓ Verified'; err.classList.remove('hidden'); }
-  function showError(el, err, msg) { el.classList.remove('animate-pulse', 'border-green-500'); el.classList.add('input-error'); err.innerText = msg; err.classList.remove('hidden'); }
-  function createErrorEl(el) { const div = document.createElement('div'); div.className = 'handle-error text-red-500 text-xs font-bold mt-1'; el.parentNode.appendChild(div); return div; }
+  function showSuccess(el, err) {
+    el.classList.remove('animate-pulse', 'input-error', 'border-red-500');
+    el.classList.add('border-green-500');
+    err.innerText = '✓ Verified';
+    // Completely reset classes to ensure it is visible and green
+    err.className = 'handle-feedback text-xs font-bold text-green-600 mt-1 block';
+  }
+
+  function showError(el, err, msg) {
+    el.classList.remove('animate-pulse', 'border-green-500');
+    el.classList.add('input-error', 'border-red-500');
+    err.innerText = msg;
+    // Completely reset classes to ensure it is visible and explicitly red
+    err.className = 'handle-feedback text-xs font-bold text-red-500 mt-1 block';
+  }
+
+  function createErrorEl(el) {
+    const div = document.createElement('div');
+    div.className = 'handle-feedback text-red-500 text-xs font-bold mt-1 block';
+    el.parentNode.appendChild(div);
+    return div;
+  }
   function showUpsellModal(m) { document.getElementById('upsell-message').innerHTML = m; document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0'); }
   function closeUpsellModal() { document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0'); }
 
