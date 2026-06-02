@@ -167,18 +167,15 @@
             <!-- Assistant Naming Section -->
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Name Your Digital Assistant: *</label>
-              <p class="text-xs text-gray-500 mb-2">Give your assistant a custom name, or leave it to us.</p>
-              <div class="flex items-center gap-4 mb-3">
-                <label class="flex items-center cursor-pointer">
-                  <input type="radio" name="assistant_name_pref" value="custom" class="h-4 w-4 text-emerald-700 focus:ring-emerald-700 border-gray-300" checked onchange="document.getElementById('val_assistant_name').classList.remove('hidden')">
-                  <span class="ml-2 text-sm text-gray-800">I'll name it</span>
-                </label>
-                <label class="flex items-center cursor-pointer">
-                  <input type="radio" name="assistant_name_pref" value="ai_decide" class="h-4 w-4 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="document.getElementById('val_assistant_name').classList.add('hidden')">
-                  <span class="ml-2 text-sm text-gray-800">Let the Assistant decide</span>
-                </label>
+              <p class="text-xs text-gray-500 mb-2">Give your assistant a custom name, or let us pick one for you.</p>
+              <div class="flex items-center gap-2 mb-1">
+                <label for="val_assistant_name" class="sr-only">Assistant Name</label>
+                <input type="text" id="val_assistant_name" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., ContentBot 9000...">
+                <button type="button" onclick="generateRandomName()" class="whitespace-nowrap px-4 py-3 bg-emerald-100 text-emerald-800 font-bold rounded-lg hover:bg-emerald-200 transition shadow-sm flex items-center gap-2" title="Generate a random name">
+                  <span>✨</span> Surprise Me
+                </button>
               </div>
-              <label for="val_assistant_name"></label><input type="text" id="val_assistant_name" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Chloe, ContentBot 9000...">
+              <span id="error-assistant-name" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">Please enter a name or generate a random one.</span>
             </div>
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Target Audience: *</label>
@@ -476,7 +473,7 @@
   });
 
   // --- 4. VALIDATION LOGIC ---
-  async function validateHandle(platform, inputEl) {
+  function validateHandle(platform, inputEl) {
     const errorMsg = inputEl.parentNode.querySelector('.handle-feedback') || createErrorEl(inputEl);
     let fullUrl = inputEl.value.trim();
 
@@ -490,41 +487,14 @@
             .replace('@', '')
             .replace(/\/$/, '');
 
-    // 1. Format check
+    // Format check
     const isValidFormat = handlePatterns[platform].regex.test(fullUrl) || handlePatterns[platform].regex.test(cleanHandle);
 
     if (!isValidFormat) {
-      // FIX: Use platform-specific helper text from AC
       showError(inputEl, errorMsg, `Please enter a valid format, e.g., ${handlePatterns[platform].example}`);
       return false;
-    }
-
-    // 2. API Verification
-    showLoading(inputEl);
-    try {
-      const response = await fetch('/.netlify/functions/verify-handle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, handle: cleanHandle })
-      });
-
-      if (!response.ok) {
-        showError(inputEl, errorMsg, "Verification unavailable right now. Try again.");
-        return true;
-      }
-
-      const result = await response.json();
-
-      if (result.isLive) {
-        showSuccess(inputEl, errorMsg);
-        return true;
-      } else {
-        // FIX: Use the specific text requested in Scenario 4
-        showError(inputEl, errorMsg, "We couldn't find an active account with this handle. Please check for typos and try again.");
-        return false;
-      }
-    } catch (err) {
-      showError(inputEl, errorMsg, "Verification unavailable.");
+    } else {
+      showSuccess(inputEl, errorMsg);
       return true;
     }
   }
@@ -569,9 +539,17 @@
     }
     // --- Step 4 Validation ---
     else if (currentStep === 4) {
-      ['val_audience', 'val_tone', 'val_pillars'].forEach(id => {
+      ['val_assistant_name', 'val_audience', 'val_tone', 'val_pillars'].forEach(id => {
         const el = document.getElementById(id);
-        if (el.value.trim() === '') { el.classList.add('input-error'); isValid = false; }
+        if (el.value.trim() === '') {
+          el.classList.add('input-error');
+
+          // Trigger the specific error message for the name field if it's the one failing
+          if (id === 'val_assistant_name') {
+            document.getElementById('error-assistant-name').classList.remove('hidden');
+          }
+          isValid = false;
+        }
       });
     }
     // --- Step 5 Validation (With Auto-Prefixing) ---
@@ -666,10 +644,7 @@
     const clientName = sessionStorage.getItem('aura_client_name') || 'New User';
     const businessName = sessionStorage.getItem('aura_business_name') || 'Business';
     const problem = document.getElementById('user_story_problem').value || missingFallback;
-    const finalAssistantName = (document.querySelector('input[name="assistant_name_pref"]:checked')?.value === 'ai_decide')
-            ? '[Assistant to self-determine name]'
-            : (document.getElementById('val_assistant_name')?.value || missingFallback);
-
+    const finalAssistantName = document.getElementById('val_assistant_name')?.value || missingFallback;
     const triggerText = document.querySelector('input[name="trigger_type"]:checked')?.nextElementSibling.querySelector('span').innerText || missingFallback;
     const sourceText = document.querySelector('input[name="content_source"]:checked')?.nextElementSibling.querySelector('span').innerText || missingFallback;
 
@@ -850,24 +825,30 @@ ${strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configure
     body.classList.toggle('hidden');
     document.getElementById(icon).innerText = body.classList.contains('hidden') ? '+' : '-';
   }
+  // --- RANDOM NAME GENERATOR LOGIC ---
+  const assistantNames = [
+    "Gracie", "Charlie", "Mabel", "Nova", "Atlas",
+    "Echo", "Chloe", "Orion", "Sage", "Aura-Bot"
+  ];
+  let currentNameIndex = -1;
 
-  // Add a timer variable at the top of your script section
-  let validationTimer;
+  function generateRandomName() {
+    const nameInput = document.getElementById('val_assistant_name');
+    const errorMsg = document.getElementById('error-assistant-name');
 
-  // Update the event listener for your inputs
-  document.querySelectorAll('input[id$="_handle"]').forEach(input => {
-    input.addEventListener('input', function() {
-      clearTimeout(validationTimer);
+    // Cycle logic: Ensure we don't pick the exact same name twice in a row
+    let nextIndex;
+    do {
+      nextIndex = Math.floor(Math.random() * assistantNames.length);
+    } while (nextIndex === currentNameIndex && assistantNames.length > 1);
 
-      // Extract platform code from ID (e.g., "fb_handle" -> "fb")
-      const platform = this.id.split('_')[0];
+    currentNameIndex = nextIndex;
+    nameInput.value = assistantNames[currentNameIndex];
 
-      // Wait 800ms after last keystroke before verifying
-      validationTimer = setTimeout(() => {
-        validateHandle(platform, this);
-      }, 800);
-    });
-  });
+    // Clear any existing validation errors when a name is generated
+    nameInput.classList.remove('input-error');
+    if(errorMsg) errorMsg.classList.add('hidden');
+  }
 </script>
 </body>
 </html>
