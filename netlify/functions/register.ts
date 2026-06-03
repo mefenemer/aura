@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, organisations, userOrganisations } from '../../db/schema';
+import { sendMagicLinkEmail } from '../../src/utils/email';
 
 const slugify = (str: string) =>
     str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -59,8 +60,27 @@ export const handler: Handler = async (event) => {
 
             return newUser;
         });
+// 👈 NEW: Construct the link and send the email
+        // Netlify injects process.env.URL in production automatically
+        const baseUrl = process.env.URL || 'http://localhost:8888';
+        const magicLink = `${baseUrl}/.netlify/functions/verify?token=${verificationToken}`;
 
-        console.log(`Simulated Email Sent to ${email} with token: ${verificationToken}`);
+        await sendMagicLinkEmail({
+            to: email,
+            subject: 'Verify your Aura Assist Account',
+            html: `
+                <div style="font-family: sans-serif; text-align: center; padding: 40px 20px; background-color: #fdfcf9;">
+                    <div style="max-width: 500px; margin: 0 auto; background-color: white; padding: 40px; border-radius: 16px; border: 1px solid #eae4d7; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                        <h2 style="color: #1f1e1b; margin-top: 0;">Welcome to Aura Assist</h2>
+                        <p style="color: #5c564b; font-size: 16px; line-height: 1.5;">Click the button below to securely verify your account and complete your workspace setup.</p>
+                        <a href="${magicLink}" style="background-color: #00e55c; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; margin: 24px 0; font-weight: bold; font-size: 16px;">
+                            Verify Account
+                        </a>
+                        <p style="color: #787263; font-size: 14px; margin-bottom: 0;">This secure link expires in 24 hours.</p>
+                    </div>
+                </div>
+            `
+        });
 
         return {
             statusCode: 200,

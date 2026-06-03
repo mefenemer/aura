@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client'; // 👈 Unified client utility applied
 import { users } from '../../db/schema';
+import { sendMagicLinkEmail } from '../../src/utils/email'; // 👈 Resend utility integration
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -16,7 +17,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'Email is required.' }) };
         }
 
-        // 👈 FIX: Normalize the email to prevent silent case-mismatch failures
+        // Normalize the email to prevent silent case-mismatch failures
         const email = body.email.trim().toLowerCase();
         const db = getDb();
 
@@ -36,7 +37,7 @@ export const handler: Handler = async (event) => {
 
         // 2. Generate a new secure token and expiration
         const newVerificationToken = crypto.randomBytes(32).toString('hex');
-        const newTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const newTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
         // 3. Update the user record
         await db.update(users)
@@ -46,8 +47,26 @@ export const handler: Handler = async (event) => {
             })
             .where(eq(users.id, existingUser.id));
 
-        // 4. SEND THE EMAIL (Placeholder)
-        console.log(`Simulated RESEND Email to ${email} with new token: ${newVerificationToken}`);
+        // 4. Construct the link and send the email
+        const baseUrl = process.env.URL || 'http://localhost:8888';
+        const magicLink = `${baseUrl}/.netlify/functions/verify?token=${newVerificationToken}`;
+
+        await sendMagicLinkEmail({
+            to: email,
+            subject: 'Your New Aura Assist Verification Link',
+            html: `
+                <div style="font-family: sans-serif; text-align: center; padding: 40px 20px; background-color: #fdfcf9;">
+                    <div style="max-width: 500px; margin: 0 auto; background-color: white; padding: 40px; border-radius: 16px; border: 1px solid #eae4d7; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                        <h2 style="color: #1f1e1b; margin-top: 0;">Verify your Account</h2>
+                        <p style="color: #5c564b; font-size: 16px; line-height: 1.5;">You requested a new verification link. Click the button below to securely verify your account and complete your workspace setup.</p>
+                        <a href="${magicLink}" style="background-color: #00e55c; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; margin: 24px 0; font-weight: bold; font-size: 16px;">
+                            Verify Account
+                        </a>
+                        <p style="color: #787263; font-size: 14px; margin-bottom: 0;">This secure link expires in 24 hours.</p>
+                    </div>
+                </div>
+            `
+        });
 
         return {
             statusCode: 200,
