@@ -23,7 +23,7 @@ export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   firstName: text('first_name'),
   lastName: text('last_name'),
-  companyName: text('company_name'), // 👈 Add this column definition
+  // companyName column removed to rely solely on the robust organisations table
   organisationId: integer('organisation_id').references(() => organisations.id),
   email: text('email').notNull().unique(),
 

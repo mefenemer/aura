@@ -1,23 +1,8 @@
-import { config } from 'dotenv';
-import * as path from 'path';
-import * as crypto from 'crypto';
-
-// Load .env from the root
-config({ path: path.resolve(process.cwd(), '.env') });
-
 import { Handler } from '@netlify/functions';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
 import { eq } from 'drizzle-orm';
-import { users } from '../../db/schema'; // Ensure path is correct
-
-const connectionString = process.env.NETLIFY_DATABASE_URL;
-if (!connectionString) {
-    throw new Error("CRITICAL: NETLIFY_DATABASE_URL is missing.");
-}
-
-const sql = postgres(connectionString);
-const db = drizzle({ client: sql });
+import * as crypto from 'crypto';
+import { getDb } from '../../db/client'; // 👈 Unified client utility applied
+import { users } from '../../db/schema';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -26,21 +11,22 @@ export const handler: Handler = async (event) => {
 
     try {
         const body = JSON.parse(event.body || '{}');
-        const { email } = body;
 
-        if (!email) {
+        if (!body.email) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Email is required.' }) };
         }
 
-        // 1. Find the user by email
+        // 👈 FIX: Normalize the email to prevent silent case-mismatch failures
+        const email = body.email.trim().toLowerCase();
+        const db = getDb();
+
+        // 1. Find the user by normalized email
         const [existingUser] = await db.select()
             .from(users)
             .where(eq(users.email, email))
             .limit(1);
 
         if (!existingUser) {
-            // For security, do not reveal if the email exists or not to prevent enumeration attacks.
-            // Just return a generic success message.
             return { statusCode: 200, body: JSON.stringify({ message: 'If an account exists, a new link has been sent.' }) };
         }
 
@@ -61,7 +47,6 @@ export const handler: Handler = async (event) => {
             .where(eq(users.id, existingUser.id));
 
         // 4. SEND THE EMAIL (Placeholder)
-        // e.g., await resend.emails.send({ ... });
         console.log(`Simulated RESEND Email to ${email} with new token: ${newVerificationToken}`);
 
         return {

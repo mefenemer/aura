@@ -1,8 +1,15 @@
 // verify.ts
 import { Handler } from '@netlify/functions';
 import { eq, and, gt } from 'drizzle-orm';
-import { getDb } from '../../db/client'; // 👈 No more duplicate config initialization!
+import { getDb } from '../../db/client';
 import { users } from '../../db/schema';
+import jwt from 'jsonwebtoken'; // 👈 Added JWT import
+
+const jwtSecret = process.env.JWT_SECRET;
+
+if (!jwtSecret) {
+    throw new Error("CRITICAL: JWT_SECRET is missing. Please add it to your .env and Netlify dashboard.");
+}
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') {
@@ -41,7 +48,15 @@ export const handler: Handler = async (event) => {
             })
             .where(eq(users.id, user.id));
 
-        const sessionCookie = `aura_session=simulated_jwt_for_user_${user.id}; Path=/; HttpOnly; Secure; SameSite=Strict`;
+        // 3. Issue Authentication (Secure JWT) 👈 Aligned with login.ts
+        const tokenPayload = {
+            userId: user.id,
+            email: user.email,
+        };
+
+        const signedToken = jwt.sign(tokenPayload, jwtSecret, { expiresIn: '7d' });
+
+        const sessionCookie = `aura_session=${signedToken}; Path=/; Secure; SameSite=Strict; Max-Age=${7 * 24 * 60 * 60}`;
 
         return {
             statusCode: 302,
