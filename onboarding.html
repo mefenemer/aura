@@ -374,23 +374,35 @@
     // Modal Handlers
     function showWaitlistModal(event, roleName) {
         event.preventDefault();
+        // Reset modal state
+        document.getElementById('waitlist-form-container').classList.remove('hidden');
+        document.getElementById('waitlist-success').classList.add('hidden');
+        document.getElementById('waitlist-email').value = '';
+
         document.getElementById('waitlist-role-name').innerText = roleName;
-        document.getElementById('waitlist-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        document.getElementById('waitlist-modal').classList.remove('hidden');
+        // Small delay to allow CSS transitions to trigger
+        setTimeout(() => {
+            document.getElementById('waitlist-modal').classList.remove('opacity-0', 'pointer-events-none');
+        }, 10);
     }
     function closeWaitlistModal() {
-        document.getElementById('waitlist-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
+        const modal = document.getElementById('waitlist-modal');
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => { modal.classList.add('hidden'); }, 300);
     }
-    function submitWaitlist(event) {
-        event.preventDefault();
-        document.getElementById('waitlist-form-container').classList.add('hidden');
-        document.getElementById('waitlist-success').classList.remove('hidden');
-    }
+
     function showUpsellModal(message) {
         document.getElementById('upsell-message').innerHTML = message;
-        document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        document.getElementById('upsell-modal').classList.remove('hidden');
+        setTimeout(() => {
+            document.getElementById('upsell-modal').classList.remove('opacity-0', 'pointer-events-none');
+        }, 10);
     }
     function closeUpsellModal() {
-        document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
+        const modal = document.getElementById('upsell-modal');
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => { modal.classList.add('hidden'); }, 300);
     }
 </script>
 </body>

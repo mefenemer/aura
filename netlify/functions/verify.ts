@@ -1,6 +1,7 @@
 // verify.ts
 import { Handler } from '@netlify/functions';
 import { eq, and, gt } from 'drizzle-orm';
+import * as crypto from 'crypto'; // <-- Added to hash incoming tokens
 import { getDb } from '../../db/client';
 import { users } from '../../db/schema';
 import jwt from 'jsonwebtoken';
@@ -23,14 +24,17 @@ export const handler: Handler = async (event) => {
     try {
         // 2. Parse the token from the JSON body
         const body = JSON.parse(event.body || '{}');
-        const token = body.token;
+        const plainToken = body.token;
 
-        if (!token) {
+        if (!plainToken) {
             return {
                 statusCode: 400,
                 body: JSON.stringify({ error: 'Verification token is missing.' })
             };
         }
+
+        // Hash the incoming plain token so it matches what is stored in the DB
+        const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
 
         const db = getDb();
 
@@ -38,7 +42,7 @@ export const handler: Handler = async (event) => {
             .from(users)
             .where(
                 and(
-                    eq(users.verificationToken, token),
+                    eq(users.verificationToken, hashedToken), // Compare against the hashed token
                     gt(users.tokenExpiresAt, new Date())
                 )
             )
@@ -54,7 +58,7 @@ export const handler: Handler = async (event) => {
         await db.update(users)
             .set({
                 status: 'active',
-                verificationToken: null,
+                verificationToken: null, // Clear token after use
                 tokenExpiresAt: null,
             })
             .where(eq(users.id, user.id));

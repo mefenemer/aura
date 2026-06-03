@@ -1,15 +1,9 @@
 import { Handler } from '@netlify/functions';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
-import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client'; // 👈 Protected connection pool
 import { users } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email'; // 👈 Resend utility integration
-
-const jwtSecret = process.env.JWT_SECRET;
-if (!jwtSecret) {
-    throw new Error("CRITICAL: JWT_SECRET is missing.");
-}
 
 export const handler: Handler = async (event) => {
     const db = getDb();
@@ -30,23 +24,25 @@ export const handler: Handler = async (event) => {
             const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
             if (user && user.status === 'active') {
-                const magicLinkToken = crypto.randomBytes(32).toString('hex');
+                // Security: Generate a plain token for the user, and a hashed token for the DB
+                const plainToken = crypto.randomBytes(32).toString('hex');
+                const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
+
                 // Login links should have a shorter lifespan than registration links
                 const tokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
                 await db.update(users)
-                    .set({ verificationToken: magicLinkToken, tokenExpiresAt })
+                    .set({ verificationToken: hashedToken, tokenExpiresAt })
                     .where(eq(users.id, user.id));
 
                 // Construct the link and send the email
-                // Netlify provides DEPLOY_PRIME_URL for branch previews, and falls back to URL for production
-// Dynamically determine the URL based on the incoming request headers
+                // Dynamically determine the URL based on the incoming request headers
                 const host = event.headers?.host || 'localhost:8888';
                 const protocol = host.includes('localhost') ? 'http' : 'https';
                 const baseUrl = `${protocol}://${host}`;
 
-// NEW
-                const magicLink = `${baseUrl}/verify-account.html?token=${magicLinkToken}`;
+                // Send the PLAIN token in the email link
+                const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}`;
                 await sendMagicLinkEmail({
                     to: email,
                     subject: 'Log In to Aura Assist',
@@ -70,45 +66,6 @@ export const handler: Handler = async (event) => {
         } catch (error) {
             console.error('Login Request Error:', error);
             return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error.' }) };
-        }
-    }
-
-    // -------------------------------------------------------------
-    // GET: Consume Magic Link & Issue JWT (Clicked from Email)
-    // -------------------------------------------------------------
-    if (event.httpMethod === 'GET') {
-        try {
-            const token = event.queryStringParameters?.token;
-            if (!token) return { statusCode: 400, body: 'Verification token is missing.' };
-
-            const [user] = await db.select()
-                .from(users)
-                .where(and(eq(users.verificationToken, token), gt(users.tokenExpiresAt, new Date())))
-                .limit(1);
-
-            if (!user) {
-                return { statusCode: 400, body: 'Invalid or expired magic link. Please request a new one.' };
-            }
-
-            // Clear the token so it can't be reused
-            await db.update(users)
-                .set({ verificationToken: null, tokenExpiresAt: null })
-                .where(eq(users.id, user.id));
-
-            // Issue the Authentication JWT
-            const signedToken = jwt.sign({ userId: user.id, email: user.email }, jwtSecret, { expiresIn: '7d' });
-            const sessionCookie = `aura_session=${signedToken}; Path=/; Secure; SameSite=Strict; Max-Age=${7 * 24 * 60 * 60}`;
-
-            return {
-                statusCode: 302,
-                headers: {
-                    'Location': '/dashboard.html', // 👈 Redirects to dashboard, not onboarding
-                    'Set-Cookie': sessionCookie
-                },
-            };
-        } catch (error) {
-            console.error('Login Verification Error:', error);
-            return { statusCode: 500, body: 'An internal error occurred.' };
         }
     }
 

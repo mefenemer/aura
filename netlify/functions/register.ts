@@ -16,7 +16,7 @@ export const handler: Handler = async (event) => {
     try {
         const body = JSON.parse(event.body || '{}');
 
-        // 👈 FIX: Destructure and immediately normalize the email
+        // Destructure and immediately normalize the email
         const rawEmail = body.email || '';
         const email = rawEmail.trim().toLowerCase();
 
@@ -28,16 +28,18 @@ export const handler: Handler = async (event) => {
 
         const db = getDb();
 
-        const verificationToken = crypto.randomBytes(32).toString('hex');
+        // Security: Generate a plain token for the user, and a hashed token for the DB
+        const plainToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
         const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
         const resultUser = await db.transaction(async (tx) => {
             const [newUser] = await tx.insert(users).values({
-                email, // 👈 Now strictly lowercase
+                email,
                 firstName,
                 lastName,
                 status: 'pending_verification',
-                verificationToken,
+                verificationToken: hashedToken, // Save the HASHED token
                 tokenExpiresAt
             }).returning();
 
@@ -60,16 +62,15 @@ export const handler: Handler = async (event) => {
 
             return newUser;
         });
-// 👈 NEW: Construct the link and send the email
-        // Netlify injects process.env.URL in production automatically
-        // Netlify provides DEPLOY_PRIME_URL for branch previews, and falls back to URL for production
-// Dynamically determine the URL based on the incoming request headers
+
+        // Dynamically determine the URL based on the incoming request headers
         const host = event.headers?.host || 'localhost:8888';
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const baseUrl = `${protocol}://${host}`;
 
-// NEW
-        const magicLink = `${baseUrl}/verify-account.html?token=${verificationToken}`;
+        // Send the PLAIN token in the email link
+        const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}`;
+
         await sendMagicLinkEmail({
             to: email,
             subject: 'Verify your Aura Assist Account',

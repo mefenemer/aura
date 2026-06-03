@@ -7,6 +7,7 @@ import {
   boolean,
   numeric,
   jsonb,
+  unique,
 } from "drizzle-orm/pg-core";
 
 // Organisations table — companies or groups users belong to
@@ -23,7 +24,6 @@ export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   firstName: text('first_name'),
   lastName: text('last_name'),
-  // companyName column removed to rely solely on the robust organisations table
   organisationId: integer('organisation_id').references(() => organisations.id),
   email: text('email').notNull().unique(),
 
@@ -49,15 +49,26 @@ export const userOrganisations = pgTable("user_organisations", {
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 });
 
+// Leads table — Interest capture for pending AI roles
+export const leads = pgTable('leads', {
+  id: serial('id').primaryKey(),
+  email: text('email').notNull(),
+  opportunityReason: text('opportunity_reason').notNull(),
+  action: text('action').notNull().default('notify user of AI Assistant readiness'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  // Composite unique constraint ensures we don't duplicate interest for the same role
+  emailRoleUnique: unique('email_role_unique').on(t.email, t.opportunityReason)
+}));
+
 // Plans table — subscription or service plans associated with a user
 export const plans = pgTable("plans", {
   id: serial().primaryKey(),
-  // FIX: Made userId optional to fully support the Org-centric architecture
   userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
   organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
   masterPlanId: integer("master_plan_id").references(() => masterPlans.id),
   planName: text("plan_name").notNull(),
-  // FIX: Added default fallback for planType
   planType: text("plan_type").notNull().default("subscription"),
   status: text("status").notNull().default("active"),
   maxSeats: integer("max_seats"),
@@ -180,10 +191,7 @@ export const systemConnections = pgTable("system_connections", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// -----------------------------------------------------------------------------
-// MASTER CATALOG TABLES (Single Source of Truth for Pricing & Features)
-// -----------------------------------------------------------------------------
-
+// MASTER CATALOG TABLES
 export const masterPlans = pgTable("master_plans", {
   id: serial().primaryKey(),
   tierKey: text("tier_key").notNull().unique(),
