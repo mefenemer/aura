@@ -3,28 +3,37 @@ import { Handler } from '@netlify/functions';
 import { eq, and, gt } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users } from '../../db/schema';
-import jwt from 'jsonwebtoken'; // 👈 Added JWT import
+import jwt from 'jsonwebtoken';
 
 const jwtSecret = process.env.JWT_SECRET;
 
 if (!jwtSecret) {
-    throw new Error("CRITICAL: JWT_SECRET is missing. Please add it to your .env and Netlify dashboard.");
+    throw new Error("CRITICAL: JWT_SECRET is missing.");
 }
 
 export const handler: Handler = async (event) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+    // 1. ONLY accept POST requests now
+    if (event.httpMethod !== 'POST') {
+        return {
+            statusCode: 405,
+            body: JSON.stringify({ error: 'Method Not Allowed' })
+        };
     }
 
     try {
-        const token = event.queryStringParameters?.token;
+        // 2. Parse the token from the JSON body
+        const body = JSON.parse(event.body || '{}');
+        const token = body.token;
+
         if (!token) {
-            return { statusCode: 400, body: 'Verification token is missing.' };
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'Verification token is missing.' })
+            };
         }
 
         const db = getDb();
 
-        // 1. Find user with an active, valid token window
         const [user] = await db.select()
             .from(users)
             .where(
@@ -36,10 +45,12 @@ export const handler: Handler = async (event) => {
             .limit(1);
 
         if (!user) {
-            return { statusCode: 400, body: 'Invalid or expired verification link.' };
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'Invalid or expired verification link.' })
+            };
         }
 
-        // 2. Consume token and transition account to active
         await db.update(users)
             .set({
                 status: 'active',
@@ -48,7 +59,6 @@ export const handler: Handler = async (event) => {
             })
             .where(eq(users.id, user.id));
 
-        // 3. Issue Authentication (Secure JWT) 👈 Aligned with login.ts
         const tokenPayload = {
             userId: user.id,
             email: user.email,
@@ -56,17 +66,25 @@ export const handler: Handler = async (event) => {
 
         const signedToken = jwt.sign(tokenPayload, jwtSecret, { expiresIn: '7d' });
 
+        // 3. Set the cookie and return a 200 OK JSON response
         const sessionCookie = `aura_session=${signedToken}; Path=/; Secure; SameSite=Strict; Max-Age=${7 * 24 * 60 * 60}`;
 
         return {
-            statusCode: 302,
+            statusCode: 200,
             headers: {
-                'Location': '/onboarding.html',
-                'Set-Cookie': sessionCookie
+                'Set-Cookie': sessionCookie,
+                'Content-Type': 'application/json'
             },
+            body: JSON.stringify({
+                success: true,
+                redirect: '/onboarding.html'
+            })
         };
     } catch (error) {
         console.error('Verification Error:', error);
-        return { statusCode: 500, body: 'An internal error occurred during verification.' };
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'An internal error occurred.' })
+        };
     }
 };

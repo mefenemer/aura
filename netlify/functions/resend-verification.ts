@@ -54,8 +54,9 @@ export const handler: Handler = async (event) => {
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const baseUrl = `${protocol}://${host}`;
 
-        const magicLink = `${baseUrl}/.netlify/functions/verify?token=${newVerificationToken}`;
-
+// NEW
+// NEW
+        const magicLink = `${baseUrl}/verify-account.html?token=${newVerificationToken}`;
         await sendMagicLinkEmail({
             to: email,
             subject: 'Your New Aura Assist Verification Link',

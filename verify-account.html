@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verifying Account | Aura Assist</title>
+  <style>
+    body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f9fafb; }
+    .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
+    .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    #error-message { color: #ef4444; display: none; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div id="loading-state">
+    <div class="spinner"></div>
+    <h2>Verifying your account...</h2>
+    <p>Please wait while we securely log you in.</p>
+  </div>
+  <div id="error-message">
+    <h2>Verification Failed</h2>
+    <p id="error-text">The link is invalid or has expired.</p>
+    <a href="/login.html">Return to Login</a>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Extract the token from the URL (?token=XYZ)
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    const loadingState = document.getElementById('loading-state');
+    const errorMessage = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+
+    if (!token) {
+      loadingState.style.display = 'none';
+      errorMessage.style.display = 'block';
+      return;
+    }
+
+    try {
+      // 2. Safely POST the token to the backend
+      const response = await fetch('/.netlify/functions/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token })
+      });
+
+      // 3. Handle the response
+      if (response.ok) {
+        const data = await response.json();
+        // The backend successfully set the HTTPOnly cookie.
+        // Redirect the user to the protected dashboard.
+        window.location.href = data.redirect || '/onboarding.html';
+      } else {
+        const errorData = await response.json();
+        loadingState.style.display = 'none';
+        errorMessage.style.display = 'block';
+        errorText.textContent = errorData.error || 'Invalid or expired link.';
+      }
+    } catch (error) {
+      loadingState.style.display = 'none';
+      errorMessage.style.display = 'block';
+      errorText.textContent = 'A network error occurred. Please try again.';
+    }
+  });
+</script>
+
+</body>
+</html>
