@@ -23,7 +23,7 @@ export const sendMagicLinkEmail = async ({ to, subject, html }: SendEmailParams)
     try {
         const data = await resend.emails.send({
             // IMPORTANT: You must verify this domain in your Resend dashboard
-            from: 'Aura Assist <noreply@yourdomain.com>',
+            from: 'Aura Assist <noreply@aura-assist.com>',
             to,
             subject,
             html,
