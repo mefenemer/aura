@@ -62,7 +62,8 @@ export const handler: Handler = async (event) => {
         });
 // 👈 NEW: Construct the link and send the email
         // Netlify injects process.env.URL in production automatically
-        const baseUrl = process.env.URL || 'http://localhost:8888';
+        // Netlify provides DEPLOY_PRIME_URL for branch previews, and falls back to URL for production
+        const baseUrl = process.env.DEPLOY_PRIME_URL || process.env.URL || 'http://localhost:8888';
         const magicLink = `${baseUrl}/.netlify/functions/verify?token=${verificationToken}`;
 
         await sendMagicLinkEmail({

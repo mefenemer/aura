@@ -48,7 +48,8 @@ export const handler: Handler = async (event) => {
             .where(eq(users.id, existingUser.id));
 
         // 4. Construct the link and send the email
-        const baseUrl = process.env.URL || 'http://localhost:8888';
+// Netlify provides DEPLOY_PRIME_URL for branch previews, and falls back to URL for production
+        const baseUrl = process.env.DEPLOY_PRIME_URL || process.env.URL || 'http://localhost:8888';
         const magicLink = `${baseUrl}/.netlify/functions/verify?token=${newVerificationToken}`;
 
         await sendMagicLinkEmail({
