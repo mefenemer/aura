@@ -209,3 +209,15 @@ export const masterAssistants = pgTable("master_assistants", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Add this to your existing db/schema.ts file
+
+export const helpArticles = pgTable('help_articles', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description').notNull(),
+  category: varchar('category', { length: 100 }).notNull(),
+  icon: varchar('icon', { length: 50 }).notNull(),
+  readTime: varchar('read_time', { length: 50 }).default('3 min read'),
+  createdAt: timestamp('created_at').defaultNow()
+});
