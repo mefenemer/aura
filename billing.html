@@ -1,24 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <script src="./auth-check.js"></script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Billing | Aura-Assist</title>
-<!--    <script src="https://cdn.tailwindcss.com"></script>-->
-    <link href="./style.css" rel="stylesheet">
-</head>
-<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
-<div id="nav-placeholder"></div>
-    <header class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+<!-- billing.html -->
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full pb-20">
+
+    <!-- Header -->
+    <div class="mb-10">
         <h1 class="text-3xl font-extrabold text-gray-900">Billing & Subscription</h1>
         <p class="text-gray-500 mt-1">Manage your plan, compute budget, and payment details.</p>
-    </header>
+    </div>
 
-    <main class="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full pb-20 space-y-8">
-        
+    <div class="space-y-8">
+
+        <!-- Plan & Compute Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
+
+            <!-- Current Plan -->
             <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
                 <div class="flex justify-between items-start mb-4">
                     <div>
@@ -43,11 +37,13 @@
                     </li>
                 </ul>
                 <div class="flex gap-3 mt-auto">
+                    <!-- Future Stripe Portal Trigger -->
                     <button class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold py-2 rounded-lg border border-gray-200 transition text-sm">Change Plan</button>
                     <button class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-2 rounded-lg border border-red-100 transition text-sm">Cancel</button>
                 </div>
             </div>
 
+            <!-- Computing Power Cap -->
             <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
                 <div class="flex justify-between items-start mb-4">
                     <div>
@@ -55,7 +51,7 @@
                         <p class="text-sm text-gray-500">Billed at cost, pennies per task.</p>
                     </div>
                 </div>
-                
+
                 <div class="mb-6">
                     <div class="flex justify-between text-sm mb-1">
                         <span class="font-medium text-gray-700">Used this month</span>
@@ -78,6 +74,7 @@
             </div>
         </div>
 
+        <!-- Payment Method -->
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex justify-between items-center">
             <div class="flex items-center gap-4">
                 <div class="bg-gray-100 p-3 rounded-md border border-gray-200">
@@ -88,9 +85,11 @@
                     <p class="text-xs text-gray-500">Expires 12/2028</p>
                 </div>
             </div>
+            <!-- Future Stripe Portal Trigger -->
             <button class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition">Update</button>
         </div>
 
+        <!-- Billing History -->
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="p-6 border-b border-gray-100">
                 <h3 class="text-lg font-bold text-gray-900">Billing History</h3>
@@ -98,118 +97,41 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                            <th class="p-4 font-medium">Date</th>
-                            <th class="p-4 font-medium">Description</th>
-                            <th class="p-4 font-medium">Amount</th>
-                            <th class="p-4 font-medium">Status</th>
-                            <th class="p-4 font-medium text-right">Receipt</th>
-                        </tr>
+                    <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                        <th class="p-4 font-medium">Date</th>
+                        <th class="p-4 font-medium">Description</th>
+                        <th class="p-4 font-medium">Amount</th>
+                        <th class="p-4 font-medium">Status</th>
+                        <th class="p-4 font-medium text-right">Receipt</th>
+                    </tr>
                     </thead>
                     <tbody class="text-sm divide-y divide-gray-100">
-                        <tr class="hover:bg-gray-50 transition">
-                            <td class="p-4 text-gray-600">May 27, 2026</td>
-                            <td class="p-4 font-medium text-gray-900">The Workflow Saver + Compute</td>
-                            <td class="p-4 text-gray-600">£51.42</td>
-                            <td class="p-4">
-                                <span class="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-bold">Paid</span>
-                            </td>
-                            <td class="p-4 text-right">
-                                <a href="#" class="text-emerald-700 hover:text-emerald-800 font-semibold">Download</a>
-                            </td>
-                        </tr>
-                        <tr class="hover:bg-gray-50 transition">
-                            <td class="p-4 text-gray-600">Apr 27, 2026</td>
-                            <td class="p-4 font-medium text-gray-900">The Workflow Saver + Compute</td>
-                            <td class="p-4 text-gray-600">£50.95</td>
-                            <td class="p-4">
-                                <span class="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-bold">Paid</span>
-                            </td>
-                            <td class="p-4 text-right">
-                                <a href="#" class="text-emerald-700 hover:text-emerald-800 font-semibold">Download</a>
-                            </td>
-                        </tr>
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="p-4 text-gray-600">May 27, 2026</td>
+                        <td class="p-4 font-medium text-gray-900">The Workflow Saver + Compute</td>
+                        <td class="p-4 text-gray-600">£51.42</td>
+                        <td class="p-4">
+                            <span class="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-bold">Paid</span>
+                        </td>
+                        <td class="p-4 text-right">
+                            <a href="#" class="text-emerald-700 hover:text-emerald-800 font-semibold">Download</a>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="p-4 text-gray-600">Apr 27, 2026</td>
+                        <td class="p-4 font-medium text-gray-900">The Workflow Saver + Compute</td>
+                        <td class="p-4 text-gray-600">£50.95</td>
+                        <td class="p-4">
+                            <span class="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-bold">Paid</span>
+                        </td>
+                        <td class="p-4 text-right">
+                            <a href="#" class="text-emerald-700 hover:text-emerald-800 font-semibold">Download</a>
+                        </td>
+                    </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-    </main>
-
-</main>
-
-<div id="footer-placeholder"></div>
-
-<script src="./mobileMenu.js"></script>
-
-<script>
-    async function loadComponent(placeholderId, filePath) {
-        try {
-            const response = await fetch(filePath);
-            if (response.ok) {
-                document.getElementById(placeholderId).innerHTML = await response.text();
-            }
-        } catch (error) {
-            console.error(`Error loading component ${filePath}:`, error);
-        }
-    }
-
-    document.addEventListener("DOMContentLoaded", async () => {
-        // 1. Core payload inject
-        await loadComponent("nav-placeholder", "./components/nav.html");
-        loadComponent("footer-placeholder", "./components/footer.html");
-
-        // 2. Initialize the mobile menu
-        setupMobileMenu();
-
-        // 3. Identify active URL path filename
-        const currentPage = window.location.pathname.split("/").pop();
-
-        // 4. Dynamic Title Routing Dictionary
-        const titleMap = {
-            "index.html": "Welcome",
-            "": "Welcome",
-            "pricing.html": "Pricing",
-            "privacy.html": "Privacy Policy",
-            "terms_of_service.html": "Terms of Service",
-            "dashboard.html": "Dashboard",
-            "billing.html": "Billing",
-            "logout.html": "See you Soon"
-        };
-
-        // Inject Context Title
-        const targetTitleSpan = document.getElementById("nav-page-title");
-        if (targetTitleSpan && titleMap[currentPage]) {
-            targetTitleSpan.innerText = `| ${titleMap[currentPage]}`;
-        }
-
-        // 5. Internal App Portal State Management
-        if (currentPage === "dashboard.html" || currentPage === "billing.html") {
-            const publicMenu = document.getElementById("nav-public-links");
-            const appMenu = document.getElementById("nav-app-links");
-
-            if (publicMenu && appMenu) {
-                // Instantly hide public links and show Dashboard/Billing/Log Out
-                publicMenu.classList.add("hidden");
-                appMenu.classList.remove("hidden");
-
-                // Active Page Highlighting
-                if (currentPage === "dashboard.html") {
-                    const dashTab = document.getElementById("nav-link-dashboard");
-                    if (dashTab) {
-                        dashTab.classList.remove("text-gray-600");
-                        dashTab.classList.add("text-emerald-700", "font-bold");
-                    }
-                } else if (currentPage === "billing.html") {
-                    const billTab = document.getElementById("nav-link-billing");
-                    if (billTab) {
-                        billTab.classList.remove("text-gray-600");
-                        billTab.classList.add("text-emerald-700", "font-bold");
-                    }
-                }
-            }
-        }
-    });
-</script>
-</body>
-</html>
+    </div>
+</div>
