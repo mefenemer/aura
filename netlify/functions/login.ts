@@ -52,7 +52,7 @@ export const handler: Handler = async (event) => {
                                 <h2 style="color: #1f1e1b; margin-top: 0;">Welcome Back</h2>
                                 <p style="color: #5c564b; font-size: 16px; line-height: 1.5;">Click the button below to securely log into your Aura Assist dashboard.</p>
                                 <a href="${magicLink}" style="background-color: #00e55c; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; margin: 24px 0; font-weight: bold; font-size: 16px;">
-                                    Log In to Dashboard
+                                    Log In
                                 </a>
                                 <p style="color: #787263; font-size: 14px; margin-bottom: 0;">This secure link expires in 15 minutes.</p>
                             </div>

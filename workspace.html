@@ -7,22 +7,25 @@
   <title>Workspace | Aura-Assist</title>
   <link href="./style.css" rel="stylesheet">
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
+<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen flex flex-col">
 
-<div class="fixed inset-y-0 left-0 z-30 w-64 hidden md:block">
+<div id="mobile-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-30 hidden transition-opacity duration-300 cursor-pointer"></div>
+
+<div id="sidebar-container" class="fixed inset-y-0 left-0 z-40 w-64 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out bg-white shadow-2xl md:shadow-none">
   <div id="sidebar-placeholder" class="h-full"></div>
 </div>
 
 <div class="md:ml-64 flex flex-col min-h-screen">
 
   <header class="sticky top-0 z-20 h-16 bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8">
-    <button class="md:hidden text-gray-500 hover:text-gray-900 focus:outline-none">
+
+    <button id="mobile-menu-btn" class="md:hidden text-gray-500 hover:text-gray-900 focus:outline-none">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
     </button>
 
     <h2 id="header-title" class="text-lg font-bold text-gray-900 hidden md:block">Workspace Overview</h2>
 
-    <div class="flex items-center gap-4 relative">
+    <div class="flex items-center gap-4 relative ml-auto md:ml-0">
       <button class="text-gray-400 hover:text-emerald-600 transition-colors relative">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
         <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
@@ -36,30 +39,66 @@
     </div>
   </header>
 
-  <main class="flex-1 w-full">
-    <div id="workspace-content">
-    </div>
+  <main class="flex-1 w-full bg-gray-50">
+    <div id="workspace-content"></div>
   </main>
 
 </div>
 
 <script>
-  async function loadComponent(placeholderId, filePath) {
-    try {
-      const response = await fetch(filePath);
-      if (response.ok) {
-        document.getElementById(placeholderId).innerHTML = await response.text();
-      }
-    } catch (error) {
-      console.error(`Error loading component ${filePath}:`, error);
+  async function loadSidebar(placeholderId) {
+    // Smart fetch: Tries the components folder first, falls back to the root folder
+    const paths = ["./components/sidebar.html", "./sidebar.html"];
+    for (let path of paths) {
+      try {
+        const response = await fetch(path);
+        if (response.ok) {
+          const container = document.getElementById(placeholderId);
+          container.innerHTML = await response.text();
+
+          // Cleanup: Strip the hardcoded 'hidden' class off the injected sidebar
+          // so it remains visible when we slide the mobile menu open
+          const aside = container.querySelector('aside');
+          if (aside) {
+            aside.classList.remove('hidden', 'md:flex');
+            aside.classList.add('flex', 'w-full');
+          }
+          return;
+        }
+      } catch (e) { }
     }
+    console.error("Error: Could not locate sidebar.html");
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
-    await loadComponent("sidebar-placeholder", "./components/sidebar.html");
+    // 1. Load the sidebar dynamically
+    await loadSidebar("sidebar-placeholder");
 
     const contentContainer = document.getElementById("workspace-content");
     const headerTitle = document.getElementById("header-title");
+
+    // Mobile Menu State Management
+    const sidebarContainer = document.getElementById('sidebar-container');
+    const mobileOverlay = document.getElementById('mobile-overlay');
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+
+    function closeMobileMenu() {
+      if (window.innerWidth < 768) {
+        sidebarContainer.classList.add('-translate-x-full');
+        mobileOverlay.classList.add('hidden');
+      }
+    }
+
+    if(mobileMenuBtn) {
+      mobileMenuBtn.addEventListener('click', () => {
+        sidebarContainer.classList.remove('-translate-x-full');
+        mobileOverlay.classList.remove('hidden');
+      });
+    }
+
+    if(mobileOverlay) {
+      mobileOverlay.addEventListener('click', closeMobileMenu);
+    }
 
     const routes = {
       'dashboard': { file: 'dashboard-content.html', title: 'Workspace Overview' },
@@ -89,7 +128,8 @@
         }
 
         contentContainer.innerHTML = await response.text();
-        window.scrollTo(0, 0); // Reset native scroll to top on page change
+        window.scrollTo(0, 0); // Automatically reset scroll to the top of the page
+        closeMobileMenu();     // Automatically close the sidebar on mobile after clicking
 
         if (headerTitle) {
           headerTitle.textContent = route.title;
@@ -106,7 +146,7 @@
         }
 
       } catch (error) {
-        console.error("Network or execution error:", error);
+        console.error("Network error:", error);
         contentContainer.innerHTML = `<div class="p-8 text-center text-red-600">Failed to load content. Please try again.</div>`;
       }
     }
