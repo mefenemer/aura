@@ -11,7 +11,7 @@
 
 <div id="sidebar-placeholder"></div>
 
-<div class="flex-1 flex flex-col h-full w-full">
+<div class="flex-1 flex flex-col h-full w-full overflow-hidden">
 
   <header class="h-16 bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8 z-10 flex-shrink-0">
     <button class="md:hidden text-gray-500 hover:text-gray-900 focus:outline-none">
@@ -34,12 +34,13 @@
     </div>
   </header>
 
-  <main class="flex-1 overflow-y-auto bg-gray-50 relative">
+  <main class="flex-1 overflow-y-auto bg-gray-50 relative min-h-0">
     <div id="workspace-content">
     </div>
   </main>
 
 </div>
+
 <script>
   async function loadComponent(placeholderId, filePath) {
     try {
@@ -53,12 +54,13 @@
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
-    // This now correctly finds the div and injects sidebar.html
+    // 1. Fetch Sidebar from the components folder
     await loadComponent("sidebar-placeholder", "./components/sidebar.html");
+
     const contentContainer = document.getElementById("workspace-content");
     const headerTitle = document.getElementById("header-title");
 
-    // 2. FIXED: Route filenames now perfectly match your uploaded files
+    // 2. Exact File Mappings
     const routes = {
       'dashboard': { file: 'dashboard-content.html', title: 'Workspace Overview' },
       'catalog': { file: 'assistant-catalogue.html', title: 'Hire Assistant' },
@@ -73,6 +75,7 @@
       'billing': document.getElementById('nav-billing')
     };
 
+    // 3. Core Router Logic
     async function loadView(routeKey) {
       const route = routes[routeKey];
       if (!route) return;
@@ -88,6 +91,7 @@
 
         updateActiveNav(routeKey);
 
+        // Map internal buttons (e.g. Dashboard "Hire" button -> Catalog)
         const internalCatalogLink = document.getElementById('route-to-catalog');
         if (internalCatalogLink) {
           internalCatalogLink.addEventListener('click', (e) => {
@@ -102,6 +106,7 @@
       }
     }
 
+    // 4. Update Nav Styling
     function updateActiveNav(activeKey) {
       Object.values(navLinks).forEach(link => {
         if(!link) return;
@@ -114,6 +119,7 @@
       }
     }
 
+    // 5. Attach Click Listeners
     Object.keys(navLinks).forEach(key => {
       const link = navLinks[key];
       if (link) {
@@ -124,6 +130,7 @@
       }
     });
 
+    // 6. Init Default View
     loadView('dashboard');
   });
 </script>
