@@ -29,10 +29,13 @@
   <div id="sidebar-placeholder" class="h-full"></div>
 </div>
 
-<main class="pt-24 md:ml-64 min-h-screen flex flex-col bg-gray-50">
-  <div id="workspace-content" class="flex-1 w-full">
-  </div>
-</main>
+<div class="md:ml-64 flex flex-col min-h-screen bg-gray-50">
+
+  <div class="h-16 w-full shrink-0"></div>
+
+  <main id="workspace-content" class="flex-1 w-full">
+  </main>
+</div>
 
 <script>
   async function loadSidebar(placeholderId) {
@@ -57,7 +60,6 @@
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
-    // Inject the sidebar
     await loadSidebar("sidebar-placeholder");
 
     const contentContainer = document.getElementById("workspace-content");
@@ -86,7 +88,6 @@
       mobileOverlay.addEventListener('click', closeMobileMenu);
     }
 
-    // Router Configuration
     const routes = {
       'dashboard': { file: 'dashboard-content.html', title: '| Workspace Overview' },
       'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
@@ -113,7 +114,6 @@
 
         contentContainer.innerHTML = await response.text();
 
-        // Native scroll back to top of the page
         window.scrollTo(0, 0);
         closeMobileMenu();
 
@@ -123,7 +123,6 @@
 
         updateActiveNav(routeKey);
 
-        // Internal Navigation Hooks
         const internalCatalogLink = document.getElementById('route-to-catalog');
         if (internalCatalogLink) {
           internalCatalogLink.addEventListener('click', async (e) => {
@@ -132,7 +131,6 @@
           });
         }
 
-        // --- TRIGGER HELP CENTER DATABASE LOGIC ---
         if (routeKey === 'help') {
           await initHelpCenter();
         }
@@ -175,7 +173,6 @@
     const filterBtns = document.querySelectorAll('.filter-btn');
     let allArticles = [];
 
-    // 1. Fetch from Database
     try {
       const res = await fetch('/.netlify/functions/get-help-articles');
       if(res.ok) {
@@ -188,7 +185,6 @@
       grid.innerHTML = `<p class="text-red-500">Network error connecting to database.</p>`;
     }
 
-    // 2. Render UI Cards
     function renderArticles(articles) {
       if(articles.length === 0) {
         grid.innerHTML = `<div class="col-span-full py-10 text-center text-gray-500 font-medium">No articles found matching your criteria.</div>`;
@@ -226,7 +222,6 @@
           `).join('');
     }
 
-    // 3. Search & Filter Logic
     let currentCategory = 'All';
     let currentSearch = '';
 
