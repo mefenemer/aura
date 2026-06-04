@@ -8,6 +8,7 @@ import {
   numeric,
   jsonb,
   unique,
+  varchar,
 } from "drizzle-orm/pg-core";
 
 // Organisations table — companies or groups users belong to
