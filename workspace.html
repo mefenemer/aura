@@ -7,47 +7,48 @@
   <title>Workspace | Aura-Assist</title>
   <link href="./style.css" rel="stylesheet">
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen flex flex-col">
+<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
 
-<div id="mobile-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-30 hidden transition-opacity duration-300 cursor-pointer"></div>
-
-<div id="sidebar-container" class="fixed inset-y-0 left-0 z-40 w-64 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out bg-white shadow-2xl md:shadow-none">
-  <div id="sidebar-placeholder" class="h-full"></div>
-</div>
-
-<div class="md:ml-64 flex flex-col min-h-screen">
-
-  <header class="sticky top-0 z-20 h-16 bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8">
+<nav class="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8">
+  <div class="flex items-center gap-3 sm:gap-4">
 
     <button id="mobile-menu-btn" class="md:hidden text-gray-500 hover:text-gray-900 focus:outline-none">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
     </button>
 
-    <h2 id="header-title" class="text-lg font-bold text-gray-900 hidden md:block">Workspace Overview</h2>
+    <a href="#" class="flex items-center">
+      <span class="font-extrabold text-xl sm:text-2xl text-emerald-700 tracking-tight">Aura-Assist</span>
+    </a>
+    <span id="header-title" class="text-sm sm:text-base font-medium text-gray-400 ml-1 sm:ml-2">| Workspace Overview</span>
+  </div>
 
-    <div class="flex items-center gap-4 relative ml-auto md:ml-0">
-      <button class="text-gray-400 hover:text-emerald-600 transition-colors relative">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-        <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
-      </button>
+  <div class="flex items-center gap-4">
+    <button class="text-gray-400 hover:text-emerald-600 transition-colors relative">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+      <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+    </button>
 
-      <button class="flex items-center focus:outline-none">
-        <div class="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold border border-emerald-200">
-          <span id="user-initial">M</span>
-        </div>
-      </button>
-    </div>
-  </header>
+    <button class="flex items-center focus:outline-none">
+      <div class="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold border border-emerald-200">
+        <span id="user-initial">M</span>
+      </div>
+    </button>
+  </div>
+</nav>
 
-  <main class="flex-1 w-full bg-gray-50">
-    <div id="workspace-content"></div>
-  </main>
+<div id="mobile-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-30 hidden transition-opacity duration-300"></div>
 
+<div id="sidebar-container" class="fixed top-16 bottom-0 left-0 z-40 w-64 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out bg-white border-r border-gray-200 overflow-y-auto">
+  <div id="sidebar-placeholder" class="h-full"></div>
 </div>
+
+<main class="pt-16 md:ml-64 min-h-screen flex flex-col bg-gray-50">
+  <div id="workspace-content" class="flex-1 w-full">
+  </div>
+</main>
 
 <script>
   async function loadSidebar(placeholderId) {
-    // Smart fetch: Tries the components folder first, falls back to the root folder
     const paths = ["./components/sidebar.html", "./sidebar.html"];
     for (let path of paths) {
       try {
@@ -56,8 +57,11 @@
           const container = document.getElementById(placeholderId);
           container.innerHTML = await response.text();
 
-          // Cleanup: Strip the hardcoded 'hidden' class off the injected sidebar
-          // so it remains visible when we slide the mobile menu open
+          // Cleanup: Because we moved the Aura-Assist logo to the top navbar,
+          // we dynamically remove the duplicate logo from the sidebar file.
+          const redundantSidebarHeader = container.querySelector('.h-16.flex.items-center');
+          if (redundantSidebarHeader) redundantSidebarHeader.remove();
+
           const aside = container.querySelector('aside');
           if (aside) {
             aside.classList.remove('hidden', 'md:flex');
@@ -71,13 +75,13 @@
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
-    // 1. Load the sidebar dynamically
+    // Inject the sidebar
     await loadSidebar("sidebar-placeholder");
 
     const contentContainer = document.getElementById("workspace-content");
     const headerTitle = document.getElementById("header-title");
 
-    // Mobile Menu State Management
+    // Mobile Menu Controls
     const sidebarContainer = document.getElementById('sidebar-container');
     const mobileOverlay = document.getElementById('mobile-overlay');
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -101,10 +105,10 @@
     }
 
     const routes = {
-      'dashboard': { file: 'dashboard-content.html', title: 'Workspace Overview' },
-      'catalog': { file: 'assistant-catalogue.html', title: 'Hire Assistant' },
-      'settings': { file: 'user-settings.html', title: 'Account Settings' },
-      'billing': { file: 'billing.html', title: 'Subscription & Billing' }
+      'dashboard': { file: 'dashboard-content.html', title: '| Workspace Overview' },
+      'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
+      'settings': { file: 'user-settings.html', title: '| Account Settings' },
+      'billing': { file: 'billing.html', title: '| Subscription & Billing' }
     };
 
     const navLinks = {
@@ -120,16 +124,13 @@
 
       try {
         const response = await fetch(`./${route.file}`);
-
-        if (!response.ok) {
-          console.error(`Failed to load view: ${response.statusText}`);
-          contentContainer.innerHTML = `<div class="p-8 text-center text-red-600">Failed to load content. Please try again.</div>`;
-          return;
-        }
+        if (!response.ok) throw new Error('Network response was not ok');
 
         contentContainer.innerHTML = await response.text();
-        window.scrollTo(0, 0); // Automatically reset scroll to the top of the page
-        closeMobileMenu();     // Automatically close the sidebar on mobile after clicking
+
+        // Native scroll back to top of the page when changing tabs
+        window.scrollTo(0, 0);
+        closeMobileMenu();
 
         if (headerTitle) {
           headerTitle.textContent = route.title;
@@ -146,7 +147,7 @@
         }
 
       } catch (error) {
-        console.error("Network error:", error);
+        console.error("Failed to load view:", error);
         contentContainer.innerHTML = `<div class="p-8 text-center text-red-600">Failed to load content. Please try again.</div>`;
       }
     }
