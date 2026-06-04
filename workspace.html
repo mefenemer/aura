@@ -7,13 +7,15 @@
   <title>Workspace | Aura-Assist</title>
   <link href="./style.css" rel="stylesheet">
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans antialiased fixed inset-0 flex">
+<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
 
-<div id="sidebar-placeholder" class="contents"></div>
+<div class="fixed inset-y-0 left-0 z-30 w-64 hidden md:block">
+  <div id="sidebar-placeholder" class="h-full"></div>
+</div>
 
-<div class="flex-1 flex flex-col min-w-0 bg-gray-50">
+<div class="md:ml-64 flex flex-col min-h-screen">
 
-  <header class="h-16 bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8 z-10 shrink-0">
+  <header class="sticky top-0 z-20 h-16 bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8">
     <button class="md:hidden text-gray-500 hover:text-gray-900 focus:outline-none">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
     </button>
@@ -34,7 +36,7 @@
     </div>
   </header>
 
-  <main class="w-full overflow-y-auto" style="height: calc(100vh - 64px);">
+  <main class="flex-1 w-full">
     <div id="workspace-content">
     </div>
   </main>
@@ -42,14 +44,11 @@
 </div>
 
 <script>
-  async function injectComponentOuter(placeholderId, filePath) {
+  async function loadComponent(placeholderId, filePath) {
     try {
       const response = await fetch(filePath);
       if (response.ok) {
-        const el = document.getElementById(placeholderId);
-        if(el) {
-          el.outerHTML = await response.text();
-        }
+        document.getElementById(placeholderId).innerHTML = await response.text();
       }
     } catch (error) {
       console.error(`Error loading component ${filePath}:`, error);
@@ -57,13 +56,10 @@
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
-    await injectComponentOuter("sidebar-placeholder", "./components/sidebar.html");
+    await loadComponent("sidebar-placeholder", "./components/sidebar.html");
 
     const contentContainer = document.getElementById("workspace-content");
     const headerTitle = document.getElementById("header-title");
-
-    // Target the specific scrollable element we just created
-    const scrollableMain = document.querySelector('main');
 
     const routes = {
       'dashboard': { file: 'dashboard-content.html', title: 'Workspace Overview' },
@@ -93,9 +89,7 @@
         }
 
         contentContainer.innerHTML = await response.text();
-
-        // 3. Reset scroll position on the specific scrolling container
-        if (scrollableMain) scrollableMain.scrollTop = 0;
+        window.scrollTo(0, 0); // Reset native scroll to top on page change
 
         if (headerTitle) {
           headerTitle.textContent = route.title;
