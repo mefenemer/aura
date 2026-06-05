@@ -367,35 +367,65 @@
     });
 
     // --- STEP 3: NOTIFICATION TOGGLES TRACKING WITH REPAIR FALLBACK ---
+    // --- STEP 3: NOTIFICATION TOGGLES TRACKING WITH REPAIR FALLBACK ---
     toggles.forEach(toggle => {
       if (!toggle) return;
 
-      // Listen for 'change' instead of 'click' on native checkboxes
-      toggle.addEventListener('change', async () => {
+      // Revert to listening for button clicks
+      toggle.addEventListener('click', async (e) => {
+        e.preventDefault();
         if (errorBanner) errorBanner.classList.add('hidden');
 
-        // The browser handles the visual slide automatically! Just grab the state:
-        const targetNextState = toggle.checked;
+        // Check if aria-checked is true
+        const isCurrentlyChecked = toggle.getAttribute('aria-checked') === 'true';
+        const targetNextState = !isCurrentlyChecked;
         const preferenceKey = toggle.getAttribute('data-pref-key') || toggle.getAttribute('data-preference-key');
+
+        // Optimistic UI Update (Slide instantly to make app feel fast)
+        updateToggleView(toggle, targetNextState);
 
         try {
           const res = await fetch('/.netlify/functions/update-notifications', {
             method: 'PATCH',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({preferenceKey, value: targetNextState})
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ preferenceKey, value: targetNextState })
           });
 
           if (!res.ok) {
-            toggle.checked = !targetNextState; // Native rollback: just invert the checkbox if the server fails
+            updateToggleView(toggle, isCurrentlyChecked); // Snap back on failure
             const errorData = await res.json().catch(() => ({}));
             triggerError(`Toggle failed: ${errorData.error || 'Server rejected query.'}`);
           }
         } catch (err) {
-          toggle.checked = !targetNextState; // Native rollback
+          updateToggleView(toggle, isCurrentlyChecked); // Snap back on failure
           triggerError(`Network disconnected while toggling preference.`);
         }
       });
     });
+
+    // Helper function to animate the toggle switches smoothly to match the provided image
+    function updateToggleView(el, status) {
+      el.setAttribute('aria-checked', status ? 'true' : 'false');
+      const dot = el.querySelector('span');
+
+      if (status) {
+        // Active State: Green background, dot slid to the right
+        el.classList.remove('bg-red-500');
+        el.classList.add('bg-green-500'); // Matches bright green in image
+        if (dot) {
+          dot.classList.remove('translate-x-0');
+          dot.classList.add('translate-x-5');
+        }
+      } else {
+        // Inactive State: Red background, dot sitting on the left
+        el.classList.remove('bg-green-500');
+        el.classList.add('bg-red-500'); // Matches bold red in image
+        if (dot) {
+          dot.classList.remove('translate-x-5');
+          dot.classList.add('translate-x-0');
+        }
+      }
+    }
   }
 </script>
 </body>

@@ -43,49 +43,45 @@
             </div>
         </div>
 
+        <!-- Notification Preferences Section -->
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
                 <h3 class="text-lg font-bold text-gray-900">Notification Preferences</h3>
             </div>
             <div class="p-6 space-y-4">
 
+                <!-- Toggle 1: Wins -->
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-semibold text-gray-900">Assistant Wins & Summaries</p>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="toggle-notify-wins" data-pref-key="notifyWins" class="sr-only peer">
-
-                        <div class="w-11 h-6 bg-red-500 rounded-full peer peer-focus:ring-2 peer-focus:ring-emerald-500 peer-checked:bg-emerald-600 transition-colors duration-200 ease-in-out"></div>
-
-                        <span class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full shadow transition-transform duration-200 ease-in-out peer-checked:translate-x-5"></span>
-                    </label>
+                    <button type="button" id="toggle-notify-wins" data-pref-key="notifyWins" class="bg-red-500 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none" role="switch" aria-checked="false">
+                        <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                    </button>
                 </div>
 
                 <div class="border-t border-gray-100 my-4"></div>
 
+                <!-- Toggle 2: Billing -->
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-semibold text-gray-900">Billing & Subscription</p>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="toggle-notify-billing" data-pref-key="notifyBilling" class="sr-only peer">
-                        <div class="w-11 h-6 bg-red-500 rounded-full peer peer-focus:ring-2 peer-focus:ring-emerald-500 peer-checked:bg-emerald-600 transition-colors duration-200 ease-in-out"></div>
-                        <span class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full shadow transition-transform duration-200 ease-in-out peer-checked:translate-x-5"></span>
-                    </label>
+                    <button type="button" id="toggle-notify-billing" data-pref-key="notifyBilling" class="bg-red-500 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none" role="switch" aria-checked="false">
+                        <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                    </button>
                 </div>
 
                 <div class="border-t border-gray-100 my-4"></div>
 
+                <!-- Toggle 3: Availability -->
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-semibold text-gray-900">New Role Availability</p>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="toggle-notify-availability" data-pref-key="notifyAvailability" class="sr-only peer">
-                        <div class="w-11 h-6 bg-red-500 rounded-full peer peer-focus:ring-2 peer-focus:ring-emerald-500 peer-checked:bg-emerald-600 transition-colors duration-200 ease-in-out"></div>
-                        <span class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full shadow transition-transform duration-200 ease-in-out peer-checked:translate-x-5"></span>
-                    </label>
+                    <button type="button" id="toggle-notify-availability" data-pref-key="notifyAvailability" class="bg-red-500 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none" role="switch" aria-checked="false">
+                        <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                    </button>
                 </div>
 
             </div>
