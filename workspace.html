@@ -416,16 +416,16 @@
 
       if (status) {
         // Active State: Green background, dot slid to the right
-        el.classList.remove('bg-gray-200');
+        el.classList.remove('bg-red-500');
         el.classList.add('bg-emerald-600');
         if (dot) {
           dot.classList.remove('translate-x-0');
           dot.classList.add('translate-x-5');
         }
       } else {
-        // Inactive State: Gray background, dot slid to the left
+        // Inactive State: Red background, dot slid to the left
         el.classList.remove('bg-emerald-600');
-        el.classList.add('bg-gray-200');
+        el.classList.add('bg-red-500');
         if (dot) {
           dot.classList.remove('translate-x-5');
           dot.classList.add('translate-x-0');
