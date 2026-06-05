@@ -1,7 +1,8 @@
+// netlify/functions/update-profile.ts
 import { Handler } from '@netlify/functions';
 import { getDb } from '../../db/client';
 import { users, userProfiles } from '../../db/schema';
-import { eq, and, ne } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 export const handler: Handler = async (event) => {
     const standardHeaders: Record<string, string> = {
@@ -9,17 +10,14 @@ export const handler: Handler = async (event) => {
         'Access-Control-Allow-Origin': '*'
     };
 
-    // Mocking the authenticated session user ID for this workspace instance
     const AUTHENTICATED_USER_ID = 1;
     const db = getDb();
 
-    // --- SCENARIO 1: DYNAMIC DATA HYDRATION (GET) ---
+    // GET: Hydrate all fields simultaneously via Join
     if (event.httpMethod === 'GET') {
         try {
-            // Perform a clean SQL join to fetch base user details and metadata simultaneously
             const resultRows = await db
                 .select({
-                    id: users.id,
                     firstName: users.firstName,
                     lastName: users.lastName,
                     email: users.email,
@@ -31,109 +29,35 @@ export const handler: Handler = async (event) => {
                 .limit(1);
 
             if (!resultRows.length) {
-                return {
-                    statusCode: 404,
-                    headers: standardHeaders,
-                    body: JSON.stringify({ error: 'User workspace records not found.' })
-                };
+                return { statusCode: 404, headers: standardHeaders, body: JSON.stringify({ error: 'User not found.' }) };
             }
-
-            return {
-                statusCode: 200,
-                headers: standardHeaders,
-                body: JSON.stringify(resultRows[0])
-            };
+            return { statusCode: 200, headers: standardHeaders, body: JSON.stringify(resultRows[0]) };
         } catch (error) {
-            console.error('Profile hydration database error:', error);
-            return {
-                statusCode: 500,
-                headers: standardHeaders,
-                body: JSON.stringify({ error: 'Database connection failed during hydration.' })
-            };
+            return { statusCode: 500, headers: standardHeaders, body: JSON.stringify({ error: 'Hydration failure.' }) };
         }
     }
 
-    // --- SCENARIOS 2 & 3: VALIDATION AND PERSISTENCE (PATCH) ---
+    // PATCH: Modern Auto-Save processing block
     if (event.httpMethod === 'PATCH') {
         try {
-            if (!event.body) {
-                return {
-                    statusCode: 400,
-                    headers: standardHeaders,
-                    body: JSON.stringify({ error: 'Missing modification payload.' })
-                };
+            if (!event.body) return { statusCode: 400, headers: standardHeaders, body: 'Missing body' };
+            const { fieldKey, value } = JSON.parse(event.body);
+
+            // Route fields cleanly to their respective destination tables
+            if (fieldKey === 'firstName' || fieldKey === 'lastName' || fieldKey === 'email') {
+                const updateObject: Record<string, any> = {};
+                updateObject[fieldKey] = value;
+
+                await db.update(users).set(updateObject).where(eq(users.id, AUTHENTICATED_USER_ID));
+            } else if (fieldKey === 'timezone') {
+                await db.update(userProfiles).set({ timezone: value }).where(eq(userProfiles.userId, AUTHENTICATED_USER_ID));
             }
 
-            const { firstName, lastName, email, timezone } = JSON.parse(event.body);
-
-            // 1. Completeness Validation
-            if (!firstName || !lastName || !email || !timezone) {
-                return {
-                    statusCode: 400,
-                    headers: standardHeaders,
-                    body: JSON.stringify({ error: 'All profile and tracking fields are strictly required.' })
-                };
-            }
-
-            // 2. Email Format Validation
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                return {
-                    statusCode: 422,
-                    headers: standardHeaders,
-                    body: JSON.stringify({ error: 'Invalid email address format.', field: 'email' })
-                };
-            }
-
-            // 3. Email Uniqueness Verification (Exclude the current user session)
-            const emailConflict = await db
-                .select()
-                .from(users)
-                .where(and(eq(users.email, email), ne(users.id, AUTHENTICATED_USER_ID)))
-                .limit(1);
-
-            if (emailConflict.length > 0) {
-                return {
-                    statusCode: 409,
-                    headers: standardHeaders,
-                    body: JSON.stringify({ error: 'This email address is already associated with another active account.', field: 'email' })
-                };
-            }
-
-            // 4. Atomic Multi-Table Update Transactions
-            await db.transaction(async (tx) => {
-                // Update primary user identification details
-                await tx
-                    .update(users)
-                    .set({ firstName, lastName, email, updatedAt: new Date() })
-                    .where(eq(users.id, AUTHENTICATED_USER_ID));
-
-                // Update metadata preference details inside the separate profile table
-                await tx
-                    .update(userProfiles)
-                    .set({ timezone })
-                    .where(eq(userProfiles.userId, AUTHENTICATED_USER_ID));
-            });
-
-            return {
-                statusCode: 200,
-                headers: standardHeaders,
-                body: JSON.stringify({ message: 'Profile and system preferences updated successfully.' })
-            };
-
-        } catch (error) {
-            console.error('Profile mutation runtime rejection:', error);
-            return {
-                statusCode: 500,
-                headers: standardHeaders,
-                body: JSON.stringify({ error: 'Server could not process profile persistence updates safely.' })
-            };
+            return { statusCode: 200, headers: standardHeaders, body: JSON.stringify({ success: true }) };
+        } catch (e) {
+            return { statusCode: 500, headers: standardHeaders, body: JSON.stringify({ error: 'Auto-save failed.' }) };
         }
     }
 
-    return {
-        statusCode: 405,
-        headers: standardHeaders,
-        body: 'Method Not Allowed'
-    };
+    return { statusCode: 405, headers: standardHeaders, body: 'Method Not Allowed' };
 };
