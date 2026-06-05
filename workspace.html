@@ -9,18 +9,27 @@
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
 
-<nav class="fixed top-0 left-0 right-0 z-50 h-16 w-full bg-white border-b border-gray-200 shadow-sm flex items-center px-4 sm:px-6 lg:px-8">
-  <div class="flex items-center gap-3 sm:gap-4 w-full">
+<nav class="fixed top-0 left-0 right-0 z-50 h-16 w-full bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8">
 
+  <div class="flex items-center gap-3 sm:gap-4">
     <button id="mobile-menu-btn" class="md:hidden text-gray-500 hover:text-gray-900 focus:outline-none">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
     </button>
-
     <a href="#" class="flex items-center">
       <span class="font-extrabold text-xl sm:text-2xl text-emerald-700 tracking-tight">Aura-Assist</span>
     </a>
     <span id="header-title" class="text-sm sm:text-base font-medium text-gray-400 ml-1 sm:ml-2">| My Workspace</span>
   </div>
+
+  <div class="flex items-center gap-3">
+    <div class="hidden sm:block text-right">
+      <p id="header-user-name" class="text-sm font-bold text-gray-900 truncate max-w-[160px]"></p>
+      <p id="header-user-email" class="text-xs text-gray-500 truncate max-w-[160px]"></p>
+    </div>
+    <div id="header-user-initials" class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold shrink-0 text-sm">
+    </div>
+  </div>
+
 </nav>
 
 <div id="mobile-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-30 hidden transition-opacity duration-300 cursor-pointer"></div>
@@ -60,7 +69,41 @@
   document.addEventListener("DOMContentLoaded", async () => {
     // 1. Force the sidebar to inject before drawing main components
     await loadSidebar("sidebar-placeholder");
+// --- DYNAMIC HEADER HYDRATION ---
+    async function loadHeaderProfile() {
+      const nameEl = document.getElementById('header-user-name');
+      const emailEl = document.getElementById('header-user-email');
+      const initialsEl = document.getElementById('header-user-initials');
 
+      try {
+        const response = await fetch('/.netlify/functions/update-profile');
+        if (response.ok) {
+          const profileData = await response.json();
+
+          const fName = profileData.firstName || '';
+          const lName = profileData.lastName || '';
+          const fullName = `${fName} ${lName}`.trim();
+
+          // Populate text fields
+          if (nameEl) nameEl.textContent = fullName || 'Aura User';
+          if (emailEl) emailEl.textContent = profileData.email || '';
+
+          // Generate initials dynamically for the avatar circle
+          if (initialsEl && fName) {
+            const initial1 = fName.charAt(0).toUpperCase();
+            const initial2 = lName ? lName.charAt(0).toUpperCase() : '';
+            initialsEl.textContent = `${initial1}${initial2}`;
+          } else if (initialsEl) {
+            initialsEl.textContent = 'U'; // Fallback
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load user header profile from DB:", error);
+      }
+    }
+
+    // Fire the fetch request instantly on page load
+    loadHeaderProfile();
     const contentContainer = document.getElementById("workspace-content");
     const headerTitle = document.getElementById("header-title");
 
