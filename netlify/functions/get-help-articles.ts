@@ -1,40 +1,40 @@
-import { Handler } from '@netlify/functions';
-import { getDb } from '../../db/client'; // Adjust this path to point to your DB client file
-import { helpArticles } from '../../db/schema'; // Adjust this path to point to your DB schema file
+import { Handler, HandlerResponse } from '@netlify/functions';
+import { getDb } from '../../db/client'; // Adjust path if necessary
+import { helpArticles } from '../../db/schema'; // Adjust path if necessary
 
 export const handler: Handler = async (event) => {
-    // Only allow GET requests to fetch data
+    // 1. Explicitly type a base headers object to prevent index-signature widening bugs
+    const standardHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+    };
+
     if (event.httpMethod !== 'GET') {
         return {
             statusCode: 405,
+            headers: standardHeaders,
             body: 'Method Not Allowed'
         };
     }
 
     try {
-        // Initialize your database connection instance
         const db = getDb();
 
-        // Query the database to retrieve all articles, ordered by creation date
         const articles = await db
             .select()
             .from(helpArticles)
             .orderBy(helpArticles.createdAt);
 
-        // Return a successful response along with the data rows
         return {
             statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*' // Allows smooth testing in cross-origin environments
-            },
+            headers: standardHeaders,
             body: JSON.stringify(articles)
         };
     } catch (error) {
         console.error('Error executing get-help-articles serverless function:', error);
         return {
             statusCode: 500,
-            headers: { 'Content-Type': 'application/json' },
+            headers: standardHeaders,
             body: JSON.stringify({ error: 'Failed to stream help articles from the database layer.' })
         };
     }
