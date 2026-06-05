@@ -409,16 +409,27 @@
       });
     });
 
+    // Helper function to animate the toggle switches smoothly
     function updateToggleView(el, status) {
       el.setAttribute('aria-checked', status ? 'true' : 'false');
       const dot = el.querySelector('span');
 
       if (status) {
-        el.className = "bg-emerald-600 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none";
-        if (dot) dot.className = "translate-x-5 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out";
+        // Active State: Green background, dot slid to the right
+        el.classList.remove('bg-gray-200');
+        el.classList.add('bg-emerald-600');
+        if (dot) {
+          dot.classList.remove('translate-x-0');
+          dot.classList.add('translate-x-5');
+        }
       } else {
-        el.className = "bg-gray-200 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none";
-        if (dot) dot.className = "translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out";
+        // Inactive State: Gray background, dot slid to the left
+        el.classList.remove('bg-emerald-600');
+        el.classList.add('bg-gray-200');
+        if (dot) {
+          dot.classList.remove('translate-x-5');
+          dot.classList.add('translate-x-0');
+        }
       }
     }
   }
