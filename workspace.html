@@ -60,12 +60,13 @@
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
+    // 1. Force the sidebar to inject before drawing main components
     await loadSidebar("sidebar-placeholder");
 
     const contentContainer = document.getElementById("workspace-content");
     const headerTitle = document.getElementById("header-title");
 
-    // Mobile Menu Controls
+    // Mobile Layout Toggle State Controllers
     const sidebarContainer = document.getElementById('sidebar-container');
     const mobileOverlay = document.getElementById('mobile-overlay');
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -88,6 +89,7 @@
       mobileOverlay.addEventListener('click', closeMobileMenu);
     }
 
+    // Explicit path definitions mapping navigation links to standard modular components
     const routes = {
       'dashboard': { file: 'dashboard-content.html', title: '| Workspace Overview' },
       'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
@@ -110,10 +112,11 @@
 
       try {
         const response = await fetch(`./${route.file}`);
-        if (!response.ok) throw new Error('Network response was not ok');
+        if (!response.ok) throw new Error('Network component not found');
 
         contentContainer.innerHTML = await response.text();
 
+        // Native window view scroll reposition cleaner
         window.scrollTo(0, 0);
         closeMobileMenu();
 
@@ -123,6 +126,7 @@
 
         updateActiveNav(routeKey);
 
+        // Map internal action anchors (e.g. Dashboard "Delegate a New Task" button)
         const internalCatalogLink = document.getElementById('route-to-catalog');
         if (internalCatalogLink) {
           internalCatalogLink.addEventListener('click', async (e) => {
@@ -131,13 +135,14 @@
           });
         }
 
+        // INITIALIZE HELP DATABASE ENGINE
         if (routeKey === 'help') {
           await initHelpCenter();
         }
 
       } catch (error) {
-        console.error("Failed to load view:", error);
-        contentContainer.innerHTML = `<div class="p-8 text-center text-red-600">Failed to load content. Please try again.</div>`;
+        console.error("Routing execution error:", error);
+        contentContainer.innerHTML = `<div class="p-8 text-center text-red-600 font-medium">Failed to load requested view. Please try again.</div>`;
       }
     }
 
@@ -163,10 +168,13 @@
       }
     });
 
+    // Fire the initial landing layout
     await loadView('dashboard');
   });
 
-  // --- HELP CENTER DATABASE LOGIC ---
+  // ==========================================================================
+  // DYNAMIC HELP CENTER DATA ENGINE
+  // ==========================================================================
   async function initHelpCenter() {
     const grid = document.getElementById('help-grid');
     const searchInput = document.getElementById('help-search-input');
@@ -174,23 +182,26 @@
     let allArticles = [];
 
     try {
+      // Fire request directly to the Netlify serverless wrapper
       const res = await fetch('/.netlify/functions/get-help-articles');
       if(res.ok) {
         allArticles = await res.json();
         renderArticles(allArticles);
       } else {
-        grid.innerHTML = `<p class="text-red-500">Failed to load articles.</p>`;
+        grid.innerHTML = `<div class="col-span-full p-8 text-center text-red-500 font-semibold bg-red-50 rounded-xl border border-red-100">Failed to load articles from remote server.</div>`;
       }
     } catch (e) {
-      grid.innerHTML = `<p class="text-red-500">Network error connecting to database.</p>`;
+      console.error("Database connection failure:", e);
+      grid.innerHTML = `<div class="col-span-full p-8 text-center text-red-500 font-semibold bg-red-50 rounded-xl border border-red-100">Network connection exception. Could not connect to database function.</div>`;
     }
 
     function renderArticles(articles) {
       if(articles.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-10 text-center text-gray-500 font-medium">No articles found matching your criteria.</div>`;
+        grid.innerHTML = `<div class="col-span-full py-12 text-center text-gray-500 font-medium bg-white rounded-2xl border border-gray-100 shadow-sm">No documentation records match your criteria.</div>`;
         return;
       }
 
+      // Path map to translate database strings to localized visual vectors
       const iconMap = {
         'layout': `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>`,
         'book': `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>`,
@@ -205,7 +216,7 @@
       };
 
       grid.innerHTML = articles.map(article => `
-              <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition cursor-pointer flex flex-col h-full">
+              <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition flex flex-col h-full">
                   <div class="flex justify-between items-start mb-4">
                       <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                           ${iconMap[article.icon] || iconMap['default']}
