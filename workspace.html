@@ -156,12 +156,20 @@
     function updateActiveNav(activeKey) {
       Object.values(navLinks).forEach(link => {
         if(!link) return;
+        // Baseline default styles for resting/inactive links
         link.className = "flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg font-medium transition-colors";
       });
 
       const activeLink = navLinks[activeKey];
       if (activeLink) {
+        // Active brand highlighting class styles
         activeLink.className = "flex items-center gap-3 px-3 py-2.5 bg-emerald-50 text-emerald-700 rounded-lg font-semibold transition-colors";
+      }
+
+      // FIX: Ensure Help & Support pins securely to the bottom utility slot if it is not the active view
+      const helpLink = navLinks['help'];
+      if (helpLink && activeKey !== 'help') {
+        helpLink.classList.add('mt-auto', 'border-t', 'border-gray-100', 'pt-4');
       }
     }
 
