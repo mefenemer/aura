@@ -1,4 +1,3 @@
-// netlify/functions/update-profile.ts
 import { Handler } from '@netlify/functions';
 import { getDb } from '../../db/client';
 import { users, userProfiles } from '../../db/schema';
@@ -11,11 +10,12 @@ export const handler: Handler = async (event) => {
     };
 
     const AUTHENTICATED_USER_ID = 1;
-    const db = getDb();
 
-    // GET: Hydrate all fields simultaneously via Join
-    if (event.httpMethod === 'GET') {
-        try {
+    try {
+        const db = getDb();
+
+        // Hydration logic
+        if (event.httpMethod === 'GET') {
             const resultRows = await db
                 .select({
                     firstName: users.firstName,
@@ -28,36 +28,41 @@ export const handler: Handler = async (event) => {
                 .where(eq(users.id, AUTHENTICATED_USER_ID))
                 .limit(1);
 
-            if (!resultRows.length) {
-                return { statusCode: 404, headers: standardHeaders, body: JSON.stringify({ error: 'User not found.' }) };
-            }
+            if (!resultRows.length) return { statusCode: 404, headers: standardHeaders, body: JSON.stringify({ error: 'User not found.' }) };
             return { statusCode: 200, headers: standardHeaders, body: JSON.stringify(resultRows[0]) };
-        } catch (error) {
-            return { statusCode: 500, headers: standardHeaders, body: JSON.stringify({ error: 'Hydration failure.' }) };
         }
-    }
 
-    // PATCH: Modern Auto-Save processing block
-    if (event.httpMethod === 'PATCH') {
-        try {
-            if (!event.body) return { statusCode: 400, headers: standardHeaders, body: 'Missing body' };
+        // Auto-Save logic
+        if (event.httpMethod === 'PATCH') {
+            if (!event.body) return { statusCode: 400, headers: standardHeaders, body: JSON.stringify({ error: 'Missing body payload.' }) };
             const { fieldKey, value } = JSON.parse(event.body);
 
-            // Route fields cleanly to their respective destination tables
             if (fieldKey === 'firstName' || fieldKey === 'lastName' || fieldKey === 'email') {
                 const updateObject: Record<string, any> = {};
                 updateObject[fieldKey] = value;
-
                 await db.update(users).set(updateObject).where(eq(users.id, AUTHENTICATED_USER_ID));
             } else if (fieldKey === 'timezone') {
-                await db.update(userProfiles).set({ timezone: value }).where(eq(userProfiles.userId, AUTHENTICATED_USER_ID));
+                const profileCheck = await db.select().from(userProfiles).where(eq(userProfiles.userId, AUTHENTICATED_USER_ID)).limit(1);
+                if (!profileCheck.length) {
+                    await db.insert(userProfiles).values({
+                        userId: AUTHENTICATED_USER_ID,
+                        timezone: value,
+                        notifyWins: true,
+                        notifyBilling: true,
+                        notifyAvailability: false
+                    });
+                } else {
+                    await db.update(userProfiles).set({ timezone: value }).where(eq(userProfiles.userId, AUTHENTICATED_USER_ID));
+                }
             }
 
             return { statusCode: 200, headers: standardHeaders, body: JSON.stringify({ success: true }) };
-        } catch (e) {
-            return { statusCode: 500, headers: standardHeaders, body: JSON.stringify({ error: 'Auto-save failed.' }) };
         }
-    }
 
-    return { statusCode: 405, headers: standardHeaders, body: 'Method Not Allowed' };
+        return { statusCode: 405, headers: standardHeaders, body: 'Method Not Allowed' };
+    } catch (error: any) {
+        // EXPLICIT ERROR PASSTHROUGH: Sends the exact database rejection message to the frontend
+        console.error('Profile update rejection:', error);
+        return { statusCode: 500, headers: standardHeaders, body: JSON.stringify({ error: error.message || 'Database execution failed.' }) };
+    }
 };
