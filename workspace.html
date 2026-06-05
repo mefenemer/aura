@@ -30,11 +30,9 @@
 </div>
 
 <div class="md:ml-64 flex flex-col min-h-screen bg-gray-50">
-
   <div class="h-16 w-full shrink-0"></div>
 
-  <main id="workspace-content" class="flex-1 w-full">
-  </main>
+  <main id="workspace-content" class="flex-1 w-full"></main>
 </div>
 
 <script>
@@ -135,7 +133,16 @@
           });
         }
 
-        // INITIALIZE HELP DATABASE ENGINE
+        // Initialize engine lifecycles depending on route targets
+        if (routeKey === 'settings') {
+          await initProfileSettingsCenter();
+        }
+        // Inside your loadView() function in workspace.html
+        if (routeKey === 'settings') {
+          await initProfileSettingsCenter();
+          await initNotificationToggleCenter(); // ADDED: Toggle tracking engine trigger hook
+        }
+
         if (routeKey === 'help') {
           await initHelpCenter();
         }
@@ -178,13 +185,14 @@
   async function initHelpCenter() {
     const grid = document.getElementById('help-grid');
     const searchInput = document.getElementById('help-search-input');
-    const filterBtns = document.querySelectorAll('.filter-btn');
+    const filterButtons = document.querySelectorAll('.filter-btn');
     let allArticles = [];
 
+    if (!grid) return;
+
     try {
-      // Fire request directly to the Netlify serverless wrapper
       const res = await fetch('/.netlify/functions/get-help-articles');
-      if(res.ok) {
+      if (res.ok) {
         allArticles = await res.json();
         renderArticles(allArticles);
       } else {
@@ -196,12 +204,11 @@
     }
 
     function renderArticles(articles) {
-      if(articles.length === 0) {
+      if (articles.length === 0) {
         grid.innerHTML = `<div class="col-span-full py-12 text-center text-gray-500 font-medium bg-white rounded-2xl border border-gray-100 shadow-sm">No documentation records match your criteria.</div>`;
         return;
       }
 
-      // Path map to translate database strings to localized visual vectors
       const iconMap = {
         'layout': `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>`,
         'book': `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>`,
@@ -245,27 +252,226 @@
       renderArticles(filtered);
     }
 
-    if(searchInput) {
+    if (searchInput) {
       searchInput.addEventListener('input', (e) => {
-        currentSearch = e.target.value.toLowerCase();
-        filterData();
+        if (e.target && 'value' in e.target) {
+          currentSearch = String(e.target.value).toLowerCase();
+          filterData();
+        }
       });
     }
 
-    if(filterBtns) {
-      filterBtns.forEach(btn => {
+    if (filterButtons) {
+      filterButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
-          filterBtns.forEach(b => {
+          filterButtons.forEach(b => {
             b.className = "px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition filter-btn";
           });
-          e.target.className = "px-4 py-2 rounded-full text-sm font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 transition filter-btn";
 
-          currentCategory = e.target.getAttribute('data-category');
-          filterData();
+          const currentButton = e.currentTarget;
+          if (currentButton && 'classList' in currentButton) {
+            currentButton.className = "px-4 py-2 rounded-full text-sm font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 transition filter-btn";
+            // Safe native JS property checking instead of dataset syntax
+            currentCategory = currentButton.getAttribute('data-category') || 'All';
+            filterData();
+          }
         });
       });
     }
   }
+
+  // ==========================================================================
+  // DYNAMIC PROFILE SETTINGS PERSISTENCE ENGINE
+  // ==========================================================================
+  async function initProfileSettingsCenter() {
+    const form = document.getElementById('profile-settings-form');
+    const saveBtn = document.getElementById('btn-save-profile');
+    const btnText = document.getElementById('btn-text');
+    const btnSpinner = document.getElementById('btn-spinner');
+    const globalError = document.getElementById('form-global-error');
+    const inlineEmailError = document.getElementById('error-inline-email');
+    const emailInput = document.getElementById('input-email');
+
+    if (!form || !saveBtn || !emailInput || !globalError || !inlineEmailError || !btnText || !btnSpinner) return;
+
+    // --- SCENARIO 1: DYNAMIC DATA HYDRATION (GET) ---
+    try {
+      const response = await fetch('/.netlify/functions/update-profile');
+      if (response.ok) {
+        const profile = await response.json();
+
+        const firstNameInput = document.getElementById('input-first-name');
+        const lastNameInput = document.getElementById('input-last-name');
+        const timezoneInput = document.getElementById('input-timezone');
+
+        if (firstNameInput && 'value' in firstNameInput) firstNameInput.value = profile.firstName || '';
+        if (lastNameInput && 'value' in lastNameInput) lastNameInput.value = profile.lastName || '';
+        if ('value' in emailInput) emailInput.value = profile.email || '';
+        if (timezoneInput && 'value' in timezoneInput) timezoneInput.value = profile.timezone || 'Europe/Athens';
+      } else {
+        globalError.textContent = "Failed to stream your profile data from server layer.";
+        globalError.classList.remove('hidden');
+      }
+    } catch (e) {
+      console.error("Hydration exception:", e);
+      globalError.textContent = "Network error connection fault during hydration sync.";
+      globalError.classList.remove('hidden');
+    }
+
+    // --- SCENARIO 2, 3 & 4: SUBMISSION & TRACKING (PATCH) ---
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      globalError.classList.add('hidden');
+      inlineEmailError.classList.add('hidden');
+      inlineEmailError.textContent = '';
+      if ('classList' in emailInput) {
+        emailInput.classList.remove('border-red-500', 'focus:ring-red-500', 'focus:border-red-500');
+      }
+
+      if ('disabled' in saveBtn) saveBtn.disabled = true;
+      btnSpinner.classList.remove('hidden');
+      btnText.textContent = "Saving Changes...";
+
+      const fInput = document.getElementById('input-first-name');
+      const lInput = document.getElementById('input-last-name');
+      const tInput = document.getElementById('input-timezone');
+
+      const firstNameVal = (fInput && 'value' in fInput) ? String(fInput.value).trim() : '';
+      const lastNameVal = (lInput && 'value' in lInput) ? String(lInput.value).trim() : '';
+      const emailVal = ('value' in emailInput) ? String(emailInput.value).trim() : '';
+      const timezoneVal = (tInput && 'value' in tInput) ? String(tInput.value) : 'Europe/Athens';
+
+      const payload = {
+        firstName: firstNameVal,
+        lastName: lastNameVal,
+        email: emailVal,
+        timezone: timezoneVal
+      };
+
+      try {
+        const updateResponse = await fetch('/.netlify/functions/update-profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await updateResponse.json();
+
+        if (!updateResponse.ok) {
+          if (result.field === 'email') {
+            inlineEmailError.textContent = result.error;
+            inlineEmailError.classList.remove('hidden');
+            if ('classList' in emailInput) {
+              emailInput.classList.add('border-red-500', 'focus:ring-red-500', 'focus:border-red-500');
+            }
+          } else {
+            globalError.textContent = result.error || "An unknown system error occurred.";
+            globalError.classList.remove('hidden');
+          }
+          return;
+        }
+
+        // --- SCENARIO 4: SUCCESS FEEDBACK ---
+        const toast = document.getElementById('toast-success');
+        if (toast && 'classList' in toast) {
+          toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-2');
+          toast.classList.add('opacity-100', 'translate-y-0');
+
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        }
+
+      } catch (error) {
+        console.error("Submission exception:", error);
+        globalError.textContent = "Network error. Failed to save context settings.";
+        globalError.classList.remove('hidden');
+      } finally {
+        if ('disabled' in saveBtn) saveBtn.disabled = false;
+        btnSpinner.classList.add('hidden');
+        btnText.textContent = "Save Changes";
+      }
+    });
+  }
+  // ==========================================================================
+  // DYNAMIC NOTIFICATION TOGGLE CENTER (OPTIMISTIC UI SYNC ENGINE)
+  // ==========================================================================
+  async function initNotificationToggleCenter() {
+    const errorBanner = document.getElementById('notification-error-banner');
+    const toggles = [
+      document.getElementById('toggle-notify-wins'),
+      document.getElementById('toggle-notify-billing'),
+      document.getElementById('toggle-notify-availability')
+    ];
+
+    // 1. HYDRATE INITIAL VISUAL TOGGLE STATES FROM DB
+    try {
+      const response = await fetch('/.netlify/functions/update-notifications');
+      if (response.ok) {
+        const states = await response.json();
+        toggles.forEach(toggle => {
+          if (!toggle) return;
+          const prefKey = toggle.getAttribute('data-preference-key') || toggle.getAttribute('data-pref-key');
+          if (prefKey && prefKey in states) {
+            updateToggleVisualState(toggle, states[prefKey]);
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Failed to sync initial notification toggle baseline states:", e);
+    }
+
+    // 2. INTERACT & AUTO-SAVE WITH OPTIMISTIC UI ROLLBACK
+    toggles.forEach(toggle => {
+      if (!toggle) return;
+
+      toggle.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (errorBanner) errorBanner.classList.add('hidden');
+
+        // Capture previous checked parameters for optimistic fallback loops
+        const currentAriaChecked = toggle.getAttribute('aria-checked') === 'true';
+        const nextState = !currentAriaChecked;
+        const preferenceKey = toggle.getAttribute('data-preference-key') || toggle.getAttribute('data-pref-key');
+
+        // SCENARIO 1: Update visual layout instantaneously (Optimistic Execution)
+        updateToggleVisualState(toggle, nextState);
+
+        // SCENARIO 2: Asynchronous background dispatch pipeline (Does not block UI)
+        try {
+          const res = await fetch('/.netlify/functions/update-notifications', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ preferenceKey, value: nextState })
+          });
+
+          // SCENARIO 3: If server returns error, intercept and trigger fallback rollback
+          if (!res.ok) {
+            updateToggleVisualState(toggle, currentAriaChecked);
+            if (errorBanner) errorBanner.classList.remove('hidden');
+          }
+        } catch (err) {
+          // SCENARIO 3: If network drop or timeout occurs, snap component back automatically
+          console.error("Background sync operation timed out or dropped:", err);
+          updateToggleVisualState(toggle, currentAriaChecked);
+          if (errorBanner) errorBanner.classList.remove('hidden');
+        }
+      });
+    });
+
+    // Unified helper method to transform classes natively matching your configuration targets
+    function updateToggleVisualState(toggleElement, isChecked) {
+      const dot = toggleElement.querySelector('span');
+      toggleElement.setAttribute('aria-checked', isChecked ? 'true' : 'false');
+
+      if (isChecked) {
+        toggleElement.className = "bg-emerald-600 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none";
+        if (dot) dot.className = "translate-x-5 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out";
+      } else {
+        toggleElement.className = "bg-gray-200 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none";
+        if (dot) dot.className = "translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out";
+      }
+    }
+  }
 </script>
-</body>
-</html>
