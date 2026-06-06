@@ -240,29 +240,6 @@ export const auditLogs = pgTable("audit_logs", {
 });
 // Brandassets
 
-export const workspaceAssets = pgTable("workspace_assets", {
-  id: serial().primaryKey(),
-  organisationId: integer("organisation_id")
-      .notNull()
-      .references(() => organisations.id, { onDelete: "cascade" }),
-  uploaderId: integer("uploader_id")
-      .references(() => users.id, { onDelete: "set null" }), // Keep asset even if user leaves
-
-  name: text("name").notNull(),
-  assetType: text("asset_type").notNull(), // e.g., 'file', 'url'
-  category: text("category").notNull(), // e.g., 'tone_of_voice', 'logo', 'product_info'
-
-  // Storage references
-  storageUrl: text("storage_url"), // URL to the physical file in Blob/S3
-  externalUrl: text("external_url"), // The URL the user pasted (if assetType is 'url')
-
-  // RAG/AI Context
-  extractedText: text("extracted_text"), // The raw parsed text fed to the LLM
-  status: text("status").notNull().default("processing"), // 'processing', 'ready', 'failed'
-
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
 // Workspace Assets table — Centralized knowledge base for AI Assistant RAG pipeline
 export const workspaceAssets = pgTable("workspace_assets", {
   id: serial().primaryKey(),
