@@ -134,7 +134,8 @@
     const routes = {
       'dashboard': { file: 'dashboard-content.html', title: '| Workspace Overview' },
       'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
-      'assets': { file: 'assets.html', title: '| Brand & Assets' }, // <-- ADDED THIS
+      'assets': { file: 'assets.html', title: '| Brand Assets' },
+      'instructions': { file: 'instructions.html', title: '| Assistant Instructions' },
       'notifications': { file: 'notifications.html', title: '| Notifications Feed' },
       'settings': { file: 'user-settings.html', title: '| Account Settings' },
       'billing': { file: 'billing.html', title: '| Subscription & Billing' },
@@ -145,7 +146,8 @@
     const navLinks = {
       'dashboard': document.getElementById('nav-dashboard'),
       'catalog': document.getElementById('nav-catalog'),
-      'assets': document.getElementById('nav-assets'), // <-- ADDED THIS
+      'assets': document.getElementById('nav-assets'),
+      'instructions': document.getElementById('nav-instructions'),
       'notifications': document.getElementById('nav-notifications'),
       'settings': document.getElementById('nav-settings'),
       'billing': document.getElementById('nav-billing'),
@@ -197,9 +199,11 @@
           await window.initNotifications();
         }
 
-        // <-- ADDED: Wake up the Assets JS when clicked
         if (routeKey === 'assets' && typeof window.initBrandAssets === 'function') {
           window.initBrandAssets();
+        }
+        if (routeKey === 'instructions' && typeof window.initInstructions === 'function') {
+          window.initInstructions();
         }
 
       } catch (error) {
@@ -487,5 +491,6 @@
 </script>
 <script src="/assets.js"></script>
 <script src="/notifications.js"></script>
+<script src="/instructions.js"></script>
 </body>
 </html>
