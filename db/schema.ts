@@ -263,3 +263,25 @@ export const workspaceAssets = pgTable("workspace_assets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+// Workspace Assets table — Centralized knowledge base for AI Assistant RAG pipeline
+export const workspaceAssets = pgTable("workspace_assets", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+  uploaderId: integer("uploader_id")
+      .references(() => users.id, { onDelete: "set null" }),
+
+  name: text("name").notNull(),
+  assetType: text("asset_type").notNull(), // 'file' or 'url'
+  category: text("category").notNull(),
+
+  storageUrl: text("storage_url"),
+  externalUrl: text("external_url"),
+
+  extractedText: text("extracted_text"),
+  status: text("status").notNull().default("processing"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

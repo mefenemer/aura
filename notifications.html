@@ -1,10 +1,44 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full pb-20">
 
-</body>
-</html>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-extrabold text-gray-900">Notifications</h1>
+            <p class="text-gray-500 mt-1">Stay updated on your workspace and assistant activities.</p>
+        </div>
+        <button id="btn-mark-all-read" class="hidden sm:flex items-center gap-2 px-4 py-2 text-sm font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            Mark all as read
+        </button>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col sm:flex-row gap-4">
+        <div class="relative flex-1">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <input type="text" id="notif-search" placeholder="Search notifications..." class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-600 outline-none text-sm transition-all">
+        </div>
+
+        <select id="notif-filter" class="w-full sm:w-48 px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-600 outline-none text-sm bg-white cursor-pointer">
+            <option value="all">All Notifications</option>
+            <option value="unread">Unread Only</option>
+            <option value="assistant_task">Assistant Tasks</option>
+            <option value="payment_confirmation">Billing & Payments</option>
+        </select>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <ul id="notif-list" class="divide-y divide-gray-100">
+            <li class="p-8 text-center text-gray-500" id="notif-loading">Loading notifications...</li>
+        </ul>
+
+        <div id="notif-empty-state" class="hidden py-16 px-6 text-center">
+            <div class="mx-auto w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+            </div>
+            <h3 class="text-sm font-bold text-gray-900">All caught up!</h3>
+            <p class="text-sm text-gray-500 mt-1">No notifications match your current view.</p>
+        </div>
+    </div>
+
+</div>
