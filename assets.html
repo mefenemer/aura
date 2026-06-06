@@ -16,14 +16,16 @@
       <h1 class="text-3xl font-extrabold text-gray-900">Brand & System Rules</h1>
       <p class="text-gray-500 mt-1">Define and prioritize the core behaviors and knowledge for your workspace.</p>
     </div>
-    <button id="btn-save-all-rules" class="px-6 py-2.5 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-lg shadow-sm transition-colors">
-      Save All Configurations
-    </button>
+
+    <!-- Auto-Save UI Indicator -->
+    <div id="save-status" class="flex items-center gap-2 text-sm font-medium transition-opacity duration-300 opacity-0 h-10 px-4">
+      <!-- Status injected via JS -->
+    </div>
   </div>
 
   <!-- Dynamic Sections Container -->
   <div id="rules-container" class="space-y-8">
-    <!-- Sections injected via JavaScript to keep HTML DRY -->
+    <!-- Sections injected via JavaScript -->
   </div>
 
 </div>
