@@ -265,3 +265,22 @@ export const workspaceAssets = pgTable("workspace_assets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+// Support Tickets Table — For user help requests and issue tracking
+export const supportTickets = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id")
+      .references(() => organisations.id, { onDelete: "cascade" }),
+
+  subject: text("subject").notNull(),
+  category: text("category").notNull(),
+  description: text("description").notNull(),
+
+  // Status tracking: 'open', 'pending', 'resolved'
+  status: text("status").notNull().default("open"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

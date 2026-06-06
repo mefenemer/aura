@@ -80,7 +80,8 @@ export const handler = async (event: HandlerEvent) => {
             );
 
         // Step B: Bulk insert the newly prioritized batch
-        let insertedAssets = [];
+        // FIX: Explicitly type the array to resolve TS7034 and TS7005
+        let insertedAssets: any[] = [];
         if (flatInsertPayload.length > 0) {
             insertedAssets = await db.insert(workspaceAssets).values(flatInsertPayload).returning();
         }
