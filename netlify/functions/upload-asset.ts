@@ -9,7 +9,6 @@ import { logAuditEvent } from '../../src/utils/audit';
 
 const jwtSecret = process.env.JWT_SECRET;
 
-// Helper function to wrap Busboy stream parsing into a clean Async/Await Promise
 const parseMultipartForm = (event: HandlerEvent): Promise<any> => {
     return new Promise((resolve, reject) => {
         const fields: Record<string, string> = {};
@@ -35,7 +34,6 @@ const parseMultipartForm = (event: HandlerEvent): Promise<any> => {
         busboy.on('finish', () => resolve({ fields, file: fileData, fileName, mimeType }));
         busboy.on('error', reject);
 
-        // Netlify base64 encodes binary bodies, so we decode it before feeding it to Busboy
         busboy.end(event.isBase64Encoded ? Buffer.from(event.body || '', 'base64') : event.body);
     });
 };
@@ -44,7 +42,6 @@ export const handler = async (event: HandlerEvent) => {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
     if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
 
-    // 1. Authenticate the User
     const rawCookieHeader = event.headers.cookie || '';
     const cookies = Object.fromEntries(
         rawCookieHeader.split(';').map(c => {
@@ -66,14 +63,11 @@ export const handler = async (event: HandlerEvent) => {
 
     try {
         const db = getDb();
-
-        // Ensure user exists and grab their Workspace (Organisation) ID
         const [user] = await db.select().from(users).where(eq(users.id, userId));
         if (!user || !user.organisationId) {
             return { statusCode: 403, body: JSON.stringify({ error: 'Workspace context missing.' }) };
         }
 
-        // 2. Parse the Multipart Form Data
         const { fields, file, fileName } = await parseMultipartForm(event);
         const { category, url } = fields;
 
@@ -84,29 +78,16 @@ export const handler = async (event: HandlerEvent) => {
         let finalExternalUrl = null;
         const assetType = file ? 'file' : 'url';
 
-        // 3. Route Logic: File vs URL
         if (assetType === 'file') {
             if (!file) return { statusCode: 400, body: JSON.stringify({ error: 'No file detected.' }) };
-
             assetName = fileName;
-
-            // ------------------------------------------------------------------
-            // [ENTERPRISE STORAGE DROP-IN]
-            // Upload the `file` buffer to AWS S3, Cloudinary, or Netlify Blobs here.
-            // Example:
-            // const s3Upload = await s3Client.send(new PutObjectCommand({ Bucket, Key, Body: file }));
-            // finalStorageUrl = `https://your-bucket.s3.amazonaws.com/${Key}`;
-            // ------------------------------------------------------------------
-
             finalStorageUrl = `https://mock-storage.aura-assist.com/workspaces/${user.organisationId}/${fileName}`;
-
         } else {
             if (!url) return { statusCode: 400, body: JSON.stringify({ error: 'No URL provided.' }) };
             assetName = url;
             finalExternalUrl = url;
         }
 
-        // 4. Save to the Database (Scenario 4)
         const [newAsset] = await db.insert(workspaceAssets).values({
             organisationId: user.organisationId,
             uploaderId: userId,
@@ -115,10 +96,9 @@ export const handler = async (event: HandlerEvent) => {
             category: category,
             storageUrl: finalStorageUrl,
             externalUrl: finalExternalUrl,
-            status: 'processing' // Initially set to processing while RAG extraction occurs
+            status: 'processing'
         }).returning();
 
-        // 5. Append to the Secure Audit Log
         logAuditEvent({
             userId: userId,
             actionType: 'CREATE',
@@ -130,15 +110,11 @@ export const handler = async (event: HandlerEvent) => {
         });
 
         // 6. Trigger Background Scraper/RAG Worker
-        // (In a production environment, you would push this task to a queue like Redis/Upstash
-        // or invoke a Netlify Background Function to extract the text without keeping the user waiting).
         console.log(`[RAG TRIGGERED] Kicked off extraction job for Asset ID: ${newAsset.id}`);
-        // 6. Trigger Background Scraper/RAG Worker
         const host = event.headers?.host || 'localhost:8888';
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const backgroundEndpoint = `${protocol}://${host}/.netlify/functions/process-asset-background`;
 
-        // We use fetch without `await` (or ignore the response) so the user isn't kept waiting
         fetch(backgroundEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
