@@ -6,10 +6,26 @@ window.initInstructions = function() {
     if (!container) return;
 
     const categories = [
-        { id: 'tone_of_voice', title: 'Tone of Voice / Style', placeholder: 'e.g., "Always maintain a professional yet friendly tone. Avoid heavy technical jargon unless prompted."' },
-        { id: 'brand_logo', title: 'Brand Logo / Visuals', placeholder: 'e.g., "Primary brand hex code is #10B981. Company logo URL: https://yoursite.com/logo.png"' },
-        { id: 'product_info', title: 'Product Knowledge', placeholder: 'e.g., "Our flagship service is an AI-driven task delegation platform designed for SaaS teams."' },
-        { id: 'general', title: 'General Context', placeholder: 'e.g., "Our primary target audience consists of enterprise IT directors and operations managers."' }
+        {
+            id: 'tone_of_voice',
+            title: 'Tone of Voice & Personality',
+            placeholder: 'e.g., "Always maintain a professional yet friendly tone. Act as a supportive team member."'
+        },
+        {
+            id: 'response_formatting',
+            title: 'Response Formatting',
+            placeholder: 'e.g., "Always use bullet points for lists. Never use technical jargon unless explicitly asked."'
+        },
+        {
+            id: 'core_knowledge',
+            title: 'Core Business Facts',
+            placeholder: 'e.g., "Our flagship service is Aura-Assist, an AI-driven task delegation platform designed for SaaS teams."'
+        },
+        {
+            id: 'target_audience',
+            title: 'Target Audience Context',
+            placeholder: 'e.g., "Assume you are speaking to enterprise IT directors who value efficiency and operational cost reduction."'
+        }
     ];
 
     // --- 1. AUTO-SAVE DEBOUNCE ENGINE ---

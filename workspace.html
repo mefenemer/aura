@@ -133,6 +133,8 @@
     // Consolidated path definitions mapping navigation links to standard modular components
     const routes = {
       'dashboard': { file: 'dashboard-content.html', title: '| Workspace Overview' },
+      'assistants': { file: 'assistants-directory.html', title: '| My Assistants' },
+      'assistant-detail': { file: 'assistant-detail.html', title: '| Control Room' },
       'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
       'assets': { file: 'assets.html', title: '| Brand Assets' },
       'instructions': { file: 'instructions.html', title: '| Assistant Instructions' },
@@ -145,6 +147,7 @@
     // Consolidated DOM element hooks
     const navLinks = {
       'dashboard': document.getElementById('nav-dashboard'),
+      'assistants': document.getElementById('nav-assistants'),
       'catalog': document.getElementById('nav-catalog'),
       'assets': document.getElementById('nav-assets'),
       'instructions': document.getElementById('nav-instructions'),
@@ -154,7 +157,7 @@
       'help': document.getElementById('nav-help')
     };
 
-    async function loadView(routeKey) {
+    async function loadView(routeKey, param = null) {
       const route = routes[routeKey];
       if (!route) return;
 
@@ -172,7 +175,10 @@
           headerTitle.textContent = route.title;
         }
 
-        updateActiveNav(routeKey);
+        // --- Active State Logic (Fix for Deep Links) ---
+        // If we are on 'assistant-detail', we still want the 'assistants' sidebar link highlighted
+        const activeNavKey = routeKey === 'assistant-detail' ? 'assistants' : routeKey;
+        updateActiveNav(activeNavKey);
 
         // Map internal action anchors
         const internalCatalogLink = document.getElementById('route-to-catalog');
@@ -194,7 +200,6 @@
           await initHelpCenter();
         }
 
-        // <-- ADDED: Wake up the Notifications JS when clicked
         if (routeKey === 'notifications' && typeof window.initNotifications === 'function') {
           await window.initNotifications();
         }
@@ -202,8 +207,18 @@
         if (routeKey === 'assets' && typeof window.initBrandAssets === 'function') {
           window.initBrandAssets();
         }
+
         if (routeKey === 'instructions' && typeof window.initInstructions === 'function') {
           window.initInstructions();
+        }
+
+        // --- NEW: Assistants Directory & Control Room ---
+        if (routeKey === 'assistants' && typeof window.initAssistantsDirectory === 'function') {
+          await window.initAssistantsDirectory(loadView);
+        }
+
+        if (routeKey === 'assistant-detail' && typeof window.initAssistantDetail === 'function') {
+          await window.initAssistantDetail(param, loadView);
         }
 
       } catch (error) {
@@ -211,6 +226,11 @@
         contentContainer.innerHTML = `<div class="p-8 text-center text-red-600 font-medium">Failed to load requested view. Please try again.</div>`;
       }
     }
+
+    // Expose a global routing helper for the HTML onclick handlers in the assistants grid
+    window.routeToAssistantDetail = function(assistantId) {
+      loadView('assistant-detail', assistantId);
+    };
 
     function updateActiveNav(activeKey) {
       Object.values(navLinks).forEach(link => {
@@ -492,5 +512,6 @@
 <script src="/assets.js"></script>
 <script src="/notifications.js"></script>
 <script src="/instructions.js"></script>
+<script src="/assistants.js"></script>
 </body>
 </html>

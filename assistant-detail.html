@@ -1,0 +1,66 @@
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full pb-20">
+
+  <nav class="flex mb-6 text-sm font-medium text-gray-500">
+    <button id="btn-back-assistants" class="hover:text-emerald-700 transition-colors flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+      Back to Assistants
+    </button>
+  </nav>
+
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 relative overflow-hidden">
+    <div class="absolute -top-10 -right-10 w-32 h-32 bg-emerald-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+
+    <div class="flex items-center gap-5 z-10">
+      <div id="detail-avatar" class="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shadow-sm"></div>
+      <div>
+        <div class="flex items-center gap-3">
+          <h1 id="detail-name" class="text-2xl font-extrabold text-gray-900">Loading...</h1>
+          <span id="detail-status" class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">...</span>
+        </div>
+        <p id="detail-role" class="text-gray-500 font-medium mt-1">Base Role</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 w-full sm:w-auto z-10">
+      <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm">
+        Pause Assistant
+      </button>
+      <button id="btn-delete-assistant" class="px-4 py-2.5 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors shadow-sm" title="Delete">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="border-b border-gray-200 mb-8">
+    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+      <button id="tab-btn-settings" class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm border-emerald-500 text-emerald-600">Settings & Brief</button>
+      <button id="tab-btn-integrations" class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Integrations</button>
+      <button id="tab-btn-logs" class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Activity Logs</button>
+    </nav>
+  </div>
+
+  <div id="tab-content-settings" class="tab-content block space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <h3 class="text-lg font-bold text-gray-900 mb-4">Core Settings</h3>
+      <p class="text-sm text-gray-500 mb-4">Update the specific instructions and constraints for this assistant.</p>
+      <div class="h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-sm font-medium text-gray-400">Settings Form Modules Go Here</div>
+    </div>
+  </div>
+
+  <div id="tab-content-integrations" class="tab-content hidden space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <h3 class="text-lg font-bold text-gray-900 mb-4">Connected Platforms</h3>
+      <p class="text-sm text-gray-500 mb-4">Manage which external tools this assistant has permission to use.</p>
+      <div class="h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-sm font-medium text-gray-400">OAuth / Integration List Goes Here</div>
+    </div>
+  </div>
+
+  <div id="tab-content-logs" class="tab-content hidden space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <h3 class="text-lg font-bold text-gray-900 mb-4">Recent Activity</h3>
+      <p class="text-sm text-gray-500 mb-4">A log of all actions taken and errors encountered by this assistant.</p>
+      <div class="h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-sm font-medium text-gray-400">Audit Data Table Goes Here</div>
+    </div>
+  </div>
+
+</div>
