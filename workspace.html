@@ -69,6 +69,10 @@
   document.addEventListener("DOMContentLoaded", async () => {
     // 1. Force the sidebar to inject before drawing main components
     await loadSidebar("sidebar-placeholder");
+    // NEW: Check for unread notifications immediately upon layout initialization
+    if (typeof window.updateNotificationBadge === 'function') {
+      window.updateNotificationBadge();
+    }
 // --- DYNAMIC HEADER HYDRATION ---
     async function loadHeaderProfile() {
       const nameEl = document.getElementById('header-user-name');

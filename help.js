@@ -157,6 +157,11 @@ window.initHelpCenter = async function() {
                     btn.textContent = "Ticket Submitted!";
                     btn.classList.replace('bg-gray-900', 'bg-emerald-600');
                     fetchTicketHistory(); // Instantly refresh the table
+
+                    // NEW: Instantly refresh the global notification badge
+                    if (typeof window.updateNotificationBadge === 'function') {
+                        window.updateNotificationBadge();
+                    }
                 } else {
                     throw new Error("Failed to submit");
                 }
