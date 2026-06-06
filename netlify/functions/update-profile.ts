@@ -1,80 +1,131 @@
-import { Handler } from '@netlify/functions';
+// netlify/functions/update-profile.ts
+import { HandlerEvent } from '@netlify/functions';
+import { eq } from 'drizzle-orm';
+import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
 import { users, userProfiles } from '../../db/schema';
-import { eq } from 'drizzle-orm';
 import { logAuditEvent } from '../../src/utils/audit';
 
-export const handler: Handler = async (event) => {
-    const standardHeaders: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-    };
+const jwtSecret = process.env.JWT_SECRET;
 
-    const AUTHENTICATED_USER_ID = 1;
+// Removed the unused 'context' parameter to satisfy TS6133
+export const handler = async (event: HandlerEvent) => {
+    if (!jwtSecret) {
+        console.error("CRITICAL: JWT_SECRET is missing.");
+        return { statusCode: 500, body: JSON.stringify({ error: 'Server configuration error.' }) };
+    }
 
+    // 1. Authenticate the User via Native Cookie Parsing (Fixes TS2307)
+    const rawCookieHeader = event.headers.cookie || '';
+    const cookies = Object.fromEntries(
+        rawCookieHeader.split(';').map(c => {
+            const [key, ...v] = c.trim().split('=');
+            return [key, decodeURIComponent(v.join('='))];
+        }).filter(([key]) => key !== '') // Filter out empty strings
+    );
+
+    const sessionToken = cookies['aura_session'];
+
+    if (!sessionToken) {
+        return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized. Please log in.' }) };
+    }
+
+    let userId: number;
     try {
-        const db = getDb();
+        const decoded = jwt.verify(sessionToken, jwtSecret) as { userId: number };
+        userId = decoded.userId;
+    } catch (err) {
+        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid or expired session.' }) };
+    }
 
-        // Hydration logic
-        if (event.httpMethod === 'GET') {
-            const resultRows = await db
-                .select({
-                    firstName: users.firstName,
-                    lastName: users.lastName,
-                    email: users.email,
-                    timezone: userProfiles.timezone
+    const db = getDb();
+
+    // -------------------------------------------------------------
+    // GET: Hydrate the Account Settings page fields
+    // -------------------------------------------------------------
+    if (event.httpMethod === 'GET') {
+        try {
+            const [user] = await db.select().from(users).where(eq(users.id, userId));
+            const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify({
+                    firstName: user?.firstName || '',
+                    lastName: user?.lastName || '',
+                    email: user?.email || '',
+                    timezone: profile?.timezone || 'Europe/London'
                 })
-                .from(users)
-                .leftJoin(userProfiles, eq(users.id, userProfiles.userId))
-                .where(eq(users.id, AUTHENTICATED_USER_ID))
-                .limit(1);
-
-            if (!resultRows.length) return { statusCode: 404, headers: standardHeaders, body: JSON.stringify({ error: 'User not found.' }) };
-            return { statusCode: 200, headers: standardHeaders, body: JSON.stringify(resultRows[0]) };
+            };
+        } catch (error) {
+            return { statusCode: 500, body: JSON.stringify({ error: 'Failed to fetch profile data.' }) };
         }
+    }
 
-        // Auto-Save logic
-        if (event.httpMethod === 'PATCH') {
-            if (!event.body) return { statusCode: 400, headers: standardHeaders, body: JSON.stringify({ error: 'Missing body payload.' }) };
-            const { fieldKey, value } = JSON.parse(event.body);
+    // -------------------------------------------------------------
+    // PATCH: Auto-Save Profile Changes & Trigger Audit Log
+    // -------------------------------------------------------------
+    if (event.httpMethod === 'PATCH') {
+        try {
+            const body = JSON.parse(event.body || '{}');
+            const { fieldKey, value } = body;
 
-            if (fieldKey === 'firstName' || fieldKey === 'lastName' || fieldKey === 'email') {
-                const updateObject: Record<string, any> = {};
-                updateObject[fieldKey] = value;
-                await db.update(users).set(updateObject).where(eq(users.id, AUTHENTICATED_USER_ID));
-            } else if (fieldKey === 'timezone') {
-                const profileCheck = await db.select().from(userProfiles).where(eq(userProfiles.userId, AUTHENTICATED_USER_ID)).limit(1);
-                if (!profileCheck.length) {
-                    await db.insert(userProfiles).values({
-                        userId: AUTHENTICATED_USER_ID,
-                        timezone: value,
-                        notifyWins: true,
-                        notifyBilling: true,
-                        notifyAvailability: false
-                    });
-                } else {
-                    await db.update(userProfiles).set({ timezone: value }).where(eq(userProfiles.userId, AUTHENTICATED_USER_ID));
-                }
+            if (!fieldKey) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'Field key is missing.' }) };
             }
 
-            return { statusCode: 200, headers: standardHeaders, body: JSON.stringify({ success: true }) };
-        }
+            // Fetch the current state for the Before/After Audit Log
+            const [currentUser] = await db.select().from(users).where(eq(users.id, userId));
+            const [currentProfile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
 
-        return { statusCode: 405, headers: standardHeaders, body: 'Method Not Allowed' };
-    } catch (error: any) {
-        // EXPLICIT ERROR PASSTHROUGH: Sends the exact database rejection message to the frontend
-        console.error('Profile update rejection:', error);
-        return { statusCode: 500, headers: standardHeaders, body: JSON.stringify({ error: error.message || 'Database execution failed.' }) };
+            let targetTable = '';
+            let oldState = {};
+            let newState = {};
+
+            // Determine which table handles the incoming field
+            if (['firstName', 'lastName', 'email'].includes(fieldKey)) {
+
+                targetTable = 'users';
+                oldState = { [fieldKey]: currentUser[fieldKey as keyof typeof currentUser] };
+                newState = { [fieldKey]: value };
+
+                await db.update(users)
+                    .set({ [fieldKey]: value, updatedAt: new Date() })
+                    .where(eq(users.id, userId));
+
+            } else if (['timezone'].includes(fieldKey)) {
+
+                targetTable = 'user_profiles';
+                oldState = { [fieldKey]: currentProfile[fieldKey as keyof typeof currentProfile] };
+                newState = { [fieldKey]: value };
+
+                await db.update(userProfiles)
+                    .set({ [fieldKey]: value, updatedAt: new Date() })
+                    .where(eq(userProfiles.userId, userId));
+
+            } else {
+                return { statusCode: 400, body: JSON.stringify({ error: 'Invalid field key provided.' }) };
+            }
+
+            // Dispatch the asynchronous, non-blocking Audit Log
+            logAuditEvent({
+                userId: userId,
+                actionType: 'UPDATE',
+                resourceType: targetTable,
+                resourceId: userId,
+                previousState: oldState,
+                newState: newState,
+                ipAddress: event.headers['client-ip'] || event.headers['x-forwarded-for'] || 'unknown',
+                userAgent: event.headers['user-agent'] || 'unknown'
+            });
+
+            return { statusCode: 200, body: JSON.stringify({ success: true, message: 'Profile updated.' }) };
+
+        } catch (error) {
+            console.error('Update Profile Error:', error);
+            return { statusCode: 500, body: JSON.stringify({ error: 'Failed to update profile.' }) };
+        }
     }
+
+    return { statusCode: 405, body: 'Method Not Allowed' };
 };
-// ... after successfully updating the database:
-logAuditEvent({
-    userId: currentUser.id,
-    actionType: 'UPDATE',
-    resourceType: 'user_profiles',
-    resourceId: currentUser.id,
-    previousState: oldProfileData,
-    newState: updatedProfileData,
-    ipAddress: event.headers['client-ip'] || event.headers['x-forwarded-for'],
-    userAgent: event.headers['user-agent']
-});
