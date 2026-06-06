@@ -1,7 +1,7 @@
 // netlify/functions/add-text-assets.ts
 import { HandlerEvent } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, workspaceAssets } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
@@ -41,41 +41,67 @@ export const handler = async (event: HandlerEvent) => {
             return { statusCode: 403, body: JSON.stringify({ error: 'Workspace context missing.' }) };
         }
 
-        const body = JSON.parse(event.body || '{}');
-        const { category, assets } = body;
+        const orgId = user.organisationId;
 
-        if (!category || !Array.isArray(assets) || assets.length === 0) {
-            return { statusCode: 400, body: JSON.stringify({ error: 'Invalid payload.' }) };
+        // The payload is now an array of categories, each containing an array of rules
+        const payload: Array<{ category: string, rules: Array<{ priority: number, value: string, isActive: boolean }> }> = JSON.parse(event.body || '[]');
+
+        if (!Array.isArray(payload)) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'Invalid payload structure.' }) };
         }
 
-        // 3. Map Payload & Insert (Status 'ready' for text assets)
-        const insertPayload = assets.map((asset: any) => ({
-            organisationId: user.organisationId as number,
-            uploaderId: userId,
-            name: asset.title,
-            assetType: 'text',
-            category: category,
-            extractedText: asset.content,
-            status: 'ready'
-        }));
+        // 3. Flatten the nested payload into a single array of database rows
+        const flatInsertPayload: any[] = [];
 
-        const insertedAssets = await db.insert(workspaceAssets).values(insertPayload).returning();
-
-        // 4. Audit Log
-        insertedAssets.forEach(asset => {
-            logAuditEvent({
-                userId: userId,
-                actionType: 'CREATE',
-                resourceType: 'workspace_assets',
-                resourceId: asset.id,
-                newState: asset
+        payload.forEach(section => {
+            section.rules.forEach(rule => {
+                flatInsertPayload.push({
+                    organisationId: orgId,
+                    uploaderId: userId,
+                    name: `System Rule: ${section.category}`, // Generic name for UI tracking
+                    assetType: 'text',
+                    category: section.category,
+                    extractedText: rule.value,
+                    priority: rule.priority,
+                    isActive: rule.isActive,
+                    status: 'ready' // Text rules require no background RAG processing
+                });
             });
+        });
+
+        // 4. Synchronization Execution (Transaction-like behavior)
+        // Step A: Delete all existing 'text' type assets for this organization to prevent duplicates
+        await db.delete(workspaceAssets)
+            .where(
+                and(
+                    eq(workspaceAssets.organisationId, orgId),
+                    eq(workspaceAssets.assetType, 'text')
+                )
+            );
+
+        // Step B: Bulk insert the newly prioritized batch
+        let insertedAssets = [];
+        if (flatInsertPayload.length > 0) {
+            insertedAssets = await db.insert(workspaceAssets).values(flatInsertPayload).returning();
+        }
+
+        // 5. Audit Log the Sync Event
+        logAuditEvent({
+            userId: userId,
+            actionType: 'UPDATE', // Categorized as an update since it's a full sync
+            resourceType: 'workspace_assets',
+            resourceId: orgId, // Using orgId since multiple assets were touched
+            newState: {
+                action: 'bulk_sync_rules',
+                totalRulesActive: insertedAssets.filter(a => a.isActive).length,
+                totalRulesInactive: insertedAssets.filter(a => !a.isActive).length
+            }
         });
 
         return { statusCode: 200, body: JSON.stringify({ success: true, count: insertedAssets.length }) };
 
     } catch (error) {
-        console.error('Text Asset Bulk Upload Error:', error);
+        console.error('Rules Engine Sync Error:', error);
         return { statusCode: 500, body: JSON.stringify({ error: 'Internal Server Error' }) };
     }
 };

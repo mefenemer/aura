@@ -250,12 +250,15 @@ export const workspaceAssets = pgTable("workspace_assets", {
       .references(() => users.id, { onDelete: "set null" }),
 
   name: text("name").notNull(),
-  assetType: text("asset_type").notNull(), // 'file' or 'url'
+  assetType: text("asset_type").notNull(), // 'file', 'url', or 'text'
   category: text("category").notNull(),
+
+  // NEW COLUMNS FOR TEXT RULES ENGINE
+  isActive: boolean("is_active").default(true).notNull(),
+  priority: integer("priority").default(0).notNull(),
 
   storageUrl: text("storage_url"),
   externalUrl: text("external_url"),
-
   extractedText: text("extracted_text"),
   status: text("status").notNull().default("processing"),
 
