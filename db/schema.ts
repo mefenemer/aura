@@ -225,3 +225,16 @@ export const helpArticles = pgTable('help_articles', {
   readTime: varchar('read_time', { length: 50 }).default('3 min read'),
   createdAt: timestamp('created_at').defaultNow()
 });
+// Audit logs table — immutable ledger for system compliance and tracking
+export const auditLogs = pgTable("audit_logs", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Can be null for system-level events
+  actionType: text("action_type").notNull(), // e.g., 'CREATE', 'UPDATE', 'DELETE'
+  resourceType: text("resource_type").notNull(), // e.g., 'users', 'user_profiles'
+  resourceId: text("resource_id").notNull(), // The ID of the affected row (stored as text for flexibility)
+  previousState: jsonb("previous_state"),
+  newState: jsonb("new_state"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

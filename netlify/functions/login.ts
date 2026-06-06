@@ -1,48 +1,50 @@
+// netlify/functions/login.ts
 import { Handler } from '@netlify/functions';
 import { eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
-import { getDb } from '../../db/client'; // 👈 Protected connection pool
+import { getDb } from '../../db/client';
 import { users } from '../../db/schema';
-import { sendMagicLinkEmail } from '../../src/utils/email'; // 👈 Resend utility integration
+import { sendMagicLinkEmail } from '../../src/utils/email';
 
 export const handler: Handler = async (event) => {
     const db = getDb();
 
-    // -------------------------------------------------------------
-    // POST: Request a Magic Link (Triggered by login.html)
-    // -------------------------------------------------------------
     if (event.httpMethod === 'POST') {
         try {
             const body = JSON.parse(event.body || '{}');
-            const email = body.email?.trim().toLowerCase(); // 👈 Prevents case-sensitivity bugs
+            const email = body.email?.trim().toLowerCase();
 
-            if (!email) {
-                return { statusCode: 400, body: JSON.stringify({ error: 'Email is required.' }) };
-            }
+            if (!email) return { statusCode: 400, body: JSON.stringify({ error: 'Email is required.' }) };
 
-            // Find the active user
             const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
             if (user && user.status === 'active') {
-                // Security: Generate a plain token for the user, and a hashed token for the DB
+                // --- RATE LIMITING (SCENARIO 5) ---
+                // Check if a token was generated less than 60 seconds ago
+                if (user.tokenExpiresAt) {
+                    const tokenGeneratedAt = new Date(user.tokenExpiresAt).getTime() - (15 * 60 * 1000);
+                    const timeSinceLastToken = Date.now() - tokenGeneratedAt;
+
+                    if (timeSinceLastToken < 60000) { // 60 seconds
+                        console.log(`[Rate Limit] Magic link requested too recently for: ${email}`);
+                        // Return 200 to prevent enumeration, but do NOT fire Resend
+                        return { statusCode: 200, body: JSON.stringify({ message: 'If an account exists, a link was sent.' }) };
+                    }
+                }
+
                 const plainToken = crypto.randomBytes(32).toString('hex');
                 const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
-
-                // Login links should have a shorter lifespan than registration links
-                const tokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+                const tokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
                 await db.update(users)
                     .set({ verificationToken: hashedToken, tokenExpiresAt })
                     .where(eq(users.id, user.id));
 
-                // Construct the link and send the email
-                // Dynamically determine the URL based on the incoming request headers
                 const host = event.headers?.host || 'localhost:8888';
                 const protocol = host.includes('localhost') ? 'http' : 'https';
                 const baseUrl = `${protocol}://${host}`;
-
-                // Send the PLAIN token in the email link
                 const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}`;
+
                 await sendMagicLinkEmail({
                     to: email,
                     subject: 'Log In to Aura Assist',
@@ -61,7 +63,7 @@ export const handler: Handler = async (event) => {
                 });
             }
 
-            // Always return 200 to prevent bad actors from checking which emails exist
+            // Always return 200 OK (Enumeration Protection)
             return { statusCode: 200, body: JSON.stringify({ message: 'If an account exists, a link was sent.' }) };
         } catch (error) {
             console.error('Login Request Error:', error);

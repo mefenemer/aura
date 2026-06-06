@@ -2,6 +2,7 @@ import { Handler } from '@netlify/functions';
 import { getDb } from '../../db/client';
 import { users, userProfiles } from '../../db/schema';
 import { eq } from 'drizzle-orm';
+import { logAuditEvent } from '../../src/utils/audit';
 
 export const handler: Handler = async (event) => {
     const standardHeaders: Record<string, string> = {
@@ -66,3 +67,14 @@ export const handler: Handler = async (event) => {
         return { statusCode: 500, headers: standardHeaders, body: JSON.stringify({ error: error.message || 'Database execution failed.' }) };
     }
 };
+// ... after successfully updating the database:
+logAuditEvent({
+    userId: currentUser.id,
+    actionType: 'UPDATE',
+    resourceType: 'user_profiles',
+    resourceId: currentUser.id,
+    previousState: oldProfileData,
+    newState: updatedProfileData,
+    ipAddress: event.headers['client-ip'] || event.headers['x-forwarded-for'],
+    userAgent: event.headers['user-agent']
+});
