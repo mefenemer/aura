@@ -284,3 +284,18 @@ export const supportTickets = pgTable("support_tickets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+// User Notifications Table — Global feed for alerts, tickets, and billing
+export const userNotifications = pgTable("user_notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull(), // e.g., 'ticket_created', 'billing_alert'
+  referenceId: text("reference_id"), // e.g., The specific Ticket ID
+
+  isRead: boolean("is_read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

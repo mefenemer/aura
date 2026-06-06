@@ -3,7 +3,7 @@ import { HandlerEvent } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, supportTickets } from '../../db/schema';
+import { users, supportTickets, userNotifications } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -35,7 +35,7 @@ export const handler = async (event: HandlerEvent) => {
         const db = getDb();
 
         // -------------------------------------------------------------
-        // GET: Fetch Ticket History (Scenario 3)
+        // GET: Fetch Ticket History
         // -------------------------------------------------------------
         if (event.httpMethod === 'GET') {
             const userTickets = await db.select()
@@ -47,7 +47,7 @@ export const handler = async (event: HandlerEvent) => {
         }
 
         // -------------------------------------------------------------
-        // POST: Create New Ticket (Scenario 2)
+        // POST: Create New Ticket & Trigger Notification
         // -------------------------------------------------------------
         if (event.httpMethod === 'POST') {
             const [user] = await db.select().from(users).where(eq(users.id, userId));
@@ -60,6 +60,7 @@ export const handler = async (event: HandlerEvent) => {
                 return { statusCode: 400, body: JSON.stringify({ error: 'All fields are required.' }) };
             }
 
+            // 1. Create the Ticket
             const [newTicket] = await db.insert(supportTickets).values({
                 userId: userId,
                 organisationId: user.organisationId,
@@ -69,7 +70,17 @@ export const handler = async (event: HandlerEvent) => {
                 status: 'open'
             }).returning();
 
-            // Audit Log
+            // 2. Automatically generate the Notification
+            await db.insert(userNotifications).values({
+                userId: userId,
+                title: `Ticket #${newTicket.id} Created`,
+                message: `Your support request "${newTicket.subject}" has been logged successfully.`,
+                type: 'ticket_created',
+                referenceId: String(newTicket.id),
+                isRead: false
+            });
+
+            // 3. Audit Log
             logAuditEvent({
                 userId: userId,
                 actionType: 'CREATE',
