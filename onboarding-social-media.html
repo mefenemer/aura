@@ -33,7 +33,13 @@
         </a>
         <span class="text-base font-medium text-gray-400 ml-2">| Social Media Manager Blueprint</span>
       </div>
-      <div id="tier-badge" class="hidden items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 tracking-wide uppercase shadow-sm">
+      <div class="flex items-center gap-4">
+        <div id="draft-save-status" class="hidden items-center gap-1.5 px-3 py-1 rounded-full bg-gray-50 border border-gray-200 text-xs font-bold text-gray-500 shadow-sm transition-all duration-300 opacity-0">
+          <span id="draft-icon"></span>
+          <span id="draft-text">Draft Saved</span>
+        </div>
+        <div id="tier-badge" class="hidden items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 tracking-wide uppercase shadow-sm">
+        </div>
       </div>
     </div>
   </div>
@@ -69,7 +75,6 @@
                 <span class="font-bold block mb-1">The Multi-Platform Headache</span>
                 "I waste time taking one core message and rewriting it to fit perfectly across platforms..."
               </button>
-              <!-- NEW STARTUP/SCALE-UP OPTION -->
               <button type="button" title="I need to rapidly test different value propositions and engage with niche communities to build our initial audience from scratch, but I don't have the bandwidth." onclick="populateProblem('I need to rapidly test different value propositions and engage with niche communities to build our initial audience from scratch, but I don\'t have the bandwidth.')" class="text-left text-sm bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg p-3 hover:bg-emerald-100 hover:border-emerald-300 transition shadow-sm cursor-pointer">
                 <span class="font-bold block mb-1">The Cold Start & Growth Grind</span>
                 "I need to rapidly test different value propositions and engage with niche communities..."
@@ -79,7 +84,6 @@
 
           <div class="relative">
             <label class="block text-sm font-bold text-gray-700 mb-1">Your Bottleneck: *</label>
-            <!-- NEW HELPER TEXT -->
             <p class="text-xs text-gray-500 mb-2">Click a suggestion above, or type your own unique bottleneck below.</p>
             <label for="user_story_problem"></label><textarea id="user_story_problem" class="auto-expand-textarea w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm" placeholder="e.g., I spend 4 hours a week researching trends, writing captions in Notion, and manually posting to Instagram..."></textarea>
             <span class="error-msg hidden text-red-500 text-xs font-bold mt-1">Please provide a bit more detail (at least 10 characters).</span>
@@ -165,7 +169,6 @@
           <p class="text-gray-500 mb-6">Define the core message and personality of your content. These details are required so the assistant sounds exactly like your brand.</p>
 
           <div class="space-y-6">
-            <!-- Assistant Naming Section -->
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Name Your Digital Assistant: *</label>
               <p class="text-xs text-gray-500 mb-2">Give your assistant a custom name, or let us pick one for you.</p>
@@ -199,13 +202,11 @@
               <h3 class="block text-sm font-bold text-gray-700 mb-1">Knowledge Base & Brain Trust (Optional)</h3>
               <p class="text-xs text-gray-500 mb-4">Train your AI with your unique voice. Share personal anecdotes, life experiences, or brand stories.</p>
 
-              <!-- Scenario 1 & 3: Flexible Text Input -->
               <label for="val_braintrust_text" class="sr-only">Share your personal anecdotes</label>
               <textarea id="val_braintrust_text"
                         class="auto-expand-textarea w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white mb-6"
                         placeholder="Type your personal anecdotes, life experiences, or brand stories here..."></textarea>
 
-              <!-- Scenario 2: Dynamic Link Management -->
               <div id="dynamic_links_container" class="space-y-3">
                 <label class="block text-sm font-bold text-gray-700 mb-1">Add reference documents or websites</label>
                 <div class="flex items-center gap-2 link-row">
@@ -249,7 +250,6 @@
 
           <label class="block text-sm font-bold text-gray-900 mb-3">Select Platforms & Enter Handles: *</label>
           <div id="social_platforms_container" class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-4 mb-6">
-            <!-- Facebook -->
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_fb" value="Facebook" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('fb_handle_container', this.checked)">
@@ -264,7 +264,6 @@
               </div>
             </div>
 
-            <!-- Instagram -->
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_ig" value="Instagram" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('ig_handle_container', this.checked)">
@@ -279,7 +278,6 @@
               </div>
             </div>
 
-            <!-- LinkedIn -->
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_li" value="LinkedIn" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('li_handle_container', this.checked)">
@@ -294,7 +292,6 @@
               </div>
             </div>
 
-            <!-- X -->
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_x" value="X" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('x_handle_container', this.checked)">
@@ -354,7 +351,7 @@
               <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Automated Media Sourcing')"><input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Include placeholders for media (Saver+)</span></label>
             </div>
           </div>
-          </div>
+        </div>
 
         <div id="step-6" class="step-hidden">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 6 of 8</span>
@@ -390,10 +387,10 @@
 
         <div id="step-7" class="step-hidden">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 7 of 8</span>
-          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Review Your Blueprint</h2>
-          <p class="text-gray-500 mb-6">We have compiled your answers into the engineering brief below. Feel free to edit this text directly before submission.</p>
-          <textarea id="generated_brief"
-                    class="auto-expand-textarea w-full font-mono text-sm border border-gray-300 rounded-lg p-4 mb-4 focus:ring-2 focus:ring-emerald-700 transition shadow-inner bg-gray-50"></textarea>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Review Your Setup</h2>
+          <p class="text-gray-500 mb-6">Here is a high-level summary of your configuration. To protect proprietary logic, your specific workflow is compiled securely on our servers.</p>
+          <div id="summary_container" class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+          </div>
         </div>
 
         <div id="step-8" class="step-hidden text-center py-4">
@@ -459,26 +456,29 @@
     'x':  { regex: /^@?[a-zA-Z0-9_]{1,15}$/, example: "@yourhandle" }
   };
 
-  // --- 2. DOM INITIALIZATION ---
+  // --- 2. DOM INITIALIZATION & HYDRATION ---
   document.addEventListener("DOMContentLoaded", async () => {
     loadComponent("footer-placeholder", "./components/footer.html");
+
+    // Resume existing draft
+    await hydrateDraft();
+
     autoExpandTextareas();
 
-    // Clears standard errors on typing
-    document.querySelectorAll('input, textarea').forEach(el => {
+    document.querySelectorAll('input, textarea, select').forEach(el => {
+      // Clear errors
       el.addEventListener('input', function() {
         this.classList.remove('input-error');
         const errorMsg = this.parentNode.querySelector('.error-msg');
         if(errorMsg) errorMsg.classList.add('hidden');
       });
+      // Trigger background sync on any change
+      el.addEventListener('input', triggerAutoSave);
+      el.addEventListener('change', triggerAutoSave);
     });
 
-    // ADD THIS: Trigger instant format validation for social handles on input
     document.querySelectorAll('input[id$="_handle"]').forEach(input => {
-      input.addEventListener('input', function() {
-        const platform = this.id.split('_')[0]; // gets 'fb', 'ig', etc.
-        validateHandle(platform, this);
-      });
+      input.addEventListener('input', function() { validateHandle(this.id.split('_')[0], this); });
     });
 
     document.querySelectorAll('input[type="radio"]').forEach(el => {
@@ -489,7 +489,166 @@
     });
   });
 
-  // --- 3. AUTO-EXPANSION ENGINE ---
+  // --- 3. AUTO-SAVE ENGINE & HYDRATION ---
+  let saveDraftTimeout;
+
+  function updateDraftStatus(state) {
+    const statusEl = document.getElementById('draft-save-status');
+    const iconEl = document.getElementById('draft-icon');
+    const textEl = document.getElementById('draft-text');
+    if (!statusEl) return;
+
+    statusEl.classList.remove('hidden');
+    statusEl.classList.add('flex');
+
+    if (state === 'saving') {
+      statusEl.classList.remove('opacity-0');
+      iconEl.innerHTML = `<svg class="animate-spin w-3 h-3 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" class="opacity-75"></path></svg>`;
+      textEl.textContent = 'Saving...';
+      statusEl.className = 'flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700 shadow-sm transition-all duration-300';
+    } else if (state === 'saved') {
+      iconEl.innerHTML = `<svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+      textEl.textContent = 'Saved';
+      statusEl.className = 'flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700 shadow-sm transition-all duration-300';
+      setTimeout(() => statusEl.classList.add('opacity-0'), 3000);
+    }
+  }
+
+  function getFormData() {
+    const data = {
+      client_name: sessionStorage.getItem('aura_client_name') || '',
+      business_name: sessionStorage.getItem('aura_business_name') || '',
+      assistant_name: sessionStorage.getItem('aura_assistant_name') || '',
+    };
+
+    document.querySelectorAll('#intake-form input, #intake-form textarea, #intake-form select').forEach(el => {
+      if (el.id) {
+        if (el.type === 'checkbox') data[el.id] = el.checked;
+        else if (el.type === 'radio') { if (el.checked) data[el.name] = el.value; }
+        else data[el.id] = el.value;
+      }
+    });
+
+    // Special capture for dynamic link fields without unique IDs
+    const links = [];
+    document.querySelectorAll('.braintrust-link-input').forEach(input => {
+      if (input.value.trim() !== '') links.push(input.value.trim());
+    });
+    data['braintrust_links'] = links;
+
+    return data;
+  }
+
+  async function saveDraftToBackend() {
+    updateDraftStatus('saving');
+    try {
+      const res = await fetch('/.netlify/functions/onboarding-draft', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentStep: currentStep,
+          onboardingPath: 'social_media',
+          draftData: getFormData()
+        })
+      });
+      if (res.ok) updateDraftStatus('saved');
+    } catch (e) { console.error("Draft save failed", e); }
+  }
+
+  function triggerAutoSave() {
+    const statusEl = document.getElementById('draft-save-status');
+    if(statusEl) statusEl.classList.remove('opacity-0');
+    updateDraftStatus('saving');
+
+    clearTimeout(saveDraftTimeout);
+    saveDraftTimeout = setTimeout(saveDraftToBackend, 1500); // Wait 1.5s after user stops typing
+  }
+
+  async function hydrateDraft() {
+    try {
+      const res = await fetch('/.netlify/functions/onboarding-draft');
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.draft && resData.draft.onboardingPath === 'social_media') {
+          const data = resData.draft.draftData;
+
+          // Restore Session Storage Memory
+          if(data.client_name) sessionStorage.setItem('aura_client_name', data.client_name);
+          if(data.business_name) sessionStorage.setItem('aura_business_name', data.business_name);
+          if(data.assistant_name) sessionStorage.setItem('aura_assistant_name', data.assistant_name);
+
+          // 1. Rebuild dynamic workflow rows BEFORE hydrating them
+          let wfCount = 0;
+          Object.keys(data).forEach(key => {
+            if (key.startsWith('workflow_step_')) {
+              const stepNum = parseInt(key.split('_')[2]);
+              if (stepNum > wfCount) wfCount = stepNum;
+            }
+          });
+
+          if (wfCount > 0) {
+            const container = document.getElementById('workflow-steps-container');
+            container.innerHTML = '';
+            workflowStepCount = 0;
+            for (let i = 1; i <= wfCount; i++) {
+              if (data[`workflow_step_${i}`] !== undefined) {
+                workflowStepCount++;
+                container.insertAdjacentHTML('beforeend', `
+                                  <div class="flex items-start workflow-step-row step-active mt-4">
+                                      <div class="bg-gray-200 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
+                                      <div class="w-full relative ml-4">
+                                          <textarea id="workflow_step_${workflowStepCount}" class="workflow-step-input auto-expand-textarea w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm">${data[`workflow_step_${i}`]}</textarea>
+                                      </div>
+                                  </div>`);
+              }
+            }
+          }
+
+          // 2. Rebuild dynamic Brain Trust links
+          if (data['braintrust_links'] && data['braintrust_links'].length > 0) {
+            const container = document.getElementById('dynamic_links_container');
+            container.innerHTML = '<label class="block text-sm font-bold text-gray-700 mb-1">Add reference documents or websites</label>';
+            data['braintrust_links'].forEach(link => {
+              container.insertAdjacentHTML('beforeend', `
+                              <div class="flex items-center gap-2 link-row mt-3">
+                                <input type="url" value="${link}" class="braintrust-link-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="https://...">
+                                <button type="button" onclick="removeLink(this)" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition trash-btn" title="Remove Link">🗑️</button>
+                              </div>
+                          `);
+            });
+            toggleTrashIcons();
+          }
+
+          // 3. Hydrate standard fields
+          Object.keys(data).forEach(key => {
+            const el = document.getElementById(key);
+            if (el) {
+              if (el.type === 'checkbox') el.checked = data[key];
+              else if (el.type !== 'radio') el.value = data[key];
+            } else {
+              const radios = document.getElementsByName(key);
+              radios.forEach(r => { if (r.value === data[key]) r.checked = true; });
+            }
+          });
+
+          // 4. Retrigger UI specific toggles based on hydrated values
+          toggleScheduleDetails();
+          toggleContentSourceDetails();
+          ['fb', 'ig', 'li', 'x'].forEach(p => {
+            const chk = document.getElementById(`chk_${p}`);
+            if(chk) toggleHandleInput(`${p}_handle_container`, chk.checked);
+          });
+
+          // 5. Resume User Location
+          currentStep = resData.draft.currentStep || 2;
+          updateUI();
+          if (currentStep >= 7) generateSummary();
+        }
+      }
+    } catch(e) { console.warn("No draft found or network offline."); }
+  }
+
+  // --- 4. AUTO-EXPANSION ENGINE ---
   function autoExpandTextareas() {
     document.querySelectorAll('.auto-expand-textarea').forEach(textarea => {
       textarea.style.height = 'auto';
@@ -505,7 +664,7 @@
     }
   });
 
-  // --- 4. VALIDATION LOGIC ---
+  // --- 5. VALIDATION LOGIC ---
   function validateHandle(platform, inputEl) {
     const errorMsg = inputEl.parentNode.querySelector('.handle-feedback') || createErrorEl(inputEl);
     let fullUrl = inputEl.value.trim();
@@ -537,14 +696,21 @@
     el.classList.remove('animate-pulse', 'input-error', 'border-red-500');
     el.classList.add('border-green-500');
     err.innerText = '✓ Verified';
-    err.className = 'handle-feedback text-sm font-bold text-green-600 mt-1';
+    err.className = 'handle-feedback text-sm font-bold text-green-600 mt-1 block';
   }
 
   function showError(el, err, msg) {
     el.classList.remove('animate-pulse', 'border-green-500');
     el.classList.add('input-error', 'border-red-500');
     err.innerText = msg;
-    err.className = 'handle-feedback text-sm font-bold text-red-600 mt-1';
+    err.className = 'handle-feedback text-sm font-bold text-red-600 mt-1 block';
+  }
+
+  function createErrorEl(el) {
+    const div = document.createElement('div');
+    div.className = 'handle-feedback text-red-500 text-xs font-bold mt-1 block';
+    el.parentNode.appendChild(div);
+    return div;
   }
 
   function validateCurrentStep() {
@@ -623,7 +789,7 @@
     return isValid;
   }
 
-  // --- 5. WORKFLOW & BRIEF GENERATION (Updated to include toggle logic) ---
+  // --- 6. WORKFLOW & BRIEF GENERATION ---
   function toggleHandleInput(containerId, isChecked) {
     document.getElementById(containerId).classList.toggle('hidden', !isChecked);
     // Link to Algorithm Helper Blocks
@@ -668,19 +834,18 @@
       container.insertAdjacentHTML('beforeend', `
         <div class="flex items-start mt-4">
           <div class="bg-gray-200 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
-          <div class="w-full ml-4"><textarea class="auto-expand-textarea w-full border rounded-lg p-3">${text}</textarea></div>
+          <div class="w-full ml-4"><textarea id="workflow_step_${workflowStepCount}" class="workflow-step-input auto-expand-textarea w-full border rounded-lg p-3 shadow-sm">${text}</textarea></div>
         </div>`);
     });
     autoExpandTextareas();
   }
 
-  function generateBrief() {
-    const missingFallback = "[MISSING - PLEASE UPDATE]";
+  window.globalRawInputs = {}; // Store raw answers for backend compilation
+
+  function generateSummary() {
     const hasValue = (val) => val && val.trim() !== '' && val !== missingFallback;
 
     // Data Gathering
-    const clientName = sessionStorage.getItem('aura_client_name') || 'New User';
-    const businessName = sessionStorage.getItem('aura_business_name') || 'Business';
     const problem = document.getElementById('user_story_problem').value || missingFallback;
     const finalAssistantName = document.getElementById('val_assistant_name')?.value || missingFallback;
     const triggerText = document.querySelector('input[name="trigger_type"]:checked')?.nextElementSibling.querySelector('span').innerText || missingFallback;
@@ -697,112 +862,115 @@
     let generalPreferences = [];
     let strictRules = [];
 
-    // Strategy Logic
     if (hasValue(document.getElementById('val_audience')?.value)) generalPreferences.push(`- Target Audience: ${document.getElementById('val_audience').value}`);
     if (hasValue(document.getElementById('val_pillars')?.value)) generalPreferences.push(`- Core Topics: ${document.getElementById('val_pillars').value}`);
     if (hasValue(document.getElementById('val_tone')?.value)) generalPreferences.push(`- Preferred Tone: ${document.getElementById('val_tone').value}`);
-    if (hasValue(document.getElementById('val_braintrust')?.value)) strictRules.push(`- MUST DO: Always cross-reference facts with Knowledge Base at ${document.getElementById('val_braintrust').value}`);
 
-    // Platform-Specific Rules
     ['fb', 'ig', 'li', 'x'].forEach(p => {
       if (document.getElementById(`chk_${p}`)?.checked) {
-        const customTags = document.getElementById(`val_algo_tags_${p}`)?.value;
+        const customTags = document.getElementById(`algo_custom_tags_${p}`)?.value;
         if (document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value === 'strict_custom' && hasValue(customTags)) {
           strictRules.push(`- MUST DO (${document.getElementById(`chk_${p}`).value}): ONLY use exactly these tags: ${customTags}.`);
         }
-        if (p === 'fb' && document.getElementById('fb_opt_hooks')?.checked) strictRules.push(`- MUST DO (Facebook): ALWAYS end posts with high-engagement conversational hooks.`);
+        if (p === 'fb' && document.getElementById('fb_opt_groups')?.checked) strictRules.push(`- MUST DO (Facebook): Draft version optimized for Facebook Groups.`);
         if (p === 'li' && document.getElementById('li_opt_links')?.checked) strictRules.push(`- NEVER DO (LinkedIn): External URLs in first comment only.`);
       }
     });
 
-    // Custom User Rules
     const userRules = document.getElementById('acceptance_criteria_rules')?.value;
     if (hasValue(userRules)) {
       userRules.split('\n').forEach(rule => { if (hasValue(rule)) strictRules.push(`- NON-NEGOTIABLE: ${rule.trim()}`); });
     }
 
-    // Workflow
     let workflowText = "";
+    let workflowCount = 0;
     document.querySelectorAll('.workflow-step-input').forEach((input, i) => {
-      if(input.value.trim() !== '') workflowText += `${i + 1}. ${input.value}\n`;
+      if(input.value.trim() !== '') {
+        workflowText += `${i + 1}. ${input.value}\n`;
+        workflowCount++;
+      }
     });
+
     const brainTrustText = document.getElementById('val_braintrust_text')?.value || '';
     const linkInputs = document.querySelectorAll('.braintrust-link-input');
     const validLinks = [];
 
-// Scenario 4: Validate URLs
     linkInputs.forEach(input => {
       const url = input.value.trim();
-      // Basic HTML5 validation utilizing the browser's built-in check
-      if (url !== '' && input.checkValidity()) {
-        validLinks.push(url);
-      } else if (url !== '') {
-        input.classList.add('input-error'); // Triggers existing error classes
-      }
+      if (url !== '' && input.checkValidity()) validLinks.push(url);
     });
 
-// Build the array strings
-    if (hasValue(brainTrustText)) {
-      strictRules.push(`- KNOWLEDGE BASE (TEXT): Consider the following brand stories and context: "${brainTrustText}"`);
-    }
+    if (hasValue(brainTrustText)) strictRules.push(`- KNOWLEDGE BASE (TEXT): Consider the following brand stories and context: "${brainTrustText}"`);
+    if (validLinks.length > 0) strictRules.push(`- KNOWLEDGE BASE (LINKS): MUST DO: Always cross-reference facts and adopt the tone found at these sources: ${validLinks.join(', ')}`);
 
-    if (validLinks.length > 0) {
-      strictRules.push(`- KNOWLEDGE BASE (LINKS): MUST DO: Always cross-reference facts and adopt the tone found at these sources: ${validLinks.join(', ')}`);
-    }
-    // COMPILATION
-    const compiledBrief = `
-===========================================
-AURA-ASSIST ENGINEERING BRIEF: SOCIAL MEDIA MANAGER BLUEPRINT
-===========================================
+    // SCENARIO 2 & 3: Store raw inputs so the backend can compile them securely
+    window.globalRawInputs = {
+      problem,
+      triggerText,
+      sourceText,
+      platforms,
+      generalPreferences,
+      workflowText,
+      strictRules
+    };
 
-CLIENT DETAILS
-- Name: ${clientName}
-- Business: ${businessName}
-- Assistant Name: ${finalAssistantName}
+    // SCENARIO 1: Populate safe summary UI (No prompt leakage)
+    const summaryHTML = `
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <span class="block text-xs font-bold text-gray-400 uppercase mb-1">Assistant Name</span>
+              <span class="block text-sm font-bold text-gray-900">${finalAssistantName}</span>
+          </div>
+          <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <span class="block text-xs font-bold text-gray-400 uppercase mb-1">Platforms</span>
+              <span class="block text-sm font-bold text-gray-900">${platforms.length > 0 ? platforms.length + ' Connected' : 'None'}</span>
+          </div>
+          <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <span class="block text-xs font-bold text-gray-400 uppercase mb-1">Workflow Actions</span>
+              <span class="block text-sm font-bold text-gray-900">${workflowCount} Steps configured</span>
+          </div>
+          <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <span class="block text-xs font-bold text-gray-400 uppercase mb-1">Strict Rules</span>
+              <span class="block text-sm font-bold text-gray-900">${strictRules.length} Guardrails active</span>
+          </div>
+      </div>
+      <div class="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex gap-3">
+          <span class="text-xl">🔒</span>
+          <p class="text-sm text-emerald-800 font-medium">Your inputs are securely transmitted to our backend. They are compiled into a proprietary AI instruction brief to protect your logic and ensure maximum assistant performance.</p>
+      </div>
+    `;
 
-1. PROCESS BOTTLENECK
-${problem}
-
-2. SOURCING & TRIGGER
-- Trigger: ${triggerText}
-- Source: ${sourceText}
-
-3. PUBLISHING DESTINATIONS
-- Platforms: ${platforms.length > 0 ? platforms.join(', ') : missingFallback}
-
-4. GENERAL PREFERENCES & STRATEGY
-${generalPreferences.length > 0 ? generalPreferences.join('\n') : '- No general preferences configured.'}
-
-5. WORKFLOW LOGIC
-${workflowText || missingFallback}
-
-6. NON-NEGOTIABLE STRICT RULES
-${strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configured.'}
-
-7. APPROVAL PROTOCOL
-- All requests requiring your sign-off are managed exclusively through your Aura-Assist Workspace. You will be notified by email immediately upon the creation of any new request.
-`;
-
-    document.getElementById('generated_brief').value = compiledBrief;
-    autoExpandTextareas();
+    document.getElementById('summary_container').innerHTML = summaryHTML;
   }
 
-  // --- 6. NAVIGATION & SUBMISSION ---
+  // --- 7. NAVIGATION & SUBMISSION ---
   function nextStep() {
     if (!validateCurrentStep()) {
       const firstInvalid = document.querySelector('.input-error');
       firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-    if (currentStep === 5) autoGenerateWorkflowAndRules();
-    if (currentStep === 6) generateBrief();
-    if (currentStep < totalSteps) { currentStep++; updateUI(); }
-    else { submitToBackend(); }
+    if (currentStep === 5 && workflowStepCount === 1) autoGenerateWorkflowAndRules();
+    if (currentStep === 6) generateSummary();
+
+    if (currentStep < totalSteps) {
+      currentStep++;
+      updateUI();
+      saveDraftToBackend(); // Force synchronous save on navigation
+    } else {
+      submitToBackend();
+    }
   }
 
   function prevStep() {
-    if (currentStep > 2) { currentStep--; updateUI(); }
-    else window.location.href = `onboarding.html?tier=${currentTierKey}`;
+    if (currentStep > 2) {
+      currentStep--;
+      updateUI();
+      saveDraftToBackend(); // Save progress even if they step backward
+    } else {
+      // Returning to step 1 (onboarding.html). Append ?restart=true to bypass auto-redirect loop
+      window.location.href = `onboarding.html?tier=${currentTierKey}&restart=true`;
+    }
   }
 
   function updateUI() {
@@ -819,11 +987,28 @@ ${strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configure
     const btn = document.getElementById('btn-next');
     btn.disabled = true;
     btn.innerText = "Processing...";
+
+    // SCENARIO 2: Transmit structured raw data, NOT the compiled prompt
+    const payload = {
+      email: document.getElementById('client_email').value,
+      clientName: sessionStorage.getItem('aura_client_name') || 'New User',
+      businessName: sessionStorage.getItem('aura_business_name') || 'Business',
+      assistantName: sessionStorage.getItem('aura_assistant_name') || 'Social Media Manager',
+      customAssistantName: document.getElementById('val_assistant_name')?.value || 'Digital Assistant',
+      tier: currentTierKey,
+      rawInputs: window.globalRawInputs,
+      consents: {
+        legal: document.querySelector('input[name="legal_consent"]').checked,
+        no_training: document.querySelector('input[name="no_training_consent"]').checked,
+        tos: document.querySelector('input[name="tos_consent"]').checked
+      }
+    };
+
     try {
       const response = await fetch('/.netlify/functions/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: document.getElementById('client_email').value, blueprint: document.getElementById('generated_brief').value })
+        body: JSON.stringify(payload)
       });
       if (response.ok) window.location.href = 'checkout.html';
       else alert("Error: " + (await response.json()).error);
@@ -831,31 +1016,10 @@ ${strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configure
     btn.disabled = false; btn.innerText = "Proceed to Secure Checkout";
   }
 
-  // --- 7. UI HELPERS ---
+  // --- 8. UI HELPERS ---
   function loadComponent(id, file) { fetch(file).then(r => r.ok && r.text().then(t => document.getElementById(id).innerHTML = t)); }
-  function populateProblem(t) { const el = document.getElementById('user_story_problem'); el.value = t; autoExpandTextareas(); }
-  function showLoading(el) { el.classList.add('animate-pulse'); }
-  function showSuccess(el, err) {
-    el.classList.remove('animate-pulse', 'input-error', 'border-red-500');
-    el.classList.add('border-green-500');
-    err.innerText = '✓ Valid format'; // Changed to be more accurate
-    err.className = 'handle-feedback text-xs font-bold text-green-600 mt-1 block';
-  }
+  function populateProblem(t) { const el = document.getElementById('user_story_problem'); el.value = t; autoExpandTextareas(); triggerAutoSave(); }
 
-  function showError(el, err, msg) {
-    el.classList.remove('animate-pulse', 'border-green-500');
-    el.classList.add('input-error', 'border-red-500');
-    err.innerText = msg;
-    // Completely reset classes to ensure it is visible and explicitly red
-    err.className = 'handle-feedback text-xs font-bold text-red-500 mt-1 block';
-  }
-
-  function createErrorEl(el) {
-    const div = document.createElement('div');
-    div.className = 'handle-feedback text-red-500 text-xs font-bold mt-1 block';
-    el.parentNode.appendChild(div);
-    return div;
-  }
   function showUpsellModal(m) { document.getElementById('upsell-message').innerHTML = m; document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0'); }
   function closeUpsellModal() { document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0'); }
 
@@ -884,6 +1048,7 @@ ${strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configure
     body.classList.toggle('hidden');
     document.getElementById(icon).innerText = body.classList.contains('hidden') ? '+' : '-';
   }
+
   // --- RANDOM NAME GENERATOR LOGIC ---
   const assistantNames = [
     "Gracie", "Charlie", "Mabel", "Nova", "Atlas",
@@ -907,27 +1072,29 @@ ${strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configure
     // Clear any existing validation errors when a name is generated
     nameInput.classList.remove('input-error');
     if(errorMsg) errorMsg.classList.add('hidden');
+    triggerAutoSave();
   }
+
   // Dynamic Link Management
   function addBrainTrustLink() {
     const container = document.getElementById('dynamic_links_container');
     const rowHtml = `
     <div class="flex items-center gap-2 link-row mt-3">
-      <input type="url" class="braintrust-link-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="https://...">
+      <input type="url" class="braintrust-link-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="https://..." oninput="triggerAutoSave()">
       <button type="button" onclick="removeLink(this)" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition trash-btn" title="Remove Link">
         🗑️
       </button>
     </div>
   `;
     container.insertAdjacentHTML('beforeend', rowHtml);
-
-    // Show trash icons if there's more than one input
     toggleTrashIcons();
+    triggerAutoSave();
   }
 
   function removeLink(buttonElement) {
     buttonElement.closest('.link-row').remove();
     toggleTrashIcons();
+    triggerAutoSave();
   }
 
   function toggleTrashIcons() {

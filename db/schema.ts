@@ -299,3 +299,11 @@ export const userNotifications = pgTable("user_notifications", {
   isRead: boolean("is_read").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+// Onboarding Drafts Table — Stores auto-save progress for incomplete setups
+export const onboardingDrafts = pgTable("onboarding_drafts", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  currentStep: integer("current_step").default(2).notNull(),
+  onboardingPath: text("onboarding_path").notNull(),
+  draftData: jsonb("draft_data").default({}).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
