@@ -199,6 +199,9 @@
         // =======================================================
         // Initialize engine lifecycles depending on route targets
         // =======================================================
+        if (routeKey === 'dashboard') {
+          await initDashboard();
+        }
         if (routeKey === 'settings') {
           await initProfileSettingsCenter();
         }
@@ -414,7 +417,31 @@
       }
     }
   }
+  // In workspace.html or dashboard.js
+  async function initDashboard() {
+    const widgetContainer = document.getElementById('onboarding-widget-container');
+    const resumeBtn = document.getElementById('resume-onboarding-btn');
+    if (!widgetContainer) return;
 
+    try {
+      const res = await fetch('/.netlify/functions/get-onboarding-status');
+      if (!res.ok) return;
+
+      const data = await res.json();
+      // Scenario 2: Show widget if not complete (< 100%)
+      if (!data.isComplete) {
+        widgetContainer.classList.remove('hidden');
+        if (resumeBtn) {
+          resumeBtn.addEventListener('click', () => {
+            // Route back to the assistant onboarding wizard
+            window.location.href = '/onboarding-social-media.html';
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Dashboard widget initialization failed", e);
+    }
+  }
 </script>
 <script src="/assets.js"></script>
 <script src="/notifications.js"></script>
