@@ -3,7 +3,6 @@ import { HandlerEvent } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-// IMPORT FIXED: Added `notifications` to the import map
 import { users, supportTickets, notifications } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
 
@@ -70,13 +69,12 @@ export const handler = async (event: HandlerEvent) => {
                 status: 'open'
             }).returning();
 
-            // NEW FIX: Insert the Notification Record to trigger the badge
+            // FIXED: Removed 'referenceId' to match your strict Drizzle schema
             await db.insert(notifications).values({
                 userId: userId,
                 title: `Ticket #${newTicket.id} Created`,
                 message: `Your support request "${newTicket.subject}" has been logged successfully.`,
                 type: 'ticket_created',
-                referenceId: String(newTicket.id),
                 isRead: false
             });
 
