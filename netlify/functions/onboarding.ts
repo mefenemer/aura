@@ -6,7 +6,7 @@ config({ path: path.resolve(process.cwd(), '.env') });
 import { Handler } from '@netlify/functions';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { eq, and, sql } from 'drizzle-orm'; // Use this 'sql' for queries
+import { eq, and, sql } from 'drizzle-orm';
 import {
   users,
   organisations,
@@ -33,6 +33,11 @@ if (!jwtSecret) {
 
 const pgClient = postgres(connectionString);
 const db = drizzle({ client: pgClient });
+
+// Helper to prevent XSS-like issues[cite: 21]
+function sanitizeText(str: string): string {
+  return str.replace(/[<>]/g, "");
+}
 
 // SCENARIO 2: Secure Server-Side Prompt Compilation
 function compileServerSideBrief(clientName: string, businessName: string, assistantName: string, inputs: any) {
@@ -65,9 +70,7 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
   try {
-    // ----------------------------------------------------------------------
     // 1. AUTHENTICATION & SESSION EXTRACTION
-    // ----------------------------------------------------------------------
     const cookieHeader = event.headers.cookie || '';
     const match = cookieHeader.match(/aura_session=([^;]+)/);
     const token = match ? match[1] : null;
@@ -98,9 +101,7 @@ export const handler: Handler = async (event) => {
     const body = JSON.parse(event.body || '{}');
     const { clientName, businessName, tier, assistantName, customAssistantName, rawInputs, consents } = body;
 
-    // ----------------------------------------------------------------------
     // 2. QUERY THE MASTER CATALOG
-    // ----------------------------------------------------------------------
     const [masterPlan] = await db.select()
         .from(masterPlans)
         .where(eq(masterPlans.tierKey, tier?.toLowerCase() || 'employee'))
@@ -110,9 +111,7 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Invalid subscription tier selected.' }) };
     }
 
-    // ----------------------------------------------------------------------
     // 3. BACKEND RACE CONDITION CHECK (Uniqueness Scenario 3)
-    // ----------------------------------------------------------------------
     const targetName = (customAssistantName && customAssistantName.trim() !== '')
         ? customAssistantName.trim()
         : 'Digital Assistant';
@@ -130,9 +129,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // ----------------------------------------------------------------------
     // 4. THE ACID TRANSACTION (Workspace Provisioning)
-    // ----------------------------------------------------------------------
     const newWorkspace = await db.transaction(async (tx) => {
       // Insert User Profile
       await tx.insert(userProfiles).values({
@@ -142,11 +139,12 @@ export const handler: Handler = async (event) => {
         legalConsents: consents || {}
       });
 
-      // Handle organisation naming
-      const finalCompanyName = (businessName && businessName.trim() !== '')
+      // Handle and sanitize organisation naming[cite: 21]
+      const rawCompanyName = (businessName && businessName.trim() !== '')
           ? businessName.trim()
           : `${existingUser.firstName}'s Workspace`;
 
+      const finalCompanyName = sanitizeText(rawCompanyName);
       const companySlug = finalCompanyName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + `-${Date.now()}`;
 
       // Create organisation
@@ -178,14 +176,14 @@ export const handler: Handler = async (event) => {
           .limit(1);
 
       // Generate the secure brief server-side
-      const secureSystemPrompt = compileServerSideBrief(clientName, businessName, customAssistantName, rawInputs);
+      const secureSystemPrompt = compileServerSideBrief(clientName, finalCompanyName, customAssistantName, rawInputs);
 
-      // Create AI assistant
-      await tx.insert(aiAssistants).values({
+      // Create AI assistant with pending status for queue processing
+      const [newAssistant] = await tx.insert(aiAssistants).values({
         organisationId: newOrg.id,
         userId: existingUser.id,
         masterAssistantId: assistantRecord?.id || null,
-        name: (customAssistantName && customAssistantName.trim() !== '') ? customAssistantName.trim() : 'Digital Assistant',
+        name: targetName,
         model: 'gpt-4o',
         aiAssistantJobRole: assistantRecord?.name || 'General Assistant',
         systemPrompt: secureSystemPrompt,
@@ -194,8 +192,16 @@ export const handler: Handler = async (event) => {
           active: true,
           inputs: rawInputs || {}
         },
-        isActive: true
-      });
+        isActive: true,
+        // provisioningStatus: 'pending' // Note: Ensure this column exists in schema
+      }).returning();
+
+      // ASYNC QUEUE TRIGGER
+      // This fetch call kicks off the background integration process[cite: 21]
+      fetch(`${process.env.URL}/.netlify/functions/provision-assistant-async`, {
+        method: 'POST',
+        body: JSON.stringify({ assistantId: newAssistant.id, rawInputs })
+      }).catch(err => console.error("Async provisioning trigger failed:", err));
 
       // Record payment
       await tx.insert(payments).values({
@@ -219,7 +225,7 @@ export const handler: Handler = async (event) => {
 
       await tx.delete(onboardingDrafts).where(eq(onboardingDrafts.userId, existingUser.id));
 
-      return { userId: existingUser.id, organisationId: newOrg.id };
+      return { userId: existingUser.id, organisationId: newOrg.id }; // Returned correct ID[cite: 21]
     });
 
     return { statusCode: 200, body: JSON.stringify({ message: 'Success', data: newWorkspace }) };

@@ -71,7 +71,7 @@ export const handler: Handler = async (event) => {
         const signedToken = jwt.sign(tokenPayload, jwtSecret, { expiresIn: '7d' });
 
         // 3. Set the cookie and return a 200 OK JSON response
-        const sessionCookie = `aura_session=${signedToken}; Path=/; Secure; SameSite=Strict; Max-Age=${7 * 24 * 60 * 60}`;
+        const sessionCookie = `aura_session=${signedToken}; Path=/; Secure; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}`;
 
         return {
             statusCode: 200,

@@ -1,6 +1,5 @@
 // auth-check.js
 (function() {
-    // Helper to read a specific cookie
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
@@ -8,11 +7,11 @@
         return null;
     }
 
-    // Check for the aura_session cookie
     const sessionToken = getCookie('aura_session');
 
-    // If it doesn't exist, immediately redirect to login
     if (!sessionToken) {
+        // Save the destination URL so the login page knows where to send them next
+        sessionStorage.setItem('return_url', window.location.href);
         window.location.replace('/login.html');
     }
 })();

@@ -139,6 +139,7 @@ export const aiAssistants = pgTable("ai_assistants", {
   configuration: jsonb("configuration"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  provisioningStatus: text("provisioning_status").default("pending"), // 'pending', 'complete', 'failed'
 });
 
 // User profiles table — extended profile details for a user

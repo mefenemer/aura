@@ -419,22 +419,15 @@
         </div>
 
         <div id="step-8" class="step-hidden text-center py-4">
-          <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold mx-auto mb-6 text-4xl">📋</div>
-          <h2 class="text-3xl font-extrabold text-gray-900 mb-8">Perfect. Let's start the build.</h2>
+          <div id="setup-initial-view">
+            <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold mx-auto mb-6 text-4xl">📋</div>
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-8">Perfect. Let's start the build.</h2>
+          </div>
 
-          <div class="mt-4 space-y-4 text-left text-sm text-gray-600 border-t border-gray-100 pt-6 max-w-lg mx-auto">
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" name="legal_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
-              <span>I grant Aura-Assist permission to process my business data for the sole purpose of executing my requested workflows.</span>
-            </label>
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" name="no_training_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
-              <span>I acknowledge that Aura-Assist does <strong>not</strong> use my proprietary business data to train public AI models.</span>
-            </label>
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" name="tos_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
-              <span>I agree to the <a href="#" class="text-emerald-700 font-bold underline">Terms of Service</a> and <a href="#" class="text-emerald-700 font-bold underline">Privacy Policy</a>.</span>
-            </label>
+          <div id="setup-loading-view" class="hidden py-12">
+            <div class="w-16 h-16 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin mx-auto mb-6"></div>
+            <h3 class="text-xl font-bold text-gray-900">Provisioning your workspace...</h3>
+            <p class="text-gray-500 mt-2">Connecting your accounts and building your assistant.</p>
           </div>
         </div>
 
@@ -1008,13 +1001,20 @@
   }
 
   async function submitToBackend() {
+
     const btn = document.getElementById('btn-next');
     btn.disabled = true;
     btn.innerText = "Processing...";
 
-    // SCENARIO 2: Transmit structured raw data, NOT the compiled prompt
+    // UI Feedback: Switch views
+    document.getElementById('setup-initial-view').classList.add('hidden');
+    document.getElementById('setup-loading-view').classList.remove('hidden');
+
+    // Disable navigation
+    document.getElementById('btn-next').disabled = true;
+    document.getElementById('btn-back').style.display = 'none';
+
     const payload = {
-      // email: document.getElementById('client_email').value, // REMOVED (Scenario 1 & 2)
       clientName: sessionStorage.getItem('aura_client_name') || 'New User',
       businessName: sessionStorage.getItem('aura_business_name') || 'Business',
       assistantName: sessionStorage.getItem('aura_assistant_name') || 'Social Media Manager',
@@ -1024,9 +1024,10 @@
       consents: {
         legal: document.querySelector('input[name="legal_consent"]').checked,
         no_training: document.querySelector('input[name="no_training_consent"]').checked,
-        tos: document.querySelector('input[name="tos_consent"]').checked
+        tos_consent: document.querySelector('input[name="tos_consent"]').checked
       }
     };
+
 
     try {
       const response = await fetch('/.netlify/functions/onboarding', {
@@ -1034,10 +1035,21 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (response.ok) window.location.href = 'checkout.html';
-      else alert("Error: " + (await response.json()).error);
-    } catch (err) { alert("Failed to connect."); }
-    btn.disabled = false; btn.innerText = "Proceed to Secure Checkout";
+
+      if (response.ok) {
+        window.location.href = 'checkout.html';
+      } else {
+        // Handle error: show initial view again
+        document.getElementById('setup-initial-view').classList.remove('hidden');
+        document.getElementById('setup-loading-view').classList.add('hidden');
+        document.getElementById('btn-next').disabled = false;
+        document.getElementById('btn-back').style.display = 'block';
+        alert("Provisioning failed. Please try again.");
+      }
+    } catch (err) {
+      alert("Connection failed.");
+      location.reload();
+    }
   }
 
   // --- 8. UI HELPERS ---
@@ -1218,6 +1230,14 @@
       trashBtns.forEach(btn => btn.classList.remove('hidden'));
     } else {
       trashBtns.forEach(btn => btn.classList.add('hidden'));
+    }
+  }
+  async function clearDraftAndRestart() {
+    if (confirm("Are you sure? This will delete your current progress and restart onboarding.")) {
+      try {
+        await fetch('/.netlify/functions/onboarding-draft', { method: 'DELETE' }); // You may need to add a DELETE case to onboarding-draft.ts
+        window.location.href = 'onboarding.html?restart=true';
+      } catch (e) { alert("Could not clear draft."); }
     }
   }
 </script>

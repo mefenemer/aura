@@ -917,6 +917,10 @@
     border-style: var(--tw-border-style);
     border-width: 2px;
   }
+  .border-4 {
+    border-style: var(--tw-border-style);
+    border-width: 4px;
+  }
   .border-t {
     border-top-style: var(--tw-border-style);
     border-top-width: 1px;
@@ -991,6 +995,9 @@
   }
   .border-transparent {
     border-color: transparent;
+  }
+  .border-t-emerald-600 {
+    border-top-color: var(--color-emerald-600);
   }
   .bg-amber-50 {
     background-color: var(--color-amber-50);

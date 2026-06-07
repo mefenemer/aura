@@ -1,9 +1,9 @@
 import { Handler } from '@netlify/functions';
 import { eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
-import { getDb } from '../../db/client'; // 👈 Unified client utility applied
+import { getDb } from '../../db/client';
 import { users } from '../../db/schema';
-import { sendMagicLinkEmail } from '../../src/utils/email'; // 👈 Resend utility integration
+import { sendMagicLinkEmail } from '../../src/utils/email';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -35,28 +35,28 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'This account is already verified. Please sign in.' }) };
         }
 
-        // 2. Generate a new secure token and expiration
-        const newVerificationToken = crypto.randomBytes(32).toString('hex');
+        // 2. Generate a plain token for the email link, and a hashed token for the database
+        const plainToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
         const newTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-        // 3. Update the user record
+        // 3. Update the user record with the HASHED token
         await db.update(users)
             .set({
-                verificationToken: newVerificationToken,
+                verificationToken: hashedToken,
                 tokenExpiresAt: newTokenExpiresAt,
             })
             .where(eq(users.id, existingUser.id));
 
         // 4. Construct the link and send the email
-// Netlify provides DEPLOY_PRIME_URL for branch previews, and falls back to URL for production
-// Dynamically determine the URL based on the incoming request headers
+        // Dynamically determine the URL based on the incoming request headers
         const host = event.headers?.host || 'localhost:8888';
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const baseUrl = `${protocol}://${host}`;
 
-// NEW
-// NEW
-        const magicLink = `${baseUrl}/verify-account.html?token=${newVerificationToken}`;
+        // Ensure we send the PLAIN token in the URL, not the hash
+        const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}`;
+
         await sendMagicLinkEmail({
             to: email,
             subject: 'Your New Aura Assist Verification Link',
