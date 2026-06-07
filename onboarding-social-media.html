@@ -171,18 +171,40 @@
           <div class="space-y-6">
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Name Your Digital Assistant: *</label>
-              <p class="text-xs text-gray-500 mb-2">Give your assistant a custom name, or let us pick one for you.</p>
+              <p class="text-xs text-gray-500 mb-2">Give your assistant a custom name (max 50 characters).</p>
 
               <div class="relative mb-1">
                 <label for="val_assistant_name" class="sr-only">Assistant Name</label>
-                <input type="text" id="val_assistant_name" class="w-full border border-gray-300 rounded-lg py-3 pl-3 pr-12 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., ContentBot 9000...">
-
-                <button type="button" onclick="generateRandomName()" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition p-1.5 rounded-md flex items-center justify-center text-lg" title="Surprise Me">
-                  ✨
-                </button>
+                <input type="text" id="val_assistant_name" maxlength="50" class="w-full border border-gray-300 rounded-lg py-3 pl-3 pr-12 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., ContentBot 9000...">
+                <div class="absolute right-3 top-1/2 transform -translate-y-1/2" id="name-validation-icon"></div>
               </div>
 
-              <span id="error-assistant-name" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">Please enter a name or generate a random one.</span>
+              <span id="error-assistant-name" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">Please enter a name.</span>
+              <span id="error-assistant-duplicate" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">You already have an Assistant with this name. Please choose a unique name.</span>
+
+              <div class="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <label class="block text-xs font-bold text-gray-700 mb-2">✨ Need inspiration? Generate a themed name:</label>
+
+                <div class="flex flex-col sm:flex-row gap-2 mb-3">
+                  <input type="text" id="ai_theme_input" class="flex-1 border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-emerald-500" placeholder="Enter a theme (e.g., Sci-Fi, Poets, Marvel)">
+                  <button type="button" id="btn-generate-names" onclick="generateAINames()" class="px-4 py-2 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-md transition-colors whitespace-nowrap flex items-center justify-center gap-2">
+                    Generate Names
+                  </button>
+                </div>
+
+                <div class="flex flex-wrap gap-2 mb-3 items-center">
+                  <span class="text-xs text-gray-500">Suggestions:</span>
+                  <button type="button" onclick="setTheme('Star Wars')" class="text-xs px-2 py-1 bg-white border border-gray-200 rounded hover:bg-gray-100 transition">Star Wars</button>
+                  <button type="button" onclick="setTheme('Greek Mythology')" class="text-xs px-2 py-1 bg-white border border-gray-200 rounded hover:bg-gray-100 transition">Greek Mythology</button>
+                  <button type="button" onclick="setTheme('Famous Poets')" class="text-xs px-2 py-1 bg-white border border-gray-200 rounded hover:bg-gray-100 transition">Famous Poets</button>
+                  <button type="button" onclick="setTheme('Marvel')" class="text-xs px-2 py-1 bg-white border border-gray-200 rounded hover:bg-gray-100 transition">Marvel</button>
+                </div>
+
+                <div id="ai-names-results" class="flex flex-wrap gap-2 hidden">
+                </div>
+
+                <span id="ai-names-error" class="hidden text-xs text-red-500 font-medium">Our creative gears are jammed right now. Please type a name manually!</span>
+              </div>
             </div>
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Target Audience: *</label>
@@ -742,14 +764,18 @@
         const el = document.getElementById(id);
         if (el.value.trim() === '') {
           el.classList.add('input-error');
-
-          // Trigger the specific error message for the name field if it's the one failing
-          if (id === 'val_assistant_name') {
-            document.getElementById('error-assistant-name').classList.remove('hidden');
-          }
+          if (id === 'val_assistant_name') document.getElementById('error-assistant-name').classList.remove('hidden');
           isValid = false;
         }
       });
+
+      // NEW: Block progression if the name fails DB uniqueness
+      if (!isNameUnique) {
+        document.getElementById('val_assistant_name').classList.add('input-error', 'border-red-500');
+        document.getElementById('error-assistant-duplicate').classList.remove('hidden');
+        document.getElementById('val_assistant_name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        isValid = false;
+      }
     }
     // --- Step 5 Validation (With Auto-Prefixing) ---
     else if (currentStep === 5) {
@@ -1056,23 +1082,113 @@
   ];
   let currentNameIndex = -1;
 
-  function generateRandomName() {
+  // --- REAL-TIME UNIQUENESS VALIDATION ---
+  let isNameChecking = false;
+  let isNameUnique = true; // Assume true until checked
+
+  document.addEventListener("DOMContentLoaded", () => {
     const nameInput = document.getElementById('val_assistant_name');
-    const errorMsg = document.getElementById('error-assistant-name');
 
-    // Cycle logic: Ensure we don't pick the exact same name twice in a row
-    let nextIndex;
-    do {
-      nextIndex = Math.floor(Math.random() * assistantNames.length);
-    } while (nextIndex === currentNameIndex && assistantNames.length > 1);
+    // Check validation on blur
+    nameInput.addEventListener('blur', async () => {
+      await validateAssistantName(nameInput.value);
+    });
 
-    currentNameIndex = nextIndex;
-    nameInput.value = assistantNames[currentNameIndex];
+    // Clear errors on typing
+    nameInput.addEventListener('input', () => {
+      document.getElementById('error-assistant-duplicate').classList.add('hidden');
+      document.getElementById('error-assistant-name').classList.add('hidden');
+      nameInput.classList.remove('input-error', 'border-red-500');
+      document.getElementById('name-validation-icon').innerHTML = '';
+    });
+  });
 
-    // Clear any existing validation errors when a name is generated
-    nameInput.classList.remove('input-error');
-    if(errorMsg) errorMsg.classList.add('hidden');
+  async function validateAssistantName(name) {
+    if (!name.trim()) return;
+    isNameChecking = true;
+    const iconContainer = document.getElementById('name-validation-icon');
+
+    // Show loading spinner in input
+    iconContainer.innerHTML = `<svg class="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" class="opacity-75"></path></svg>`;
+
+    try {
+      const res = await fetch(`/.netlify/functions/check-assistant-name?name=${encodeURIComponent(name)}`);
+      if (res.ok) {
+        const data = await res.json();
+        isNameUnique = data.isUnique;
+
+        if (!isNameUnique) {
+          const nameInput = document.getElementById('val_assistant_name');
+          nameInput.classList.add('input-error', 'border-red-500');
+          document.getElementById('error-assistant-duplicate').classList.remove('hidden');
+          iconContainer.innerHTML = `<svg class="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+        } else {
+          iconContainer.innerHTML = `<svg class="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+        }
+      }
+    } catch (e) {
+      iconContainer.innerHTML = '';
+    } finally {
+      isNameChecking = false;
+    }
+  }
+
+  // --- AI NAME GENERATION UI ---
+  function setTheme(theme) {
+    document.getElementById('ai_theme_input').value = theme;
+    generateAINames();
+  }
+
+  async function generateAINames() {
+    const theme = document.getElementById('ai_theme_input').value.trim();
+    if (!theme) return alert('Please enter a theme first.');
+
+    const btn = document.getElementById('btn-generate-names');
+    const resultsContainer = document.getElementById('ai-names-results');
+    const errorContainer = document.getElementById('ai-names-error');
+
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" class="opacity-75"></path></svg> Thinking...`;
+    resultsContainer.innerHTML = '';
+    resultsContainer.classList.add('hidden');
+    errorContainer.classList.add('hidden');
+
+    try {
+      const role = "Social Media Manager"; // Constant derived from current workflow path
+      const res = await fetch('/.netlify/functions/generate-names', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme, role })
+      });
+
+      if (!res.ok) throw new Error("API failed");
+      const data = await res.json();
+
+      if (data.names && data.names.length > 0) {
+        resultsContainer.innerHTML = data.names.map(name =>
+                `<button type="button" onclick="applyGeneratedName('${name.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-md text-sm font-bold transition shadow-sm">${name}</button>`
+        ).join('');
+        resultsContainer.classList.remove('hidden');
+      } else {
+        throw new Error("No names returned");
+      }
+    } catch (e) {
+      errorContainer.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Generate Names';
+    }
+  }
+
+  function applyGeneratedName(name) {
+    const input = document.getElementById('val_assistant_name');
+    input.value = name;
+    input.classList.remove('input-error', 'border-red-500');
+    document.getElementById('error-assistant-name').classList.add('hidden');
+    document.getElementById('error-assistant-duplicate').classList.add('hidden');
+
     triggerAutoSave();
+    validateAssistantName(name); // Immediately trigger uniqueness verification
   }
 
   // Dynamic Link Management
