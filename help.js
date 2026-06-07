@@ -18,12 +18,11 @@ window.initHelpCenter = async function() {
             content.classList.add('block');
             btn.className = 'tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm border-emerald-500 text-emerald-600';
 
-            // If they click tickets, fetch the history
             if(tab === 'tickets') fetchTicketHistory();
         });
     });
 
-    // --- 2. KNOWLEDGE BASE ENGINE (Original Logic) ---
+    // --- 2. KNOWLEDGE BASE ENGINE ---
     const grid = document.getElementById('help-grid');
     const searchInput = document.getElementById('help-search-input');
     const filterButtons = document.querySelectorAll('.filter-btn');
@@ -83,7 +82,7 @@ window.initHelpCenter = async function() {
         }
     }
 
-    // --- 3. SUPPORT TICKET ENGINE (New Logic) ---
+    // --- 3. SUPPORT TICKET ENGINE ---
     const ticketForm = document.getElementById('support-ticket-form');
     const historyBody = document.getElementById('ticket-history-body');
 
@@ -156,9 +155,9 @@ window.initHelpCenter = async function() {
                     ticketForm.reset();
                     btn.textContent = "Ticket Submitted!";
                     btn.classList.replace('bg-gray-900', 'bg-emerald-600');
-                    fetchTicketHistory(); // Instantly refresh the table
+                    fetchTicketHistory();
 
-                    // NEW: Instantly refresh the global notification badge
+                    // NEW TRIGGER: Instantly refresh the global notification badge
                     if (typeof window.updateNotificationBadge === 'function') {
                         window.updateNotificationBadge();
                     }

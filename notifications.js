@@ -138,3 +138,12 @@ window.initNotifications = async function() {
 
     loadData();
 };
+
+// Global click handler for routing to the Support area
+window.routeToSupportTicket = function() {
+    loadView('help');
+    setTimeout(() => {
+        const ticketTab = document.getElementById('tab-btn-tickets');
+        if (ticketTab) ticketTab.click();
+    }, 100);
+};

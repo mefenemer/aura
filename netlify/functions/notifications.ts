@@ -3,7 +3,7 @@ import { HandlerEvent } from '@netlify/functions';
 import { eq, and, desc } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
-import { users, userNotifications } from '../../db/schema';
+import { users, notifications } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -34,22 +34,21 @@ export const handler = async (event: HandlerEvent) => {
 
     try {
         // -------------------------------------------------------------
-        // GET: Fetch all notifications for the user or get Unread Count
+        // GET: Fetch all notifications for the user OR get unread count
         // -------------------------------------------------------------
         if (event.httpMethod === 'GET') {
             const { queryStringParameters } = event;
             const allNotes = await db.select()
-                .from(userNotifications)
-                .where(eq(userNotifications.userId, userId))
-                .orderBy(desc(userNotifications.createdAt));
+                .from(notifications)
+                .where(eq(notifications.userId, userId))
+                .orderBy(desc(notifications.createdAt));
 
-            // Return just the count for the Sidebar Badge
-            if (queryStringParameters?.action === 'count') {
+            // NEW: Return just the unread count for the sidebar badge
+            if (queryStringParameters && queryStringParameters.action === 'count') {
                 const unread = allNotes.filter(n => !n.isRead).length;
                 return { statusCode: 200, body: JSON.stringify({ unreadCount: unread }) };
             }
 
-            // Return full payload for the Notifications page
             return { statusCode: 200, body: JSON.stringify({ notifications: allNotes }) };
         }
 
@@ -62,9 +61,11 @@ export const handler = async (event: HandlerEvent) => {
 
             if (!notificationId) return { statusCode: 400, body: JSON.stringify({ error: 'Missing notificationId' }) };
 
-            await db.update(userNotifications)
+            // Ensure the user owns this notification before updating
+            await db.update(notifications)
                 .set({ isRead: true })
-                .where(and(eq(userNotifications.id, notificationId), eq(userNotifications.userId, userId)));
+                // Note: removed readAt to strictly match your schema
+                .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
 
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
@@ -73,9 +74,9 @@ export const handler = async (event: HandlerEvent) => {
         // PUT: Bulk action - Mark ALL as read
         // -------------------------------------------------------------
         if (event.httpMethod === 'PUT') {
-            await db.update(userNotifications)
+            await db.update(notifications)
                 .set({ isRead: true })
-                .where(and(eq(userNotifications.userId, userId), eq(userNotifications.isRead, false)));
+                .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
 
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }

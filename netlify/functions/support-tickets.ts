@@ -3,7 +3,8 @@ import { HandlerEvent } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, supportTickets, userNotifications } from '../../db/schema';
+// IMPORT FIXED: Added `notifications` to the import map
+import { users, supportTickets, notifications } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -47,7 +48,7 @@ export const handler = async (event: HandlerEvent) => {
         }
 
         // -------------------------------------------------------------
-        // POST: Create New Ticket & Trigger Notification
+        // POST: Create New Ticket
         // -------------------------------------------------------------
         if (event.httpMethod === 'POST') {
             const [user] = await db.select().from(users).where(eq(users.id, userId));
@@ -60,7 +61,6 @@ export const handler = async (event: HandlerEvent) => {
                 return { statusCode: 400, body: JSON.stringify({ error: 'All fields are required.' }) };
             }
 
-            // 1. Create the Ticket
             const [newTicket] = await db.insert(supportTickets).values({
                 userId: userId,
                 organisationId: user.organisationId,
@@ -70,8 +70,8 @@ export const handler = async (event: HandlerEvent) => {
                 status: 'open'
             }).returning();
 
-            // 2. Automatically generate the Notification
-            await db.insert(userNotifications).values({
+            // NEW FIX: Insert the Notification Record to trigger the badge
+            await db.insert(notifications).values({
                 userId: userId,
                 title: `Ticket #${newTicket.id} Created`,
                 message: `Your support request "${newTicket.subject}" has been logged successfully.`,
@@ -80,7 +80,7 @@ export const handler = async (event: HandlerEvent) => {
                 isRead: false
             });
 
-            // 3. Audit Log
+            // Audit Log
             logAuditEvent({
                 userId: userId,
                 actionType: 'CREATE',
