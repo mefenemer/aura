@@ -134,8 +134,7 @@
         </div>
 
         <div class="p-8 sm:p-12">
-            <form id="intake-form" onsubmit="event.preventDefault(); proceedToRole();">
-
+            <form id="intake-form" onsubmit="event.preventDefault();">
                 <div id="step-1" class="step-hidden">
                     <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 1 of 8</span>
                     <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's get to know you and your mission.</h2>
@@ -457,15 +456,24 @@
     }
     }
 
-        function updateUI() {
-        // Hide all steps
-        document.querySelectorAll('[id^="step-"]').forEach(el => el.classList.add('step-hidden'));
-        // Show current
-        const activeStep = document.getElementById(`step-${currentStep}`);
-        if (activeStep) activeStep.classList.remove('step-hidden');
+    function updateUI() {
+        // 1. Hide all steps regardless of where they are in the DOM
+        document.querySelectorAll('[id^="step-"]').forEach(el => {
+            el.classList.add('step-hidden');
+            el.classList.remove('step-active');
+        });
 
-        // Update progress bar
-        const progressBar = document.getElementById('progress-bar');
+        // 2. Show the active step
+        const activeStep = document.getElementById(`step-${currentStep}`);
+        if (activeStep) {
+            activeStep.classList.remove('step-hidden');
+            activeStep.classList.add('step-active');
+        } else {
+            console.error("Step element not found: " + `step-${currentStep}`);
+        }
+
+        // 3. Update progress bar
+        const progressBar = document.querySelector('.bg-emerald-700'); // Targeted directly
         if (progressBar) progressBar.style.width = `${(currentStep / totalSteps) * 100}%`;
     }
 

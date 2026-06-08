@@ -448,6 +448,19 @@
 <div id="footer-placeholder"></div>
 
 <script>
+
+  // Force the fragment's validation to be globally accessible
+  window.validateCurrentStep = function() {
+    // Check if step 2 specifically is valid
+    if (currentStep === 2) {
+      const prob = document.getElementById('user_story_problem');
+      if (!prob || prob.value.trim().length < 10) {
+        alert("Please provide more detail about your bottleneck.");
+        return false;
+      }
+    }
+    return true;
+  };
   // --- 1. CONFIG & STATE ---
   let currentStep = 2;
   const totalSteps = 8;
