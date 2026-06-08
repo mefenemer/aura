@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="./auth-check.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Integrations | Aura-Assist</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="./style.css" rel="stylesheet">
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<div id="nav-placeholder"></div>
+
+<main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full pb-20">
+
+  <div class="mb-8 flex justify-between items-end">
+    <div>
+      <h1 class="text-3xl font-extrabold text-gray-900">Integrations</h1>
+      <p class="text-gray-500 mt-1">Manage connections, API keys, and secure credentials for your AI Assistants.</p>
+    </div>
+    <button onclick="document.getElementById('modal-catalog').classList.remove('hidden')" class="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-lg shadow hover:bg-emerald-700 transition">
+      + Add Connection
+    </button>
+  </div>
+
+  <div id="active-connections-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  </div>
+
+</main>
+
+<div id="modal-disconnect" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-red-600 text-2xl mb-4">⚠️</div>
+    <h3 class="text-xl font-bold text-gray-900 mb-2">Revoke Access?</h3>
+    <p class="text-gray-600 text-sm mb-6">Disconnecting this platform will permanently delete the secure keys and will <b>pause automated tasks</b> for any Assistants currently using it. Are you sure?</p>
+    <div class="flex gap-3 justify-end">
+      <button onclick="document.getElementById('modal-disconnect').classList.add('hidden')" class="px-4 py-2 font-bold text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+      <button id="btn-confirm-disconnect" class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg shadow hover:bg-red-700">Yes, Disconnect</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-catalog" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-40 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 relative">
+    <button onclick="document.getElementById('modal-catalog').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 text-2xl">&times;</button>
+    <h3 class="text-xl font-bold text-gray-900 mb-4">Connect a Platform</h3>
+
+    <div class="space-y-3">
+      <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-emerald-500 transition cursor-pointer" onclick="triggerOAuth('Salesforce')">
+        <div class="flex items-center gap-3"><div class="w-8 h-8 bg-blue-100 rounded flex items-center justify-center text-blue-600 font-bold">SF</div><span class="font-bold">Salesforce (OAuth)</span></div>
+        <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Secure Connect</span>
+      </div>
+
+      <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-emerald-500 transition cursor-pointer" onclick="openCredentialModal('api_key', 'OpenAI')">
+        <div class="flex items-center gap-3"><div class="w-8 h-8 bg-gray-800 rounded flex items-center justify-center text-white font-bold">AI</div><span class="font-bold">OpenAI (API Key)</span></div>
+        <span class="text-sm text-gray-400">→</span>
+      </div>
+
+      <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-emerald-500 transition cursor-pointer" onclick="openCredentialModal('legacy', 'Legacy Portal')">
+        <div class="flex items-center gap-3"><div class="w-8 h-8 bg-orange-100 rounded flex items-center justify-center text-orange-600 font-bold">LP</div><span class="font-bold">Legacy Portal (Basic Auth)</span></div>
+        <span class="text-sm text-gray-400">→</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-credentials" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+    <h3 id="cred-title" class="text-xl font-bold text-gray-900 mb-2">Connect Platform</h3>
+    <p class="text-gray-500 text-xs mb-6 flex items-center gap-1"><svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg> Encrypted at rest. Never visible to humans.</p>
+
+    <form id="cred-form" onsubmit="submitCredentials(event)" class="space-y-4">
+      <input type="hidden" id="cred-type">
+      <input type="hidden" id="cred-service">
+
+      <div id="field-username" class="hidden">
+        <label class="block text-sm font-bold text-gray-700 mb-1">Username / Email</label>
+        <input type="text" id="input-username" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-emerald-700 outline-none">
+      </div>
+
+      <div>
+        <label id="secret-label" class="block text-sm font-bold text-gray-700 mb-1">Secret Key / Password</label>
+        <div class="relative">
+          <input type="password" id="input-secret" required class="w-full border border-gray-300 rounded-lg p-3 pr-10 focus:ring-emerald-700 outline-none font-mono text-sm tracking-widest">
+          <button type="button" onclick="toggleSecretMask()" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            👁️
+          </button>
+        </div>
+      </div>
+
+      <div class="flex gap-3 justify-end pt-4 border-t border-gray-100">
+        <button type="button" onclick="document.getElementById('modal-credentials').classList.add('hidden')" class="px-4 py-2 font-bold text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+        <button type="submit" id="btn-save-cred" class="px-4 py-2 bg-gray-900 text-white font-bold rounded-lg shadow hover:bg-black flex items-center gap-2">Secure & Connect</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let connectionToDelete = null;
+
+  document.addEventListener("DOMContentLoaded", () => {
+    loadComponent("nav-placeholder", "./components/nav.html");
+    fetchConnections();
+  });
+
+  async function fetchConnections() {
+    try {
+      const res = await fetch('/.netlify/functions/integrations');
+      const data = await res.json();
+      const container = document.getElementById('active-connections-container');
+      container.innerHTML = '';
+
+      if (!data.connections || data.connections.length === 0) {
+        container.innerHTML = `<p class="text-gray-500 text-sm col-span-full">No active integrations found.</p>`;
+        return;
+      }
+
+      data.connections.forEach(conn => {
+        // Map backend status to UI Badges
+        let statusBadge = '';
+        if (conn.status === 'active') statusBadge = `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`;
+        else if (conn.status === 'expired') statusBadge = `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Token Expired</span>`;
+        else statusBadge = `<span class="bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Failed</span>`;
+
+        const card = `
+          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center font-bold text-gray-700">${conn.serviceName.substring(0,2).toUpperCase()}</div>
+                <div>
+                  <h3 class="font-bold text-gray-900">${conn.serviceName}</h3>
+                  <p class="text-xs text-gray-500 uppercase tracking-wide">${conn.connectionType.replace('_', ' ')} • ${conn.externalUserId || 'Connected'}</p>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-between items-center pt-4 border-t border-gray-100">
+              ${statusBadge}
+              <button onclick="promptDisconnect(${conn.id})" class="text-sm font-bold text-red-500 hover:text-red-700 transition">Disconnect</button>
+            </div>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', card);
+      });
+    } catch (e) {
+      console.error("Failed to load integrations");
+    }
+  }
+
+  // --- Scenario 2: Revoking Access (Warning Modal) ---
+  function promptDisconnect(id) {
+    connectionToDelete = id;
+    document.getElementById('modal-disconnect').classList.remove('hidden');
+  }
+
+  document.getElementById('btn-confirm-disconnect').addEventListener('click', async () => {
+    if (!connectionToDelete) return;
+
+    try {
+      const res = await fetch(`/.netlify/functions/integrations?id=${connectionToDelete}`, { method: 'DELETE' });
+      if (res.ok) {
+        document.getElementById('modal-disconnect').classList.add('hidden');
+        connectionToDelete = null;
+        fetchConnections(); // Refresh UI (Scenario 3 - UI Update)
+      }
+    } catch (e) { alert("Failed to disconnect."); }
+  });
+
+  // --- Scenario 1: OAuth Authentication Flow (Mock) ---
+  function triggerOAuth(service) {
+    alert(`Redirecting to ${service} secure authorization page...`);
+    // In production: window.location.href = `/.netlify/functions/oauth-start?provider=${service}`;
+  }
+
+  // --- Secure Input Logic ---
+  function openCredentialModal(type, serviceName) {
+    document.getElementById('modal-catalog').classList.add('hidden');
+    document.getElementById('modal-credentials').classList.remove('hidden');
+
+    document.getElementById('cred-title').innerText = `Connect ${serviceName}`;
+    document.getElementById('cred-type').value = type;
+    document.getElementById('cred-service').value = serviceName;
+    document.getElementById('input-secret').value = '';
+
+    if (type === 'api_key') {
+      document.getElementById('field-username').classList.add('hidden');
+      document.getElementById('secret-label').innerText = 'Secret API Key';
+    } else {
+      document.getElementById('field-username').classList.remove('hidden');
+      document.getElementById('input-username').value = '';
+      document.getElementById('secret-label').innerText = 'Password';
+    }
+  }
+
+  function toggleSecretMask() {
+    const input = document.getElementById('input-secret');
+    input.type = input.type === 'password' ? 'text' : 'password';
+  }
+
+  async function submitCredentials(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-cred');
+    btn.innerHTML = 'Validating...';
+    btn.disabled = true;
+
+    // Simulate the lightweight "ping" to the 3rd party API (Scenario 2 validation)
+    await new Promise(r => setTimeout(r, 800));
+
+    const type = document.getElementById('cred-type').value;
+    const payload = {
+      serviceName: document.getElementById('cred-service').value,
+      connectionType: type,
+      apiKey: type === 'api_key' ? document.getElementById('input-secret').value : undefined,
+      username: type === 'legacy' ? document.getElementById('input-username').value : undefined,
+      password: type === 'legacy' ? document.getElementById('input-secret').value : undefined,
+    };
+
+    try {
+      const res = await fetch('/.netlify/functions/integrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        document.getElementById('modal-credentials').classList.add('hidden');
+        fetchConnections();
+      } else {
+        alert("Validation failed. Please check your credentials.");
+      }
+    } catch (err) {
+      alert("Error saving connection.");
+    } finally {
+      btn.innerHTML = 'Secure & Connect';
+      btn.disabled = false;
+    }
+  }
+
+  async function loadComponent(id, file) {
+    try { const response = await fetch(file); if (response.ok) document.getElementById(id).innerHTML = await response.text(); } catch (e) {}
+  }
+</script>
+</body>
+</html>

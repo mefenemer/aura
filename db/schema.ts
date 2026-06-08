@@ -180,17 +180,26 @@ export const notifications = pgTable("notifications", {
 // System connections table — OAuth tokens and credentials for third-party service integrations
 export const systemConnections = pgTable("system_connections", {
   id: serial().primaryKey(),
-  userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+
   serviceName: text("service_name").notNull(),
+  connectionType: text("connection_type").notNull().default("oauth"), // 'oauth', 'api_key', 'legacy'
+
+  // Encrypted at rest: Holds API Key, OAuth Token, or Legacy Password
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   tokenExpiresAt: timestamp("token_expires_at"),
+
   scopes: text("scopes"),
+
+  // Public identifier (e.g., Legacy Username or connected email)
   externalUserId: text("external_user_id"),
-  metadata: jsonb("metadata"),
+
+  // Connection Health Status
+  status: text("status").notNull().default("active"), // 'active', 'expired', 'failed'
   isActive: boolean("is_active").notNull().default(true),
+
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
