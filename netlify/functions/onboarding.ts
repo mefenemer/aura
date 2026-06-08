@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 import * as path from 'path';
 import jwt from 'jsonwebtoken';
+import Stripe from 'stripe';
 // Try to load .env from the root of the project
 config({ path: path.resolve(process.cwd(), '.env') });
 import { Handler } from '@netlify/functions';
@@ -31,8 +32,14 @@ if (!jwtSecret) {
   throw new Error("CRITICAL: JWT_SECRET is missing.");
 }
 
+const stripeSecret = process.env.STRIPE_SECRET_KEY;
+if (!stripeSecret) {
+  throw new Error("CRITICAL: STRIPE_SECRET_KEY is missing.");
+}
+
 const pgClient = postgres(connectionString);
 const db = drizzle({ client: pgClient });
+const stripe = new Stripe(stripeSecret, { apiVersion: '2023-10-16' });
 
 // Helper to prevent XSS-like issues
 function sanitizeText(str: string): string {
@@ -123,14 +130,14 @@ export const handler: Handler = async (event) => {
         .where(eq(users.id, currentUserId))
         .limit(1);
 
-    if (!existingUser || existingUser.status !== 'active') {
-      return { statusCode: 403, body: JSON.stringify({ error: 'Account pending verification or does not exist.' }) };
+    if (!existingUser || existingUser.status !== 'active' || !existingUser.organisationId) {
+      return { statusCode: 403, body: JSON.stringify({ error: 'Account pending verification or missing organisation.' }) };
     }
 
     const body = JSON.parse(event.body || '{}');
     const { clientName, businessName, tier, assistantName, customAssistantName, rawInputs, onboardingContext, consents } = body;
 
-    // SCENARIO 2: Payload Validation for Context Persistence
+    // Payload Validation for Context Persistence
     if (assistantName === 'Social Media Manager') {
       if (!onboardingContext?.target_audience || !onboardingContext?.content_pillars || !onboardingContext?.tone_of_voice || !onboardingContext?.primary_platforms?.length) {
         return { statusCode: 400, body: JSON.stringify({ error: 'Missing required Social Media Manager context fields (Audience, Pillars, Tone, or Platforms).' }) };
@@ -152,53 +159,40 @@ export const handler: Handler = async (event) => {
         ? customAssistantName.trim()
         : 'Digital Assistant';
 
-    const existingAssistant = await db.select().from(aiAssistants)
+    // Graceful overwrite if they previously cancelled checkout
+    const [existingAssistant] = await db.select().from(aiAssistants)
         .where(and(
             eq(aiAssistants.userId, existingUser.id),
             sql`LOWER(${aiAssistants.name}) = LOWER(${targetName})`
         )).limit(1);
 
-    if (existingAssistant.length > 0) {
-      return {
-        statusCode: 409,
-        body: JSON.stringify({ error: 'You already have an Assistant with this name.' })
-      };
+    if (existingAssistant) {
+      if (existingAssistant.provisioningStatus === 'pending_payment') {
+        // They cancelled before and are trying again. Delete the old unpaid record to recreate it cleanly.
+        await db.delete(aiAssistants).where(eq(aiAssistants.id, existingAssistant.id));
+      } else {
+        return { statusCode: 409, body: JSON.stringify({ error: 'You already have an active Assistant with this name.' }) };
+      }
     }
 
-    // 4. THE ACID TRANSACTION (Workspace Provisioning)
-    const newWorkspace = await db.transaction(async (tx) => {
-      // Insert User Profile
-      await tx.insert(userProfiles).values({
-        userId: existingUser.id,
-        displayName: `${existingUser.firstName || ''} ${existingUser.lastName || ''}`.trim() || 'Aura User',
-        preferences: { theme: 'light', onboardingComplete: true },
-        legalConsents: consents || {}
-      });
+    // 4. THE ACID TRANSACTION (Workspace Provisioning & Payment Link Generation)
+    const checkoutUrl = await db.transaction(async (tx) => {
 
-      // Handle and sanitize organisation naming
-      const rawCompanyName = (businessName && businessName.trim() !== '')
-          ? businessName.trim()
-          : `${existingUser.firstName}'s Workspace`;
+      // Update User Profile Consents (from Registration)
+      await tx.update(userProfiles)
+          .set({ legalConsents: consents || {} })
+          .where(eq(userProfiles.userId, existingUser.id));
 
-      const finalCompanyName = sanitizeText(rawCompanyName);
-      const companySlug = finalCompanyName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + `-${Date.now()}`;
+      // Update Organisation Name if provided
+      if (businessName && businessName.trim() !== '') {
+        await tx.update(organisations)
+            .set({ name: sanitizeText(businessName.trim()) })
+            .where(eq(organisations.id, existingUser.organisationId!));
+      }
 
-      // Create organisation
-      const [newOrg] = await tx.insert(organisations).values({
-        name: finalCompanyName,
-        slug: companySlug,
-      }).returning();
-
-      // Link user to organisation
-      await tx.insert(userOrganisations).values({
-        userId: existingUser.id,
-        organisationId: newOrg.id,
-        role: 'owner'
-      });
-
-      // Create plan
+      // Create Subscription Plan Record
       const [newPlan] = await tx.insert(plans).values({
-        organisationId: newOrg.id,
+        organisationId: existingUser.organisationId!,
         userId: existingUser.id,
         masterPlanId: masterPlan.id,
         planName: masterPlan.name,
@@ -211,20 +205,19 @@ export const handler: Handler = async (event) => {
           .where(eq(masterAssistants.name, assistantName || 'Social Media Manager'))
           .limit(1);
 
-      // SCENARIO 5: Automated error logging on transformation failure
+      // Automated error logging on transformation failure
       let secureSystemPrompt = '';
       try {
-        secureSystemPrompt = compileServerSideBrief(clientName, finalCompanyName, targetName, rawInputs);
+        secureSystemPrompt = compileServerSideBrief(clientName, sanitizeText(businessName || ''), targetName, rawInputs);
         if (!secureSystemPrompt) throw new Error("Compilation resulted in empty brief.");
       } catch (compilationError) {
         console.error("CRITICAL: Brief Transformation Failure:", compilationError);
-        // Throwing here halts the transaction and rolls back the database
         throw new Error("Failed to generate Assistant Blueprint due to missing or invalid data. Deployment aborted.");
       }
 
-      // Create AI assistant with pending status for queue processing
+      // Create AI assistant with pending_payment status
       const [newAssistant] = await tx.insert(aiAssistants).values({
-        organisationId: newOrg.id,
+        organisationId: existingUser.organisationId!,
         userId: existingUser.id,
         masterAssistantId: assistantRecord?.id || null,
         name: targetName,
@@ -237,42 +230,52 @@ export const handler: Handler = async (event) => {
           inputs: rawInputs || {}
         },
         onboardingContext: onboardingContext || {}, // Structured UI data
-        isActive: true,
+        isActive: false, // Inactive until paid
+        provisioningStatus: 'pending_payment' // Blocks async queue until webhook fires
       }).returning();
 
-      // ASYNC QUEUE TRIGGER
-      fetch(`${process.env.URL}/.netlify/functions/provision-assistant-async`, {
-        method: 'POST',
-        body: JSON.stringify({ assistantId: newAssistant.id, rawInputs })
-      }).catch(err => console.error("Async provisioning trigger failed:", err));
-
-      // Record payment
-      await tx.insert(payments).values({
+      // Create Pending Payment Record
+      const [newPayment] = await tx.insert(payments).values({
         userId: existingUser.id,
-        organisationId: newOrg.id,
+        organisationId: existingUser.organisationId!,
         planId: newPlan.id,
         amount: masterPlan.monthlyPriceGbp,
         currency: 'GBP',
         status: 'pending',
         description: `Aura ${masterPlan.name} Setup`
+      }).returning();
+
+      // Generate Stripe Checkout Session
+      const baseUrl = process.env.URL || 'http://localhost:8888';
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        customer_email: existingUser.email,
+        line_items: [{
+          price_data: {
+            currency: 'gbp',
+            product_data: {
+              name: `Aura-Assist: ${targetName}`,
+              description: `Monthly subscription for the ${masterPlan.name} plan.`,
+            },
+            unit_amount: Math.round(Number(masterPlan.monthlyPriceGbp) * 100),
+            recurring: { interval: 'month' }
+          },
+          quantity: 1,
+        }],
+        mode: 'subscription',
+        success_url: `${baseUrl}/dashboard.html?payment=success`,
+        cancel_url: `${baseUrl}/onboarding-social-media.html?tier=${tier}`,
+        metadata: {
+          userId: existingUser.id.toString(),
+          assistantId: newAssistant.id.toString(),
+          paymentId: newPayment.id.toString()
+        }
       });
 
-      // Notify user
-      await tx.insert(notifications).values({
-        userId: existingUser.id,
-        type: 'onboarding_complete',
-        title: 'Workspace Provisioned',
-        message: 'Your Aura setup is complete.',
-        isRead: false
-      });
-
-      // Clear the auto-save draft
-      await tx.delete(onboardingDrafts).where(eq(onboardingDrafts.userId, existingUser.id));
-
-      return { userId: existingUser.id, organisationId: newOrg.id };
+      return session.url;
     });
 
-    return { statusCode: 200, body: JSON.stringify({ message: 'Success', data: newWorkspace }) };
+    return { statusCode: 200, body: JSON.stringify({ message: 'Success', data: { stripeUrl: checkoutUrl } }) };
   } catch (error: any) {
     console.error('Database Error:', error);
 

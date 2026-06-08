@@ -1069,20 +1069,23 @@
       });
 
       if (response.ok) {
-        window.location.href = 'checkout.html';
+        const result = await response.json();
+        // SCENARIO 1: Handoff to Stripe Checkout
+        window.location.href = result.data.stripeUrl;
       } else {
         // Handle error: show initial view again
         document.getElementById('setup-initial-view').classList.remove('hidden');
         document.getElementById('setup-loading-view').classList.add('hidden');
         document.getElementById('btn-next').disabled = false;
         document.getElementById('btn-back').style.display = 'block';
-        alert("Provisioning failed. Please try again.");
+
+        const errData = await response.json();
+        alert(`Provisioning failed: ${errData.error}`);
       }
     } catch (err) {
       alert("Connection failed.");
       location.reload();
     }
-  }
 
   // --- 8. UI HELPERS ---
   function loadComponent(id, file) { fetch(file).then(r => r.ok && r.text().then(t => document.getElementById(id).innerHTML = t)); }
@@ -1271,7 +1274,7 @@
         window.location.href = 'onboarding.html?restart=true';
       } catch (e) { alert("Could not clear draft."); }
     }
-  }
+  }}
 </script>
 </body>
 </html>
