@@ -22,6 +22,7 @@ export const handler: Handler = async (event) => {
         const firstName = body.firstName?.trim();
         const lastName = body.lastName?.trim();
         const businessName = body.businessName?.trim() || `${firstName}'s Workspace`;
+        const priceId = body.priceId?.trim() || null;
 
         if (!email || !firstName || !lastName) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields.' }) };
@@ -90,7 +91,7 @@ export const handler: Handler = async (event) => {
         const host = event.headers?.host || 'localhost:8888';
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const baseUrl = `${protocol}://${host}`;
-        const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}`;
+        const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}${priceId ? `&priceId=${encodeURIComponent(priceId)}` : ''}`;
 
         await sendMagicLinkEmail({
             to: email,

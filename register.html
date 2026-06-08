@@ -126,11 +126,11 @@
 
     try {
       sessionStorage.setItem('aura_pending_email', email);
+      const priceId = sessionStorage.getItem('pending_price_id');
       const response = await fetch('/.netlify/functions/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Include businessName directly in the API payload
-        body: JSON.stringify({ firstName, lastName, email, businessName })
+        body: JSON.stringify({ firstName, lastName, email, businessName, priceId })
       });
 
       const data = await response.json();

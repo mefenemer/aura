@@ -35,6 +35,7 @@
     // 1. Extract the token from the URL (?token=XYZ)
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
+    const priceId = urlParams.get('priceId');
 
     const loadingState = document.getElementById('loading-state');
     const errorMessage = document.getElementById('error-message');
@@ -53,7 +54,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token: token,
-          priceId: sessionStorage.getItem('pending_price_id') // Pass the stored Price ID
+          priceId: priceId // Read from URL param — survives email client cross-tab navigation
         })
       });
 
