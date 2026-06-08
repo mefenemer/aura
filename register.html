@@ -152,7 +152,27 @@
       errorMessage.classList.remove('hidden');
       resetButton();
     }
+    async function completeRegistration(plainToken) {
+      const priceId = sessionStorage.getItem('pending_price_id');
 
+      const response = await fetch('/.netlify/functions/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: plainToken,
+          priceId: priceId // This is the ID we stored in pricing.html
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.redirect) {
+        // Redirect user to the Stripe hosted Checkout page
+        window.location.href = data.redirect;
+      } else {
+        alert("Registration failed: " + data.error);
+      }
+    }
     function resetButton() {
       submitBtn.disabled = false;
       submitBtn.innerText = "Verify Email & Continue";
