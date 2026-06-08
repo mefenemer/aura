@@ -51,7 +51,10 @@
       const response = await fetch('/netlify/functions/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token })
+        body: JSON.stringify({
+          token: token,
+          priceId: sessionStorage.getItem('pending_price_id') // Pass the stored Price ID
+        })
       });
 
       // 3. Handle the response
