@@ -102,9 +102,27 @@
 
   <div id="tab-content-integrations" class="tab-content hidden space-y-6">
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-      <h3 class="text-lg font-bold text-gray-900 mb-4">Connected Platforms</h3>
-      <p class="text-sm text-gray-500 mb-4">Manage which external tools this assistant has permission to use.</p>
-      <div class="h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-sm font-medium text-gray-400">OAuth / Integration List Goes Here</div>
+
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Connected Platforms</h3>
+          <p class="text-sm text-gray-500">Select which of your global workspace integrations this assistant is allowed to use.</p>
+        </div>
+        <button id="btn-save-integrations" onclick="saveIntegrations()" class="hidden px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-lg shadow-sm hover:bg-emerald-700 transition-all flex items-center gap-2">
+          Save Access
+        </button>
+      </div>
+
+      <div id="empty-integrations-prompt" class="hidden h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-center p-4">
+        <p class="text-sm font-medium text-gray-500 mb-2">You haven't configured any integrations for your workspace yet.</p>
+        <a href="integrations.html" class="text-emerald-600 font-bold text-sm hover:underline flex items-center gap-1">
+          Go to Global Integrations <span aria-hidden="true">&rarr;</span>
+        </a>
+      </div>
+
+      <div id="assistant-integrations-list" class="space-y-3 hidden">
+      </div>
+
     </div>
   </div>
 
@@ -162,6 +180,8 @@
     } catch (error) {
       console.error("Network Error hydrating context:", error);
     }
+    // NEW: Fetch global integrations after context is loaded
+    await fetchAndRenderIntegrations();
   }
 
   async function saveContextChanges() {
@@ -245,4 +265,107 @@
       }
     });
   });
+  async function fetchAndRenderIntegrations() {
+    try {
+      const res = await fetch('/.netlify/functions/integrations');
+      if (!res.ok) throw new Error("Failed to fetch integrations");
+
+      const data = await res.json();
+
+      const emptyPrompt = document.getElementById('empty-integrations-prompt');
+      const listContainer = document.getElementById('assistant-integrations-list');
+      const saveBtn = document.getElementById('btn-save-integrations');
+
+      // Check if Workspace Owner has added any integrations
+      if (!data.connections || data.connections.length === 0) {
+        emptyPrompt.classList.remove('hidden');
+        listContainer.classList.add('hidden');
+        saveBtn.classList.add('hidden');
+        return;
+      }
+
+      emptyPrompt.classList.add('hidden');
+      listContainer.classList.remove('hidden');
+      saveBtn.classList.remove('hidden');
+      listContainer.innerHTML = '';
+
+      // Array of integration IDs this specific assistant is currently allowed to access
+      const linkedIds = cachedContext.linked_integrations || [];
+
+      // Render each global connection as a toggle switch
+      data.connections.forEach(conn => {
+        const isChecked = linkedIds.includes(conn.id) ? 'checked' : '';
+
+        const itemHtml = `
+          <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center font-bold text-gray-700">
+                ${conn.serviceName.substring(0,2).toUpperCase()}
+              </div>
+              <div>
+                <h4 class="font-bold text-gray-900">${conn.serviceName}</h4>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">${conn.externalUserId || conn.connectionType.replace('_', ' ')}</p>
+              </div>
+            </div>
+
+            <label class="flex items-center cursor-pointer relative">
+              <input type="checkbox" class="sr-only peer integration-toggle" value="${conn.id}" ${isChecked}>
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
+          </div>
+        `;
+        listContainer.insertAdjacentHTML('beforeend', itemHtml);
+      });
+    } catch (e) {
+      console.error("Error fetching integrations:", e);
+    }
+  }
+
+  async function saveIntegrations() {
+    const btn = document.getElementById('btn-save-integrations');
+    const originalText = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" class="opacity-75"></path></svg> Saving...`;
+
+    // Gather IDs of all toggled-ON integrations
+    const selectedIds = Array.from(document.querySelectorAll('.integration-toggle:checked')).map(chk => parseInt(chk.value));
+
+    const newContext = {
+      ...cachedContext,
+      linked_integrations: selectedIds
+    };
+
+    try {
+      // Re-use our context update endpoint to save these privileges
+      const response = await fetch('/.netlify/functions/update-assistant-context', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assistantId: parseInt(activeAssistantId),
+          newContext: newContext
+        })
+      });
+
+      if (response.ok) {
+        btn.innerHTML = `✓ Saved`;
+        btn.classList.replace('bg-emerald-600', 'bg-green-600');
+        cachedContext = newContext; // Update local cache
+
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.classList.replace('bg-green-600', 'bg-emerald-600');
+          btn.disabled = false;
+        }, 2000);
+      } else {
+        alert("Failed to update access.");
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    } catch (error) {
+      alert("Connection error. Could not save changes.");
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+  }
 </script>
