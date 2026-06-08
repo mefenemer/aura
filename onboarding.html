@@ -156,17 +156,12 @@
                     <label class="block text-sm font-bold text-gray-700 mb-3">Select your Digital Assistant role:</label>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="role-selection-grid">
 
-                        <label class="relative cursor-pointer role-card" data-role="social_media" onclick="checkRoleAccess(event, 'social_media')">
-                            <input type="radio" name="category" value="social_media" class="sr-only" checked>
-                            <div class="p-4 border border-gray-200 rounded-lg hover:border-emerald-300 transition h-full">
-                                <div class="flex items-center mb-2 justify-between">
-                                    <div class="flex items-center">
-                                        <div class="radio-indicator h-4 w-4 rounded-full border border-gray-300 mr-3 flex-shrink-0"></div>
-                                        <span class="font-bold text-gray-900">📱 Social Media Manager</span>
-                                    </div>
-                                    <span id="lock_social_media" class="hidden text-xs font-bold text-gray-400 uppercase tracking-wide bg-gray-100 px-2 py-1 rounded">Locked</span>
-                                </div>
-                                <span class="block text-sm text-gray-500 ml-7">Organic content creation and automated publishing scheduling.</span>
+                        <label class="role-option" for="role-smm" style="display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+                            <input type="radio" name="assistant_role" id="role-smm" value="social_media_manager" required style="margin-top: 4px;">
+                            <div style="font-size: 24px;">📱</div>
+                            <div>
+                                <div style="font-weight: 600; color: #1e293b;">Social Media Manager</div>
+                                <div style="font-size: 14px; color: #64748b; margin-top: 4px;">Organic content creation and automated publishing scheduling.</div>
                             </div>
                         </label>
 
