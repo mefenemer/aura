@@ -114,8 +114,11 @@ export const handler: Handler = async (event) => {
             body: JSON.stringify({ success: true, message: 'Registration processed.' }),
         };
     } catch (error: any) {
-        console.error('Registration Error:', error);
-        // We no longer check for the 23505 conflict code because our enumeration check intercepts it safely
-        return { statusCode: 500, body: JSON.stringify({ error: 'Failed to process registration.' }) };
+        console.error('Registration Error Details:', error);
+        // Log the actual error object, not just the string
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: error.message || 'Failed to process registration.' })
+        };
     }
 };

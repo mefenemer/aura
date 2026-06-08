@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { payments, aiAssistants, onboardingDrafts, notifications } from '../../db/schema';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2023-10-16' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!; // Add this to Netlify Envs
 
 export const handler: Handler = async (event) => {
@@ -20,7 +20,7 @@ export const handler: Handler = async (event) => {
     }
 
     if (stripeEvent.type === 'checkout.session.completed') {
-        const session = stripeEvent.data.object as Stripe.Checkout.Session;
+        const session = stripeEvent.data.object as any;
         const { userId, assistantId, paymentId } = session.metadata || {};
 
         if (userId && assistantId && paymentId) {

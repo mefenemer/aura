@@ -39,7 +39,7 @@ if (!stripeSecret) {
 
 const pgClient = postgres(connectionString);
 const db = drizzle({ client: pgClient });
-const stripe = new Stripe(stripeSecret, { apiVersion: '2023-10-16' });
+const stripe = new Stripe(stripeSecret, { apiVersion: '2026-05-27.dahlia' });
 
 // Helper to prevent XSS-like issues
 function sanitizeText(str: string): string {
