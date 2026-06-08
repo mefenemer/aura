@@ -427,6 +427,47 @@
         modal.classList.add('opacity-0', 'pointer-events-none');
         setTimeout(() => { modal.classList.add('hidden'); }, 300);
     }
+
+        // Global state for the onboarding wizard
+        let currentStep = 2; // Starting step
+        const totalSteps = 8;
+
+        function nextStep() {
+        // You will need to trigger the validation specific to the active fragment
+        // If the fragment has its own validate function, call it here
+        if (typeof window.validateCurrentStep === 'function') {
+        if (!window.validateCurrentStep()) return;
+    }
+
+        if (currentStep < totalSteps) {
+        currentStep++;
+        updateUI();
+    } else {
+        // This is where you would call submitToBackend()
+        if (typeof window.submitToBackend === 'function') {
+        window.submitToBackend();
+    }
+    }
+    }
+
+        function prevStep() {
+        if (currentStep > 2) {
+        currentStep--;
+        updateUI();
+    }
+    }
+
+        function updateUI() {
+        // Hide all steps
+        document.querySelectorAll('[id^="step-"]').forEach(el => el.classList.add('step-hidden'));
+        // Show current
+        const activeStep = document.getElementById(`step-${currentStep}`);
+        if (activeStep) activeStep.classList.remove('step-hidden');
+
+        // Update progress bar
+        const progressBar = document.getElementById('progress-bar');
+        if (progressBar) progressBar.style.width = `${(currentStep / totalSteps) * 100}%`;
+    }
 </script>
 </body>
 </html>
