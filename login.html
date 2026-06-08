@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Log in to Aura-Assist</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="./style.css" rel="stylesheet">
   <link rel="icon" href="/favicon/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
   <link rel="manifest" href="/favicon/manifest.json">
@@ -22,11 +22,11 @@
       <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
       <input type="email" id="email" required
              class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-             placeholder="jane@example.com">
+             placeholder="jane@yourcompany.com">
     </div>
 
     <button type="submit" id="submitBtn"
-            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors">
+            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors cursor-pointer">
       Send Magic Link
     </button>
   </form>
