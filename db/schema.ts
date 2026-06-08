@@ -123,13 +123,8 @@ export const payments = pgTable("payments", {
 // AI assistants table — AI agents configured by or assigned to a user
 export const aiAssistants = pgTable("ai_assistants", {
   id: serial().primaryKey(),
-  userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-  organisationId: integer("organisation_id").notNull().references(() => organisations.id,
-      {
-        onDelete: "cascade",
-      }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
   masterAssistantId: integer("master_assistant_id").references(() => masterAssistants.id),
   name: text("name").notNull(),
   aiAssistantJobRole: text("ai_assistant_job_role"),
@@ -137,9 +132,13 @@ export const aiAssistants = pgTable("ai_assistants", {
   systemPrompt: text("system_prompt"),
   isActive: boolean("is_active").notNull().default(true),
   configuration: jsonb("configuration"),
+
+  // NEW: Flexible schema expansion for role-specific answers (Scenario 1)
+  onboardingContext: jsonb("onboarding_context"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  provisioningStatus: text("provisioning_status").default("pending"), // 'pending', 'complete', 'failed'
+  provisioningStatus: text("provisioning_status").default("pending"),
 });
 
 // User profiles table — extended profile details for a user

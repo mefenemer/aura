@@ -1002,6 +1002,36 @@
 
   async function submitToBackend() {
 
+    // Extract exact values for the specific Social Media Manager requirements
+    const extractedPlatforms = [];
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      if (document.getElementById(`chk_${p}`)?.checked) extractedPlatforms.push(p);
+    });
+
+    const structuredContext = {
+      target_audience: document.getElementById('val_audience')?.value || null,
+      content_pillars: document.getElementById('val_pillars')?.value || null,
+      tone_of_voice: document.getElementById('val_tone')?.value || null,
+      posting_frequency: document.getElementById('schedule_frequency')?.value || 'On Demand',
+      primary_platforms: extractedPlatforms,
+      problem_statement: document.getElementById('user_story_problem')?.value || null
+    };
+
+    const payload = {
+      clientName: sessionStorage.getItem('aura_client_name') || 'New User',
+      businessName: sessionStorage.getItem('aura_business_name') || 'Business',
+      assistantName: sessionStorage.getItem('aura_assistant_name') || 'Social Media Manager',
+      customAssistantName: document.getElementById('val_assistant_name')?.value || 'Digital Assistant',
+      tier: currentTierKey,
+      rawInputs: window.globalRawInputs,
+      onboardingContext: structuredContext, // NEW: Capture structured data (Scenario 2)
+      consents: {
+        legal: document.querySelector('input[name="legal_consent"]').checked,
+        no_training: document.querySelector('input[name="no_training_consent"]').checked,
+        tos_consent: document.querySelector('input[name="tos_consent"]').checked
+      }
+    };
+
     const btn = document.getElementById('btn-next');
     btn.disabled = true;
     btn.innerText = "Processing...";

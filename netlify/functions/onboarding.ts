@@ -99,7 +99,14 @@ export const handler: Handler = async (event) => {
     }
 
     const body = JSON.parse(event.body || '{}');
-    const { clientName, businessName, tier, assistantName, customAssistantName, rawInputs, consents } = body;
+    const { clientName, businessName, tier, assistantName, customAssistantName, rawInputs, onboardingContext, consents } = body;
+
+    // SCENARIO 2: Payload Validation
+    if (assistantName === 'Social Media Manager') {
+      if (!onboardingContext?.target_audience || !onboardingContext?.content_pillars || !onboardingContext?.tone_of_voice || !onboardingContext?.primary_platforms?.length) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'Missing required Social Media Manager context fields (Audience, Pillars, Tone, or Platforms).' }) };
+      }
+    }
 
     // 2. QUERY THE MASTER CATALOG
     const [masterPlan] = await db.select()
@@ -179,6 +186,7 @@ export const handler: Handler = async (event) => {
       const secureSystemPrompt = compileServerSideBrief(clientName, finalCompanyName, customAssistantName, rawInputs);
 
       // Create AI assistant with pending status for queue processing
+      // SCENARIO 3: Secure Database Persistence (Inside the tx.insert block)
       const [newAssistant] = await tx.insert(aiAssistants).values({
         organisationId: newOrg.id,
         userId: existingUser.id,
@@ -186,14 +194,14 @@ export const handler: Handler = async (event) => {
         name: targetName,
         model: 'gpt-4o',
         aiAssistantJobRole: assistantRecord?.name || 'General Assistant',
-        systemPrompt: secureSystemPrompt,
+        systemPrompt: secureSystemPrompt, // Kept distinctly separate
         configuration: {
           type: assistantRecord ? assistantRecord.roleKey : 'custom',
           active: true,
           inputs: rawInputs || {}
         },
+        onboardingContext: onboardingContext || {}, // Persist structured context separately
         isActive: true,
-        // provisioningStatus: 'pending' // Note: Ensure this column exists in schema
       }).returning();
 
       // ASYNC QUEUE TRIGGER
