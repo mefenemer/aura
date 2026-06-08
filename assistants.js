@@ -1,85 +1,102 @@
-// assistants.js
+// ==========================================
+// GLOBAL STATE
+// ==========================================
+window.activeAssistantId = null;
+window.cachedContext = {};
 
-// Mock Data for UI Demonstration
-const mockAssistants = [
-    { id: 'ast_1', name: 'Marketing Mike', role: 'SEO Content Writer', status: 'live', icon: 'M' },
-    { id: 'ast_2', name: 'Support Sarah', role: 'Customer Service Tier 1', status: 'paused', icon: 'S' },
-    { id: 'ast_3', name: 'Data Dan', role: 'Analytics Researcher', status: 'live', icon: 'D' }
-];
+// ==========================================
+// 1. SHARED CARD GENERATOR (Dashboard & Directory)
+// ==========================================
+window.generateAssistantCardHTML = function(assistant) {
+    const initial = assistant.name ? assistant.name.charAt(0).toUpperCase() : 'A';
+    const role = assistant.role || 'Custom Assistant';
 
-window.initAssistantsDirectory = async function(loadViewCallback) {
-    const grid = document.getElementById('assistants-grid');
-    const catalogBtn = document.getElementById('route-to-catalog-from-dir');
-    if (!grid) return;
-
-    if (catalogBtn) {
-        catalogBtn.addEventListener('click', () => loadViewCallback('catalog'));
+    let statusHtml = '';
+    // Adapt to database provisioningStatus or isActive states
+    if (assistant.status === 'pending') {
+        statusHtml = `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Provisioning</span>`;
+    } else if (assistant.isActive === false) {
+        statusHtml = `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Paused</span>`;
+    } else {
+        statusHtml = `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active</span>`;
     }
 
-    try {
-        // In the future, replace this with: await fetch('/.netlify/functions/get-assistants')
-        const data = await new Promise(resolve => setTimeout(() => resolve(mockAssistants), 400));
+    return `
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col cursor-pointer group" onclick="window.routeToAssistantDetail('${assistant.id}')">
+        <div class="flex justify-between items-start mb-4">
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg shadow-sm">
+                ${initial}
+            </div>
+            ${statusHtml}
+        </div>
+        <h3 class="text-lg font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">${assistant.name}</h3>
+        <p class="text-sm text-gray-500 mb-6">Job: ${role}</p>
+        <div class="mt-auto pt-4 border-t border-gray-50 flex justify-end">
+            <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">Control Room &rarr;</span>
+        </div>
+    </div>`;
+};
 
-        if (data.length === 0) {
-            grid.innerHTML = `<div class="col-span-full py-12 text-center text-gray-500 font-medium bg-white rounded-2xl border border-gray-100 shadow-sm">You haven't provisioned any assistants yet.</div>`;
+// ==========================================
+// 2. FETCH & RENDER ENGINE
+// ==========================================
+window.fetchAndRenderAssistants = async function(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    try {
+        const res = await fetch('/.netlify/functions/get-assistants');
+        if (!res.ok) throw new Error("Failed to fetch");
+
+        const data = await res.json();
+        container.innerHTML = ''; // Clear the "Gathering your team..." placeholder
+
+        if (!data.assistants || data.assistants.length === 0) {
+            container.innerHTML = `
+              <div class="col-span-full py-12 text-center text-gray-500 font-medium bg-white rounded-2xl border border-gray-100 shadow-sm">
+                  Your team is currently empty. <a href="#" onclick="loadView('catalog')" class="text-emerald-600 hover:underline">Hire an assistant</a>.
+              </div>`;
             return;
         }
 
-        grid.innerHTML = data.map(ast => `
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col cursor-pointer group" onclick="window.routeToAssistantDetail('${ast.id}')">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg shadow-sm">
-                        ${ast.icon}
-                    </div>
-                    ${ast.status === 'live'
-            ? `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Live</span>`
-            : `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Paused</span>`
-        }
-                </div>
-                <h3 class="text-lg font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">${ast.name}</h3>
-                <p class="text-sm text-gray-500 mb-6">${ast.role}</p>
-                <div class="mt-auto pt-4 border-t border-gray-50 flex justify-end">
-                    <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700">Manage &rarr;</span>
-                </div>
-            </div>
-        `).join('');
-
+        data.assistants.forEach(assistant => {
+            container.insertAdjacentHTML('beforeend', window.generateAssistantCardHTML(assistant));
+        });
     } catch (error) {
-        grid.innerHTML = `<div class="col-span-full text-center text-red-500">Failed to load assistants.</div>`;
+        container.innerHTML = `<div class="col-span-full text-center text-red-500">Could not connect to the database to load your team.</div>`;
     }
 };
 
-window.initAssistantDetail = async function(assistantId, loadViewCallback) {
-    const btnBack = document.getElementById('btn-back-assistants');
-    if (!btnBack) return;
+// ==========================================
+// 3. SPA ROUTER INITIALIZATION HOOKS
+// ==========================================
+window.initDashboard = async function() {
+    await window.fetchAndRenderAssistants('dashboard-assistants-grid');
+};
+
+window.initAssistantsDirectory = async function(loadViewCb) {
+    await window.fetchAndRenderAssistants('directory-assistants-grid');
+
+    const catalogBtn = document.getElementById('route-to-catalog-from-dir');
+    if (catalogBtn) {
+        catalogBtn.addEventListener('click', () => loadViewCb('catalog'));
+    }
+};
+
+// ==========================================
+// 4. ASSISTANT DETAIL CONTROLLER (The Control Room)
+// ==========================================
+window.initAssistantDetail = async function(assistantId, loadViewCb) {
+    if (!assistantId) return;
+    window.activeAssistantId = assistantId;
 
     // --- BREADCRUMB ROUTING ---
-    btnBack.addEventListener('click', () => loadViewCallback('assistants'));
-
-    // --- FETCH DATA ---
-    // Mock fetch single assistant
-    const ast = mockAssistants.find(a => a.id === assistantId);
-    if (!ast) {
-        document.getElementById('detail-name').textContent = "Assistant Not Found";
-        return;
-    }
-
-    // --- HYDRATE HEADER ---
-    document.getElementById('detail-name').textContent = ast.name;
-    document.getElementById('detail-role').textContent = `Role: ${ast.role}`;
-    document.getElementById('detail-avatar').textContent = ast.icon;
-
-    const statusEl = document.getElementById('detail-status');
-    const toggleBtn = document.getElementById('btn-toggle-status');
-
-    if (ast.status === 'live') {
-        statusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Live`;
-        statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
-        toggleBtn.textContent = 'Pause Assistant';
-    } else {
-        statusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Paused`;
-        statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200';
-        toggleBtn.textContent = 'Activate Assistant';
+    const btnBack = document.getElementById('btn-back-assistants');
+    if (btnBack) {
+        // Clone and replace to prevent duplicate event listeners on SPA reload
+        const newBtnBack = btnBack.cloneNode(true);
+        btnBack.parentNode.replaceChild(newBtnBack, btnBack);
+        newBtnBack.addEventListener('click', () => loadViewCb('assistants'));
     }
 
     // --- TABBED INTERFACE LOGIC ---
@@ -87,28 +104,226 @@ window.initAssistantDetail = async function(assistantId, loadViewCallback) {
     tabs.forEach(tab => {
         const btn = document.getElementById(`tab-btn-${tab}`);
         const content = document.getElementById(`tab-content-${tab}`);
+        if (!btn || !content) return;
 
         btn.addEventListener('click', () => {
-            // Reset all
             tabs.forEach(t => {
-                document.getElementById(`tab-content-${t}`).classList.add('hidden');
-                document.getElementById(`tab-content-${t}`).classList.remove('block');
+                const tContent = document.getElementById(`tab-content-${t}`);
                 const tBtn = document.getElementById(`tab-btn-${t}`);
-                tBtn.className = 'tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
+                if(tContent) {
+                    tContent.classList.add('hidden');
+                    tContent.classList.remove('block');
+                }
+                if(tBtn) {
+                    tBtn.className = 'tab-btn cursor-pointer whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
+                }
             });
-            // Activate selected
             content.classList.remove('hidden');
             content.classList.add('block');
-            btn.className = 'tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm border-emerald-500 text-emerald-600';
+            btn.className = 'tab-btn cursor-pointer whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm border-emerald-500 text-emerald-600';
         });
     });
 
-    // --- ACTIONS LOGIC ---
-    document.getElementById('btn-delete-assistant').addEventListener('click', () => {
-        if(confirm(`Are you sure you want to permanently delete ${ast.name}? This cannot be undone.`)) {
-            // Delete logic here
-            alert("Deleted (Mock). Returning to directory.");
-            loadViewCallback('assistants');
+    // --- AUTO-SAVE LOGIC ---
+    const triggerAutoSave = async () => {
+        const updatedPlatforms = Array.from(document.querySelectorAll('.platform-chk:checked')).map(chk => chk.value);
+        const newContext = {
+            ...window.cachedContext,
+            target_audience: document.getElementById('edit_audience')?.value || '',
+            tone_of_voice: document.getElementById('edit_tone')?.value || '',
+            content_pillars: document.getElementById('edit_pillars')?.value || '',
+            posting_frequency: document.getElementById('edit_frequency')?.value || '',
+            primary_platforms: updatedPlatforms
+        };
+
+        const statusEl = document.getElementById('detail-save-status');
+        if (statusEl) statusEl.innerText = "Saving...";
+
+        try {
+            const res = await fetch('/.netlify/functions/update-assistant-context', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assistantId: parseInt(window.activeAssistantId), newContext })
+            });
+            if (res.ok) {
+                window.cachedContext = newContext;
+                if (statusEl) {
+                    statusEl.innerText = "✓ Saved";
+                    setTimeout(() => statusEl.innerText = "", 2000);
+                }
+            }
+        } catch (e) {
+            if (statusEl) statusEl.innerText = "Connection error";
         }
+    };
+
+    // Attach auto-save to text fields (on blur) and checkboxes (on change)
+    ['edit_audience', 'edit_tone', 'edit_pillars', 'edit_frequency'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.addEventListener('blur', triggerAutoSave);
     });
+    document.querySelectorAll('.platform-chk').forEach(chk => {
+        chk.addEventListener('change', triggerAutoSave);
+    });
+
+    // --- DELETE ACTION (Preserved from original file) ---
+    const deleteBtn = document.getElementById('btn-delete-assistant');
+    if (deleteBtn) {
+        const newDeleteBtn = deleteBtn.cloneNode(true);
+        deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
+        newDeleteBtn.addEventListener('click', () => {
+            const name = document.getElementById('detail-name')?.innerText || 'this assistant';
+            if(confirm(`Are you sure you want to permanently dismiss ${name}? This cannot be undone.`)) {
+                alert("Database deletion endpoint pending. Returning to directory.");
+                loadViewCb('assistants');
+            }
+        });
+    }
+
+    // --- EXECUTE DATA HYDRATION ---
+    await window.hydrateAssistantContext();
+};
+
+// ==========================================
+// 5. HYDRATION ENGINE
+// ==========================================
+window.hydrateAssistantContext = async function() {
+    try {
+        const response = await fetch(`/.netlify/functions/get-assistant-context?id=${window.activeAssistantId}`);
+        if (response.ok) {
+            const data = await response.json();
+            window.cachedContext = data.context || {};
+
+            // Update Headers
+            const nameEl = document.getElementById('detail-name');
+            if (nameEl) nameEl.innerText = data.name || 'Assistant';
+
+            const roleEl = document.getElementById('detail-role');
+            if (roleEl) roleEl.innerText = `Job: ${data.role || 'Digital Assistant'}`;
+
+            const avatarEl = document.getElementById('detail-avatar');
+            if (avatarEl) avatarEl.innerText = data.name ? data.name.charAt(0).toUpperCase() : 'A';
+
+            // Update Status Badge
+            const statusBadge = document.getElementById('detail-status');
+            const toggleBtn = document.getElementById('btn-toggle-status');
+            if (statusBadge) {
+                if (data.status === 'pending') {
+                    statusBadge.className = "inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200";
+                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Provisioning';
+                    if(toggleBtn) toggleBtn.textContent = 'Pause Assistant';
+                } else if (data.status === 'failed') {
+                    statusBadge.className = "inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-red-50 text-red-700 border border-red-200";
+                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Failed';
+                    if(toggleBtn) toggleBtn.textContent = 'Retry Provisioning';
+                } else {
+                    statusBadge.className = "inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200";
+                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Active';
+                    if(toggleBtn) toggleBtn.textContent = 'Pause Assistant';
+                }
+            }
+
+            // Fill Context Inputs
+            if(document.getElementById('edit_audience')) document.getElementById('edit_audience').value = window.cachedContext.target_audience || '';
+            if(document.getElementById('edit_tone')) document.getElementById('edit_tone').value = window.cachedContext.tone_of_voice || '';
+            if(document.getElementById('edit_pillars')) document.getElementById('edit_pillars').value = window.cachedContext.content_pillars || '';
+            if(document.getElementById('edit_frequency')) document.getElementById('edit_frequency').value = window.cachedContext.posting_frequency || 'On Demand';
+
+            if (window.cachedContext.primary_platforms) {
+                document.querySelectorAll('.platform-chk').forEach(chk => {
+                    chk.checked = window.cachedContext.primary_platforms.includes(chk.value);
+                });
+            }
+        }
+    } catch (e) {
+        console.error("Hydration Error:", e);
+    }
+
+    // After loading the main context, fetch the integrations assigned to this assistant
+    await window.fetchAndRenderIntegrations();
+};
+
+// ==========================================
+// 6. INTEGRATIONS RENDER ENGINE
+// ==========================================
+window.fetchAndRenderIntegrations = async function() {
+    try {
+        const res = await fetch('/.netlify/functions/integrations');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const container = document.getElementById('assistant-integrations-list');
+        const emptyPrompt = document.getElementById('empty-integrations-prompt');
+
+        if (!data.connections || data.connections.length === 0) {
+            if(emptyPrompt) emptyPrompt.classList.remove('hidden');
+            if(container) container.classList.add('hidden');
+            return;
+        }
+
+        if(emptyPrompt) emptyPrompt.classList.add('hidden');
+        if(container) {
+            container.classList.remove('hidden');
+            container.innerHTML = '';
+        }
+
+        const linkedIds = window.cachedContext.linked_integrations || [];
+
+        // Helper inline mapping for smart defaults
+        const mapServiceNameToKey = (name) => {
+            const m = { 'Facebook': 'fb', 'Instagram': 'ig', 'LinkedIn': 'li', 'X': 'x' };
+            return m[name] || name.toLowerCase();
+        };
+
+        data.connections.forEach(conn => {
+            const isDefaultSelected = window.cachedContext.primary_platforms?.includes(mapServiceNameToKey(conn.serviceName));
+            const isChecked = (linkedIds.includes(conn.id) || isDefaultSelected) ? 'checked' : '';
+
+            container.insertAdjacentHTML('beforeend', `
+              <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center font-bold text-gray-700">${conn.serviceName.substring(0,2).toUpperCase()}</div>
+                  <div>
+                    <h4 class="font-bold text-gray-900">${conn.serviceName}</h4>
+                    <p class="text-xs text-gray-500 uppercase">${conn.connectionType.replace('_', ' ')}</p>
+                  </div>
+                </div>
+                <label class="flex items-center cursor-pointer relative">
+                  <input type="checkbox" class="sr-only peer integration-toggle" value="${conn.id}" ${isChecked}>
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+            `);
+        });
+
+        // Attach Auto-Save to Integration Switches
+        document.querySelectorAll('.integration-toggle').forEach(chk => {
+            chk.addEventListener('change', async () => {
+                const selectedIds = Array.from(document.querySelectorAll('.integration-toggle:checked')).map(c => parseInt(c.value));
+                const newContext = { ...window.cachedContext, linked_integrations: selectedIds };
+                const statusEl = document.getElementById('integration-save-status');
+
+                if(statusEl) statusEl.innerText = "Updating access...";
+
+                try {
+                    const r = await fetch('/.netlify/functions/update-assistant-context', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ assistantId: parseInt(window.activeAssistantId), newContext })
+                    });
+                    if(r.ok) {
+                        window.cachedContext = newContext;
+                        if(statusEl) {
+                            statusEl.innerText = "✓ Access Updated";
+                            setTimeout(() => statusEl.innerText = "", 2000);
+                        }
+                    }
+                } catch(e) {
+                    if(statusEl) statusEl.innerText = "Error updating";
+                }
+            });
+        });
+    } catch (e) {
+        console.error("Integrations render error:", e);
+    }
 };
