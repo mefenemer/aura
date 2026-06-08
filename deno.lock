@@ -12,9 +12,25 @@
     "packageJson": {
       "dependencies": [
         "npm:@netlify/database@1",
+        "npm:@netlify/edge-functions@^3.0.8",
+        "npm:@netlify/functions@^5.3.0",
         "npm:@tailwindcss/cli@^4.3.0",
+        "npm:@types/busboy@^1.5.4",
+        "npm:@types/cheerio@~0.22.35",
+        "npm:@types/jsonwebtoken@^9.0.10",
+        "npm:@types/node@^25.9.1",
+        "npm:@types/pdf-parse@^1.1.5",
+        "npm:busboy@^1.6.0",
+        "npm:cheerio@^1.2.0",
+        "npm:dotenv@^17.4.2",
         "npm:drizzle-kit@^1.0.0-beta.22",
         "npm:drizzle-orm@^1.0.0-beta.22",
+        "npm:jsonwebtoken@^9.0.3",
+        "npm:node-fetch@^3.3.2",
+        "npm:pdf-parse@^2.4.5",
+        "npm:postgres@^3.4.9",
+        "npm:resend@^6.12.4",
+        "npm:stripe@^22.2.0",
         "npm:tailwindcss@^4.3.0"
       ]
     }

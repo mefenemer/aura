@@ -19,6 +19,42 @@ export const handler: Handler = async (event) => {
         return { statusCode: 400, body: `Webhook Error: ${err.message}` };
     }
 
+    // Handle subscription-based (Elements) flow: invoice.paid
+    if (stripeEvent.type === 'invoice.paid') {
+        const invoice = stripeEvent.data.object as Stripe.Invoice;
+        const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+        if (!subscriptionId) return { statusCode: 200, body: JSON.stringify({ received: true }) };
+
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const { userId, assistantId, paymentId } = subscription.metadata || {};
+
+        if (userId && assistantId && paymentId) {
+            const db = getDb();
+            const userIdInt = parseInt(userId);
+
+            await db.update(payments).set({ status: 'completed', externalPaymentId: invoice.id })
+                .where(eq(payments.id, parseInt(paymentId)));
+
+            await db.update(aiAssistants).set({ provisioningStatus: 'pending', isActive: true })
+                .where(eq(aiAssistants.id, parseInt(assistantId)));
+
+            await db.delete(onboardingDrafts).where(eq(onboardingDrafts.userId, userIdInt));
+
+            await db.insert(notifications).values({
+                userId: userIdInt,
+                type: 'billing',
+                title: 'Payment Successful',
+                message: 'Your new Digital Assistant is currently being provisioned.',
+                isRead: false,
+            });
+
+            fetch(`${process.env.URL}/.netlify/functions/provision-assistant-async`, {
+                method: 'POST',
+                body: JSON.stringify({ assistantId: parseInt(assistantId) }),
+            }).catch(err => console.error('Async provisioning trigger failed:', err));
+        }
+    }
+
     if (stripeEvent.type === 'checkout.session.completed') {
         const session = stripeEvent.data.object as any;
         const { userId, assistantId, paymentId } = session.metadata || {};

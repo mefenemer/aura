@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="./auth-check.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout | Aura-Assist</title>
+  <link href="./style.css" rel="stylesheet">
+  <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
+  <link rel="manifest" href="/favicon/manifest.json">
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    #payment-element iframe { border-radius: 8px; }
+    .stripe-input-wrapper { transition: box-shadow 0.2s; }
+  </style>
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<!-- Minimal nav for checkout -->
+<nav class="bg-white shadow-sm sticky top-0 z-40">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-16 items-center">
+      <a href="index.html" class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura-Assist</a>
+      <div class="flex items-center gap-2 text-sm text-gray-500">
+        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+        <span class="font-medium">Secure Checkout</span>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main class="flex-grow flex items-start justify-center p-4 sm:p-8 py-10">
+  <div class="w-full max-w-4xl">
+
+    <!-- Loading state -->
+    <div id="page-loading" class="flex flex-col items-center justify-center py-24 gap-4">
+      <div class="w-10 h-10 border-4 border-emerald-200 border-t-emerald-700 rounded-full animate-spin"></div>
+      <p class="text-gray-500 font-medium">Preparing your checkout…</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="page-error" class="hidden max-w-md mx-auto text-center py-24">
+      <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </div>
+      <h2 class="text-xl font-bold text-gray-900 mb-2">Unable to load checkout</h2>
+      <p id="error-message" class="text-gray-500 mb-6">Something went wrong. Please try again.</p>
+      <a href="onboarding-social-media.html" class="px-6 py-3 bg-emerald-700 text-white font-bold rounded-lg hover:bg-emerald-800 transition">Go Back</a>
+    </div>
+
+    <!-- Checkout layout -->
+    <div id="checkout-content" class="hidden grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+
+      <!-- ORDER SUMMARY (left, 2/5) -->
+      <div class="lg:col-span-2 space-y-5">
+
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <h2 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Order Summary</h2>
+
+          <div class="flex items-start gap-4 pb-5 border-b border-gray-100 mb-5">
+            <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-0.5">Your Digital Assistant</p>
+              <h3 id="summary-assistant-name" class="text-lg font-extrabold text-gray-900 leading-tight truncate">Loading…</h3>
+              <p id="summary-plan-name" class="text-sm text-gray-500 mt-0.5">Loading…</p>
+            </div>
+          </div>
+
+          <div class="space-y-2 mb-5" id="summary-features">
+            <!-- Populated by JS -->
+          </div>
+
+          <div class="border-t border-gray-100 pt-5">
+            <div class="flex justify-between items-center text-sm text-gray-500 mb-2">
+              <span>Monthly subscription</span>
+              <span id="summary-price" class="font-bold text-gray-900">—</span>
+            </div>
+            <div class="flex justify-between items-center text-sm text-gray-500 mb-1">
+              <span>Computing costs (at-cost)</span>
+              <span class="font-medium text-gray-700">~£1–5</span>
+            </div>
+            <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
+              <span class="font-bold text-gray-900">Due today</span>
+              <span id="summary-total" class="text-xl font-extrabold text-gray-900">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
+          <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            <div>
+              <p class="text-sm font-bold text-emerald-800 mb-1">Our Guarantee</p>
+              <p class="text-xs text-emerald-700 leading-relaxed">Cancel anytime. No lock-in contracts. If we can't build what you described, you don't pay.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-center gap-3 text-xs text-gray-400">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+          <span>Secured by Stripe. Card details never touch our servers.</span>
+        </div>
+      </div>
+
+      <!-- PAYMENT FORM (right, 3/5) -->
+      <div class="lg:col-span-3">
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+          <h1 class="text-2xl font-extrabold text-gray-900 mb-1">Complete your payment</h1>
+          <p class="text-sm text-gray-500 mb-6">Your assistant will be built by our team within 2 business days.</p>
+
+          <form id="payment-form">
+
+            <div id="payment-element" class="mb-6">
+              <!-- Stripe injects the Payment Element here -->
+            </div>
+
+            <!-- Payment error -->
+            <div id="payment-error" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+              <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3C7.029 3 3 7.029 3 12s4.029 9 9 9 9-4.029 9-9-4.029-9-9-9z"/>
+              </svg>
+              <p id="payment-error-message" class="text-sm text-red-700"></p>
+            </div>
+
+            <button id="submit-btn" type="submit"
+              class="w-full flex items-center justify-center gap-2 px-6 py-4 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-base rounded-xl shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed">
+              <span id="submit-text">Start My Subscription</span>
+              <div id="submit-spinner" class="hidden w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
+            </button>
+
+            <p class="text-center text-xs text-gray-400 mt-4">
+              By confirming, you agree to Aura-Assist's
+              <a href="terms_of_service.html" class="underline hover:text-gray-600">Terms of Service</a>
+              and authorise this recurring monthly charge. Cancel anytime.
+            </p>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+  const PLAN_FEATURES = {
+    buster: [
+      '1 Dedicated Assistant',
+      'Handles one specific task',
+      'Works inside 1 app',
+      '1 monthly update',
+    ],
+    saver: [
+      '1 Smart Assistant',
+      'Handles multi-step processes',
+      'Connects up to 3 of your apps',
+      'Learns your style & voice',
+      '2 monthly updates',
+    ],
+    employee: [
+      '1 Dedicated Assistant for one core area',
+      'Manages a complete process (up to 5 steps)',
+      'Connects all standard apps',
+      '24/7 monitoring',
+      'Unlimited volume & tweaks',
+    ],
+  };
+
+  function showError(msg) {
+    document.getElementById('page-loading').classList.add('hidden');
+    document.getElementById('page-error').classList.remove('hidden');
+    document.getElementById('error-message').textContent = msg || 'Something went wrong. Please go back and try again.';
+  }
+
+  function populateSummary(data) {
+    const tierKey = (sessionStorage.getItem('aura_tier') || 'saver').toLowerCase();
+    const features = PLAN_FEATURES[tierKey] || PLAN_FEATURES['saver'];
+
+    document.getElementById('summary-assistant-name').textContent = data.assistantName || 'Digital Assistant';
+    document.getElementById('summary-plan-name').textContent = data.planName || 'Aura-Assist Subscription';
+
+    const priceNum = parseFloat(data.amountGbp || '0');
+    const formatted = '£' + priceNum.toFixed(2).replace(/\.00$/, '');
+    document.getElementById('summary-price').textContent = formatted + '/mo';
+    document.getElementById('summary-total').textContent = formatted;
+
+    const featuresEl = document.getElementById('summary-features');
+    featuresEl.innerHTML = features.map(f => `
+      <div class="flex items-center gap-2.5 text-sm text-gray-600">
+        <span class="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+          </svg>
+        </span>
+        ${f}
+      </div>
+    `).join('');
+  }
+
+  async function initCheckout() {
+    // Read payload stored by onboarding form
+    const rawPayload = sessionStorage.getItem('aura_checkout_payload');
+    if (!rawPayload) {
+      showError('No checkout data found. Please complete the onboarding form first.');
+      return;
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(rawPayload);
+    } catch {
+      showError('Corrupted checkout data. Please go back and try again.');
+      return;
+    }
+
+    let checkoutData;
+    try {
+      const res = await fetch('/.netlify/functions/create-checkout-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        showError(json.error || 'Failed to initialise checkout.');
+        return;
+      }
+      checkoutData = json.data;
+    } catch (e) {
+      showError('Connection failed. Please check your internet and try again.');
+      return;
+    }
+
+    const { clientSecret, publishableKey, planName, assistantName, amountGbp } = checkoutData;
+
+    if (!clientSecret || !publishableKey) {
+      showError('Payment configuration missing. Please contact support.');
+      return;
+    }
+
+    // Populate order summary
+    populateSummary({ planName, assistantName, amountGbp });
+
+    // Mount Stripe Elements
+    const stripe = Stripe(publishableKey);
+    const appearance = {
+      theme: 'stripe',
+      variables: {
+        colorPrimary: '#059669',
+        colorBackground: '#ffffff',
+        colorText: '#1f2937',
+        colorDanger: '#ef4444',
+        fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+        fontSizeBase: '15px',
+        borderRadius: '8px',
+        spacingUnit: '4px',
+      },
+      rules: {
+        '.Input': { border: '1px solid #e5e7eb', boxShadow: 'none', padding: '12px' },
+        '.Input:focus': { border: '1px solid #059669', boxShadow: '0 0 0 3px rgba(5,150,105,0.15)' },
+        '.Label': { fontWeight: '600', color: '#374151', marginBottom: '6px' },
+      },
+    };
+
+    const elements = stripe.elements({ clientSecret, appearance });
+    const paymentElement = elements.create('payment', {
+      layout: { type: 'tabs', defaultCollapsed: false },
+    });
+    paymentElement.mount('#payment-element');
+
+    // Show the checkout UI
+    document.getElementById('page-loading').classList.add('hidden');
+    document.getElementById('checkout-content').classList.remove('hidden');
+    document.getElementById('checkout-content').classList.add('grid');
+
+    // Form submit
+    const form = document.getElementById('payment-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitText = document.getElementById('submit-text');
+    const submitSpinner = document.getElementById('submit-spinner');
+    const errorDiv = document.getElementById('payment-error');
+    const errorMsg = document.getElementById('payment-error-message');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitText.textContent = 'Processing…';
+      submitSpinner.classList.remove('hidden');
+      errorDiv.classList.add('hidden');
+
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/dashboard.html?payment=success&assistant=${encodeURIComponent(assistantName || '')}`,
+        },
+      });
+
+      // confirmPayment only reaches here on error (success redirects)
+      submitBtn.disabled = false;
+      submitText.textContent = 'Start My Subscription';
+      submitSpinner.classList.add('hidden');
+
+      if (error) {
+        errorMsg.textContent = error.message || 'Payment failed. Please check your details and try again.';
+        errorDiv.classList.remove('hidden');
+        errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', initCheckout);
+</script>
+
+</body>
+</html>

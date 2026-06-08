@@ -246,6 +246,8 @@ export const handler: Handler = async (event) => {
       }).returning();
 
       // Generate Stripe Checkout Session
+      // Note: Logo and brand colours (emerald #059669 / white) are configured in the
+      // Stripe Dashboard → Settings → Branding and are applied automatically here.
       const baseUrl = process.env.URL || 'http://localhost:8888';
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -255,7 +257,7 @@ export const handler: Handler = async (event) => {
             currency: 'gbp',
             product_data: {
               name: `Aura-Assist: ${targetName}`,
-              description: `Monthly subscription for the ${masterPlan.name} plan.`,
+              description: `${assistantName || 'Digital Assistant'} — ${masterPlan.name} monthly subscription`,
             },
             unit_amount: Math.round(Number(masterPlan.monthlyPriceGbp) * 100),
             recurring: { interval: 'month' }
@@ -263,8 +265,12 @@ export const handler: Handler = async (event) => {
           quantity: 1,
         }],
         mode: 'subscription',
-        success_url: `${baseUrl}/dashboard.html?payment=success`,
-        cancel_url: `${baseUrl}/onboarding-social-media.html?tier=${tier}`,
+        custom_text: {
+          submit: { message: `You're activating your ${targetName} Digital Assistant. You can cancel anytime from your Aura billing portal.` },
+          terms_of_service_acceptance: { message: 'I agree to the Aura [Terms of Service](https://aura-assist.netlify.app/terms_of_service.html) and authorise this recurring charge.' }
+        },
+        success_url: `${baseUrl}/dashboard.html?payment=success&assistant=${encodeURIComponent(targetName)}`,
+        cancel_url: `${baseUrl}/onboarding-social-media.html?tier=${tier}&cancelled=true`,
         metadata: {
           userId: existingUser.id.toString(),
           assistantId: newAssistant.id.toString(),

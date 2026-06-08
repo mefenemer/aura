@@ -48,6 +48,16 @@
   </div>
 </nav>
 
+<div id="cancel-recovery-banner" class="hidden max-w-2xl mx-auto px-4 pt-4 w-full">
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 text-sm shadow-sm">
+    <span class="text-amber-500 text-lg shrink-0">↩</span>
+    <div class="flex-1 text-amber-800">
+      <strong>No worries — your progress has been saved.</strong> Review your configuration below and click "Proceed to Payment" when you're ready.
+    </div>
+    <button onclick="document.getElementById('cancel-recovery-banner').remove()" class="text-amber-400 hover:text-amber-700 font-bold text-lg leading-none shrink-0">&times;</button>
+  </div>
+</div>
+
 <main class="grow flex items-center justify-center p-4 sm:p-6 mb-20">
   <div class="bg-white rounded-2xl shadow-lg border border-gray-100 w-full max-w-2xl overflow-hidden mt-4">
 
@@ -488,6 +498,16 @@
 
     // Resume existing draft
     await hydrateDraft();
+
+    // Show cancel-recovery banner when returning from Stripe checkout cancellation
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('cancelled') === 'true') {
+      document.getElementById('cancel-recovery-banner').classList.remove('hidden');
+      // Jump straight to the final review step so they can re-submit without re-doing everything
+      currentStep = totalSteps;
+      updateUI();
+      window.history.replaceState({}, '', window.location.pathname + '?tier=' + currentTierKey);
+    }
 
     autoExpandTextareas();
 
@@ -1075,29 +1095,16 @@
     document.getElementById('btn-back').style.display = 'none';
 
     try {
-      const response = await fetch('/.netlify/functions/onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        // SCENARIO 1: Handoff to Stripe Checkout
-        window.location.href = result.data.stripeUrl;
-      } else {
-        // Handle error: show initial view again
-        document.getElementById('setup-initial-view').classList.remove('hidden');
-        document.getElementById('setup-loading-view').classList.add('hidden');
-        document.getElementById('btn-next').disabled = false;
-        document.getElementById('btn-back').style.display = 'block';
-
-        const errData = await response.json();
-        alert(`Provisioning failed: ${errData.error}`);
-      }
+      // Store checkout payload and redirect to embedded checkout page
+      sessionStorage.setItem('aura_checkout_payload', JSON.stringify(payload));
+      sessionStorage.setItem('aura_tier', currentTierKey);
+      window.location.href = 'checkout.html';
     } catch (err) {
-      alert("Connection failed.");
-      location.reload();
+      document.getElementById('setup-initial-view').classList.remove('hidden');
+      document.getElementById('setup-loading-view').classList.add('hidden');
+      document.getElementById('btn-next').disabled = false;
+      document.getElementById('btn-back').style.display = 'block';
+      alert("Failed to proceed to checkout. Please try again.");
     }
 
   // --- 8. UI HELPERS ---

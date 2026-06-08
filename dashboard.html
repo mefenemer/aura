@@ -1,4 +1,17 @@
 <div id="nav-placeholder"></div>
+
+<!-- Payment Success Banner (shown only when ?payment=success is in the URL) -->
+<div id="payment-success-banner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 w-full">
+  <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 flex items-start gap-4 shadow-sm">
+    <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 text-2xl shrink-0">✓</div>
+    <div class="flex-1">
+      <h2 class="text-lg font-extrabold text-emerald-800">Welcome to Aura-Assist!</h2>
+      <p id="payment-success-message" class="text-sm text-emerald-700 mt-1">Your subscription is confirmed and your new Digital Assistant is being provisioned. You'll receive an email once it's ready.</p>
+    </div>
+    <button onclick="document.getElementById('payment-success-banner').remove()" class="text-emerald-400 hover:text-emerald-700 transition text-xl font-bold leading-none shrink-0" aria-label="Dismiss">&times;</button>
+  </div>
+</div>
+
     <!-- Welcome & Value Header -->
     <header class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -138,6 +151,20 @@
         // 1. Core payload inject
         await loadComponent("nav-placeholder", "./components/nav.html");
         loadComponent("footer-placeholder", "./components/footer.html");
+
+        // Payment success confirmation banner
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('payment') === 'success') {
+            const banner = document.getElementById('payment-success-banner');
+            const msg = document.getElementById('payment-success-message');
+            const assistantName = params.get('assistant');
+            if (assistantName && msg) {
+                msg.textContent = `Your subscription is confirmed and "${assistantName}" is being provisioned. You'll receive an email once your Digital Assistant is ready.`;
+            }
+            banner.classList.remove('hidden');
+            // Clean URL without reloading
+            window.history.replaceState({}, '', window.location.pathname);
+        }
 
         // 2. Initialize the mobile menu
         setupMobileMenu();
