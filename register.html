@@ -80,7 +80,17 @@
 
 <!-- Footer Placeholder -->
 <div id="footer-placeholder"></div>
+<script>
+  // 1. Force clear all previous sessions and memory on page load
+  document.addEventListener("DOMContentLoaded", () => {
+    sessionStorage.clear();
+    localStorage.clear();
+    document.cookie = "aura_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
+    loadComponent("nav-placeholder", "./components/nav.html");
+    loadComponent("footer-placeholder", "./components/footer.html");
+  });
+</script>
 <script>
   // Load layout components to match the rest of the site
   async function loadComponent(placeholderId, filePath) {
@@ -129,8 +139,8 @@
       const data = await response.json();
 
       if (response.ok) {
-        //window.location.href = '/check-email.html';
-        window.location.href = '/workspace.html';
+        // MUST go to check-email so the backend can issue the secure cookie via the magic link
+        window.location.href = '/check-email.html';
       } else {
         errorMessage.innerText = data.error || "An error occurred during registration.";
         errorMessage.classList.remove('hidden');
