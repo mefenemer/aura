@@ -468,6 +468,29 @@
         const progressBar = document.getElementById('progress-bar');
         if (progressBar) progressBar.style.width = `${(currentStep / totalSteps) * 100}%`;
     }
+
+    // Add this helper function to your existing <script> block
+    async function finalizeOnboarding() {
+        const btn = document.getElementById('btn-next');
+        btn.disabled = true;
+        btn.innerText = "Processing...";
+
+        try {
+            // We assume the fragment (e.g., social-media) has stored its final state in the global window or session
+            // Let's call a global function that the fragment MUST expose
+            if (typeof window.submitToBackend === 'function') {
+                await window.submitToBackend();
+            } else {
+                console.error("Submission function not found in loaded fragment!");
+                btn.disabled = false;
+                btn.innerText = "Next Step";
+            }
+        } catch (e) {
+            console.error("Finalization error", e);
+            btn.disabled = false;
+            btn.innerText = "Next Step";
+        }
+    }
 </script>
 </body>
 </html>
