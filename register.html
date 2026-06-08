@@ -73,7 +73,7 @@
     </form>
 
     <p class="text-center text-sm text-gray-500 mt-8">
-      Already have an account? [Sign in] <a href="/login.html)" class="text-emerald-700 font-bold hover:underline">Sign in</a>
+      Already have an account? <a href="/login.html" class="text-emerald-700 font-bold hover:underline">Sign in</a>
     </p>
   </div>
 </main>
@@ -81,14 +81,10 @@
 <!-- Footer Placeholder -->
 <div id="footer-placeholder"></div>
 <script>
-  // 1. Force clear all previous sessions and memory on page load
+  // Clear any stale auth session on page load, but preserve pending_price_id in sessionStorage
   document.addEventListener("DOMContentLoaded", () => {
-    sessionStorage.clear();
     localStorage.clear();
     document.cookie = "aura_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
-    loadComponent("nav-placeholder", "./components/nav.html");
-    loadComponent("footer-placeholder", "./components/footer.html");
   });
 </script>
 <script>
@@ -110,6 +106,7 @@
   });
 
   async function handleRegistration(event) {
+
     event.preventDefault(); // Stop default form submission
 
     const submitBtn = document.getElementById('submitBtn');
@@ -151,27 +148,6 @@
       errorMessage.innerText = "Unable to connect to the server. Please try again.";
       errorMessage.classList.remove('hidden');
       resetButton();
-    }
-    async function completeRegistration(plainToken) {
-      const priceId = sessionStorage.getItem('pending_price_id');
-
-      const response = await fetch('/netlify/functions/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: plainToken,
-          priceId: priceId
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.redirect) {
-        // Redirect user to the Stripe hosted Checkout page
-        window.location.href = data.redirect;
-      } else {
-        alert("Registration failed: " + data.error);
-      }
     }
     function resetButton() {
       submitBtn.disabled = false;

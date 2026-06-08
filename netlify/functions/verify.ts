@@ -40,11 +40,11 @@ export const handler: Handler = async (event) => {
         const body = JSON.parse(event.body || '{}');
         const { token: plainToken, priceId } = body;
 
-        if (!plainToken || !priceId) {
+        if (!plainToken) {
             return {
                 statusCode: 400,
                 headers: getHeaders(),
-                body: JSON.stringify({ error: 'Token and priceId are required.' })
+                body: JSON.stringify({ error: 'Verification token is required.' })
             };
         }
 
@@ -74,6 +74,16 @@ export const handler: Handler = async (event) => {
 
         const protocol = event.headers['x-forwarded-proto'] || 'https';
         const baseUrl = `${protocol}://${event.headers.host}`;
+
+        // If no priceId was passed (e.g. user opened the magic link in a different browser),
+        // redirect them to the pricing page to re-select their plan.
+        if (!priceId) {
+            return {
+                statusCode: 200,
+                headers: getHeaders(sessionCookie),
+                body: JSON.stringify({ success: true, redirect: `${baseUrl}/pricing.html?verified=true` })
+            };
+        }
 
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
