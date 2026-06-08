@@ -136,7 +136,7 @@
         <div class="p-8 sm:p-12">
             <form id="intake-form" onsubmit="event.preventDefault(); proceedToRole();">
 
-                <div id="step-1" class="step-active">
+                <div id="step-1" class="step-hidden">
                     <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 1 of 8</span>
                     <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's get to know you and your mission.</h2>
                     <p class="text-gray-500 mb-8">First, tell us a bit about yourself, then select the specific Digital Assistant role you want to hire us to build.</p>
@@ -257,7 +257,8 @@
                 </div>
 
                 <div class="mt-10 pt-6 border-t border-gray-100 flex justify-end items-center">
-                    <button type="button" onclick="proceedToRole()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
+                    <button type="button" id="btn-next" onclick="nextStep()"
+                            class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition cursor-pointer">
                         Next Step
                     </button>
                 </div>

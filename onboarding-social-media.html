@@ -1016,6 +1016,7 @@
   async function submitToBackend() {
 
     // Extract exact values for the specific Social Media Manager requirements
+    // 1. Extract exact values
     const extractedPlatforms = [];
     ['fb', 'ig', 'li', 'x'].forEach(p => {
       if (document.getElementById(`chk_${p}`)?.checked) extractedPlatforms.push(p);
@@ -1030,8 +1031,11 @@
       problem_statement: document.getElementById('user_story_problem')?.value || null
     };
 
+    // 2. Safe Consent Handling: Use optional chaining or fallback to false
+    const getConsent = (id) => document.getElementById(id)?.checked || false;
+
     const payload = {
-      clientName: sessionStorage.getItem('aura_client_name') || 'New User',
+      clientName: sessionStorage.getItem('aura_client_name') || 'User',
       businessName: sessionStorage.getItem('aura_business_name') || 'Business',
       assistantName: sessionStorage.getItem('aura_assistant_name') || 'Social Media Manager',
       customAssistantName: document.getElementById('val_assistant_name')?.value || 'Digital Assistant',
@@ -1039,9 +1043,9 @@
       rawInputs: window.globalRawInputs,
       onboardingContext: structuredContext,
       consents: {
-        legal: document.querySelector('input[name="legal_consent"]').checked,
-        no_training: document.querySelector('input[name="no_training_consent"]').checked,
-        tos_consent: document.querySelector('input[name="tos_consent"]').checked
+        legal: getConsent('legal_consent'),
+        no_training: getConsent('no_training_consent'),
+        tos_consent: getConsent('tos_consent')
       }
     };
 
