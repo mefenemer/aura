@@ -89,7 +89,6 @@
   let connectionToDelete = null;
 
   document.addEventListener("DOMContentLoaded", () => {
-    loadComponent("nav-placeholder", "./components/nav.html");
     fetchConnections();
   });
 
@@ -101,16 +100,34 @@
       container.innerHTML = '';
 
       if (!data.connections || data.connections.length === 0) {
-        container.innerHTML = `<p class="text-gray-500 text-sm col-span-full">No active integrations found.</p>`;
+        container.innerHTML = `<p class="text-gray-500 text-sm col-span-full">No integrations found. Contact support.</p>`;
         return;
       }
 
       data.connections.forEach(conn => {
-        // Map backend status to UI Badges
+        // Distinguish between a connected user row and a placeholder system row
+        const isConnected = conn.userId !== null;
+
         let statusBadge = '';
-        if (conn.status === 'active') statusBadge = `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`;
-        else if (conn.status === 'expired') statusBadge = `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Token Expired</span>`;
-        else statusBadge = `<span class="bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Failed</span>`;
+        let actionBtn = '';
+
+        if (isConnected) {
+          if (conn.status === 'active') {
+            statusBadge = `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`;
+          } else if (conn.status === 'expired') {
+            statusBadge = `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Token Expired</span>`;
+          } else {
+            statusBadge = `<span class="bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Failed</span>`;
+          }
+          actionBtn = `<button onclick="promptDisconnect(${conn.id})" class="text-sm font-bold text-red-500 hover:text-red-700 transition">Disconnect</button>`;
+        } else {
+          statusBadge = `<span class="bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1">Not Connected</span>`;
+          if (conn.connectionType === 'oauth') {
+            actionBtn = `<button onclick="triggerOAuth('${conn.serviceName}')" class="text-sm font-bold text-emerald-600 hover:text-emerald-800 transition">Connect Now</button>`;
+          } else {
+            actionBtn = `<button onclick="openCredentialModal('${conn.connectionType}', '${conn.serviceName}')" class="text-sm font-bold text-emerald-600 hover:text-emerald-800 transition">Connect Now</button>`;
+          }
+        }
 
         const card = `
           <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col justify-between">
@@ -119,24 +136,23 @@
                 <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center font-bold text-gray-700">${conn.serviceName.substring(0,2).toUpperCase()}</div>
                 <div>
                   <h3 class="font-bold text-gray-900">${conn.serviceName}</h3>
-                  <p class="text-xs text-gray-500 uppercase tracking-wide">${conn.connectionType.replace('_', ' ')} • ${conn.externalUserId || 'Connected'}</p>
+                  <p class="text-xs text-gray-500 uppercase tracking-wide">${conn.connectionType.replace('_', ' ')} • ${conn.externalUserId || 'System Available'}</p>
                 </div>
               </div>
             </div>
             <div class="flex justify-between items-center pt-4 border-t border-gray-100">
               ${statusBadge}
-              <button onclick="promptDisconnect(${conn.id})" class="text-sm font-bold text-red-500 hover:text-red-700 transition">Disconnect</button>
+              ${actionBtn}
             </div>
           </div>
         `;
         container.insertAdjacentHTML('beforeend', card);
       });
     } catch (e) {
-      console.error("Failed to load integrations");
+      console.error("Failed to load integrations", e);
     }
   }
 
-  // --- Scenario 2: Revoking Access (Warning Modal) ---
   function promptDisconnect(id) {
     connectionToDelete = id;
     document.getElementById('modal-disconnect').classList.remove('hidden');
@@ -150,18 +166,16 @@
       if (res.ok) {
         document.getElementById('modal-disconnect').classList.add('hidden');
         connectionToDelete = null;
-        fetchConnections(); // Refresh UI (Scenario 3 - UI Update)
+        fetchConnections();
       }
     } catch (e) { alert("Failed to disconnect."); }
   });
 
-  // --- Scenario 1: OAuth Authentication Flow (Mock) ---
   function triggerOAuth(service) {
     alert(`Redirecting to ${service} secure authorization page...`);
     // In production: window.location.href = `/.netlify/functions/oauth-start?provider=${service}`;
   }
 
-  // --- Secure Input Logic ---
   function openCredentialModal(type, serviceName) {
     document.getElementById('modal-catalog').classList.add('hidden');
     document.getElementById('modal-credentials').classList.remove('hidden');
@@ -192,7 +206,6 @@
     btn.innerHTML = 'Validating...';
     btn.disabled = true;
 
-    // Simulate the lightweight "ping" to the 3rd party API (Scenario 2 validation)
     await new Promise(r => setTimeout(r, 800));
 
     const type = document.getElementById('cred-type').value;
@@ -225,7 +238,8 @@
     }
   }
 
-  async function loadComponent(id, file) {
-    try { const response = await fetch(file); if (response.ok) document.getElementById(id).innerHTML = await response.text(); } catch (e) {}
+  // Handle SPA routing initialization edge-case for script tags
+  if (typeof fetchConnections === "function") {
+    fetchConnections();
   }
 </script>

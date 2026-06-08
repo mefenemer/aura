@@ -180,8 +180,7 @@ export const notifications = pgTable("notifications", {
 // System connections table — OAuth tokens and credentials for third-party service integrations
 export const systemConnections = pgTable("system_connections", {
   id: serial().primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
   serviceName: text("service_name").notNull(),
   connectionType: text("connection_type").notNull().default("oauth"), // 'oauth', 'api_key', 'legacy'
 

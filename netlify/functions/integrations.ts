@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or, isNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { systemConnections } from '../../db/schema';
 import { encryptCredential } from '../../src/utils/encryption';
@@ -24,22 +24,21 @@ export const handler: Handler = async (event) => {
     const db = getDb();
 
     try {
-        // --- GET: FETCH INTEGRATIONS DASHBOARD (Scenario 1) ---
+        // --- GET: FETCH INTEGRATIONS DASHBOARD ---
         if (event.httpMethod === 'GET') {
-            const connections = await db.select({
-                id: systemConnections.id,
-                serviceName: systemConnections.serviceName,
-                connectionType: systemConnections.connectionType,
-                externalUserId: systemConnections.externalUserId,
-                status: systemConnections.status,
-                updatedAt: systemConnections.updatedAt
-            })
-                .from(systemConnections)
-                .where(eq(systemConnections.userId, currentUserId));
+            // 1. Fetch system-wide platform definitions (userId is null)
+            const systemCatalog = await db.select().from(systemConnections).where(isNull(systemConnections.userId));
 
-            // NOTE: accessToken (password/key) is INTENTIONALLY omitted from the SELECT statement.
-            // It is never transmitted back to the client.
-            return { statusCode: 200, body: JSON.stringify({ connections }) };
+            // 2. Fetch current user's actual connections
+            const userConnections = await db.select().from(systemConnections).where(eq(systemConnections.userId, currentUserId));
+
+            // 3. Merge them: If a user has a connection, it overrides the system row
+            const merged = systemCatalog.map(catalog => {
+                const userConn = userConnections.find(u => u.serviceName === catalog.serviceName);
+                return userConn || catalog;
+            });
+
+            return { statusCode: 200, body: JSON.stringify({ connections: merged }) };
         }
 
         // --- POST: SECURE CONNECTION CREATION ---
@@ -75,7 +74,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
-        // --- DELETE: SECURE DATA PURGE (Scenario 3) ---
+        // --- DELETE: SECURE DATA PURGE ---
         if (event.httpMethod === 'DELETE') {
             const connectionId = event.queryStringParameters?.id;
             if (!connectionId) return { statusCode: 400, body: JSON.stringify({ error: 'Connection ID required.' }) };

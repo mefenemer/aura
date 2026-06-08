@@ -294,7 +294,8 @@
 
       // Render each global connection as a toggle switch
       data.connections.forEach(conn => {
-        const isChecked = linkedIds.includes(conn.id) ? 'checked' : '';
+        const isDefaultSelected = cachedContext.primary_platforms?.includes(mapServiceNameToKey(conn.serviceName));
+        const isChecked = (linkedIds.includes(conn.id) || isDefaultSelected) ? 'checked' : '';
 
         const itemHtml = `
           <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
@@ -367,5 +368,15 @@
       btn.innerHTML = originalText;
       btn.disabled = false;
     }
+  }
+  // Add this mapping helper to assistant-detail.html
+  function mapServiceNameToKey(serviceName) {
+    const mapping = {
+      'Facebook': 'fb',
+      'Instagram': 'ig',
+      'LinkedIn': 'li',
+      'X': 'x'
+    };
+    return mapping[serviceName] || serviceName.toLowerCase();
   }
 </script>
