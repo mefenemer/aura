@@ -244,6 +244,9 @@
       loadView('assistant-detail', assistantId);
     };
 
+    // ADD THIS LINE: Expose the main router globally so inline clicks can trigger page changes
+    window.loadView = loadView;
+
     function updateActiveNav(activeKey) {
       Object.values(navLinks).forEach(link => {
         if (!link) return;

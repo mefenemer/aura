@@ -1,7 +1,8 @@
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full pb-20">
 
   <nav class="flex mb-6 text-sm font-medium text-gray-500">
-    <button id="btn-back-assistants" onclick="loadView('assistants')" class="hover:text-emerald-700 transition-colors flex items-center gap-1 cursor-pointer">
+    <!-- Updated onclick -->
+    <button id="btn-back-assistants" onclick="window.loadView('assistants')" class="hover:text-emerald-700 transition-colors flex items-center gap-1 cursor-pointer">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
       Back to Team
     </button>
@@ -101,7 +102,8 @@
 
       <div id="empty-integrations-prompt" class="hidden h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-center p-4">
         <p class="text-sm font-medium text-gray-500 mb-2">No workspace integrations found.</p>
-        <a href="#" onclick="loadView('integrations')" class="text-emerald-600 font-bold text-sm hover:underline cursor-pointer">Go to Global Integrations &rarr;</a>
+        <!-- Updated onclick -->
+        <a href="#" onclick="window.loadView('integrations')" class="text-emerald-600 font-bold text-sm hover:underline cursor-pointer">Go to Global Integrations &rarr;</a>
       </div>
 
       <div id="assistant-integrations-list" class="space-y-3 hidden"></div>
