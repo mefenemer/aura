@@ -161,7 +161,27 @@
 
       if (response.ok) {
         const data = await response.json();
-        cachedContext = data.context || {}; // Save locally to merge untouched fields later
+        cachedContext = data.context || {};
+
+        // ----------------------------------------------------
+        // NEW: Populate the Header (Name, Avatar, Status)
+        // ----------------------------------------------------
+        document.getElementById('detail-name').innerText = data.name || 'Assistant';
+        document.getElementById('detail-role').innerText = `Job: ${data.role}`;
+        document.getElementById('detail-avatar').innerText = data.name ? data.name.charAt(0).toUpperCase() : 'A';
+
+        const statusBadge = document.getElementById('detail-status');
+        if (data.status === 'pending') {
+          statusBadge.className = "inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200";
+          statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Provisioning';
+        } else if (data.status === 'failed') {
+          statusBadge.className = "inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-red-50 text-red-700 border border-red-200";
+          statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Failed';
+        } else {
+          statusBadge.className = "inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200";
+          statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Active';
+        }
+        // ----------------------------------------------------
 
         // Pre-fill standard text inputs
         document.getElementById('edit_audience').value = cachedContext.target_audience || '';
@@ -169,7 +189,6 @@
         document.getElementById('edit_pillars').value = cachedContext.content_pillars || '';
         document.getElementById('edit_frequency').value = cachedContext.posting_frequency || 'On Demand';
 
-        // Pre-fill the platform checkboxes
         if (cachedContext.primary_platforms && Array.isArray(cachedContext.primary_platforms)) {
           document.querySelectorAll('.platform-chk').forEach(chk => {
             chk.checked = cachedContext.primary_platforms.includes(chk.value);
@@ -181,7 +200,7 @@
     } catch (error) {
       console.error("Network Error hydrating context:", error);
     }
-    // NEW: Fetch global integrations after context is loaded
+
     await fetchAndRenderIntegrations();
   }
 
