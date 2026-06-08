@@ -139,20 +139,21 @@
   let activeAssistantId = null;
   let cachedContext = {};
 
-  document.addEventListener("DOMContentLoaded", async () => {
-    // 1. Extract Assistant ID from URL (e.g., assistant-detail.html?id=12)
-    const urlParams = new URLSearchParams(window.location.search);
-    activeAssistantId = urlParams.get('id');
-
-    if (!activeAssistantId) {
+  // Change from DOMContentLoaded to an SPA-friendly init function
+  window.initAssistantDetail = async function(assistantId) {
+    if (!assistantId) {
       alert("No assistant selected.");
-      window.location.href = 'dashboard.html';
       return;
     }
 
-    // 2. Hydrate the Context (Scenario 4)
+    // Set the global variable used by the rest of the file
+    activeAssistantId = assistantId;
+
+    // Clear out any old data from the last viewed assistant before fetching new
+    document.getElementById('detail-name').innerText = "Loading...";
+
     await hydrateAssistantContext();
-  });
+  };
 
   async function hydrateAssistantContext() {
     try {

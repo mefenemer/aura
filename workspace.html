@@ -444,6 +444,96 @@
       console.error("Dashboard widget initialization failed", e);
     }
   }
+  // 1. Shared Card Generator
+  window.generateAssistantCardHTML = function(assistant) {
+    const initial = assistant.name ? assistant.name.charAt(0).toUpperCase() : 'A';
+    const role = assistant.role || 'Custom Assistant';
+
+    let statusHtml = '';
+    if (assistant.status === 'pending') {
+      statusHtml = `<div class="flex items-center gap-2 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-200"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>Provisioning</div>`;
+    } else if (!assistant.isActive) {
+      statusHtml = `<div class="flex items-center gap-2 bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold border border-gray-200"><span class="w-2 h-2 rounded-full bg-gray-400"></span>Paused</div>`;
+    } else {
+      statusHtml = `<div class="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Active</div>`;
+    }
+
+    // Both cards now point directly to routeToAssistantDetail(id) ensuring unified navigation
+    return `
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col cursor-pointer hover:shadow-md transition-all" onclick="window.routeToAssistantDetail('${assistant.id}')">
+          <div class="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-start">
+              <div class="flex items-center gap-4">
+                  <div class="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-2xl font-bold">
+                      ${initial}
+                  </div>
+                  <div>
+                      <h2 class="text-xl font-bold text-gray-900">${assistant.name}</h2>
+                      <p class="text-sm text-gray-500 font-medium">Job: ${role}</p>
+                  </div>
+              </div>
+              ${statusHtml}
+          </div>
+
+          <div class="p-6 flex-grow">
+              <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Recent Wins</h3>
+              <div class="flex items-start gap-3">
+                  <span class="text-gray-400 mt-0.5">⏳</span>
+                  <p class="text-sm text-gray-500 italic">Awaiting first automated task completion...</p>
+              </div>
+          </div>
+
+          <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+              <span class="text-xs text-gray-500 flex items-center gap-1">
+                  <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                  Monitored by Engineering
+              </span>
+              <button class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition">Control Room &rarr;</button>
+          </div>
+      </div>`;
+  };
+
+  // 2. Fetch Logic Helper
+  async function fetchAndRenderAssistants(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    try {
+      const res = await fetch('/.netlify/functions/get-assistants');
+      if (!res.ok) throw new Error("Failed to fetch");
+
+      const data = await res.json();
+      container.innerHTML = ''; // Clear loading state
+
+      if (!data.assistants || data.assistants.length === 0) {
+        container.innerHTML = `
+                <div class="col-span-full py-12 text-center text-gray-500 font-medium bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    You haven't hired any assistants yet. <a href="#" onclick="loadView('catalog')" class="text-emerald-600 hover:underline">Browse the catalog</a>.
+                </div>`;
+        return;
+      }
+
+      data.assistants.forEach(assistant => {
+        container.insertAdjacentHTML('beforeend', window.generateAssistantCardHTML(assistant));
+      });
+    } catch (error) {
+      container.innerHTML = `<div class="col-span-full text-center text-red-500">Failed to load team data.</div>`;
+    }
+  }
+
+  // 3. Attach to SPA Router Initialization (Override/Update your existing functions)
+  window.initDashboard = async function() {
+    // (Keep your existing onboarding widget check here)
+    await fetchAndRenderAssistants('dashboard-assistants-grid');
+  };
+
+  window.initAssistantsDirectory = async function(loadViewCb) {
+    await fetchAndRenderAssistants('directory-assistants-grid');
+
+    const routeToCatalogBtn = document.getElementById('route-to-catalog-from-dir');
+    if (routeToCatalogBtn) {
+      routeToCatalogBtn.addEventListener('click', () => loadViewCb('catalog'));
+    }
+  };
 </script>
 <script src="/assets.js"></script>
 <script src="/notifications.js"></script>
