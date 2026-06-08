@@ -1095,16 +1095,28 @@
     document.getElementById('btn-back').style.display = 'none';
 
     try {
-      // Store checkout payload and redirect to embedded checkout page
-      sessionStorage.setItem('aura_checkout_payload', JSON.stringify(payload));
-      sessionStorage.setItem('aura_tier', currentTierKey);
-      window.location.href = 'checkout.html';
+      const response = await fetch('/.netlify/functions/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        window.location.href = 'dashboard.html?setup=complete';
+      } else {
+        document.getElementById('setup-initial-view').classList.remove('hidden');
+        document.getElementById('setup-loading-view').classList.add('hidden');
+        document.getElementById('btn-next').disabled = false;
+        document.getElementById('btn-back').style.display = 'block';
+        const errData = await response.json();
+        alert(`Setup failed: ${errData.error}`);
+      }
     } catch (err) {
       document.getElementById('setup-initial-view').classList.remove('hidden');
       document.getElementById('setup-loading-view').classList.add('hidden');
       document.getElementById('btn-next').disabled = false;
       document.getElementById('btn-back').style.display = 'block';
-      alert("Failed to proceed to checkout. Please try again.");
+      alert('Connection failed. Please try again.');
     }
 
   // --- 8. UI HELPERS ---

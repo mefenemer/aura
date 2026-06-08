@@ -1,0 +1,104 @@
+import { config } from 'dotenv';
+import * as path from 'path';
+import jwt from 'jsonwebtoken';
+import Stripe from 'stripe';
+
+config({ path: path.resolve(process.cwd(), '.env') });
+
+import { Handler } from '@netlify/functions';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { eq } from 'drizzle-orm';
+import { users, masterPlans } from '../../db/schema';
+
+const connectionString = process.env.NETLIFY_DATABASE_URL;
+if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) throw new Error('CRITICAL: JWT_SECRET is missing.');
+const stripeSecret = process.env.STRIPE_SECRET_KEY;
+if (!stripeSecret) throw new Error('CRITICAL: STRIPE_SECRET_KEY is missing.');
+
+const pgClient = postgres(connectionString);
+const db = drizzle({ client: pgClient });
+const stripe = new Stripe(stripeSecret, { apiVersion: '2026-05-27.dahlia' });
+
+export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+
+  try {
+    // 1. AUTH
+    const cookieHeader = event.headers.cookie || '';
+    const match = cookieHeader.match(/aura_session=([^;]+)/);
+    const token = match ? match[1] : null;
+    if (!token) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
+
+    let currentUserId: number;
+    try {
+      const decoded = jwt.verify(token, jwtSecret) as { userId: number; email: string };
+      currentUserId = decoded.userId;
+    } catch {
+      return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized: Invalid session.' }) };
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, currentUserId)).limit(1);
+    if (!user || user.status !== 'active' || !user.organisationId) {
+      return { statusCode: 403, body: JSON.stringify({ error: 'Account not active.' }) };
+    }
+
+    const { tier } = JSON.parse(event.body || '{}');
+    if (!tier) return { statusCode: 400, body: JSON.stringify({ error: 'Missing tier.' }) };
+
+    // 2. LOOK UP MASTER PLAN
+    const [masterPlan] = await db.select().from(masterPlans)
+      .where(eq(masterPlans.tierKey, tier.toLowerCase()))
+      .limit(1);
+    if (!masterPlan) return { statusCode: 400, body: JSON.stringify({ error: 'Invalid plan tier.' }) };
+
+    // 3. CREATE STRIPE CUSTOMER + SUBSCRIPTION
+    const customer = await stripe.customers.create({
+      email: user.email,
+      name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
+      metadata: { auraUserId: user.id.toString() },
+    });
+
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [{
+        price_data: {
+          currency: 'gbp',
+          product_data: { name: `Aura-Assist — ${masterPlan.name}` },
+          unit_amount: Math.round(Number(masterPlan.monthlyPriceGbp) * 100),
+          recurring: { interval: 'month' },
+        },
+      }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      expand: ['latest_invoice.payment_intent'],
+      metadata: {
+        userId: user.id.toString(),
+        organisationId: user.organisationId.toString(),
+        tier: tier.toLowerCase(),
+        masterPlanId: masterPlan.id.toString(),
+      },
+    });
+
+    const latestInvoice = subscription.latest_invoice as Stripe.Invoice;
+    const paymentIntent = latestInvoice.payment_intent as Stripe.PaymentIntent;
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        data: {
+          clientSecret: paymentIntent.client_secret,
+          publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+          planName: masterPlan.name,
+          amountGbp: masterPlan.monthlyPriceGbp,
+          tier: tier.toLowerCase(),
+        },
+      }),
+    };
+  } catch (error: any) {
+    console.error('create-subscription error:', error);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Failed to initialise checkout.' }) };
+  }
+};

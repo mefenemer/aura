@@ -61,8 +61,8 @@
                     <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume:</strong> We handle the maintenance.</span></li>
                     <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>1 Update per month.</strong></span></li>
                 </ul>
-                <a href="register.html"
-                   onclick="event.preventDefault(); sessionStorage.setItem('pending_price_id', 'price_1Tg6f1CuS8qyNSsFxeUsfi4a'); window.location.href='register.html';"
+                <a href="#"
+                   onclick="event.preventDefault(); choosePlan('price_1Tg6f1CuS8qyNSsFxeUsfi4a', 'buster');"
                    class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">
                     Delegate This Task
                 </a>            </div>
@@ -89,8 +89,8 @@
                     <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume:</strong> Scales instantly.</span></li>
                     <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>2 Updates per month.</strong></span></li>
                 </ul>
-                <a href="register.html"
-                   onclick="event.preventDefault(); sessionStorage.setItem('pending_price_id', 'price_1Tg6fQCuS8qyNSsF5DKmEqMu'); window.location.href='register.html';"
+                <a href="#"
+                   onclick="event.preventDefault(); choosePlan('price_1Tg6fQCuS8qyNSsF5DKmEqMu', 'saver');"
                    class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">
                     Automate My Workflow
                 </a>            </div>
@@ -115,8 +115,8 @@
                     <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Knows your business:</strong> Uses your real data.</span></li>
                     <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume & Tweaks.</strong></span></li>
                 </ul>
-                <a href="register.html"
-                   onclick="event.preventDefault(); sessionStorage.setItem('pending_price_id', 'price_1Tg6fiCuS8qyNSsF787zwCwh'); window.location.href='register.html';"
+                <a href="#"
+                   onclick="event.preventDefault(); choosePlan('price_1Tg6fiCuS8qyNSsF787zwCwh', 'employee');"
                    class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">
                     Hire Your Assistant
                 </a>            </div>
@@ -281,10 +281,37 @@
         }
     }
 
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
+    // Called by every plan CTA button.
+    // Logged-in users → checkout.html?tier=…
+    // New visitors → register.html (priceId stored for email magic link)
+    function choosePlan(priceId, tier) {
+        if (getCookie('aura_session')) {
+            window.location.href = 'checkout.html?tier=' + tier;
+        } else {
+            sessionStorage.setItem('pending_price_id', priceId);
+            window.location.href = 'register.html';
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", async () => {
         await loadComponent("nav-placeholder", "./components/nav.html");
         loadComponent("footer-placeholder", "./components/footer.html");
         setupMobileMenu();
+
+        // After email verification the user is logged in — show a banner confirming it.
+        if (new URLSearchParams(window.location.search).get('verified') === 'true') {
+            const banner = document.createElement('div');
+            banner.className = 'fixed top-0 left-0 right-0 z-50 bg-emerald-700 text-white text-center py-3 px-4 text-sm font-semibold shadow-md';
+            banner.innerHTML = '✓ Your email is verified! Choose a plan below to get started.';
+            document.body.prepend(banner);
+        }
     });
 </script>
 </body>

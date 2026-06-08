@@ -79,9 +79,17 @@ export const handler: Handler = async (event) => {
         const protocol = event.headers['x-forwarded-proto'] || 'https';
         const baseUrl = `${protocol}://${event.headers.host}`;
 
-        // If no priceId was passed (e.g. user opened the magic link in a different browser),
-        // redirect them to the pricing page to re-select their plan.
-        if (!priceId) {
+        // Map Stripe price IDs to onboarding tier keys
+        const priceToTier: Record<string, string> = {
+            'price_1Tg6f1CuS8qyNSsFxeUsfi4a': 'buster',
+            'price_1Tg6fQCuS8qyNSsF5DKmEqMu': 'saver',
+            'price_1Tg6fiCuS8qyNSsF787zwCwh': 'employee',
+        };
+
+        // If no priceId (e.g. link opened in a different browser), send them to
+        // the pricing page to re-select their plan. The page detects ?verified=true
+        // and skips registration — sending them straight to onboarding instead.
+        if (!priceId || !priceToTier[priceId]) {
             return {
                 statusCode: 200,
                 headers: getHeaders(sessionCookie),
@@ -89,20 +97,11 @@ export const handler: Handler = async (event) => {
             };
         }
 
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
-            customer_email: user.email,
-            line_items: [{ price: priceId, quantity: 1 }],
-            mode: 'subscription',
-            success_url: `${baseUrl}/dashboard-content.html?payment=success`,
-            cancel_url: `${baseUrl}/pricing.html`,
-            metadata: { userId: user.id.toString() }
-        });
-
+        const tierKey = priceToTier[priceId];
         return {
             statusCode: 200,
             headers: getHeaders(sessionCookie),
-            body: JSON.stringify({ success: true, redirect: session.url })
+            body: JSON.stringify({ success: true, redirect: `${baseUrl}/onboarding-social-media.html?tier=${tierKey}` })
         };
     } catch (error: any) {
         console.error('Verification/Stripe Error:', error);
