@@ -18,15 +18,6 @@ const getHeaders = (cookie?: string): Record<string, string> => {
     return headers;
 };
 
-const jwtSecret = process.env.JWT_SECRET;
-const stripeSecret = process.env.STRIPE_SECRET_KEY;
-
-if (!jwtSecret || !stripeSecret) {
-    throw new Error("CRITICAL: Environment variables missing.");
-}
-
-const stripe = new Stripe(stripeSecret, { apiVersion: '2026-05-27.dahlia' });
-
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
         return {
@@ -37,6 +28,19 @@ export const handler: Handler = async (event) => {
     }
 
     try {
+        const jwtSecret = process.env.JWT_SECRET;
+        const stripeSecret = process.env.STRIPE_SECRET_KEY;
+
+        if (!jwtSecret || !stripeSecret) {
+            console.error('CRITICAL: JWT_SECRET or STRIPE_SECRET_KEY env var is missing.');
+            return {
+                statusCode: 500,
+                headers: getHeaders(),
+                body: JSON.stringify({ error: 'Server configuration error. Please contact support.' })
+            };
+        }
+
+        const stripe = new Stripe(stripeSecret, { apiVersion: '2026-05-27.dahlia' });
         const body = JSON.parse(event.body || '{}');
         const { token: plainToken, priceId } = body;
 
