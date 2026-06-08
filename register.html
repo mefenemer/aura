@@ -155,7 +155,7 @@
     async function completeRegistration(plainToken) {
       const priceId = sessionStorage.getItem('pending_price_id');
 
-      const response = await fetch('/.netlify/functions/verify', {
+      const response = await fetch('/netlify/functions/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
