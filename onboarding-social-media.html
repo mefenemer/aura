@@ -931,29 +931,42 @@
       strictRules
     };
 
-    // SCENARIO 1: Populate safe summary UI (No prompt leakage)
+    // EPIC 2, SCENARIO 3: Verification of data integrity detailed view
     const summaryHTML = `
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-              <span class="block text-xs font-bold text-gray-400 uppercase mb-1">Assistant Name</span>
-              <span class="block text-sm font-bold text-gray-900">${finalAssistantName}</span>
+      <div class="grid grid-cols-1 gap-6 text-left">
+          <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
+              <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Core Identity & Process</span>
+              <ul class="text-sm text-gray-900 space-y-2">
+                  <li><b>Assistant Name:</b> <span class="font-medium text-emerald-800">${finalAssistantName}</span></li>
+                  <li><b>Trigger:</b> <span class="font-medium">${triggerText}</span></li>
+                  <li><b>Data Source:</b> <span class="font-medium">${sourceText}</span></li>
+                  <li><b>Bottleneck:</b> <span class="font-medium italic">"${problem.substring(0, 80)}${problem.length > 80 ? '...' : ''}"</span></li>
+              </ul>
           </div>
-          <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-              <span class="block text-xs font-bold text-gray-400 uppercase mb-1">Platforms</span>
-              <span class="block text-sm font-bold text-gray-900">${platforms.length > 0 ? platforms.length + ' Connected' : 'None'}</span>
+          
+          <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
+              <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Platforms & Strategy</span>
+              <ul class="text-sm text-gray-900 space-y-2">
+                  <li><b>Platforms:</b> <span class="font-medium">${platforms.length > 0 ? platforms.join(', ') : missingFallback}</span></li>
+                  <li><b>Target Audience:</b> <span class="font-medium">${document.getElementById('val_audience')?.value || missingFallback}</span></li>
+                  <li><b>Content Pillars:</b> <span class="font-medium">${document.getElementById('val_pillars')?.value || missingFallback}</span></li>
+                  <li><b>Tone of Voice:</b> <span class="font-medium">${document.getElementById('val_tone')?.value || missingFallback}</span></li>
+              </ul>
           </div>
-          <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-              <span class="block text-xs font-bold text-gray-400 uppercase mb-1">Workflow Actions</span>
-              <span class="block text-sm font-bold text-gray-900">${workflowCount} Steps configured</span>
-          </div>
-          <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-              <span class="block text-xs font-bold text-gray-400 uppercase mb-1">Strict Rules</span>
-              <span class="block text-sm font-bold text-gray-900">${strictRules.length} Guardrails active</span>
+
+          <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
+              <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Guardrails & Knowledge Base</span>
+              <ul class="text-sm text-gray-900 space-y-2">
+                  <li><b>Workflow Steps:</b> <span class="font-medium">${workflowCount} automated actions configured.</span></li>
+                  <li><b>Strict Rules:</b> <span class="font-medium">${strictRules.length} explicit constraints applied.</span></li>
+                  <li><b>Reference Links:</b> <span class="font-medium">${validLinks.length} URLs attached.</span></li>
+              </ul>
           </div>
       </div>
-      <div class="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex gap-3">
+      
+      <div class="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex gap-3 shadow-sm">
           <span class="text-xl">🔒</span>
-          <p class="text-sm text-emerald-800 font-medium">Your inputs are securely transmitted to our backend. They are compiled into a proprietary AI instruction brief to protect your logic and ensure maximum assistant performance.</p>
+          <p class="text-sm text-emerald-800 font-medium">Your inputs are securely transmitted and verified. If any data mapping fails during generation, the deployment will automatically halt to protect against partial or hallucinated logic.</p>
       </div>
     `;
 
@@ -1024,7 +1037,7 @@
       customAssistantName: document.getElementById('val_assistant_name')?.value || 'Digital Assistant',
       tier: currentTierKey,
       rawInputs: window.globalRawInputs,
-      onboardingContext: structuredContext, // NEW: Capture structured data (Scenario 2)
+      onboardingContext: structuredContext,
       consents: {
         legal: document.querySelector('input[name="legal_consent"]').checked,
         no_training: document.querySelector('input[name="no_training_consent"]').checked,
@@ -1043,21 +1056,6 @@
     // Disable navigation
     document.getElementById('btn-next').disabled = true;
     document.getElementById('btn-back').style.display = 'none';
-
-    const payload = {
-      clientName: sessionStorage.getItem('aura_client_name') || 'New User',
-      businessName: sessionStorage.getItem('aura_business_name') || 'Business',
-      assistantName: sessionStorage.getItem('aura_assistant_name') || 'Social Media Manager',
-      customAssistantName: document.getElementById('val_assistant_name')?.value || 'Digital Assistant',
-      tier: currentTierKey,
-      rawInputs: window.globalRawInputs,
-      consents: {
-        legal: document.querySelector('input[name="legal_consent"]').checked,
-        no_training: document.querySelector('input[name="no_training_consent"]').checked,
-        tos_consent: document.querySelector('input[name="tos_consent"]').checked
-      }
-    };
-
 
     try {
       const response = await fetch('/.netlify/functions/onboarding', {

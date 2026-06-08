@@ -34,36 +34,65 @@ if (!jwtSecret) {
 const pgClient = postgres(connectionString);
 const db = drizzle({ client: pgClient });
 
-// Helper to prevent XSS-like issues[cite: 21]
+// Helper to prevent XSS-like issues
 function sanitizeText(str: string): string {
   return str.replace(/[<>]/g, "");
 }
 
-// SCENARIO 2: Secure Server-Side Prompt Compilation
+// SCENARIO 1, 2, & 4: Secure Server-Side Prompt Compilation with Dynamic Mapping
 function compileServerSideBrief(clientName: string, businessName: string, assistantName: string, inputs: any) {
-  const missingFallback = "[MISSING - PLEASE UPDATE]";
+  if (!inputs) throw new Error("Transformation Failure: Missing inputs payload.");
+
+  const missingFallback = "Not specified/Provided";
+
+  // Helper to safely format arrays (like platforms, strict rules, and anecdotes)
+  const formatArray = (arr: any[], fallback: string) => {
+    if (!arr || !Array.isArray(arr) || arr.length === 0) return fallback;
+    const validItems = arr.filter(item => item && item.trim() !== '');
+    if (validItems.length === 0) return fallback;
+    return validItems.map(item => `- ${item}`).join('\n');
+  };
+
+  const problem = inputs.problem && inputs.problem.trim() !== '' ? inputs.problem : missingFallback;
+  const trigger = inputs.triggerText && inputs.triggerText.trim() !== '' ? inputs.triggerText : missingFallback;
+  const source = inputs.sourceText && inputs.sourceText.trim() !== '' ? inputs.sourceText : missingFallback;
+  const workflowText = inputs.workflowText && inputs.workflowText.trim() !== '' ? inputs.workflowText : missingFallback;
+
+  const platforms = formatArray(inputs.platforms, missingFallback);
+  const preferences = formatArray(inputs.generalPreferences, missingFallback);
+  const strictRules = formatArray(inputs.strictRules, missingFallback);
+
   return `
 AURA-ASSIST ENGINEERING BRIEF: SOCIAL MEDIA MANAGER BLUEPRINT
+
 CLIENT DETAILS
-Name: ${clientName || 'New User'}
-Business: ${businessName || 'Business'}
-Assistant Name: ${assistantName || 'Digital Assistant'}
+Name: ${clientName || missingFallback}
+Business: ${businessName || missingFallback}
+Assistant Name: ${assistantName || missingFallback}
+
 PROCESS BOTTLENECK
-${inputs?.problem || missingFallback}
+${problem}
+
 SOURCING & TRIGGER
-Trigger: ${inputs?.triggerText || missingFallback}
-Source: ${inputs?.sourceText || missingFallback}
+Trigger: ${trigger}
+Source: ${source}
+
 PUBLISHING DESTINATIONS
-Platforms: ${inputs?.platforms?.length > 0 ? inputs.platforms.join(', ') : missingFallback}
+Platforms:
+${platforms}
+
 GENERAL PREFERENCES & STRATEGY
-${inputs?.generalPreferences?.length > 0 ? inputs.generalPreferences.join('\n') : '- No general preferences configured.'}
+${preferences}
+
 WORKFLOW LOGIC
-${inputs?.workflowText || missingFallback}
+${workflowText}
+
 NON-NEGOTIABLE STRICT RULES
-${inputs?.strictRules?.length > 0 ? inputs.strictRules.join('\n') : '- No strict rules configured.'}
+${strictRules}
+
 APPROVAL PROTOCOL
 All requests requiring your sign-off are managed exclusively through your Aura-Assist Workspace. You will be notified by email immediately upon the creation of any new request.
-`;
+`.trim();
 }
 
 export const handler: Handler = async (event) => {
@@ -101,7 +130,7 @@ export const handler: Handler = async (event) => {
     const body = JSON.parse(event.body || '{}');
     const { clientName, businessName, tier, assistantName, customAssistantName, rawInputs, onboardingContext, consents } = body;
 
-    // SCENARIO 2: Payload Validation
+    // SCENARIO 2: Payload Validation for Context Persistence
     if (assistantName === 'Social Media Manager') {
       if (!onboardingContext?.target_audience || !onboardingContext?.content_pillars || !onboardingContext?.tone_of_voice || !onboardingContext?.primary_platforms?.length) {
         return { statusCode: 400, body: JSON.stringify({ error: 'Missing required Social Media Manager context fields (Audience, Pillars, Tone, or Platforms).' }) };
@@ -118,7 +147,7 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Invalid subscription tier selected.' }) };
     }
 
-    // 3. BACKEND RACE CONDITION CHECK (Uniqueness Scenario 3)
+    // 3. BACKEND RACE CONDITION CHECK (Uniqueness)
     const targetName = (customAssistantName && customAssistantName.trim() !== '')
         ? customAssistantName.trim()
         : 'Digital Assistant';
@@ -146,7 +175,7 @@ export const handler: Handler = async (event) => {
         legalConsents: consents || {}
       });
 
-      // Handle and sanitize organisation naming[cite: 21]
+      // Handle and sanitize organisation naming
       const rawCompanyName = (businessName && businessName.trim() !== '')
           ? businessName.trim()
           : `${existingUser.firstName}'s Workspace`;
@@ -176,17 +205,24 @@ export const handler: Handler = async (event) => {
         planType: 'subscription'
       }).returning();
 
-      // Look up assistant
+      // Look up master assistant
       const [assistantRecord] = await tx.select()
           .from(masterAssistants)
           .where(eq(masterAssistants.name, assistantName || 'Social Media Manager'))
           .limit(1);
 
-      // Generate the secure brief server-side
-      const secureSystemPrompt = compileServerSideBrief(clientName, finalCompanyName, customAssistantName, rawInputs);
+      // SCENARIO 5: Automated error logging on transformation failure
+      let secureSystemPrompt = '';
+      try {
+        secureSystemPrompt = compileServerSideBrief(clientName, finalCompanyName, targetName, rawInputs);
+        if (!secureSystemPrompt) throw new Error("Compilation resulted in empty brief.");
+      } catch (compilationError) {
+        console.error("CRITICAL: Brief Transformation Failure:", compilationError);
+        // Throwing here halts the transaction and rolls back the database
+        throw new Error("Failed to generate Assistant Blueprint due to missing or invalid data. Deployment aborted.");
+      }
 
       // Create AI assistant with pending status for queue processing
-      // SCENARIO 3: Secure Database Persistence (Inside the tx.insert block)
       const [newAssistant] = await tx.insert(aiAssistants).values({
         organisationId: newOrg.id,
         userId: existingUser.id,
@@ -194,18 +230,17 @@ export const handler: Handler = async (event) => {
         name: targetName,
         model: 'gpt-4o',
         aiAssistantJobRole: assistantRecord?.name || 'General Assistant',
-        systemPrompt: secureSystemPrompt, // Kept distinctly separate
+        systemPrompt: secureSystemPrompt, // Compiled blueprint
         configuration: {
           type: assistantRecord ? assistantRecord.roleKey : 'custom',
           active: true,
           inputs: rawInputs || {}
         },
-        onboardingContext: onboardingContext || {}, // Persist structured context separately
+        onboardingContext: onboardingContext || {}, // Structured UI data
         isActive: true,
       }).returning();
 
       // ASYNC QUEUE TRIGGER
-      // This fetch call kicks off the background integration process[cite: 21]
       fetch(`${process.env.URL}/.netlify/functions/provision-assistant-async`, {
         method: 'POST',
         body: JSON.stringify({ assistantId: newAssistant.id, rawInputs })
@@ -231,14 +266,21 @@ export const handler: Handler = async (event) => {
         isRead: false
       });
 
+      // Clear the auto-save draft
       await tx.delete(onboardingDrafts).where(eq(onboardingDrafts.userId, existingUser.id));
 
-      return { userId: existingUser.id, organisationId: newOrg.id }; // Returned correct ID[cite: 21]
+      return { userId: existingUser.id, organisationId: newOrg.id };
     });
 
     return { statusCode: 200, body: JSON.stringify({ message: 'Success', data: newWorkspace }) };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database Error:', error);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Failed to build workspace.' }) };
+
+    // Safely return specific compilation errors to the frontend if they caused the rollback
+    const errMsg = (error.message && error.message.includes("Blueprint"))
+        ? error.message
+        : 'Failed to build workspace.';
+
+    return { statusCode: 500, body: JSON.stringify({ error: errMsg }) };
   }
 };
