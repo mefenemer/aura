@@ -1,4 +1,6 @@
 // calendar.js — Interactive Content Calendar & Post Governance
+// Wrapped in IIFE to avoid global scope collisions with other view controllers.
+(function () {
 
 // ── Config ────────────────────────────────────────────────────────
 const PLATFORM_META = {
@@ -610,3 +612,5 @@ function _updateLocalPost(updated) {
     if (idx >= 0) _posts[idx] = updated;
     else _posts.push(updated);
 }
+
+})(); // end IIFE

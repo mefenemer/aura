@@ -1,4 +1,6 @@
 // my-content.js — My Content Media Hub controller
+// Wrapped in IIFE to avoid global scope collisions with other view controllers.
+(function () {
 
 // ── Section config ────────────────────────────────────────────────
 const SECTIONS = [
@@ -459,3 +461,5 @@ function _daysUntilPurge(retentionDate) {
     const days = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
     return days === 0 ? 'less than 1 day' : `${days} day${days !== 1 ? 's' : ''}`;
 }
+
+})(); // end IIFE
