@@ -22,6 +22,20 @@ const pgClient = postgres(connectionString);
 const db = drizzle({ client: pgClient });
 const stripe = new Stripe(stripeSecret, { apiVersion: '2026-05-27.dahlia' });
 
+// Stripe price IDs keyed by tier — test and live environments
+const isTestMode = stripeSecret.startsWith('sk_test_');
+const STRIPE_PRICE_IDS: Record<string, string> = isTestMode
+  ? {
+      buster:   'price_1TgGNFE7lvVYjk1BAsnhUzBp',
+      saver:    'price_1TgGP8E7lvVYjk1BRBeEZVd6',
+      employee: 'price_1TgGPfE7lvVYjk1B1CQrS6pE',
+    }
+  : {
+      buster:   'price_1Tg6f1CuS8qyNSsFxeUsfi4a',
+      saver:    'price_1Tg6fQCuS8qyNSsF5DKmEqMu',
+      employee: 'price_1Tg6fiCuS8qyNSsF787zwCwh',
+    };
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
@@ -49,10 +63,14 @@ export const handler: Handler = async (event) => {
     if (!tier) return { statusCode: 400, body: JSON.stringify({ error: 'Missing tier.' }) };
 
     // 2. LOOK UP MASTER PLAN
+    const tierKey = tier.toLowerCase();
     const [masterPlan] = await db.select().from(masterPlans)
-      .where(eq(masterPlans.tierKey, tier.toLowerCase()))
+      .where(eq(masterPlans.tierKey, tierKey))
       .limit(1);
     if (!masterPlan) return { statusCode: 400, body: JSON.stringify({ error: 'Invalid plan tier.' }) };
+
+    const stripePriceId = STRIPE_PRICE_IDS[tierKey];
+    if (!stripePriceId) return { statusCode: 400, body: JSON.stringify({ error: `No Stripe price configured for tier: ${tierKey}` }) };
 
     // 3. CREATE STRIPE CUSTOMER + SUBSCRIPTION
     const customer = await stripe.customers.create({
@@ -63,21 +81,14 @@ export const handler: Handler = async (event) => {
 
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
-      items: [{
-        price_data: {
-          currency: 'gbp',
-          product_data: { name: `Aura-Assist — ${masterPlan.name}` },
-          unit_amount: Math.round(Number(masterPlan.monthlyPriceGbp) * 100),
-          recurring: { interval: 'month' },
-        },
-      }],
+      items: [{ price: stripePriceId }],
       payment_behavior: 'default_incomplete',
       payment_settings: { save_default_payment_method: 'on_subscription' },
       expand: ['latest_invoice.payment_intent'],
       metadata: {
         userId: user.id.toString(),
         organisationId: user.organisationId.toString(),
-        tier: tier.toLowerCase(),
+        tier: tierKey,
         masterPlanId: masterPlan.id.toString(),
       },
     });
