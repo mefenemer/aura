@@ -29,7 +29,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 2. Payload Extraction
-    const { assistantId, newContext } = JSON.parse(event.body || '{}');
+    const { assistantId, newContext, newConfiguration } = JSON.parse(event.body || '{}');
 
     if (!assistantId || !newContext) return { statusCode: 400, body: JSON.stringify({ error: 'Missing parameters.' }) };
 
@@ -46,11 +46,10 @@ export const handler: Handler = async (event) => {
             if (!existingAssistant) throw new Error("Assistant not found.");
 
             // Perform the Update
+            const updatePayload: any = { onboardingContext: newContext, updatedAt: new Date() };
+            if (newConfiguration) updatePayload.configuration = newConfiguration;
             await tx.update(aiAssistants)
-                .set({
-                    onboardingContext: newContext,
-                    updatedAt: new Date()
-                })
+                .set(updatePayload)
                 .where(eq(aiAssistants.id, assistantId));
 
             // SCENARIO 5: Create Immutable Audit Log

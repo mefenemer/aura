@@ -1,96 +1,237 @@
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full pb-20">
 
+  <!-- Back nav -->
   <nav class="flex mb-6 text-sm font-medium text-gray-500">
-    <!-- Updated onclick -->
     <button id="btn-back-assistants" onclick="window.loadView('assistants')" class="hover:text-emerald-700 transition-colors flex items-center gap-1 cursor-pointer">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
       Back to Team
     </button>
   </nav>
 
+  <!-- Hero header -->
   <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 relative overflow-hidden">
     <div class="absolute -top-10 -right-10 w-32 h-32 bg-emerald-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
-
     <div class="flex items-center gap-5 z-10">
       <div id="detail-avatar" class="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shadow-sm"></div>
       <div>
         <div class="flex items-center gap-3">
-          <h1 id="detail-name" class="text-2xl font-extrabold text-gray-900">Waking up...</h1>
-          <span id="detail-status" class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">...</span>
+          <h1 id="detail-name" class="text-2xl font-extrabold text-gray-900">Loading…</h1>
+          <span id="detail-status" class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">…</span>
         </div>
         <p id="detail-role" class="text-gray-500 font-medium mt-1">Reviewing tasks</p>
       </div>
     </div>
-
     <div class="flex items-center gap-3 w-full sm:w-auto z-10">
+      <span id="detail-save-status" class="text-sm font-semibold text-emerald-600 transition-all mr-2"></span>
       <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm cursor-pointer">
         Pause Assistant
       </button>
     </div>
   </div>
 
-  <div class="border-b border-gray-200 mb-8">
-    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-      <button id="tab-btn-settings" class="tab-btn cursor-pointer whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm border-emerald-500 text-emerald-600">Settings & Brief</button>
-      <button id="tab-btn-integrations" class="tab-btn cursor-pointer whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Integrations</button>
-      <button id="tab-btn-logs" class="tab-btn cursor-pointer whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Activity Logs</button>
+  <!-- Tab bar -->
+  <div class="border-b border-gray-200 mb-8 overflow-x-auto">
+    <nav class="-mb-px flex space-x-1 min-w-max" aria-label="Tabs">
+      <button data-tab="problem"    class="detail-tab-btn active-tab cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-bold text-sm">The Problem</button>
+      <button data-tab="operation"  class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">How it Works</button>
+      <button data-tab="strategy"   class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Creative Strategy</button>
+      <button data-tab="workflow"   class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Workflow</button>
+      <button data-tab="platforms"  class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Platforms</button>
+      <button data-tab="guardrails" class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Guardrails</button>
+      <button data-tab="integrations" class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Integrations</button>
+      <button data-tab="logs"       class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Activity Logs</button>
     </nav>
   </div>
 
-  <div id="tab-content-settings" class="tab-content block space-y-6">
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div>
-          <h3 class="text-lg font-bold text-gray-900">Core Settings & Strategy</h3>
-          <p class="text-sm text-gray-500">Changes here are saved automatically.</p>
-        </div>
-        <span id="detail-save-status" class="text-sm font-bold text-emerald-600 transition-all"></span>
+  <!-- ── TAB: The Problem ───────────────────────────────────────── -->
+  <div id="tab-problem" class="detail-tab-content space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Step 2 — The Problem</h3>
+        <p class="text-sm text-gray-500 mt-1">What bottleneck or time-drain were you trying to solve? This shapes everything your assistant prioritises.</p>
       </div>
-
-      <form id="assistant-settings-form" class="space-y-5 border-t border-gray-100 pt-5" onsubmit="event.preventDefault();">
-        <div>
-          <label for="edit_audience" class="block text-sm font-bold text-gray-700 mb-1">Target Audience</label>
-          <input type="text" id="edit_audience" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="E.g., Tech Founders...">
-        </div>
-        <div>
-          <label for="edit_tone" class="block text-sm font-bold text-gray-700 mb-1">Brand Voice & Tone</label>
-          <input type="text" id="edit_tone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="E.g., Professional yet friendly...">
-        </div>
-        <div>
-          <label for="edit_pillars" class="block text-sm font-bold text-gray-700 mb-1">Content Pillars / Core Topics</label>
-          <input type="text" id="edit_pillars" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="E.g., Growth hacking, Leadership...">
-        </div>
-        <div>
-          <label for="edit_frequency" class="block text-sm font-bold text-gray-700 mb-1">Posting Frequency / Trigger</label>
-          <input type="text" id="edit_frequency" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="E.g., 3 times a week...">
-        </div>
-
-        <div>
-          <label class="block text-sm font-bold text-gray-700 mb-2">Connected Platforms</label>
-          <div class="flex flex-wrap gap-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-            <label class="flex items-center cursor-pointer">
-              <input type="checkbox" value="fb" class="platform-chk h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700">
-              <span class="ml-2 text-sm text-gray-800 font-medium">Facebook</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-              <input type="checkbox" value="ig" class="platform-chk h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700">
-              <span class="ml-2 text-sm text-gray-800 font-medium">Instagram</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-              <input type="checkbox" value="li" class="platform-chk h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700">
-              <span class="ml-2 text-sm text-gray-800 font-medium">LinkedIn</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-              <input type="checkbox" value="x" class="platform-chk h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700">
-              <span class="ml-2 text-sm text-gray-800 font-medium">X (Twitter)</span>
-            </label>
-          </div>
-        </div>
-      </form>
+      <div>
+        <label class="block text-sm font-bold text-gray-700 mb-1">Your Bottleneck <span class="text-red-500">*</span></label>
+        <textarea id="edit_problem" rows="5"
+          class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-y"
+          placeholder="E.g., I spend hours every week researching topics, writing captions, and remembering to schedule posts…"></textarea>
+        <p class="text-xs text-gray-400 mt-1">Be as specific as possible — the more detail, the smarter your assistant.</p>
+      </div>
     </div>
   </div>
 
-  <div id="tab-content-integrations" class="tab-content hidden space-y-6">
+  <!-- ── TAB: How it Works ─────────────────────────────────────── -->
+  <div id="tab-operation" class="detail-tab-content hidden space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Step 3 — How it Works</h3>
+        <p class="text-sm text-gray-500 mt-1">When does your assistant run, and where does it get its content from?</p>
+      </div>
+      <div class="space-y-6">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-2">Trigger / Schedule</label>
+          <div class="space-y-2">
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_trigger" value="on_demand" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">On Demand</span><br><span class="text-xs text-gray-500">I trigger it manually when I need content.</span></span>
+            </label>
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_trigger" value="reactive" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">Reactive</span><br><span class="text-xs text-gray-500">It runs automatically when a new brief or data arrives.</span></span>
+            </label>
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_trigger" value="scheduled" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">Scheduled</span><br><span class="text-xs text-gray-500">It runs on a fixed recurring schedule.</span></span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-2">Content Source</label>
+          <div class="space-y-2">
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_source" value="client_provided" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">Client Provided</span><br><span class="text-xs text-gray-500">I supply the drafts, data, or notes — the assistant processes it.</span></span>
+            </label>
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_source" value="assistant_generated" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">Assistant Generated</span><br><span class="text-xs text-gray-500">The assistant researches and writes everything independently.</span></span>
+            </label>
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_source" value="hybrid" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">Hybrid</span><br><span class="text-xs text-gray-500">A mix — I provide direction, the assistant fills the gaps.</span></span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label for="edit_frequency" class="block text-sm font-bold text-gray-700 mb-1">Posting Frequency</label>
+          <input type="text" id="edit_frequency" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., 3 times a week, Daily, On demand…">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Creative Strategy ────────────────────────────────── -->
+  <div id="tab-strategy" class="detail-tab-content hidden space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Step 4 — Creative Strategy</h3>
+        <p class="text-sm text-gray-500 mt-1">The core identity of your assistant — who it speaks to, what it says, and how it sounds.</p>
+      </div>
+      <div class="space-y-5">
+        <div>
+          <label for="edit_assistant_name" class="block text-sm font-bold text-gray-700 mb-1">Assistant Name</label>
+          <input type="text" id="edit_assistant_name" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Aria, ContentBot…">
+        </div>
+        <div>
+          <label for="edit_audience" class="block text-sm font-bold text-gray-700 mb-1">Target Audience</label>
+          <input type="text" id="edit_audience" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Tech founders aged 30–45 building B2B SaaS products…">
+          <p class="text-xs text-gray-400 mt-1">Be specific — the more detail, the more targeted the content.</p>
+        </div>
+        <div>
+          <label for="edit_tone" class="block text-sm font-bold text-gray-700 mb-1">Brand Voice &amp; Tone</label>
+          <input type="text" id="edit_tone" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Professional yet friendly, Witty, Authoritative…">
+        </div>
+        <div>
+          <label for="edit_pillars" class="block text-sm font-bold text-gray-700 mb-1">Content Pillars / Core Topics</label>
+          <input type="text" id="edit_pillars" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Growth hacking, Leadership, Behind the scenes…">
+          <p class="text-xs text-gray-400 mt-1">Separate topics with commas.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Workflow ─────────────────────────────────────────── -->
+  <div id="tab-workflow" class="detail-tab-content hidden space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Step 5 — Workflow</h3>
+        <p class="text-sm text-gray-500 mt-1">The sequence of actions your assistant takes each time it runs. One step per line.</p>
+      </div>
+      <div>
+        <label for="edit_workflow" class="block text-sm font-bold text-gray-700 mb-1">Workflow Steps</label>
+        <textarea id="edit_workflow" rows="8"
+          class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm font-mono resize-y"
+          placeholder="1. Research trending topics in my niche&#10;2. Draft a caption for each platform&#10;3. Apply platform-specific formatting&#10;4. Schedule for optimal posting time"></textarea>
+        <p class="text-xs text-gray-400 mt-1">Number each step. E.g., "1. Research trending topics"</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Platforms ────────────────────────────────────────── -->
+  <div id="tab-platforms" class="detail-tab-content hidden space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Step 6 — Platforms</h3>
+        <p class="text-sm text-gray-500 mt-1">Which social platforms does your assistant post to, and what are the account handles?</p>
+      </div>
+      <div class="space-y-4">
+        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+          <input type="checkbox" id="plat_fb" value="fb" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer" onchange="toggleEditHandle('fb')">
+          <div class="flex-1">
+            <span class="font-semibold text-gray-800 text-sm">Facebook</span>
+            <div id="handle-fb" class="hidden mt-2">
+              <input type="text" id="handle_fb" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="https://facebook.com/yourpage">
+            </div>
+          </div>
+        </label>
+        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+          <input type="checkbox" id="plat_ig" value="ig" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer" onchange="toggleEditHandle('ig')">
+          <div class="flex-1">
+            <span class="font-semibold text-gray-800 text-sm">Instagram</span>
+            <div id="handle-ig" class="hidden mt-2">
+              <input type="text" id="handle_ig" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="@yourbrand">
+            </div>
+          </div>
+        </label>
+        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+          <input type="checkbox" id="plat_li" value="li" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer" onchange="toggleEditHandle('li')">
+          <div class="flex-1">
+            <span class="font-semibold text-gray-800 text-sm">LinkedIn</span>
+            <div id="handle-li" class="hidden mt-2">
+              <input type="text" id="handle_li" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="https://linkedin.com/in/yourprofile">
+            </div>
+          </div>
+        </label>
+        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+          <input type="checkbox" id="plat_x" value="x" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer" onchange="toggleEditHandle('x')">
+          <div class="flex-1">
+            <span class="font-semibold text-gray-800 text-sm">X (Twitter)</span>
+            <div id="handle-x" class="hidden mt-2">
+              <input type="text" id="handle_x" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="@yourhandle">
+            </div>
+          </div>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Guardrails ───────────────────────────────────────── -->
+  <div id="tab-guardrails" class="detail-tab-content hidden space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Guardrails &amp; Rules</h3>
+        <p class="text-sm text-gray-500 mt-1">Hard constraints your assistant must always follow. These override any AI-generated suggestions.</p>
+      </div>
+      <div class="space-y-5">
+        <div>
+          <label for="edit_strict_rules" class="block text-sm font-bold text-gray-700 mb-1">Strict Rules</label>
+          <textarea id="edit_strict_rules" rows="6"
+            class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-y"
+            placeholder="- NEVER use emojis in LinkedIn posts&#10;- ALWAYS end Facebook posts with a question&#10;- NEVER mention competitor brand names"></textarea>
+          <p class="text-xs text-gray-400 mt-1">Start each rule with a dash (–). Use MUST DO / NEVER DO for clarity.</p>
+        </div>
+        <div>
+          <label for="edit_knowledge" class="block text-sm font-bold text-gray-700 mb-1">Knowledge Base &amp; Brand Context</label>
+          <textarea id="edit_knowledge" rows="5"
+            class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-y"
+            placeholder="Brand story, key messages, style notes, or any background context your assistant should always know…"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Integrations ─────────────────────────────────────── -->
+  <div id="tab-integrations" class="detail-tab-content hidden space-y-6">
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
@@ -99,22 +240,260 @@
         </div>
         <span id="integration-save-status" class="text-sm font-bold text-emerald-600 transition-all"></span>
       </div>
-
       <div id="empty-integrations-prompt" class="hidden h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-center p-4">
         <p class="text-sm font-medium text-gray-500 mb-2">No workspace integrations found.</p>
-        <!-- Updated onclick -->
         <a href="#" onclick="window.loadView('integrations')" class="text-emerald-600 font-bold text-sm hover:underline cursor-pointer">Go to Global Integrations &rarr;</a>
       </div>
-
       <div id="assistant-integrations-list" class="space-y-3 hidden"></div>
     </div>
   </div>
 
-  <div id="tab-content-logs" class="tab-content hidden space-y-6">
+  <!-- ── TAB: Activity Logs ────────────────────────────────────── -->
+  <div id="tab-logs" class="detail-tab-content hidden space-y-6">
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
       <h3 class="text-lg font-bold text-gray-900 mb-4">Recent Activity</h3>
       <p class="text-sm text-gray-500 mb-4">A log of all actions taken and errors encountered by this assistant.</p>
-      <div class="h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-sm font-medium text-gray-400">Awaiting first activity...</div>
+      <div class="h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-sm font-medium text-gray-400">Awaiting first activity…</div>
     </div>
   </div>
+
+  <!-- Sticky save bar -->
+  <div id="save-bar" class="fixed bottom-0 left-0 right-0 md:left-64 z-30 bg-white border-t border-gray-200 shadow-lg px-6 py-3 flex justify-between items-center">
+    <p class="text-sm text-gray-500">Changes are <span class="font-semibold text-gray-700">not saved yet</span> — save when you're ready.</p>
+    <button id="btn-save-changes" onclick="saveChanges()"
+      class="px-6 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg shadow transition text-sm cursor-pointer">
+      Save Changes
+    </button>
+  </div>
+
 </div>
+
+<style>
+  .detail-tab-btn.active-tab { border-bottom-color: #059669; color: #059669; font-weight: 700; }
+  .detail-tab-btn:not(.active-tab) { border-bottom-color: transparent; }
+</style>
+
+<script>
+(function() {
+  let assistantId = null;
+  let currentData = {};
+  let saveTimeout = null;
+
+  // ── Tab switching ────────────────────────────────────────────
+  document.querySelectorAll('.detail-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active-tab'));
+      document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.add('hidden'));
+      btn.classList.add('active-tab');
+      document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+    });
+  });
+
+  // ── Handle visibility toggles ────────────────────────────────
+  window.toggleEditHandle = function(p) {
+    const checked = document.getElementById('plat_' + p).checked;
+    document.getElementById('handle-' + p).classList.toggle('hidden', !checked);
+  };
+
+  // ── Populate form from API data ───────────────────────────────
+  function hydrate(data) {
+    const ctx = (data.context || {});
+    const cfg = (data.configuration || {});
+    const inputs = (cfg.inputs || {});
+
+    // Step 2 — Problem
+    setVal('edit_problem', ctx.problem_statement || inputs.problem || '');
+
+    // Step 3 — Operation
+    const triggerMap = { 'on demand': 'on_demand', 'reactive': 'reactive', 'scheduled': 'scheduled' };
+    const rawTrigger = (ctx.posting_frequency || inputs.triggerText || '').toLowerCase();
+    const triggerVal = Object.keys(triggerMap).find(k => rawTrigger.includes(k));
+    if (triggerVal) {
+      const radio = document.querySelector(`input[name="edit_trigger"][value="${triggerMap[triggerVal]}"]`);
+      if (radio) radio.checked = true;
+    } else if (inputs.trigger_type) {
+      const radio = document.querySelector(`input[name="edit_trigger"][value="${inputs.trigger_type}"]`);
+      if (radio) radio.checked = true;
+    }
+    const sourceMap = { 'client': 'client_provided', 'assistant': 'assistant_generated', 'hybrid': 'hybrid' };
+    const rawSource = (inputs.sourceText || inputs.content_source || '').toLowerCase();
+    const sourceVal = Object.keys(sourceMap).find(k => rawSource.includes(k));
+    if (sourceVal) {
+      const radio = document.querySelector(`input[name="edit_source"][value="${sourceMap[sourceVal]}"]`);
+      if (radio) radio.checked = true;
+    }
+    setVal('edit_frequency', ctx.posting_frequency || '');
+
+    // Step 4 — Strategy
+    setVal('edit_assistant_name', data.name || '');
+    setVal('edit_audience', ctx.target_audience || '');
+    setVal('edit_tone', ctx.tone_of_voice || '');
+    setVal('edit_pillars', ctx.content_pillars || '');
+
+    // Step 5 — Workflow
+    setVal('edit_workflow', inputs.workflowText || '');
+
+    // Step 6 — Platforms
+    const platforms = ctx.primary_platforms || [];
+    // inputs.platforms may be like ["fb (@handle)", "ig (@handle)"]
+    const platformHandles = {};
+    (inputs.platforms || []).forEach(p => {
+      const match = p.match(/^([a-z]+)\s*\(([^)]+)\)/i);
+      if (match) platformHandles[match[1]] = match[2];
+    });
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      const chk = document.getElementById('plat_' + p);
+      const active = platforms.includes(p) || (inputs.platforms || []).some(s => s.startsWith(p));
+      chk.checked = active;
+      toggleEditHandle(p);
+      if (active && platformHandles[p]) setVal('handle_' + p, platformHandles[p]);
+    });
+
+    // Guardrails
+    const strictLines = (inputs.strictRules || []).join('\n');
+    setVal('edit_strict_rules', strictLines);
+    // Knowledge base is embedded in strictRules lines — extract it
+    const kbLine = (inputs.strictRules || []).find(r => r.includes('KNOWLEDGE BASE (TEXT)'));
+    if (kbLine) {
+      const kbMatch = kbLine.match(/:"([^"]+)"/);
+      setVal('edit_knowledge', kbMatch ? kbMatch[1] : '');
+    }
+  }
+
+  function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.value = val || '';
+  }
+
+  // ── Collect current form state ────────────────────────────────
+  function collectFormData() {
+    const platforms = [];
+    const platformsRaw = [];
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      if (document.getElementById('plat_' + p)?.checked) {
+        platforms.push(p);
+        const handle = document.getElementById('handle_' + p)?.value || '';
+        platformsRaw.push(handle ? `${p} (${handle})` : p);
+      }
+    });
+
+    const strictLines = (document.getElementById('edit_strict_rules')?.value || '')
+      .split('\n').map(l => l.trim()).filter(Boolean);
+    const knowledge = document.getElementById('edit_knowledge')?.value || '';
+    if (knowledge) strictLines.push(`- KNOWLEDGE BASE (TEXT): Consider the following brand stories and context: "${knowledge}"`);
+
+    const newContext = {
+      problem_statement: document.getElementById('edit_problem')?.value || '',
+      posting_frequency: document.getElementById('edit_frequency')?.value || '',
+      target_audience: document.getElementById('edit_audience')?.value || '',
+      tone_of_voice: document.getElementById('edit_tone')?.value || '',
+      content_pillars: document.getElementById('edit_pillars')?.value || '',
+      primary_platforms: platforms,
+    };
+
+    const newConfiguration = {
+      ...(currentData.configuration || {}),
+      inputs: {
+        ...(currentData.configuration?.inputs || {}),
+        problem: document.getElementById('edit_problem')?.value || '',
+        trigger_type: document.querySelector('input[name="edit_trigger"]:checked')?.value || '',
+        triggerText: document.querySelector('input[name="edit_trigger"]:checked')?.value || '',
+        content_source: document.querySelector('input[name="edit_source"]:checked')?.value || '',
+        sourceText: document.querySelector('input[name="edit_source"]:checked')?.value || '',
+        platforms: platformsRaw,
+        generalPreferences: [
+          document.getElementById('edit_audience')?.value ? `- Target Audience: ${document.getElementById('edit_audience').value}` : '',
+          document.getElementById('edit_pillars')?.value ? `- Core Topics: ${document.getElementById('edit_pillars').value}` : '',
+          document.getElementById('edit_tone')?.value ? `- Preferred Tone: ${document.getElementById('edit_tone').value}` : '',
+        ].filter(Boolean),
+        workflowText: document.getElementById('edit_workflow')?.value || '',
+        strictRules: strictLines,
+      }
+    };
+
+    // Also update the assistant name in the header
+    const newName = document.getElementById('edit_assistant_name')?.value;
+    if (newName) document.getElementById('detail-name').textContent = newName;
+
+    return { newContext, newConfiguration };
+  }
+
+  // ── Save changes ──────────────────────────────────────────────
+  function setSaveStatus(msg, colour = 'text-emerald-600') {
+    const el = document.getElementById('detail-save-status');
+    if (!el) return;
+    el.className = `text-sm font-semibold transition-all ${colour}`;
+    el.textContent = msg;
+  }
+
+  window.saveChanges = async function() {
+    if (!assistantId) return;
+    setSaveStatus('Saving…', 'text-gray-400');
+    const { newContext, newConfiguration } = collectFormData();
+    try {
+      const res = await fetch('/.netlify/functions/update-assistant-context', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assistantId, newContext, newConfiguration }),
+      });
+      if (res.ok) {
+        currentData.context = newContext;
+        currentData.configuration = newConfiguration;
+        setSaveStatus('✓ Saved', 'text-emerald-600');
+        setTimeout(() => setSaveStatus(''), 3000);
+      } else {
+        setSaveStatus('Save failed — try again', 'text-red-500');
+      }
+    } catch {
+      setSaveStatus('Save failed — try again', 'text-red-500');
+    }
+  };
+
+  // ── Load assistant data ───────────────────────────────────────
+  async function loadAssistant() {
+    const params = new URLSearchParams(window.location.search);
+    assistantId = params.get('assistant') || window._detailAssistantId;
+    if (!assistantId) { console.error('No assistant ID'); return; }
+
+    try {
+      const res = await fetch(`/.netlify/functions/get-assistant-context?id=${assistantId}`);
+      if (!res.ok) throw new Error('Failed to load');
+      currentData = await res.json();
+
+      // Header
+      document.getElementById('detail-name').textContent = currentData.name || 'Your Assistant';
+      document.getElementById('detail-avatar').textContent = (currentData.name || 'A').charAt(0).toUpperCase();
+      document.getElementById('detail-role').textContent = currentData.role || 'Digital Assistant';
+
+      const statusEl = document.getElementById('detail-status');
+      const s = currentData.status || 'pending';
+      statusEl.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+      statusEl.className = `inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold border ${
+        s === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+        s === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+        'bg-gray-100 text-gray-600 border-gray-200'
+      }`;
+
+      const toggleBtn = document.getElementById('btn-toggle-status');
+      if (toggleBtn) toggleBtn.textContent = currentData.isActive ? 'Pause Assistant' : 'Resume Assistant';
+
+      hydrate(currentData);
+    } catch (e) {
+      console.error('Failed to load assistant:', e);
+    }
+  }
+
+  // Expose so assistants.js can call this after the SPA injects the HTML
+  window.loadAssistantDetail = async function(id) {
+    if (id) assistantId = id;
+    await loadAssistant();
+  };
+
+  // Also try to load immediately using whatever ID is available
+  const initId = window._detailAssistantId || window.activeAssistantId;
+  if (initId) {
+    assistantId = initId;
+    loadAssistant();
+  }
+})();
+</script>

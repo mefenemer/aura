@@ -90,98 +90,22 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     if (!assistantId) return;
     window.activeAssistantId = assistantId;
 
-    // --- BREADCRUMB ROUTING ---
+    // Pass the ID so the detail HTML's inline script can load the right assistant.
+    // The new assistant-detail.html manages its own tabs, hydration, and saving.
+    window._detailAssistantId = assistantId;
+
+    // Back button — re-wire after SPA HTML inject to avoid duplicate listeners
     const btnBack = document.getElementById('btn-back-assistants');
     if (btnBack) {
-        // Clone and replace to prevent duplicate event listeners on SPA reload
-        const newBtnBack = btnBack.cloneNode(true);
-        btnBack.parentNode.replaceChild(newBtnBack, btnBack);
-        newBtnBack.addEventListener('click', () => loadViewCb('assistants'));
+        const newBtn = btnBack.cloneNode(true);
+        btnBack.parentNode.replaceChild(newBtn, btnBack);
+        newBtn.addEventListener('click', () => loadViewCb('assistants'));
     }
 
-    // --- TABBED INTERFACE LOGIC ---
-    const tabs = ['settings', 'integrations', 'logs'];
-    tabs.forEach(tab => {
-        const btn = document.getElementById(`tab-btn-${tab}`);
-        const content = document.getElementById(`tab-content-${tab}`);
-        if (!btn || !content) return;
-
-        btn.addEventListener('click', () => {
-            tabs.forEach(t => {
-                const tContent = document.getElementById(`tab-content-${t}`);
-                const tBtn = document.getElementById(`tab-btn-${t}`);
-                if(tContent) {
-                    tContent.classList.add('hidden');
-                    tContent.classList.remove('block');
-                }
-                if(tBtn) {
-                    tBtn.className = 'tab-btn cursor-pointer whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
-                }
-            });
-            content.classList.remove('hidden');
-            content.classList.add('block');
-            btn.className = 'tab-btn cursor-pointer whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm border-emerald-500 text-emerald-600';
-        });
-    });
-
-    // --- AUTO-SAVE LOGIC ---
-    const triggerAutoSave = async () => {
-        const updatedPlatforms = Array.from(document.querySelectorAll('.platform-chk:checked')).map(chk => chk.value);
-        const newContext = {
-            ...window.cachedContext,
-            target_audience: document.getElementById('edit_audience')?.value || '',
-            tone_of_voice: document.getElementById('edit_tone')?.value || '',
-            content_pillars: document.getElementById('edit_pillars')?.value || '',
-            posting_frequency: document.getElementById('edit_frequency')?.value || '',
-            primary_platforms: updatedPlatforms
-        };
-
-        const statusEl = document.getElementById('detail-save-status');
-        if (statusEl) statusEl.innerText = "Saving...";
-
-        try {
-            const res = await fetch('/.netlify/functions/update-assistant-context', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ assistantId: parseInt(window.activeAssistantId), newContext })
-            });
-            if (res.ok) {
-                window.cachedContext = newContext;
-                if (statusEl) {
-                    statusEl.innerText = "✓ Saved";
-                    setTimeout(() => statusEl.innerText = "", 2000);
-                }
-            }
-        } catch (e) {
-            if (statusEl) statusEl.innerText = "Connection error";
-        }
-    };
-
-    // Attach auto-save to text fields (on blur) and checkboxes (on change)
-    ['edit_audience', 'edit_tone', 'edit_pillars', 'edit_frequency'].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.addEventListener('blur', triggerAutoSave);
-    });
-    document.querySelectorAll('.platform-chk').forEach(chk => {
-        chk.addEventListener('change', triggerAutoSave);
-    });
-
-    // --- DELETE ACTION (Preserved from original file) ---
-    const deleteBtn = document.getElementById('btn-delete-assistant');
-    if (deleteBtn) {
-        const newDeleteBtn = deleteBtn.cloneNode(true);
-        deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
-        newDeleteBtn.addEventListener('click', () => {
-            const name = document.getElementById('detail-name')?.innerText || 'this assistant';
-            if(confirm(`Are you sure you want to permanently dismiss ${name}? This cannot be undone.`)) {
-                alert("Database deletion endpoint pending. Returning to directory.");
-                loadViewCb('assistants');
-            }
-        });
+    // Trigger the detail page's own load function if it has already registered
+    if (typeof window.loadAssistantDetail === 'function') {
+        await window.loadAssistantDetail(assistantId);
     }
-
-    // --- EXECUTE DATA HYDRATION ---
-    await window.hydrateAssistantContext();
 };
 
 // ==========================================

@@ -29,24 +29,26 @@ export const handler: Handler = async (event) => {
 
     const db = getDb();
 
-    // UPDATE: Fetch name, role, and status alongside the context
     const [assistant] = await db.select({
         id: aiAssistants.id,
         name: aiAssistants.name,
         role: aiAssistants.aiAssistantJobRole,
         status: aiAssistants.provisioningStatus,
-        onboardingContext: aiAssistants.onboardingContext
+        isActive: aiAssistants.isActive,
+        onboardingContext: aiAssistants.onboardingContext,
+        configuration: aiAssistants.configuration,
     }).from(aiAssistants)
         .where(and(eq(aiAssistants.id, parseInt(assistantId)), eq(aiAssistants.userId, currentUserId)))
         .limit(1);
 
     if (!assistant) return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
 
-    // UPDATE: Return all required UI fields
     return { statusCode: 200, body: JSON.stringify({
             context: assistant.onboardingContext,
+            configuration: assistant.configuration,
             name: assistant.name,
             role: assistant.role || 'Digital Assistant',
-            status: assistant.status || 'pending'
+            status: assistant.status || 'pending',
+            isActive: assistant.isActive,
         }) };
 };
