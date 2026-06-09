@@ -315,3 +315,41 @@ export const onboardingDrafts = pgTable("onboarding_drafts", {
   draftData: jsonb("draft_data").default({}).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
+
+// Content Assets Table — Media Hub (My Content)
+// Stores user-uploaded images, videos, and external links for assistant use
+export const contentAssets = pgTable("content_assets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id")
+      .references(() => organisations.id, { onDelete: "cascade" }),
+
+  // Asset identity
+  name: text("name").notNull(),
+  assetType: text("asset_type").notNull(), // 'image' | 'video' | 'link'
+  mimeType: text("mime_type"),
+  fileSize: integer("file_size"),
+
+  // Storage — one of these will be populated
+  storageKey: text("storage_key"),
+  storageUrl: text("storage_url"),
+  externalUrl: text("external_url"),
+
+  // Lifecycle status: pending → scheduled | rejected; scheduled → posted
+  status: text("status").notNull().default("pending"), // pending|scheduled|posted|rejected
+  rejectionReason: text("rejection_reason"),
+
+  // Scheduling / publication
+  scheduledPostId: integer("scheduled_post_id"),
+  postedAt: timestamp("posted_at"),
+  rejectedAt: timestamp("rejected_at"),
+
+  // Data retention — populated when status changes to posted/rejected
+  retentionDeleteAfter: timestamp("retention_delete_after"),
+  purgedAt: timestamp("purged_at"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

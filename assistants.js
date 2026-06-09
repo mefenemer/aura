@@ -207,6 +207,7 @@ function _detailSetSaveStatus(msg, colour) {
 window.initAssistantDetail = async function(assistantId, loadViewCb) {
     if (!assistantId) return;
     window.activeAssistantId = assistantId;
+    window._currentAssistantId = assistantId;
 
     // Back button
     const btnBack = document.getElementById('btn-back-assistants');
@@ -325,6 +326,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         window.cachedContext = currentData.context || {};
 
         _detailHydrate(currentData);
+        _hydrateAutonomousToggle(currentData);
         attachAutoSave();
     } catch (e) {
         console.error('Failed to load assistant detail:', e);
@@ -762,5 +764,52 @@ window.fetchAndRenderIntegrations = async function() {
         });
     } catch (e) {
         console.error("Integrations render error:", e);
+    }
+};
+
+// ── Autonomous Posting Fallback toggle (US5) ─────────────────────
+function _hydrateAutonomousToggle(data) {
+    const isOn = data.configuration?.appliedDefaults?.autonomousFallback === true;
+    _applyAutonomousToggleState(isOn);
+}
+
+function _applyAutonomousToggleState(isOn) {
+    const btn = document.getElementById('toggle-autonomous');
+    const dot = document.getElementById('toggle-autonomous-dot');
+    const onMsg = document.getElementById('autonomous-on-msg');
+    const offMsg = document.getElementById('autonomous-off-msg');
+    if (!btn) return;
+
+    btn.setAttribute('aria-checked', isOn ? 'true' : 'false');
+    btn.className = `relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none mt-1 ${isOn ? 'bg-emerald-500' : 'bg-gray-300'}`;
+    if (dot) dot.className = `${isOn ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`;
+    if (onMsg) onMsg.classList.toggle('hidden', !isOn);
+    if (offMsg) offMsg.classList.toggle('hidden', isOn);
+}
+
+window._toggleAutonomous = async function () {
+    const btn = document.getElementById('toggle-autonomous');
+    if (!btn) return;
+    const currentlyOn = btn.getAttribute('aria-checked') === 'true';
+    const newVal = !currentlyOn;
+    _applyAutonomousToggleState(newVal);
+
+    // Persist via update-assistant-context — get assistantId from URL/param
+    const assistantId = window._currentAssistantId;
+    if (!assistantId) return;
+
+    try {
+        await fetch('/.netlify/functions/update-assistant-context', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                assistantId,
+                appliedDefaults: { autonomousFallback: newVal },
+            }),
+        });
+    } catch (e) {
+        console.warn('Could not save autonomous toggle:', e);
+        // Revert on failure
+        _applyAutonomousToggleState(currentlyOn);
     }
 };

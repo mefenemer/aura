@@ -182,7 +182,8 @@
       'notifications': { file: 'notifications.html', title: '| Notifications' },
       'settings': { file: 'user-settings.html', title: '| Account Settings' },
       'billing': { file: 'billing.html', title: '| Subscription & Billing' },
-      'help': { file: 'help-content.html', title: '| Help & Support' }
+      'help': { file: 'help-content.html', title: '| Help & Support' },
+      'my-content': { file: 'my-content.html', title: '| My Content' }
     };
 
     // Consolidated DOM element hooks
@@ -196,7 +197,8 @@
       'notifications': document.getElementById('nav-notifications'),
       'settings': document.getElementById('nav-settings'),
       'billing': document.getElementById('nav-billing'),
-      'help': document.getElementById('nav-help')
+      'help': document.getElementById('nav-help'),
+      'my-content': document.getElementById('nav-my-content')
     };
 
     async function loadView(routeKey, param = null) {
@@ -258,6 +260,10 @@
         }
         if (routeKey === 'integrations' && typeof window.initIntegrations === 'function') {
           await window.initIntegrations();
+        }
+
+        if (routeKey === 'my-content' && typeof window.initMyContent === 'function') {
+          await window.initMyContent();
         }
 
         // --- NEW: Assistants Directory & Board Room ---
@@ -634,5 +640,6 @@
 <script src="/instructions.js"></script>
 <script src="/assistants.js"></script>
 <script src="/help.js"></script>
+<script src="/my-content.js"></script>
 </body>
 </html>
