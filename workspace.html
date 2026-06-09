@@ -577,9 +577,29 @@
     }
   }
 
-  // 3. Attach to SPA Router Initialization (Override/Update your existing functions)
+  // 3. Attach to SPA Router Initialization
   window.initDashboard = async function() {
-    // (Keep your existing onboarding widget check here)
+    // Show resume-onboarding banner if setup is not yet complete
+    try {
+      const statusRes = await fetch('/.netlify/functions/get-onboarding-status');
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        if (!statusData.isComplete) {
+          const widgetContainer = document.getElementById('onboarding-widget-container');
+          if (widgetContainer) {
+            widgetContainer.classList.remove('hidden');
+            const resumeBtn = document.getElementById('resume-onboarding-btn');
+            if (resumeBtn && !resumeBtn.dataset.bound) {
+              resumeBtn.dataset.bound = 'true';
+              resumeBtn.addEventListener('click', () => {
+                window.location.href = '/onboarding-social-media.html';
+              });
+            }
+          }
+        }
+      }
+    } catch (e) { /* silently skip if status check fails */ }
+
     await fetchAndRenderAssistants('dashboard-assistants-grid');
   };
 
