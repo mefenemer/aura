@@ -176,7 +176,7 @@
         body: JSON.stringify({ tier }),
       });
       const json = await res.json();
-      if (!res.ok) { showError(json.error || 'Failed to initialise checkout.'); return; }
+      if (!res.ok) { showError(json.detail || json.error || 'Failed to initialise checkout.'); return; }
       checkoutData = json.data;
     } catch {
       showError('Connection failed. Please check your internet and try again.');

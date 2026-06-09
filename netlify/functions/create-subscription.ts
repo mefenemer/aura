@@ -99,6 +99,8 @@ export const handler: Handler = async (event) => {
     };
   } catch (error: any) {
     console.error('create-subscription error:', error);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Failed to initialise checkout.' }) };
+    // Return the real error message in non-production so it's visible in the browser
+    const detail = error?.message || String(error);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Failed to initialise checkout.', detail }) };
   }
 };

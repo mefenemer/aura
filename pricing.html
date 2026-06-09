@@ -62,7 +62,7 @@
                     <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>1 Update per month.</strong></span></li>
                 </ul>
                 <a href="#"
-                   onclick="event.preventDefault(); choosePlan('price_1Tg6f1CuS8qyNSsFxeUsfi4a', 'buster');"
+                   onclick="event.preventDefault(); choosePlan('buster');"
                    class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">
                     Delegate This Task
                 </a>            </div>
@@ -90,7 +90,7 @@
                     <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>2 Updates per month.</strong></span></li>
                 </ul>
                 <a href="#"
-                   onclick="event.preventDefault(); choosePlan('price_1Tg6fQCuS8qyNSsF5DKmEqMu', 'saver');"
+                   onclick="event.preventDefault(); choosePlan('saver');"
                    class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">
                     Automate My Workflow
                 </a>            </div>
@@ -116,7 +116,7 @@
                     <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume & Tweaks.</strong></span></li>
                 </ul>
                 <a href="#"
-                   onclick="event.preventDefault(); choosePlan('price_1Tg6fiCuS8qyNSsF787zwCwh', 'employee');"
+                   onclick="event.preventDefault(); choosePlan('employee');"
                    class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">
                     Hire Your Assistant
                 </a>            </div>
@@ -291,11 +291,18 @@
     // Called by every plan CTA button.
     // Logged-in users → checkout.html?tier=…
     // New visitors → register.html (priceId stored for email magic link)
-    function choosePlan(priceId, tier) {
+    // Price IDs: test env first, live env second (both map to the same tier)
+    const PRICE_IDS = {
+        buster:   'price_1TgGNFE7lvVYjk1BAsnhUzBp',   // test
+        saver:    'price_1TgGP8E7lvVYjk1BRBeEZVd6',   // test
+        employee: 'price_1TgGPfE7lvVYjk1B1CQrS6pE',   // test
+    };
+
+    function choosePlan(tier) {
         if (getCookie('aura_session')) {
             window.location.href = 'checkout.html?tier=' + tier;
         } else {
-            sessionStorage.setItem('pending_price_id', priceId);
+            sessionStorage.setItem('pending_price_id', PRICE_IDS[tier] || PRICE_IDS.saver);
             window.location.href = 'register.html';
         }
     }

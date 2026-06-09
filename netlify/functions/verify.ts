@@ -79,8 +79,13 @@ export const handler: Handler = async (event) => {
         const protocol = event.headers['x-forwarded-proto'] || 'https';
         const baseUrl = `${protocol}://${event.headers.host}`;
 
-        // Map Stripe price IDs to onboarding tier keys
+        // Map Stripe price IDs → tier keys (test + live environments)
         const priceToTier: Record<string, string> = {
+            // Test price IDs
+            'price_1TgGNFE7lvVYjk1BAsnhUzBp': 'buster',
+            'price_1TgGP8E7lvVYjk1BRBeEZVd6': 'saver',
+            'price_1TgGPfE7lvVYjk1B1CQrS6pE': 'employee',
+            // Live price IDs
             'price_1Tg6f1CuS8qyNSsFxeUsfi4a': 'buster',
             'price_1Tg6fQCuS8qyNSsF5DKmEqMu': 'saver',
             'price_1Tg6fiCuS8qyNSsF787zwCwh': 'employee',
