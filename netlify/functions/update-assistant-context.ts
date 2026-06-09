@@ -29,7 +29,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 2. Payload Extraction
-    const { assistantId, newContext, newConfiguration } = JSON.parse(event.body || '{}');
+    const { assistantId, newContext, newConfiguration, newName } = JSON.parse(event.body || '{}');
 
     if (!assistantId || !newContext) return { statusCode: 400, body: JSON.stringify({ error: 'Missing parameters.' }) };
 
@@ -48,6 +48,7 @@ export const handler: Handler = async (event) => {
             // Perform the Update
             const updatePayload: any = { onboardingContext: newContext, updatedAt: new Date() };
             if (newConfiguration) updatePayload.configuration = newConfiguration;
+            if (newName) updatePayload.name = newName;
             await tx.update(aiAssistants)
                 .set(updatePayload)
                 .where(eq(aiAssistants.id, assistantId));

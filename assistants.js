@@ -30,7 +30,7 @@ window.generateAssistantCardHTML = function(assistant) {
             ${statusHtml}
         </div>
         <h3 class="text-lg font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">${assistant.name}</h3>
-        <p class="text-sm text-gray-500 mb-6">Job: ${role}</p>
+        <p class="text-sm text-gray-500 mb-6">${role}</p>
         <div class="mt-auto pt-4 border-t border-gray-50 flex justify-end">
             <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">Control Room &rarr;</span>
         </div>
@@ -86,15 +86,139 @@ window.initAssistantsDirectory = async function(loadViewCb) {
 // ==========================================
 // 4. ASSISTANT DETAIL CONTROLLER (The Control Room)
 // ==========================================
+
+// Name generator pool
+const _namePool = [
+    'Aria', 'Nova', 'Echo', 'Sage', 'Luna', 'Atlas', 'Ember', 'Orion',
+    'Lyra', 'Zara', 'Finn', 'Cleo', 'Rex', 'Mira', 'Axel', 'Skye',
+    'Juno', 'Blaze', 'Ivy', 'Max', 'Stella', 'Cole', 'Pip', 'Dawn',
+    'Felix', 'Nova', 'Cyra', 'Dex', 'Wren', 'Lux'
+];
+let _namePoolIdx = Math.floor(Math.random() * _namePool.length);
+
+function _detailSetVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.value = val || '';
+}
+
+function _detailToggleHandle(p) {
+    const chk = document.getElementById('plat_' + p);
+    const wrap = document.getElementById('handle-' + p);
+    if (chk && wrap) wrap.classList.toggle('hidden', !chk.checked);
+}
+
+function _detailHydrate(data) {
+    const ctx = data.context || {};
+    const cfg = data.configuration || {};
+    const inputs = cfg.inputs || {};
+
+    _detailSetVal('edit_problem', ctx.problem_statement || inputs.problem || '');
+    _detailSetVal('edit_frequency', ctx.posting_frequency || '');
+    _detailSetVal('edit_audience', ctx.target_audience || '');
+    _detailSetVal('edit_tone', ctx.tone_of_voice || '');
+    _detailSetVal('edit_pillars', ctx.content_pillars || '');
+    _detailSetVal('edit_workflow', inputs.workflowText || '');
+
+    // Radios — trigger
+    const triggerVal = inputs.trigger_type || '';
+    if (triggerVal) {
+        const r = document.querySelector(`input[name="edit_trigger"][value="${triggerVal}"]`);
+        if (r) r.checked = true;
+    }
+    // Radios — source
+    const sourceVal = inputs.content_source || inputs.sourceText || '';
+    if (sourceVal) {
+        const r = document.querySelector(`input[name="edit_source"][value="${sourceVal}"]`);
+        if (r) r.checked = true;
+    }
+
+    // Platforms
+    const platforms = ctx.primary_platforms || [];
+    const platformHandles = {};
+    (inputs.platforms || []).forEach(p => {
+        const match = p.match(/^([a-z]+)\s*\(([^)]+)\)/i);
+        if (match) platformHandles[match[1]] = match[2];
+    });
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+        const chk = document.getElementById('plat_' + p);
+        if (!chk) return;
+        const active = platforms.includes(p) || (inputs.platforms || []).some(s => s.startsWith(p));
+        chk.checked = active;
+        _detailToggleHandle(p);
+        if (active && platformHandles[p]) _detailSetVal('handle_' + p, platformHandles[p]);
+    });
+
+    // Guardrails — separate knowledge base out of strictRules
+    const allStrict = inputs.strictRules || [];
+    const kbLine = allStrict.find(r => r.includes('KNOWLEDGE BASE (TEXT)'));
+    const otherRules = allStrict.filter(r => !r.includes('KNOWLEDGE BASE (TEXT)'));
+    _detailSetVal('edit_strict_rules', otherRules.join('\n'));
+    if (kbLine) {
+        const m = kbLine.match(/:"([^"]+)"/);
+        _detailSetVal('edit_knowledge', m ? m[1] : '');
+    }
+}
+
+function _detailCollect(currentData) {
+    const platforms = [];
+    const platformsRaw = [];
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+        if (document.getElementById('plat_' + p)?.checked) {
+            platforms.push(p);
+            const handle = document.getElementById('handle_' + p)?.value || '';
+            platformsRaw.push(handle ? `${p} (${handle})` : p);
+        }
+    });
+
+    const strictLines = (document.getElementById('edit_strict_rules')?.value || '')
+        .split('\n').map(l => l.trim()).filter(Boolean);
+    const knowledge = document.getElementById('edit_knowledge')?.value || '';
+    if (knowledge) strictLines.push(`- KNOWLEDGE BASE (TEXT): Consider the following brand stories and context: "${knowledge}"`);
+
+    const newContext = {
+        problem_statement: document.getElementById('edit_problem')?.value || '',
+        posting_frequency: document.getElementById('edit_frequency')?.value || '',
+        target_audience: document.getElementById('edit_audience')?.value || '',
+        tone_of_voice: document.getElementById('edit_tone')?.value || '',
+        content_pillars: document.getElementById('edit_pillars')?.value || '',
+        primary_platforms: platforms,
+    };
+
+    const newConfiguration = {
+        ...(currentData.configuration || {}),
+        inputs: {
+            ...(currentData.configuration?.inputs || {}),
+            problem: document.getElementById('edit_problem')?.value || '',
+            trigger_type: document.querySelector('input[name="edit_trigger"]:checked')?.value || '',
+            triggerText: document.querySelector('input[name="edit_trigger"]:checked')?.value || '',
+            content_source: document.querySelector('input[name="edit_source"]:checked')?.value || '',
+            sourceText: document.querySelector('input[name="edit_source"]:checked')?.value || '',
+            platforms: platformsRaw,
+            generalPreferences: [
+                document.getElementById('edit_audience')?.value ? `- Target Audience: ${document.getElementById('edit_audience').value}` : '',
+                document.getElementById('edit_pillars')?.value ? `- Core Topics: ${document.getElementById('edit_pillars').value}` : '',
+                document.getElementById('edit_tone')?.value ? `- Preferred Tone: ${document.getElementById('edit_tone').value}` : '',
+            ].filter(Boolean),
+            workflowText: document.getElementById('edit_workflow')?.value || '',
+            strictRules: strictLines,
+        }
+    };
+
+    return { newContext, newConfiguration };
+}
+
+function _detailSetSaveStatus(msg, colour) {
+    const el = document.getElementById('detail-save-status');
+    if (!el) return;
+    el.className = `text-sm font-semibold transition-all ${colour || 'text-emerald-600'}`;
+    el.textContent = msg;
+}
+
 window.initAssistantDetail = async function(assistantId, loadViewCb) {
     if (!assistantId) return;
     window.activeAssistantId = assistantId;
 
-    // Pass the ID so the detail HTML's inline script can load the right assistant.
-    // The new assistant-detail.html manages its own tabs, hydration, and saving.
-    window._detailAssistantId = assistantId;
-
-    // Back button — re-wire after SPA HTML inject to avoid duplicate listeners
+    // Back button
     const btnBack = document.getElementById('btn-back-assistants');
     if (btnBack) {
         const newBtn = btnBack.cloneNode(true);
@@ -102,68 +226,161 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         newBtn.addEventListener('click', () => loadViewCb('assistants'));
     }
 
-    // Trigger the detail page's own load function if it has already registered
-    if (typeof window.loadAssistantDetail === 'function') {
-        await window.loadAssistantDetail(assistantId);
-    }
-};
+    // ── Tab switching ─────────────────────────────────────────────
+    document.querySelectorAll('.detail-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active-tab'));
+            document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.add('hidden'));
+            btn.classList.add('active-tab');
+            const panel = document.getElementById('tab-' + btn.dataset.tab);
+            if (panel) panel.classList.remove('hidden');
+        });
+    });
 
-// ==========================================
-// 5. HYDRATION ENGINE
-// ==========================================
-window.hydrateAssistantContext = async function() {
-    try {
-        const response = await fetch(`/.netlify/functions/get-assistant-context?id=${window.activeAssistantId}`);
-        if (response.ok) {
-            const data = await response.json();
-            window.cachedContext = data.context || {};
+    // ── Platform handle toggles ───────────────────────────────────
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+        const chk = document.getElementById('plat_' + p);
+        if (chk) chk.addEventListener('change', () => _detailToggleHandle(p));
+    });
 
-            // Update Headers
-            const nameEl = document.getElementById('detail-name');
-            if (nameEl) nameEl.innerText = data.name || 'Assistant';
+    // ── Load assistant data ───────────────────────────────────────
+    let currentData = {};
+    let saveTimeout = null;
 
-            const roleEl = document.getElementById('detail-role');
-            if (roleEl) roleEl.innerText = `Job: ${data.role || 'Digital Assistant'}`;
-
-            const avatarEl = document.getElementById('detail-avatar');
-            if (avatarEl) avatarEl.innerText = data.name ? data.name.charAt(0).toUpperCase() : 'A';
-
-            // Update Status Badge
-            const statusBadge = document.getElementById('detail-status');
-            const toggleBtn = document.getElementById('btn-toggle-status');
-            if (statusBadge) {
-                if (data.status === 'pending') {
-                    statusBadge.className = "inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200";
-                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Provisioning';
-                    if(toggleBtn) toggleBtn.textContent = 'Pause Assistant';
-                } else if (data.status === 'failed') {
-                    statusBadge.className = "inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-red-50 text-red-700 border border-red-200";
-                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Failed';
-                    if(toggleBtn) toggleBtn.textContent = 'Retry Provisioning';
-                } else {
-                    statusBadge.className = "inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200";
-                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Active';
-                    if(toggleBtn) toggleBtn.textContent = 'Pause Assistant';
+    async function persistChanges() {
+        _detailSetSaveStatus('Saving…', 'text-gray-400');
+        const { newContext, newConfiguration } = _detailCollect(currentData);
+        // Also save the name
+        const nameInput = document.getElementById('detail-name-input');
+        const newName = nameInput ? nameInput.value.trim() : null;
+        try {
+            const body = { assistantId: parseInt(assistantId), newContext, newConfiguration };
+            if (newName) body.newName = newName;
+            const res = await fetch('/.netlify/functions/update-assistant-context', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (res.ok) {
+                currentData.context = newContext;
+                currentData.configuration = newConfiguration;
+                if (newName) {
+                    document.getElementById('detail-avatar').textContent = newName.charAt(0).toUpperCase();
+                    currentData.name = newName;
                 }
+                _detailSetSaveStatus('✓ Saved', 'text-emerald-600');
+                setTimeout(() => _detailSetSaveStatus(''), 3000);
+            } else {
+                _detailSetSaveStatus('Save failed', 'text-red-500');
             }
+        } catch {
+            _detailSetSaveStatus('Save failed', 'text-red-500');
+        }
+    }
 
-            // Fill Context Inputs
-            if(document.getElementById('edit_audience')) document.getElementById('edit_audience').value = window.cachedContext.target_audience || '';
-            if(document.getElementById('edit_tone')) document.getElementById('edit_tone').value = window.cachedContext.tone_of_voice || '';
-            if(document.getElementById('edit_pillars')) document.getElementById('edit_pillars').value = window.cachedContext.content_pillars || '';
-            if(document.getElementById('edit_frequency')) document.getElementById('edit_frequency').value = window.cachedContext.posting_frequency || 'On Demand';
+    function triggerAutoSave() {
+        _detailSetSaveStatus('Unsaved changes…', 'text-gray-400');
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(persistChanges, 1200);
+    }
 
-            if (window.cachedContext.primary_platforms) {
-                document.querySelectorAll('.platform-chk').forEach(chk => {
-                    chk.checked = window.cachedContext.primary_platforms.includes(chk.value);
-                });
+    function attachAutoSave() {
+        const selectors = [
+            '[id^="edit_"]', '[id^="handle_"]',
+            'input[name="edit_trigger"]', 'input[name="edit_source"]',
+            '.platform-edit-chk', '#detail-name-input'
+        ].join(', ');
+        document.querySelectorAll(selectors).forEach(el => {
+            el.addEventListener('input', triggerAutoSave);
+            el.addEventListener('change', triggerAutoSave);
+        });
+    }
+
+    // ── Load & hydrate ────────────────────────────────────────────
+    try {
+        const res = await fetch(`/.netlify/functions/get-assistant-context?id=${assistantId}`);
+        if (!res.ok) throw new Error('Failed to load');
+        currentData = await res.json();
+
+        // Hero header
+        const nameInput = document.getElementById('detail-name-input');
+        if (nameInput) nameInput.value = currentData.name || 'Your Assistant';
+
+        const avatarEl = document.getElementById('detail-avatar');
+        if (avatarEl) avatarEl.textContent = (currentData.name || 'A').charAt(0).toUpperCase();
+
+        const roleEl = document.getElementById('detail-role');
+        if (roleEl) roleEl.textContent = currentData.role || 'Digital Assistant';
+
+        const statusEl = document.getElementById('detail-status');
+        const toggleBtn = document.getElementById('btn-toggle-status');
+        if (statusEl) {
+            const s = currentData.status || 'pending';
+            if (s === 'active') {
+                statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
+                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Active';
+                if (toggleBtn) toggleBtn.textContent = 'Pause Assistant';
+            } else if (s === 'pending') {
+                statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200';
+                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Provisioning';
+                if (toggleBtn) toggleBtn.textContent = 'Pause Assistant';
+            } else {
+                statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200';
+                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-400"></span> ' + s.charAt(0).toUpperCase() + s.slice(1);
+                if (toggleBtn) toggleBtn.textContent = 'Resume Assistant';
             }
         }
+
+        // Set window.cachedContext so fetchAndRenderIntegrations can use it
+        window.cachedContext = currentData.context || {};
+
+        _detailHydrate(currentData);
+        attachAutoSave();
     } catch (e) {
-        console.error("Hydration Error:", e);
+        console.error('Failed to load assistant detail:', e);
     }
 
-    // After loading the main context, fetch the integrations assigned to this assistant
+    // ── Name generator ────────────────────────────────────────────
+    const genBtn = document.getElementById('btn-generate-name');
+    if (genBtn) {
+        genBtn.addEventListener('click', () => {
+            _namePoolIdx = (_namePoolIdx + 1) % _namePool.length;
+            const nameInput = document.getElementById('detail-name-input');
+            if (nameInput) {
+                nameInput.value = _namePool[_namePoolIdx];
+                triggerAutoSave();
+            }
+        });
+    }
+
+    // ── Recent Activity ───────────────────────────────────────────
+    const activityList = document.getElementById('recent-activity-list');
+    if (activityList) {
+        try {
+            const res = await fetch(`/.netlify/functions/get-assistant-activity?id=${assistantId}`);
+            if (res.ok) {
+                const { logs } = await res.json();
+                if (logs && logs.length > 0) {
+                    activityList.innerHTML = logs.map(log => `
+                        <div class="flex items-start gap-3 py-2.5 border-b border-gray-100 last:border-0">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0"></div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-gray-700">${log.description || log.actionType}</p>
+                                <p class="text-xs text-gray-400 mt-0.5">${log.createdAt ? new Date(log.createdAt).toLocaleString() : ''}</p>
+                            </div>
+                        </div>`).join('');
+                } else {
+                    activityList.innerHTML = '<p class="text-sm text-gray-400 text-center py-3">No activity yet — your assistant is ready to get to work.</p>';
+                }
+            } else {
+                activityList.innerHTML = '<p class="text-sm text-gray-400 text-center py-3">No activity yet.</p>';
+            }
+        } catch {
+            activityList.innerHTML = '<p class="text-sm text-gray-400 text-center py-3">No activity yet.</p>';
+        }
+    }
+
+    // ── Integrations ──────────────────────────────────────────────
     await window.fetchAndRenderIntegrations();
 };
 

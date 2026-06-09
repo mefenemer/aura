@@ -2,44 +2,59 @@
 
   <!-- Back nav -->
   <nav class="flex mb-6 text-sm font-medium text-gray-500">
-    <button id="btn-back-assistants" onclick="window.loadView('assistants')" class="hover:text-emerald-700 transition-colors flex items-center gap-1 cursor-pointer">
+    <button id="btn-back-assistants" class="hover:text-emerald-700 transition-colors flex items-center gap-1 cursor-pointer">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
       Back to Team
     </button>
   </nav>
 
   <!-- Hero header -->
-  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 relative overflow-hidden">
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 mb-6 relative overflow-hidden">
     <div class="absolute -top-10 -right-10 w-32 h-32 bg-emerald-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
-    <div class="flex items-center gap-5 z-10">
-      <div id="detail-avatar" class="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shadow-sm"></div>
-      <div>
-        <div class="flex items-center gap-3">
-          <h1 id="detail-name" class="text-2xl font-extrabold text-gray-900">Loading…</h1>
-          <span id="detail-status" class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">…</span>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 z-10 relative">
+      <div class="flex items-center gap-5">
+        <div id="detail-avatar" class="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shadow-sm shrink-0">A</div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <input id="detail-name-input" type="text" value="Loading…"
+              class="text-2xl font-extrabold text-gray-900 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-emerald-500 focus:outline-none focus:ring-0 transition-colors min-w-0 w-auto"
+              style="width: 100%; max-width: 320px;"
+              placeholder="Assistant Name">
+            <button id="btn-generate-name" title="Generate a name" class="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer" type="button">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+            </button>
+            <span id="detail-status" class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">…</span>
+          </div>
+          <p id="detail-role" class="text-gray-500 font-medium mt-1 text-sm">Reviewing tasks…</p>
         </div>
-        <p id="detail-role" class="text-gray-500 font-medium mt-1">Reviewing tasks</p>
+      </div>
+      <div class="flex items-center gap-3 w-full sm:w-auto shrink-0">
+        <span id="detail-save-status" class="text-sm font-semibold text-emerald-600 transition-all mr-2"></span>
+        <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm cursor-pointer" type="button">
+          Pause Assistant
+        </button>
       </div>
     </div>
-    <div class="flex items-center gap-3 w-full sm:w-auto z-10">
-      <span id="detail-save-status" class="text-sm font-semibold text-emerald-600 transition-all mr-2"></span>
-      <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm cursor-pointer">
-        Pause Assistant
-      </button>
+  </div>
+
+  <!-- Recent Activity strip -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
+    <h3 class="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wide">Recent Activity</h3>
+    <div id="recent-activity-list" class="space-y-3">
+      <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading activity…</div>
     </div>
   </div>
 
   <!-- Tab bar -->
   <div class="border-b border-gray-200 mb-8 overflow-x-auto">
     <nav class="-mb-px flex space-x-1 min-w-max" aria-label="Tabs">
-      <button data-tab="problem"    class="detail-tab-btn active-tab cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-bold text-sm">The Problem</button>
-      <button data-tab="operation"  class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">How it Works</button>
-      <button data-tab="strategy"   class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Creative Strategy</button>
-      <button data-tab="workflow"   class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Workflow</button>
-      <button data-tab="platforms"  class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Platforms</button>
-      <button data-tab="guardrails" class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Guardrails</button>
+      <button data-tab="problem"      class="detail-tab-btn active-tab cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-bold text-sm">The Problem</button>
+      <button data-tab="operation"    class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">How it Works</button>
+      <button data-tab="strategy"     class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Creative Strategy</button>
+      <button data-tab="workflow"     class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Workflow</button>
+      <button data-tab="platforms"    class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Platforms</button>
+      <button data-tab="guardrails"   class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Guardrails</button>
       <button data-tab="integrations" class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Integrations</button>
-      <button data-tab="logs"       class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Activity Logs</button>
     </nav>
   </div>
 
@@ -119,10 +134,6 @@
       </div>
       <div class="space-y-5">
         <div>
-          <label for="edit_assistant_name" class="block text-sm font-bold text-gray-700 mb-1">Assistant Name</label>
-          <input type="text" id="edit_assistant_name" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Aria, ContentBot…">
-        </div>
-        <div>
           <label for="edit_audience" class="block text-sm font-bold text-gray-700 mb-1">Target Audience</label>
           <input type="text" id="edit_audience" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Tech founders aged 30–45 building B2B SaaS products…">
           <p class="text-xs text-gray-400 mt-1">Be specific — the more detail, the more targeted the content.</p>
@@ -166,7 +177,7 @@
       </div>
       <div class="space-y-4">
         <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
-          <input type="checkbox" id="plat_fb" value="fb" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer" onchange="toggleEditHandle('fb')">
+          <input type="checkbox" id="plat_fb" value="fb" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer">
           <div class="flex-1">
             <span class="font-semibold text-gray-800 text-sm">Facebook</span>
             <div id="handle-fb" class="hidden mt-2">
@@ -175,7 +186,7 @@
           </div>
         </label>
         <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
-          <input type="checkbox" id="plat_ig" value="ig" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer" onchange="toggleEditHandle('ig')">
+          <input type="checkbox" id="plat_ig" value="ig" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer">
           <div class="flex-1">
             <span class="font-semibold text-gray-800 text-sm">Instagram</span>
             <div id="handle-ig" class="hidden mt-2">
@@ -184,7 +195,7 @@
           </div>
         </label>
         <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
-          <input type="checkbox" id="plat_li" value="li" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer" onchange="toggleEditHandle('li')">
+          <input type="checkbox" id="plat_li" value="li" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer">
           <div class="flex-1">
             <span class="font-semibold text-gray-800 text-sm">LinkedIn</span>
             <div id="handle-li" class="hidden mt-2">
@@ -193,7 +204,7 @@
           </div>
         </label>
         <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
-          <input type="checkbox" id="plat_x" value="x" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer" onchange="toggleEditHandle('x')">
+          <input type="checkbox" id="plat_x" value="x" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer">
           <div class="flex-1">
             <span class="font-semibold text-gray-800 text-sm">X (Twitter)</span>
             <div id="handle-x" class="hidden mt-2">
@@ -248,261 +259,9 @@
     </div>
   </div>
 
-  <!-- ── TAB: Activity Logs ────────────────────────────────────── -->
-  <div id="tab-logs" class="detail-tab-content hidden space-y-6">
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-      <h3 class="text-lg font-bold text-gray-900 mb-4">Recent Activity</h3>
-      <p class="text-sm text-gray-500 mb-4">A log of all actions taken and errors encountered by this assistant.</p>
-      <div class="h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-sm font-medium text-gray-400">Awaiting first activity…</div>
-    </div>
-  </div>
-
-
 </div>
 
 <style>
   .detail-tab-btn.active-tab { border-bottom-color: #059669; color: #059669; font-weight: 700; }
   .detail-tab-btn:not(.active-tab) { border-bottom-color: transparent; }
 </style>
-
-<script>
-(function() {
-  let assistantId = null;
-  let currentData = {};
-  let saveTimeout = null;
-
-  // ── Tab switching ────────────────────────────────────────────
-  document.querySelectorAll('.detail-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active-tab'));
-      document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.add('hidden'));
-      btn.classList.add('active-tab');
-      document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
-    });
-  });
-
-  // ── Handle visibility toggles ────────────────────────────────
-  window.toggleEditHandle = function(p) {
-    const checked = document.getElementById('plat_' + p).checked;
-    document.getElementById('handle-' + p).classList.toggle('hidden', !checked);
-  };
-
-  // ── Populate form from API data ───────────────────────────────
-  function hydrate(data) {
-    const ctx = (data.context || {});
-    const cfg = (data.configuration || {});
-    const inputs = (cfg.inputs || {});
-
-    // Step 2 — Problem
-    setVal('edit_problem', ctx.problem_statement || inputs.problem || '');
-
-    // Step 3 — Operation
-    const triggerMap = { 'on demand': 'on_demand', 'reactive': 'reactive', 'scheduled': 'scheduled' };
-    const rawTrigger = (ctx.posting_frequency || inputs.triggerText || '').toLowerCase();
-    const triggerVal = Object.keys(triggerMap).find(k => rawTrigger.includes(k));
-    if (triggerVal) {
-      const radio = document.querySelector(`input[name="edit_trigger"][value="${triggerMap[triggerVal]}"]`);
-      if (radio) radio.checked = true;
-    } else if (inputs.trigger_type) {
-      const radio = document.querySelector(`input[name="edit_trigger"][value="${inputs.trigger_type}"]`);
-      if (radio) radio.checked = true;
-    }
-    const sourceMap = { 'client': 'client_provided', 'assistant': 'assistant_generated', 'hybrid': 'hybrid' };
-    const rawSource = (inputs.sourceText || inputs.content_source || '').toLowerCase();
-    const sourceVal = Object.keys(sourceMap).find(k => rawSource.includes(k));
-    if (sourceVal) {
-      const radio = document.querySelector(`input[name="edit_source"][value="${sourceMap[sourceVal]}"]`);
-      if (radio) radio.checked = true;
-    }
-    setVal('edit_frequency', ctx.posting_frequency || '');
-
-    // Step 4 — Strategy
-    setVal('edit_assistant_name', data.name || '');
-    setVal('edit_audience', ctx.target_audience || '');
-    setVal('edit_tone', ctx.tone_of_voice || '');
-    setVal('edit_pillars', ctx.content_pillars || '');
-
-    // Step 5 — Workflow
-    setVal('edit_workflow', inputs.workflowText || '');
-
-    // Step 6 — Platforms
-    const platforms = ctx.primary_platforms || [];
-    // inputs.platforms may be like ["fb (@handle)", "ig (@handle)"]
-    const platformHandles = {};
-    (inputs.platforms || []).forEach(p => {
-      const match = p.match(/^([a-z]+)\s*\(([^)]+)\)/i);
-      if (match) platformHandles[match[1]] = match[2];
-    });
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-      const chk = document.getElementById('plat_' + p);
-      const active = platforms.includes(p) || (inputs.platforms || []).some(s => s.startsWith(p));
-      chk.checked = active;
-      toggleEditHandle(p);
-      if (active && platformHandles[p]) setVal('handle_' + p, platformHandles[p]);
-    });
-
-    // Guardrails
-    const strictLines = (inputs.strictRules || []).join('\n');
-    setVal('edit_strict_rules', strictLines);
-    // Knowledge base is embedded in strictRules lines — extract it
-    const kbLine = (inputs.strictRules || []).find(r => r.includes('KNOWLEDGE BASE (TEXT)'));
-    if (kbLine) {
-      const kbMatch = kbLine.match(/:"([^"]+)"/);
-      setVal('edit_knowledge', kbMatch ? kbMatch[1] : '');
-    }
-  }
-
-  function setVal(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.value = val || '';
-  }
-
-  // ── Collect current form state ────────────────────────────────
-  function collectFormData() {
-    const platforms = [];
-    const platformsRaw = [];
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-      if (document.getElementById('plat_' + p)?.checked) {
-        platforms.push(p);
-        const handle = document.getElementById('handle_' + p)?.value || '';
-        platformsRaw.push(handle ? `${p} (${handle})` : p);
-      }
-    });
-
-    const strictLines = (document.getElementById('edit_strict_rules')?.value || '')
-      .split('\n').map(l => l.trim()).filter(Boolean);
-    const knowledge = document.getElementById('edit_knowledge')?.value || '';
-    if (knowledge) strictLines.push(`- KNOWLEDGE BASE (TEXT): Consider the following brand stories and context: "${knowledge}"`);
-
-    const newContext = {
-      problem_statement: document.getElementById('edit_problem')?.value || '',
-      posting_frequency: document.getElementById('edit_frequency')?.value || '',
-      target_audience: document.getElementById('edit_audience')?.value || '',
-      tone_of_voice: document.getElementById('edit_tone')?.value || '',
-      content_pillars: document.getElementById('edit_pillars')?.value || '',
-      primary_platforms: platforms,
-    };
-
-    const newConfiguration = {
-      ...(currentData.configuration || {}),
-      inputs: {
-        ...(currentData.configuration?.inputs || {}),
-        problem: document.getElementById('edit_problem')?.value || '',
-        trigger_type: document.querySelector('input[name="edit_trigger"]:checked')?.value || '',
-        triggerText: document.querySelector('input[name="edit_trigger"]:checked')?.value || '',
-        content_source: document.querySelector('input[name="edit_source"]:checked')?.value || '',
-        sourceText: document.querySelector('input[name="edit_source"]:checked')?.value || '',
-        platforms: platformsRaw,
-        generalPreferences: [
-          document.getElementById('edit_audience')?.value ? `- Target Audience: ${document.getElementById('edit_audience').value}` : '',
-          document.getElementById('edit_pillars')?.value ? `- Core Topics: ${document.getElementById('edit_pillars').value}` : '',
-          document.getElementById('edit_tone')?.value ? `- Preferred Tone: ${document.getElementById('edit_tone').value}` : '',
-        ].filter(Boolean),
-        workflowText: document.getElementById('edit_workflow')?.value || '',
-        strictRules: strictLines,
-      }
-    };
-
-    // Also update the assistant name in the header
-    const newName = document.getElementById('edit_assistant_name')?.value;
-    if (newName) document.getElementById('detail-name').textContent = newName;
-
-    return { newContext, newConfiguration };
-  }
-
-  // ── Save changes ──────────────────────────────────────────────
-  function setSaveStatus(msg, colour = 'text-emerald-600') {
-    const el = document.getElementById('detail-save-status');
-    if (!el) return;
-    el.className = `text-sm font-semibold transition-all ${colour}`;
-    el.textContent = msg;
-  }
-
-  async function persistChanges() {
-    if (!assistantId) return;
-    setSaveStatus('Saving…', 'text-gray-400');
-    const { newContext, newConfiguration } = collectFormData();
-    try {
-      const res = await fetch('/.netlify/functions/update-assistant-context', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assistantId, newContext, newConfiguration }),
-      });
-      if (res.ok) {
-        currentData.context = newContext;
-        currentData.configuration = newConfiguration;
-        setSaveStatus('✓ Saved', 'text-emerald-600');
-        setTimeout(() => setSaveStatus(''), 3000);
-      } else {
-        setSaveStatus('Save failed', 'text-red-500');
-      }
-    } catch {
-      setSaveStatus('Save failed', 'text-red-500');
-    }
-  }
-
-  function triggerAutoSave() {
-    setSaveStatus('Unsaved changes…', 'text-gray-400');
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(persistChanges, 1200);
-  }
-
-  function attachAutoSave() {
-    document.querySelectorAll(
-      '#assistant-settings-form input, #assistant-settings-form textarea, #assistant-settings-form select,' +
-      '[id^="edit_"], [id^="handle_"], input[name="edit_trigger"], input[name="edit_source"], .platform-edit-chk'
-    ).forEach(el => {
-      el.addEventListener('input', triggerAutoSave);
-      el.addEventListener('change', triggerAutoSave);
-    });
-  }
-
-  // ── Load assistant data ───────────────────────────────────────
-  async function loadAssistant() {
-    const params = new URLSearchParams(window.location.search);
-    assistantId = params.get('assistant') || window._detailAssistantId;
-    if (!assistantId) { console.error('No assistant ID'); return; }
-
-    try {
-      const res = await fetch(`/.netlify/functions/get-assistant-context?id=${assistantId}`);
-      if (!res.ok) throw new Error('Failed to load');
-      currentData = await res.json();
-
-      // Header
-      document.getElementById('detail-name').textContent = currentData.name || 'Your Assistant';
-      document.getElementById('detail-avatar').textContent = (currentData.name || 'A').charAt(0).toUpperCase();
-      document.getElementById('detail-role').textContent = currentData.role || 'Digital Assistant';
-
-      const statusEl = document.getElementById('detail-status');
-      const s = currentData.status || 'pending';
-      statusEl.textContent = s.charAt(0).toUpperCase() + s.slice(1);
-      statusEl.className = `inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold border ${
-        s === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-        s === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-        'bg-gray-100 text-gray-600 border-gray-200'
-      }`;
-
-      const toggleBtn = document.getElementById('btn-toggle-status');
-      if (toggleBtn) toggleBtn.textContent = currentData.isActive ? 'Pause Assistant' : 'Resume Assistant';
-
-      hydrate(currentData);
-      attachAutoSave();
-    } catch (e) {
-      console.error('Failed to load assistant:', e);
-    }
-  }
-
-  // Expose so assistants.js can call this after the SPA injects the HTML
-  window.loadAssistantDetail = async function(id) {
-    if (id) assistantId = id;
-    await loadAssistant();
-  };
-
-  // Also try to load immediately using whatever ID is available
-  const initId = window._detailAssistantId || window.activeAssistantId;
-  if (initId) {
-    assistantId = initId;
-    loadAssistant();
-  }
-})();
-</script>
