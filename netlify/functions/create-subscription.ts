@@ -104,8 +104,20 @@ export const handler: Handler = async (event) => {
       expand: ['payment_intent'],
     });
 
+    // Debug: log invoice shape to understand what the API version returns
+    console.log('Invoice debug:', JSON.stringify({
+      id: invoice.id,
+      status: invoice.status,
+      billing_reason: invoice.billing_reason,
+      payment_intent: invoice.payment_intent,
+      amount_due: invoice.amount_due,
+      keys: Object.keys(invoice),
+    }));
+
     const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
-    if (!paymentIntent?.client_secret) throw new Error('Invoice has no payment intent — subscription may already be active or in an unexpected state.');
+    if (!paymentIntent?.client_secret) {
+      throw new Error(`Invoice ${invoice.id} status="${invoice.status}" has no payment_intent. Available keys: ${Object.keys(invoice).join(', ')}`);
+    }
 
     return {
       statusCode: 200,
