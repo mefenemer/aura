@@ -189,7 +189,16 @@ export const handler: Handler = async (event) => {
 
         return { statusCode: 405, body: 'Method Not Allowed' };
 
-    } catch (err) {
+    } catch (err: any) {
+        // Table not yet migrated — return empty payload so the calendar renders
+        const msg: string = err?.message || '';
+        if (msg.includes('relation') && msg.includes('does not exist')) {
+            console.warn('[scheduled-posts] Table missing — run db:push to apply migrations.');
+            if (event.httpMethod === 'GET' && !event.queryStringParameters?.id) {
+                return { statusCode: 200, body: JSON.stringify({ posts: [] }) };
+            }
+            return { statusCode: 503, body: JSON.stringify({ error: 'Database schema not yet applied. Please run db:push.' }) };
+        }
         console.error('Scheduled Posts Error:', err);
         return { statusCode: 500, body: JSON.stringify({ error: 'Internal Server Error' }) };
     }

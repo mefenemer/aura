@@ -166,7 +166,15 @@ export const handler: Handler = async (event) => {
 
         return { statusCode: 405, body: 'Method Not Allowed' };
 
-    } catch (err) {
+    } catch (err: any) {
+        const msg: string = err?.message || '';
+        if (msg.includes('relation') && msg.includes('does not exist')) {
+            console.warn('[content-assets] Table missing — run db:push to apply migrations.');
+            if (event.httpMethod === 'GET') {
+                return { statusCode: 200, body: JSON.stringify({ assets: { pending: [], scheduled: [], posted: [], rejected: [] } }) };
+            }
+            return { statusCode: 503, body: JSON.stringify({ error: 'Database schema not yet applied. Please run db:push.' }) };
+        }
         console.error('Content Assets Error:', err);
         return { statusCode: 500, body: JSON.stringify({ error: 'Internal Server Error' }) };
     }
