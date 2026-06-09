@@ -84,7 +84,6 @@ export const handler: Handler = async (event) => {
       items: [{ price: stripePriceId }],
       payment_behavior: 'default_incomplete',
       payment_settings: { save_default_payment_method: 'on_subscription' },
-      expand: ['latest_invoice.payment_intent'],
       metadata: {
         userId: user.id.toString(),
         organisationId: user.organisationId.toString(),
@@ -93,8 +92,20 @@ export const handler: Handler = async (event) => {
       },
     });
 
-    const latestInvoice = subscription.latest_invoice as Stripe.Invoice;
-    const paymentIntent = latestInvoice.payment_intent as Stripe.PaymentIntent;
+    // Resolve the latest invoice ID (may be a string or an expanded object)
+    const invoiceId = typeof subscription.latest_invoice === 'string'
+      ? subscription.latest_invoice
+      : (subscription.latest_invoice as any)?.id;
+
+    if (!invoiceId) throw new Error('Subscription was created but has no invoice.');
+
+    // Fetch the invoice with payment_intent expanded explicitly
+    const invoice = await stripe.invoices.retrieve(invoiceId, {
+      expand: ['payment_intent'],
+    });
+
+    const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+    if (!paymentIntent?.client_secret) throw new Error('Invoice has no payment intent — subscription may already be active or in an unexpected state.');
 
     return {
       statusCode: 200,
