@@ -1,8 +1,8 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { userProfiles } from '../../db/schema';
+import { users, workspaceAssets, userProfiles } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -22,19 +22,56 @@ export const handler: Handler = async (event) => {
 
     const db = getDb();
 
+    // Get user's orgId
+    const [user] = await db
+        .select({ organisationId: users.organisationId })
+        .from(users)
+        .where(eq(users.id, currentUserId))
+        .limit(1);
+
+    if (!user?.organisationId) {
+        return { statusCode: 200, body: JSON.stringify({ assistantRules: [], brandProfile: null }) };
+    }
+
+    // Fetch assistant rules from workspaceAssets (text type)
+    const ruleRows = await db
+        .select({
+            id: workspaceAssets.id,
+            category: workspaceAssets.category,
+            extractedText: workspaceAssets.extractedText,
+            isActive: workspaceAssets.isActive,
+            priority: workspaceAssets.priority,
+        })
+        .from(workspaceAssets)
+        .where(
+            and(
+                eq(workspaceAssets.organisationId, user.organisationId),
+                eq(workspaceAssets.assetType, 'text')
+            )
+        )
+        .orderBy(workspaceAssets.category, workspaceAssets.priority);
+
+    // Flatten into a list of rules with stable string IDs for per-assistant toggles
+    const assistantRules = ruleRows
+        .filter(r => r.extractedText && r.extractedText.trim() !== '')
+        .map(r => ({
+            id: String(r.id),         // stable DB id — used as key in appliedDefaults
+            text: r.extractedText!,
+            category: r.category,
+            isActive: r.isActive,     // global toggle state from the instructions page
+        }));
+
+    // Fetch brand profile from userProfiles.preferences
     const [profile] = await db
         .select({ preferences: userProfiles.preferences })
         .from(userProfiles)
         .where(eq(userProfiles.userId, currentUserId))
         .limit(1);
 
-    const prefs = (profile?.preferences as any) || {};
+    const brandProfile = (profile?.preferences as any)?.brandProfile || null;
 
     return {
         statusCode: 200,
-        body: JSON.stringify({
-            assistantRules: prefs.assistantRules || [],
-            brandProfile: prefs.brandProfile || null,
-        }),
+        body: JSON.stringify({ assistantRules, brandProfile }),
     };
 };

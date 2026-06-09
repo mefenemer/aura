@@ -158,18 +158,61 @@ window.initInstructions = function() {
         return tr;
     };
 
-    // --- 4. INITIALIZE EMPTY ROWS & ADD BUTTONS ---
+    // --- 4. WIRE UP "ADD RULE" BUTTONS ---
     categories.forEach(cat => {
-        const tbody = document.getElementById(`tbody-${cat.id}`);
-        tbody.appendChild(createRow(cat.placeholder));
-
         document.querySelector(`button[data-category="${cat.id}"]`).addEventListener('click', () => {
+            const tbody = document.getElementById(`tbody-${cat.id}`);
             tbody.appendChild(createRow(cat.placeholder));
-            // Triggering save immediately ensures the new blank row is caught
-            // if the user navigates away before typing.
             triggerAutoSave();
         });
     });
+
+    // --- 5. LOAD EXISTING RULES FROM DB ---
+    (async () => {
+        try {
+            const res = await fetch('/.netlify/functions/add-text-assets');
+            if (!res.ok) throw new Error('Load failed');
+            const data = await res.json();
+            const grouped = data.rules || {};
+
+            categories.forEach(cat => {
+                const tbody = document.getElementById(`tbody-${cat.id}`);
+                const savedRules = grouped[cat.id];
+
+                if (savedRules && savedRules.length > 0) {
+                    // Populate with saved data
+                    savedRules.forEach(rule => {
+                        const tr = createRow(cat.placeholder);
+                        const input = tr.querySelector('.rule-input');
+                        const toggleBtn = tr.querySelector('.toggle-btn');
+                        const toggleDot = toggleBtn.querySelector('span');
+
+                        input.value = rule.value;
+                        input.style.height = '';
+                        input.style.height = input.scrollHeight + 'px';
+
+                        // Apply toggle state
+                        const isActive = rule.isActive !== false;
+                        toggleBtn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+                        toggleBtn.className = `toggle-btn relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isActive ? 'bg-green-500' : 'bg-gray-300'}`;
+                        toggleDot.className = `${isActive ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`;
+                        if (!isActive) input.classList.add('text-gray-400', 'line-through');
+
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    // No saved rules — show one empty row as a prompt
+                    tbody.appendChild(createRow(cat.placeholder));
+                }
+            });
+        } catch (e) {
+            console.warn('Could not load saved rules:', e);
+            // Fall back to empty rows
+            categories.forEach(cat => {
+                document.getElementById(`tbody-${cat.id}`).appendChild(createRow(cat.placeholder));
+            });
+        }
+    })();
 
     // --- 5. HTML5 DRAG AND DROP ENGINE ---
     let draggedRow = null;

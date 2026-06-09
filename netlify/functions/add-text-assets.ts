@@ -9,7 +9,7 @@ import { logAuditEvent } from '../../src/utils/audit';
 const jwtSecret = process.env.JWT_SECRET;
 
 export const handler = async (event: HandlerEvent) => {
-    if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+    if (event.httpMethod !== 'GET' && event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
     if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
 
     // 1. Authenticate Session
@@ -42,6 +42,40 @@ export const handler = async (event: HandlerEvent) => {
         }
 
         const orgId = user.organisationId;
+
+        // --- GET: LOAD EXISTING RULES ---
+        if (event.httpMethod === 'GET') {
+            const rows = await db
+                .select({
+                    id: workspaceAssets.id,
+                    category: workspaceAssets.category,
+                    extractedText: workspaceAssets.extractedText,
+                    isActive: workspaceAssets.isActive,
+                    priority: workspaceAssets.priority,
+                })
+                .from(workspaceAssets)
+                .where(
+                    and(
+                        eq(workspaceAssets.organisationId, orgId),
+                        eq(workspaceAssets.assetType, 'text')
+                    )
+                )
+                .orderBy(workspaceAssets.category, workspaceAssets.priority);
+
+            // Group by category
+            const grouped: Record<string, Array<{ id: number, value: string, isActive: boolean, priority: number }>> = {};
+            rows.forEach(row => {
+                if (!grouped[row.category]) grouped[row.category] = [];
+                grouped[row.category].push({
+                    id: row.id,
+                    value: row.extractedText || '',
+                    isActive: row.isActive,
+                    priority: row.priority,
+                });
+            });
+
+            return { statusCode: 200, body: JSON.stringify({ rules: grouped }) };
+        }
 
         // The payload is now an array of categories, each containing an array of rules
         const payload: Array<{ category: string, rules: Array<{ priority: number, value: string, isActive: boolean }> }> = JSON.parse(event.body || '[]');

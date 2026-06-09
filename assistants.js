@@ -545,16 +545,32 @@ async function _fetchAndRenderWorkspaceDefaults(assistantId, currentData, trigge
                 </div>`;
         } else {
             rulesContainer.innerHTML = '';
+            // Category display labels
+            const CATEGORY_LABELS = {
+                tone_of_voice: 'Tone of Voice & Personality',
+                response_formatting: 'Response Formatting',
+                core_knowledge: 'Core Business Facts',
+                target_audience: 'Target Audience Context',
+            };
+
             defaults.assistantRules.forEach(rule => {
-                const isEnabled = appliedDefaults.assistantRules?.[rule.id] !== false; // default ON
+                // Per-assistant override: if not set, default ON for globally active rules, OFF for globally inactive
+                const perAssistantSet = appliedDefaults.assistantRules?.[rule.id];
+                const isEnabled = perAssistantSet !== undefined ? perAssistantSet : rule.isActive;
                 const rowId = `rule-toggle-${rule.id}`;
+                const categoryLabel = CATEGORY_LABELS[rule.category] || rule.category;
+                const globallyOff = !rule.isActive;
+
                 rulesContainer.insertAdjacentHTML('beforeend', `
-                    <div class="flex items-start gap-4 py-3.5 border-b border-gray-100 last:border-0">
+                    <div class="flex items-start gap-4 py-3.5 border-b border-gray-100 last:border-0 ${globallyOff && !isEnabled ? 'opacity-50' : ''}">
                         <div class="flex-1 min-w-0">
                             <p class="text-sm text-gray-800 font-medium">${_escapeHtml(rule.text)}</p>
-                            ${rule.category ? `<p class="text-xs text-gray-400 mt-0.5">${_escapeHtml(rule.category)}</p>` : ''}
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <p class="text-xs text-gray-400">${_escapeHtml(categoryLabel)}</p>
+                                ${globallyOff ? '<span class="text-xs text-amber-600 font-semibold">· Globally off</span>' : ''}
+                            </div>
                         </div>
-                        <label class="flex items-center cursor-pointer relative shrink-0 mt-0.5">
+                        <label class="flex items-center cursor-pointer relative shrink-0 mt-0.5" title="${globallyOff ? 'This rule is disabled globally on the Assistant Rules page' : ''}">
                             <input type="checkbox" id="${rowId}" data-rule-id="${rule.id}" class="sr-only peer global-rule-toggle" ${isEnabled ? 'checked' : ''}>
                             <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
                         </label>
