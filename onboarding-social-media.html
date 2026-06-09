@@ -124,7 +124,7 @@
                 <p class="text-xs text-gray-400 mt-0.5">Triage, draft replies, and organise your inbox on autopilot.</p>
               </div>
               <button type="button" onclick="openWaitlistModal('Email Manager')"
-                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition">
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition cursor-pointer">
                 Join the waitlist →
               </button>
             </div>
@@ -140,7 +140,7 @@
                 <p class="text-xs text-gray-400 mt-0.5">Instantly score, tag, and follow up with new enquiries from any source.</p>
               </div>
               <button type="button" onclick="openWaitlistModal('Lead Qualifier')"
-                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition">
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition cursor-pointer">
                 Join the waitlist →
               </button>
             </div>
@@ -156,7 +156,7 @@
                 <p class="text-xs text-gray-400 mt-0.5">Extract, file, and track receipts and invoices from your email automatically.</p>
               </div>
               <button type="button" onclick="openWaitlistModal('Invoice Organiser')"
-                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition">
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition cursor-pointer">
                 Join the waitlist →
               </button>
             </div>
@@ -172,7 +172,7 @@
                 <p class="text-xs text-gray-400 mt-0.5">Handle common queries, chase responses, and escalate only what matters.</p>
               </div>
               <button type="button" onclick="openWaitlistModal('Customer Support Agent')"
-                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition">
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition cursor-pointer">
                 Join the waitlist →
               </button>
             </div>
@@ -188,7 +188,7 @@
                 <p class="text-xs text-gray-400 mt-0.5">Draft blog posts, newsletters, and copy in your voice, ready to publish.</p>
               </div>
               <button type="button" onclick="openWaitlistModal('Content Writer')"
-                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition">
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition cursor-pointer">
                 Join the waitlist →
               </button>
             </div>
@@ -581,7 +581,7 @@
               </svg>
               Save &amp; Continue Later
             </button>
-            <button type="button" id="btn-next" onclick="nextStep()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
+            <button type="button" id="btn-next" onclick="nextStep()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition cursor-pointer">
               Next Step
             </button>
           </div>
@@ -1511,7 +1511,7 @@
         window.location.href = 'onboarding.html?restart=true';
       } catch (e) { alert("Could not clear draft."); }
     }
-  }}
+  }
   window.submitToBackend = submitToBackend;
 </script>
 </body>
