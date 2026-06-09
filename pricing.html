@@ -288,6 +288,18 @@
         return null;
     }
 
+    // Returns true only if aura_session exists AND its JWT exp is in the future.
+    function isLoggedIn() {
+        const token = getCookie('aura_session');
+        if (!token) return false;
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            return payload.exp && payload.exp * 1000 > Date.now();
+        } catch {
+            return false;
+        }
+    }
+
     // Called by every plan CTA button.
     // Logged-in users → checkout.html?tier=…
     // New visitors → register.html (priceId stored for email magic link)
@@ -299,7 +311,7 @@
     };
 
     function choosePlan(tier) {
-        if (getCookie('aura_session')) {
+        if (isLoggedIn()) {
             window.location.href = 'checkout.html?tier=' + tier;
         } else {
             sessionStorage.setItem('pending_price_id', PRICE_IDS[tier] || PRICE_IDS.saver);
