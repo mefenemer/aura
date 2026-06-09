@@ -307,10 +307,23 @@
     // Fire the initial landing layout
     await loadView('dashboard');
 
-    // Show welcome modal if arriving from successful checkout
-    if (new URLSearchParams(window.location.search).get('payment') === 'success') {
+    // Arriving from Stripe after successful payment
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.get('payment') === 'success') {
       document.getElementById('payment-welcome-modal').classList.remove('hidden');
       document.getElementById('payment-welcome-modal').classList.add('flex');
+
+      // Stripe appends payment_intent to the return_url — use it to guarantee
+      // the plan record exists even if the webhook hasn't fired yet.
+      const piId = qs.get('payment_intent');
+      if (piId) {
+        fetch('/.netlify/functions/confirm-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentIntentId: piId }),
+        }).catch(e => console.warn('confirm-payment call failed:', e));
+      }
+
       history.replaceState(null, '', window.location.pathname);
     }
 
