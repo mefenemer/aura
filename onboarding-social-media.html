@@ -645,26 +645,7 @@
     document.getElementById('nav-subtitle').textContent = '| ' + radio.value;
   }
 
-  // Force the fragment's validation to be globally accessible
-  window.validateCurrentStep = function() {
-    if (currentStep === 1) {
-      const selected = document.querySelector('input[name="selected_assistant"]:checked');
-      if (!selected) {
-        alert('Please select a Digital Assistant to continue.');
-        return false;
-      }
-      return true;
-    }
-    // Check if step 2 specifically is valid
-    if (currentStep === 2) {
-      const prob = document.getElementById('user_story_problem');
-      if (!prob || prob.value.trim().length < 10) {
-        alert("Please provide more detail about your bottleneck.");
-        return false;
-      }
-    }
-    return true;
-  };
+  // window.validateCurrentStep is defined below after all helpers are in scope
   // --- 1. CONFIG & STATE ---
   let currentStep = 1;
   const totalSteps = 9;
@@ -955,6 +936,15 @@
 
   window.validateCurrentStep = function() {
     let isValid = true;
+
+    // --- Step 1 Validation: assistant must be selected ---
+    if (currentStep === 1) {
+      if (!document.querySelector('input[name="selected_assistant"]:checked')) {
+        alert('Please select a Digital Assistant to continue.');
+        return false;
+      }
+      return true;
+    }
 
     // --- Step 2 Validation ---
     if (currentStep === 2) {
@@ -1312,6 +1302,7 @@
       document.getElementById('btn-back').style.display = 'block';
       alert('Connection failed. Please try again.');
     }
+  } // end submitToBackend
 
   // --- 8. UI HELPERS ---
   function loadComponent(id, file) { fetch(file).then(r => r.ok && r.text().then(t => document.getElementById(id).innerHTML = t)); }
