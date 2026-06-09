@@ -264,47 +264,15 @@
   <!-- ── TAB: Platforms ────────────────────────────────────────── -->
   <div id="tab-platforms" class="detail-tab-content hidden space-y-6">
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
-      <div class="mb-6">
-        <h3 class="text-lg font-bold text-gray-900">Step 6 — Platforms</h3>
-        <p class="text-sm text-gray-500 mt-1">Which social platforms does your assistant post to, and what are the account handles?</p>
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Platforms</h3>
+          <p class="text-sm text-gray-500 mt-1">Select which verified platform connections this assistant should post to. Connections are managed in <a href="#" onclick="window.loadView('integrations')" class="text-emerald-600 hover:underline font-medium">Connections settings</a>.</p>
+        </div>
+        <span id="platforms-save-status" class="text-sm font-bold text-emerald-600 shrink-0 transition-all"></span>
       </div>
-      <div class="space-y-4">
-        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
-          <input type="checkbox" id="plat_fb" value="fb" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer">
-          <div class="flex-1">
-            <span class="font-semibold text-gray-800 text-sm">Facebook</span>
-            <div id="handle-fb" class="hidden mt-2">
-              <input type="text" id="handle_fb" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="https://facebook.com/yourpage">
-            </div>
-          </div>
-        </label>
-        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
-          <input type="checkbox" id="plat_ig" value="ig" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer">
-          <div class="flex-1">
-            <span class="font-semibold text-gray-800 text-sm">Instagram</span>
-            <div id="handle-ig" class="hidden mt-2">
-              <input type="text" id="handle_ig" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="@yourbrand">
-            </div>
-          </div>
-        </label>
-        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
-          <input type="checkbox" id="plat_li" value="li" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer">
-          <div class="flex-1">
-            <span class="font-semibold text-gray-800 text-sm">LinkedIn</span>
-            <div id="handle-li" class="hidden mt-2">
-              <input type="text" id="handle_li" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="https://linkedin.com/in/yourprofile">
-            </div>
-          </div>
-        </label>
-        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
-          <input type="checkbox" id="plat_x" value="x" class="platform-edit-chk mt-0.5 h-4 w-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-700 cursor-pointer">
-          <div class="flex-1">
-            <span class="font-semibold text-gray-800 text-sm">X (Twitter)</span>
-            <div id="handle-x" class="hidden mt-2">
-              <input type="text" id="handle_x" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="@yourhandle">
-            </div>
-          </div>
-        </label>
+      <div id="assistant-platforms-list">
+        <div class="h-12 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading platforms…</div>
       </div>
     </div>
   </div>

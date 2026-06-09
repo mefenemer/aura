@@ -101,11 +101,6 @@ function _detailSetVal(id, val) {
     if (el) el.value = val || '';
 }
 
-function _detailToggleHandle(p) {
-    const chk = document.getElementById('plat_' + p);
-    const wrap = document.getElementById('handle-' + p);
-    if (chk && wrap) wrap.classList.toggle('hidden', !chk.checked);
-}
 
 function _detailHydrate(data) {
     const ctx = data.context || {};
@@ -143,21 +138,7 @@ function _detailHydrate(data) {
         if (r) r.checked = true;
     }
 
-    // Platforms
-    const platforms = ctx.primary_platforms || [];
-    const platformHandles = {};
-    (inputs.platforms || []).forEach(p => {
-        const match = p.match(/^([a-z]+)\s*\(([^)]+)\)/i);
-        if (match) platformHandles[match[1]] = match[2];
-    });
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-        const chk = document.getElementById('plat_' + p);
-        if (!chk) return;
-        const active = platforms.includes(p) || (inputs.platforms || []).some(s => s.startsWith(p));
-        chk.checked = active;
-        _detailToggleHandle(p);
-        if (active && platformHandles[p]) _detailSetVal('handle_' + p, platformHandles[p]);
-    });
+    // Platforms are rendered dynamically from global connections — see _renderPlatformsTab()
 
     // Guardrails — separate knowledge base out of strictRules
     const allStrict = inputs.strictRules || [];
@@ -171,15 +152,9 @@ function _detailHydrate(data) {
 }
 
 function _detailCollect(currentData) {
-    const platforms = [];
-    const platformsRaw = [];
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-        if (document.getElementById('plat_' + p)?.checked) {
-            platforms.push(p);
-            const handle = document.getElementById('handle_' + p)?.value || '';
-            platformsRaw.push(handle ? `${p} (${handle})` : p);
-        }
-    });
+    // Platforms are managed via the dynamic platforms tab — preserve existing values
+    const platforms = currentData.context?.primary_platforms || [];
+    const platformsRaw = currentData.configuration?.inputs?.platforms || [];
 
     const strictLines = (document.getElementById('edit_strict_rules')?.value || '')
         .split('\n').map(l => l.trim()).filter(Boolean);
@@ -301,9 +276,9 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
 
     function attachAutoSave() {
         const selectors = [
-            '[id^="edit_"]', '[id^="handle_"]',
+            '[id^="edit_"]',
             'input[name="edit_trigger"]', 'input[name="edit_source"]', 'input[name="edit_objective"]',
-            '.platform-edit-chk', '#detail-name-input'
+            '#detail-name-input'
         ].join(', ');
         document.querySelectorAll(selectors).forEach(el => {
             el.addEventListener('input', triggerAutoSave);
@@ -395,12 +370,155 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         }
     }
 
+    // ── Platforms (from global connections) ───────────────────────
+    await _renderPlatformsTab(assistantId, currentData);
+
     // ── Integrations ──────────────────────────────────────────────
     await window.fetchAndRenderIntegrations();
 
     // ── Workspace defaults (Brand Profile + Assistant Rules) ──────
     await _fetchAndRenderWorkspaceDefaults(assistantId, currentData, triggerAutoSave);
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Platforms tab renderer — driven by global connections
+// ─────────────────────────────────────────────────────────────────
+async function _renderPlatformsTab(assistantId, currentData) {
+    const container = document.getElementById('assistant-platforms-list');
+    if (!container) return;
+
+    // Platform icon map (service name → emoji / short label)
+    const PLATFORM_ICONS = {
+        'facebook':  '📘', 'instagram': '📷', 'linkedin':  '💼',
+        'x':         '𝕏',  'twitter':   '𝕏',  'tiktok':    '🎵',
+        'youtube':   '▶️', 'pinterest': '📌',
+    };
+
+    let connections = [];
+    try {
+        const res = await fetch('/.netlify/functions/integrations');
+        if (res.ok) {
+            const data = await res.json();
+            // Only show connections the user has actually set up (userId is not null / has active status)
+            connections = (data.connections || []).filter(c => c.status === 'active' && c.userId);
+        }
+    } catch (e) {
+        console.warn('Could not load connections for platforms tab:', e);
+    }
+
+    if (connections.length === 0) {
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-10 text-center gap-3">
+                <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl">🔌</div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-700">No verified connections found</p>
+                    <p class="text-sm text-gray-500 mt-1">Connect your platforms first, then return here to assign them to this assistant.</p>
+                </div>
+                <a href="#" onclick="window.loadView('integrations')" class="mt-1 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer">
+                    Go to Connections →
+                </a>
+            </div>`;
+        return;
+    }
+
+    // Selected connection IDs for this assistant
+    const selectedIds = new Set(
+        (currentData.configuration?.appliedDefaults?.platforms || []).map(Number)
+    );
+
+    container.innerHTML = '';
+    connections.forEach(conn => {
+        const icon = PLATFORM_ICONS[conn.serviceName.toLowerCase()] || '🔗';
+        const isChecked = selectedIds.has(conn.id);
+        const handle = conn.externalUserId || '';
+        const statusClass = conn.status === 'active' ? 'bg-emerald-500' : 'bg-amber-400';
+
+        container.insertAdjacentHTML('beforeend', `
+            <label class="flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition
+                ${isChecked ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300 bg-white'}
+                platform-connection-card" data-conn-id="${conn.id}">
+                <input type="checkbox" class="sr-only platform-conn-chk" value="${conn.id}" ${isChecked ? 'checked' : ''}>
+                <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl shrink-0">${icon}</div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-gray-900 text-sm">${_escapeHtml(conn.serviceName)}</p>
+                    ${handle ? `<p class="text-xs text-gray-500 mt-0.5 truncate">${_escapeHtml(handle)}</p>` : ''}
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <span class="flex items-center gap-1.5 text-xs font-semibold ${conn.status === 'active' ? 'text-emerald-700' : 'text-amber-700'}">
+                        <span class="w-1.5 h-1.5 rounded-full ${statusClass}"></span>
+                        ${conn.status === 'active' ? 'Verified' : 'Inactive'}
+                    </span>
+                    <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0
+                        ${isChecked ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 bg-white'}
+                        platform-check-circle">
+                        ${isChecked ? '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>' : ''}
+                    </div>
+                </div>
+            </label>`);
+    });
+
+    // Add "manage connections" footer link
+    container.insertAdjacentHTML('beforeend', `
+        <div class="pt-4 text-center">
+            <a href="#" onclick="window.loadView('integrations')" class="text-sm text-emerald-600 hover:underline font-medium cursor-pointer">
+                + Connect more platforms →
+            </a>
+        </div>`);
+
+    // Handle toggle — update card style + save
+    container.querySelectorAll('.platform-conn-chk').forEach(chk => {
+        chk.addEventListener('change', async () => {
+            // Update card visual state immediately
+            const card = chk.closest('.platform-connection-card');
+            const circle = card?.querySelector('.platform-check-circle');
+            if (card) {
+                card.classList.toggle('border-emerald-500', chk.checked);
+                card.classList.toggle('bg-emerald-50', chk.checked);
+                card.classList.toggle('border-gray-200', !chk.checked);
+                card.classList.toggle('bg-white', !chk.checked);
+            }
+            if (circle) {
+                circle.className = `w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 platform-check-circle ${chk.checked ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 bg-white'}`;
+                circle.innerHTML = chk.checked ? '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>' : '';
+            }
+
+            // Collect all selected IDs
+            const selectedPlatformIds = Array.from(container.querySelectorAll('.platform-conn-chk:checked'))
+                .map(c => parseInt(c.value));
+
+            // Derive platform keys for primary_platforms (for brief generation compat)
+            const platformKeyMap = { facebook: 'fb', instagram: 'ig', linkedin: 'li', x: 'x', twitter: 'x', tiktok: 'tt', youtube: 'yt' };
+            const selectedKeys = connections
+                .filter(c => selectedPlatformIds.includes(c.id))
+                .map(c => platformKeyMap[c.serviceName.toLowerCase()] || c.serviceName.toLowerCase());
+
+            const statusEl = document.getElementById('platforms-save-status');
+            if (statusEl) statusEl.textContent = 'Saving…';
+
+            try {
+                const updatedContext = { ...window.cachedContext, primary_platforms: selectedKeys };
+                const r = await fetch('/.netlify/functions/update-assistant-context', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        assistantId: parseInt(assistantId),
+                        newContext: updatedContext,
+                        appliedDefaults: { platforms: selectedPlatformIds },
+                    }),
+                });
+                if (r.ok) {
+                    window.cachedContext = updatedContext;
+                    if (!currentData.configuration) currentData.configuration = {};
+                    if (!currentData.configuration.appliedDefaults) currentData.configuration.appliedDefaults = {};
+                    currentData.configuration.appliedDefaults.platforms = selectedPlatformIds;
+                    if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(() => statusEl.textContent = '', 2500); }
+                }
+            } catch {
+                if (document.getElementById('platforms-save-status')) document.getElementById('platforms-save-status').textContent = 'Error saving';
+            }
+        });
+    });
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Workspace Defaults renderer — Brand Profile + Assistant Rules
