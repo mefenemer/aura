@@ -32,7 +32,7 @@ window.generateAssistantCardHTML = function(assistant) {
         <h3 class="text-lg font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">${assistant.name}</h3>
         <p class="text-sm text-gray-500 mb-6">${role}</p>
         <div class="mt-auto pt-4 border-t border-gray-50 flex justify-end">
-            <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">Control Room &rarr;</span>
+            <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">Board Room &rarr;</span>
         </div>
     </div>`;
 };
