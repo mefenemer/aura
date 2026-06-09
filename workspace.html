@@ -611,7 +611,7 @@
           }
         }
       }
-    } catch (e) { /* silently skip if status check fails */ }
+    } catch (e) { console.warn('Onboarding status check failed:', e); }
 
     await fetchAndRenderAssistants('dashboard-assistants-grid');
   };

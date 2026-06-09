@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { userProfiles } from '../../db/schema'; // Removed unused 'users'
+import { aiAssistants } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET!;
 
@@ -16,17 +16,20 @@ export const handler: Handler = async (event) => {
         const decoded = jwt.verify(token, jwtSecret) as { userId: number };
         const db = getDb();
 
-        const [profile] = await db.select()
-            .from(userProfiles)
-            .where(eq(userProfiles.userId, decoded.userId));
+        // Onboarding is complete once the user has at least one AI assistant set up.
+        // This is reliable — the old check used preferences.onboardingComplete which
+        // was never written by any function, so it always returned undefined.
+        const [assistant] = await db
+            .select({ id: aiAssistants.id })
+            .from(aiAssistants)
+            .where(eq(aiAssistants.userId, decoded.userId))
+            .limit(1);
 
-        // FIX: Cast preferences as 'any' or an interface to resolve TS2339
-        const preferences = (profile?.preferences as any) || {};
-        const isComplete = preferences.onboardingComplete;
+        const isComplete = !!assistant;
 
         return {
             statusCode: 200,
-            body: JSON.stringify({ isComplete, status: isComplete ? 100 : 50 })
+            body: JSON.stringify({ isComplete, status: isComplete ? 100 : 0 })
         };
     } catch (e) {
         return { statusCode: 500, body: JSON.stringify({ error: 'Server error' }) };

@@ -81,8 +81,8 @@ export const handler: Handler = async (event) => {
         await db.insert(notifications).values({
             userId: userIdInt,
             type: 'billing',
-            title: 'Payment Successful',
-            message: 'Your subscription is active. Head to your dashboard to set up your Digital Assistant.',
+            title: 'Payment Successful — Set Up Your Assistant',
+            message: 'Your subscription is active. Click "Resume Setup" on your dashboard to build your Digital Assistant now.',
             isRead: false,
         });
     }
