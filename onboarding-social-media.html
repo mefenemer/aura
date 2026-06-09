@@ -4,7 +4,7 @@
   <script src="./auth-check.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Social Media Setup | Aura-Assist</title>
+  <title>Assistant Setup | Aura-Assist</title>
   <link href="./style.css" rel="stylesheet">
   <link rel="icon" href="/favicon/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
@@ -34,7 +34,7 @@
         <a href="index.html" class="flex items-center">
           <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura-Assist</span>
         </a>
-        <span class="text-base font-medium text-gray-400 ml-2">| Social Media Manager Blueprint</span>
+        <span id="nav-subtitle" class="text-base font-medium text-gray-400 ml-2">| Set Up Your Assistant</span>
       </div>
       <div class="flex items-center gap-4">
         <div id="draft-save-status" class="hidden items-center gap-1.5 px-3 py-1 rounded-full bg-gray-50 border border-gray-200 text-xs font-bold text-gray-500 shadow-sm transition-all duration-300 opacity-0">
@@ -58,18 +58,146 @@
   </div>
 </div>
 
+<!-- Waitlist modal -->
+<div id="waitlist-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+    <div class="flex justify-between items-start mb-4">
+      <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-2xl">🔔</div>
+      <button onclick="closeWaitlistModal()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+    </div>
+    <h3 class="text-xl font-extrabold text-gray-900 mb-1">Join the Waitlist</h3>
+    <p id="waitlist-desc" class="text-gray-500 text-sm mb-5">We'll notify you the moment this assistant is available.</p>
+    <input id="waitlist-email" type="email" placeholder="your@email.com"
+      class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition mb-3"
+    />
+    <button onclick="submitWaitlist()"
+      class="w-full px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg transition">
+      Notify Me
+    </button>
+    <div id="waitlist-success" class="hidden mt-3 text-center text-sm text-emerald-700 font-semibold">✓ You're on the list! We'll email you when it's ready.</div>
+    <div id="waitlist-error" class="hidden mt-3 text-center text-sm text-red-600"></div>
+  </div>
+</div>
+
 <main class="grow flex items-center justify-center p-4 sm:p-6 mb-20">
   <div class="bg-white rounded-2xl shadow-lg border border-gray-100 w-full max-w-2xl overflow-hidden mt-4">
 
     <div class="bg-gray-100 h-2 w-full">
-      <div id="progress-bar" class="bg-emerald-700 h-2 transition-all duration-500 ease-out" style="width: 25%;"></div>
+      <div id="progress-bar" class="bg-emerald-700 h-2 transition-all duration-500 ease-out" style="width: 11%;"></div>
     </div>
 
     <div class="p-8 sm:p-12">
       <form id="intake-form" onsubmit="event.preventDefault();">
 
-        <div id="step-2" class="step-active">
-          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 2 of 8</span>
+        <!-- STEP 1: Choose your assistant -->
+        <div id="step-1" class="step-active">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 1 of 9</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-2">Choose your Digital Assistant</h2>
+          <p class="text-gray-500 mb-6">Select the assistant you'd like to set up. More specialist assistants are coming soon.</p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            <!-- Social Media Manager — AVAILABLE -->
+            <label id="card-social-media" class="relative flex flex-col gap-2 p-5 border-2 border-emerald-600 rounded-xl cursor-pointer bg-emerald-50 transition ring-2 ring-emerald-600 ring-offset-1">
+              <input type="radio" name="selected_assistant" value="Social Media Manager" class="sr-only" checked onchange="onAssistantSelect(this)">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center text-xl">📱</div>
+                <span class="text-xs font-bold text-emerald-700 bg-white border border-emerald-200 px-2 py-0.5 rounded-full">Available</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-900 mt-1">Social Media Manager</p>
+                <p class="text-xs text-gray-500 mt-0.5">Research, write, and schedule content across your platforms automatically.</p>
+              </div>
+              <div id="check-social-media" class="absolute top-3 right-3 w-5 h-5 bg-emerald-600 rounded-full flex items-center justify-center">
+                <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </label>
+
+            <!-- Email Manager — LOCKED -->
+            <div class="relative flex flex-col gap-2 p-5 border border-gray-200 rounded-xl bg-gray-50 opacity-75">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">📧</div>
+                <span class="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">🔒 Coming Soon</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-400 mt-1">Email Manager</p>
+                <p class="text-xs text-gray-400 mt-0.5">Triage, draft replies, and organise your inbox on autopilot.</p>
+              </div>
+              <button type="button" onclick="openWaitlistModal('Email Manager')"
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition">
+                Join the waitlist →
+              </button>
+            </div>
+
+            <!-- Lead Qualifier — LOCKED -->
+            <div class="relative flex flex-col gap-2 p-5 border border-gray-200 rounded-xl bg-gray-50 opacity-75">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">🎯</div>
+                <span class="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">🔒 Coming Soon</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-400 mt-1">Lead Qualifier</p>
+                <p class="text-xs text-gray-400 mt-0.5">Instantly score, tag, and follow up with new enquiries from any source.</p>
+              </div>
+              <button type="button" onclick="openWaitlistModal('Lead Qualifier')"
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition">
+                Join the waitlist →
+              </button>
+            </div>
+
+            <!-- Invoice Organiser — LOCKED -->
+            <div class="relative flex flex-col gap-2 p-5 border border-gray-200 rounded-xl bg-gray-50 opacity-75">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">🧾</div>
+                <span class="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">🔒 Coming Soon</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-400 mt-1">Invoice Organiser</p>
+                <p class="text-xs text-gray-400 mt-0.5">Extract, file, and track receipts and invoices from your email automatically.</p>
+              </div>
+              <button type="button" onclick="openWaitlistModal('Invoice Organiser')"
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition">
+                Join the waitlist →
+              </button>
+            </div>
+
+            <!-- Customer Support Agent — LOCKED -->
+            <div class="relative flex flex-col gap-2 p-5 border border-gray-200 rounded-xl bg-gray-50 opacity-75">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">💬</div>
+                <span class="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">🔒 Coming Soon</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-400 mt-1">Customer Support Agent</p>
+                <p class="text-xs text-gray-400 mt-0.5">Handle common queries, chase responses, and escalate only what matters.</p>
+              </div>
+              <button type="button" onclick="openWaitlistModal('Customer Support Agent')"
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition">
+                Join the waitlist →
+              </button>
+            </div>
+
+            <!-- Content Writer — LOCKED -->
+            <div class="relative flex flex-col gap-2 p-5 border border-gray-200 rounded-xl bg-gray-50 opacity-75">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">✍️</div>
+                <span class="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">🔒 Coming Soon</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-400 mt-1">Content Writer</p>
+                <p class="text-xs text-gray-400 mt-0.5">Draft blog posts, newsletters, and copy in your voice, ready to publish.</p>
+              </div>
+              <button type="button" onclick="openWaitlistModal('Content Writer')"
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition">
+                Join the waitlist →
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <div id="step-2" class="step-hidden">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 2 of 9</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's get this off your plate.</h2>
           <p class="text-gray-500 mb-6">In your own words, what is the repetitive, boring, or frustrating task you want to hand off to your digital assistant?</p>
 
@@ -104,7 +232,7 @@
         </div>
 
         <div id="step-3" class="step-hidden">
-          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 3 of 8</span>
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 3 of 9</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Ideation & Sourcing</h2>
           <p class="text-gray-500 mb-8">Tell us how this job begins and where the raw content ideas come from.</p>
 
@@ -177,7 +305,7 @@
         </div>
 
         <div id="step-4" class="step-hidden">
-          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 4 of 8</span>
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 4 of 9</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Creative Strategy</h2>
           <p class="text-gray-500 mb-6">Define the core message and personality of your content. These details are required so the assistant sounds exactly like your brand.</p>
 
@@ -260,7 +388,7 @@
         </div>
 
         <div id="step-5" class="step-hidden">
-          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 5 of 8</span>
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 5 of 9</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Visuals & Publishing</h2>
           <p class="text-gray-500 mb-6">Select your visual approach and configure the platforms where your assistant will stage or publish the content.</p>
 
@@ -389,7 +517,7 @@
         </div>
 
         <div id="step-6" class="step-hidden">
-          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 6 of 8</span>
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 6 of 9</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Workflow & Guardrails</h2>
 
           <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start shadow-sm">
@@ -421,7 +549,7 @@
         </div>
 
         <div id="step-7" class="step-hidden">
-          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 7 of 8</span>
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 7 of 9</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Review Your Setup</h2>
           <p class="text-gray-500 mb-6">Here is a high-level summary of your configuration. To protect proprietary logic, your specific workflow is compiled securely on our servers.</p>
           <div id="summary_container" class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
@@ -459,8 +587,74 @@
 
 <script>
 
+  // --- WAITLIST MODAL ---
+  let waitlistRole = '';
+  function openWaitlistModal(role) {
+    waitlistRole = role;
+    document.getElementById('waitlist-desc').textContent = `Be the first to know when the ${role} assistant launches.`;
+    document.getElementById('waitlist-email').value = '';
+    document.getElementById('waitlist-success').classList.add('hidden');
+    document.getElementById('waitlist-error').classList.add('hidden');
+    document.getElementById('waitlist-modal').classList.remove('hidden');
+  }
+  function closeWaitlistModal() {
+    document.getElementById('waitlist-modal').classList.add('hidden');
+  }
+  async function submitWaitlist() {
+    const email = document.getElementById('waitlist-email').value.trim();
+    const errEl = document.getElementById('waitlist-error');
+    const sucEl = document.getElementById('waitlist-success');
+    errEl.classList.add('hidden');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errEl.textContent = 'Please enter a valid email address.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    try {
+      const res = await fetch('/.netlify/functions/capture-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, role: waitlistRole }),
+      });
+      if (!res.ok) throw new Error('Request failed');
+      sucEl.classList.remove('hidden');
+      setTimeout(() => closeWaitlistModal(), 2500);
+    } catch {
+      errEl.textContent = 'Something went wrong. Please try again.';
+      errEl.classList.remove('hidden');
+    }
+  }
+
+  // --- STEP 1: ASSISTANT SELECTION ---
+  function onAssistantSelect(radio) {
+    // Update card styles
+    document.querySelectorAll('[id^="card-"]').forEach(card => {
+      card.classList.remove('border-emerald-600', 'bg-emerald-50', 'ring-2', 'ring-emerald-600', 'ring-offset-1');
+      card.classList.add('border-gray-200', 'bg-white');
+    });
+    document.querySelectorAll('[id^="check-"]').forEach(el => el.classList.add('hidden'));
+    const cardId = 'card-' + radio.value.toLowerCase().replace(/\s+/g, '-');
+    const checkId = 'check-' + radio.value.toLowerCase().replace(/\s+/g, '-');
+    const card = document.getElementById(cardId);
+    const check = document.getElementById(checkId);
+    if (card) {
+      card.classList.add('border-emerald-600', 'bg-emerald-50', 'ring-2', 'ring-emerald-600', 'ring-offset-1');
+      card.classList.remove('border-gray-200', 'bg-white');
+    }
+    if (check) check.classList.remove('hidden');
+    document.getElementById('nav-subtitle').textContent = '| ' + radio.value;
+  }
+
   // Force the fragment's validation to be globally accessible
   window.validateCurrentStep = function() {
+    if (currentStep === 1) {
+      const selected = document.querySelector('input[name="selected_assistant"]:checked');
+      if (!selected) {
+        alert('Please select a Digital Assistant to continue.');
+        return false;
+      }
+      return true;
+    }
     // Check if step 2 specifically is valid
     if (currentStep === 2) {
       const prob = document.getElementById('user_story_problem');
@@ -472,8 +666,8 @@
     return true;
   };
   // --- 1. CONFIG & STATE ---
-  let currentStep = 2;
-  const totalSteps = 8;
+  let currentStep = 1;
+  const totalSteps = 9;
   let workflowStepCount = 1;
   const missingFallback = "⚠️ [MISSING - PLEASE UPDATE]";
 
@@ -686,7 +880,7 @@
           });
 
           // 5. Resume User Location
-          currentStep = resData.draft.currentStep || 2;
+          currentStep = resData.draft.currentStep || 1;
           updateUI();
           if (currentStep >= 7) generateSummary();
         }
@@ -1026,7 +1220,7 @@
   }
 
   function prevStep() {
-    if (currentStep > 2) {
+    if (currentStep > 1) {
       currentStep--;
       updateUI();
       saveDraftToBackend(); // Save progress even if they step backward
@@ -1037,7 +1231,7 @@
   }
 
   function updateUI() {
-    for (let i = 2; i <= totalSteps; i++) {
+    for (let i = 1; i <= totalSteps; i++) {
       document.getElementById(`step-${i}`)?.classList.toggle('step-active', i === currentStep);
       document.getElementById(`step-${i}`)?.classList.toggle('step-hidden', i !== currentStep);
     }
