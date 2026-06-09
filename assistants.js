@@ -114,6 +114,17 @@ function _detailHydrate(data) {
 
     _detailSetVal('edit_problem', ctx.problem_statement || inputs.problem || '');
     _detailSetVal('edit_frequency', ctx.posting_frequency || '');
+
+    // Objective
+    const objectiveVal = ctx.primary_objective || inputs.primary_objective || '';
+    if (objectiveVal) {
+        const r = document.querySelector(`input[name="edit_objective"][value="${objectiveVal}"]`);
+        if (r) r.checked = true;
+    }
+    // Core message + CTA
+    _detailSetVal('edit_core_message', ctx.core_message || inputs.core_message || '');
+    _detailSetVal('edit_cta', ctx.cta || inputs.cta || '');
+    _detailSetVal('edit_incentive', ctx.incentive || inputs.incentive || '');
     _detailSetVal('edit_audience', ctx.target_audience || '');
     _detailSetVal('edit_tone', ctx.tone_of_voice || '');
     _detailSetVal('edit_pillars', ctx.content_pillars || '');
@@ -177,6 +188,10 @@ function _detailCollect(currentData) {
 
     const newContext = {
         problem_statement: document.getElementById('edit_problem')?.value || '',
+        primary_objective: document.querySelector('input[name="edit_objective"]:checked')?.value || '',
+        core_message: document.getElementById('edit_core_message')?.value || '',
+        cta: document.getElementById('edit_cta')?.value || '',
+        incentive: document.getElementById('edit_incentive')?.value || '',
         posting_frequency: document.getElementById('edit_frequency')?.value || '',
         target_audience: document.getElementById('edit_audience')?.value || '',
         tone_of_voice: document.getElementById('edit_tone')?.value || '',
@@ -287,7 +302,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     function attachAutoSave() {
         const selectors = [
             '[id^="edit_"]', '[id^="handle_"]',
-            'input[name="edit_trigger"]', 'input[name="edit_source"]',
+            'input[name="edit_trigger"]', 'input[name="edit_source"]', 'input[name="edit_objective"]',
             '.platform-edit-chk', '#detail-name-input'
         ].join(', ');
         document.querySelectorAll(selectors).forEach(el => {

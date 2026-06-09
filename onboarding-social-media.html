@@ -199,6 +199,46 @@
         <div id="step-2" class="step-hidden">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 2 of 8</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's get this off your plate.</h2>
+          <p class="text-gray-500 mb-6">Before we build your assistant, we need to understand the strategic goal driving your social presence.</p>
+
+          <div class="mb-8">
+            <h3 class="block text-sm font-bold text-gray-700 mb-1">What is your primary objective? <span class="text-red-500">*</span></h3>
+            <p class="text-xs text-gray-500 mb-3">This determines how your assistant prioritises content, CTAs, and platform strategy.</p>
+            <div class="space-y-3" id="objective-options">
+              <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+                <input type="radio" name="primary_objective" value="brand_awareness" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300">
+                <div class="ml-4">
+                  <span class="block font-bold text-gray-900">Brand Awareness</span>
+                  <span class="block text-sm text-gray-500 mt-0.5">I want to grow my audience, increase visibility, and be found by the right people.</span>
+                </div>
+              </label>
+              <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+                <input type="radio" name="primary_objective" value="lead_generation" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300">
+                <div class="ml-4">
+                  <span class="block font-bold text-gray-900">Lead Generation</span>
+                  <span class="block text-sm text-gray-500 mt-0.5">I want to capture contact details, drive sign-ups, or fill a pipeline with qualified prospects.</span>
+                </div>
+              </label>
+              <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+                <input type="radio" name="primary_objective" value="direct_sales" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300">
+                <div class="ml-4">
+                  <span class="block font-bold text-gray-900">Direct Sales</span>
+                  <span class="block text-sm text-gray-500 mt-0.5">I want to drive immediate purchases, bookings, or conversions directly from social content.</span>
+                </div>
+              </label>
+              <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+                <input type="radio" name="primary_objective" value="community_engagement" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300">
+                <div class="ml-4">
+                  <span class="block font-bold text-gray-900">Community &amp; Engagement</span>
+                  <span class="block text-sm text-gray-500 mt-0.5">I want to deepen relationships with my existing audience and increase interaction with my content.</span>
+                </div>
+              </label>
+            </div>
+            <span id="error-objective" class="error-msg hidden text-red-500 text-xs font-bold mt-2 block">Please select your primary objective.</span>
+          </div>
+
+          <hr class="border-gray-200 mb-8">
+
           <p class="text-gray-500 mb-6">In your own words, what is the repetitive, boring, or frustrating task you want to hand off to your digital assistant?</p>
 
           <div class="mb-6">
@@ -361,6 +401,31 @@
               <p class="text-xs text-gray-500 mb-2">What are the core topics, themes, or keywords the assistant should focus on?</p>
               <label for="val_pillars"></label><input type="text" id="val_pillars" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Wellness tips, stress relief, product spotlights.">
             </div>
+
+            <div class="border-t border-gray-100 pt-6 mt-2">
+              <h3 class="text-lg font-bold text-gray-900 mb-1">Core Message &amp; Call-to-Action</h3>
+              <p class="text-sm text-gray-500 mb-5">The single most important thing you want your audience to think, feel, or do after seeing your content.</p>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-1">Core Message: *</label>
+                  <p class="text-xs text-gray-500 mb-2">The one idea you want every piece of content to reinforce. Your assistant will anchor all content around this.</p>
+                  <input type="text" id="val_core_message" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., We help busy founders reclaim their time without sacrificing growth.">
+                  <span id="error-core-message" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">Please enter your core message.</span>
+                </div>
+                <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-1">Primary Call-to-Action (CTA): *</label>
+                  <p class="text-xs text-gray-500 mb-2">What specific action do you want the audience to take? (e.g., Book a call, Download the guide, Shop now)</p>
+                  <input type="text" id="val_cta" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Book a free 15-minute discovery call.">
+                  <span id="error-cta" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">Please enter your primary CTA.</span>
+                </div>
+                <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-1">The Incentive (Optional):</label>
+                  <p class="text-xs text-gray-500 mb-2">Why should they take that action right now? What do they get?</p>
+                  <input type="text" id="val_incentive" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Get the first month free, No obligation, Instant access to the toolkit.">
+                </div>
+              </div>
+            </div>
+
             <div class="mt-6 border-t border-gray-100 pt-6">
               <h3 class="block text-sm font-bold text-gray-700 mb-1">Knowledge Base & Brain Trust (Optional)</h3>
               <p class="text-xs text-gray-500 mb-4">Train your AI with your unique voice. Share personal anecdotes, life experiences, or brand stories.</p>
@@ -947,6 +1012,14 @@
 
     // --- Step 2 Validation ---
     if (currentStep === 2) {
+      // Objective
+      if (!document.querySelector('input[name="primary_objective"]:checked')) {
+        document.getElementById('error-objective')?.classList.remove('hidden');
+        isValid = false;
+      } else {
+        document.getElementById('error-objective')?.classList.add('hidden');
+      }
+      // Bottleneck
       const prob = document.getElementById('user_story_problem');
       if (prob.value.trim().length < 10) {
         prob.classList.add('input-error');
@@ -967,11 +1040,13 @@
     }
     // --- Step 4 Validation ---
     else if (currentStep === 4) {
-      ['val_assistant_name', 'val_audience', 'val_tone', 'val_pillars'].forEach(id => {
+      ['val_assistant_name', 'val_audience', 'val_tone', 'val_pillars', 'val_core_message', 'val_cta'].forEach(id => {
         const el = document.getElementById(id);
-        if (el.value.trim() === '') {
-          el.classList.add('input-error');
-          if (id === 'val_assistant_name') document.getElementById('error-assistant-name').classList.remove('hidden');
+        if (!el || el.value.trim() === '') {
+          if (el) el.classList.add('input-error');
+          if (id === 'val_assistant_name') document.getElementById('error-assistant-name')?.classList.remove('hidden');
+          if (id === 'val_core_message') document.getElementById('error-core-message')?.classList.remove('hidden');
+          if (id === 'val_cta') document.getElementById('error-cta')?.classList.remove('hidden');
           isValid = false;
         }
       });
@@ -1095,6 +1170,17 @@
     let generalPreferences = [];
     let strictRules = [];
 
+    const objectiveMap = { brand_awareness: 'Brand Awareness', lead_generation: 'Lead Generation', direct_sales: 'Direct Sales', community_engagement: 'Community & Engagement' };
+    const objectiveVal = document.querySelector('input[name="primary_objective"]:checked')?.value || '';
+    const objectiveLabel = objectiveMap[objectiveVal] || objectiveVal;
+    const coreMessage = document.getElementById('val_core_message')?.value || '';
+    const ctaText = document.getElementById('val_cta')?.value || '';
+    const incentiveText = document.getElementById('val_incentive')?.value || '';
+
+    if (objectiveLabel) generalPreferences.push(`- Primary Objective: ${objectiveLabel}`);
+    if (hasValue(coreMessage)) generalPreferences.push(`- Core Message: ${coreMessage}`);
+    if (hasValue(ctaText)) generalPreferences.push(`- Primary CTA: ${ctaText}`);
+    if (hasValue(incentiveText)) generalPreferences.push(`- Incentive: ${incentiveText}`);
     if (hasValue(document.getElementById('val_audience')?.value)) generalPreferences.push(`- Target Audience: ${document.getElementById('val_audience').value}`);
     if (hasValue(document.getElementById('val_pillars')?.value)) generalPreferences.push(`- Core Topics: ${document.getElementById('val_pillars').value}`);
     if (hasValue(document.getElementById('val_tone')?.value)) generalPreferences.push(`- Preferred Tone: ${document.getElementById('val_tone').value}`);
@@ -1139,6 +1225,10 @@
     // SCENARIO 2 & 3: Store raw inputs so the backend can compile them securely
     window.globalRawInputs = {
       problem,
+      primary_objective: objectiveVal,
+      core_message: coreMessage,
+      cta: ctaText,
+      incentive: incentiveText,
       triggerText,
       sourceText,
       platforms,
@@ -1151,9 +1241,12 @@
     const summaryHTML = `
       <div class="grid grid-cols-1 gap-6 text-left">
           <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
-              <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Core Identity & Process</span>
+              <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Strategy & Core Identity</span>
               <ul class="text-sm text-gray-900 space-y-2">
                   <li><b>Assistant Name:</b> <span class="font-medium text-emerald-800">${finalAssistantName}</span></li>
+                  <li><b>Primary Objective:</b> <span class="font-medium">${objectiveLabel || '—'}</span></li>
+                  <li><b>Core Message:</b> <span class="font-medium italic">${hasValue(coreMessage) ? '"' + coreMessage.substring(0, 80) + (coreMessage.length > 80 ? '…' : '') + '"' : '—'}</span></li>
+                  <li><b>CTA:</b> <span class="font-medium">${ctaText || '—'}</span></li>
                   <li><b>Trigger:</b> <span class="font-medium">${triggerText}</span></li>
                   <li><b>Data Source:</b> <span class="font-medium">${sourceText}</span></li>
                   <li><b>Bottleneck:</b> <span class="font-medium italic">"${problem.substring(0, 80)}${problem.length > 80 ? '...' : ''}"</span></li>
@@ -1250,6 +1343,10 @@
     });
 
     const structuredContext = {
+      primary_objective: document.querySelector('input[name="primary_objective"]:checked')?.value || null,
+      core_message: document.getElementById('val_core_message')?.value || null,
+      cta: document.getElementById('val_cta')?.value || null,
+      incentive: document.getElementById('val_incentive')?.value || null,
       target_audience: document.getElementById('val_audience')?.value || null,
       content_pillars: document.getElementById('val_pillars')?.value || null,
       tone_of_voice: document.getElementById('val_tone')?.value || null,

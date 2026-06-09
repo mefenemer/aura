@@ -45,6 +45,65 @@
     </div>
   </div>
 
+  <!-- Performance KPIs -->
+  <div class="mb-8">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Performance Metrics</h3>
+      <span class="text-xs text-gray-400 font-medium">Live tracking coming soon</span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+      <!-- The Thumb Stopper -->
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Engagement Rate by Reach</span>
+          <span class="w-2 h-2 rounded-full bg-gray-200"></span>
+        </div>
+        <div>
+          <p class="text-2xl font-extrabold text-gray-900">—</p>
+          <p class="text-base font-bold text-gray-700 mt-0.5">The Thumb Stopper</p>
+          <p class="text-xs text-gray-500 mt-1">Of everyone who saw your content, how many actually stopped to engage with it.</p>
+        </div>
+        <div class="mt-auto pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-400">Trending: <span class="font-semibold text-gray-500">—</span></p>
+        </div>
+      </div>
+
+      <!-- Escaping the Echo Chamber -->
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Organic Reach Growth</span>
+          <span class="w-2 h-2 rounded-full bg-gray-200"></span>
+        </div>
+        <div>
+          <p class="text-2xl font-extrabold text-gray-900">—</p>
+          <p class="text-base font-bold text-gray-700 mt-0.5">Escaping the Echo Chamber</p>
+          <p class="text-xs text-gray-500 mt-1">How far your content is spreading beyond your existing followers into new audiences.</p>
+        </div>
+        <div class="mt-auto pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-400">Trending: <span class="font-semibold text-gray-500">—</span></p>
+        </div>
+      </div>
+
+      <!-- The Pack Your Bags Metric -->
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Click-Through Rate</span>
+          <span class="w-2 h-2 rounded-full bg-gray-200"></span>
+        </div>
+        <div>
+          <p class="text-2xl font-extrabold text-gray-900">—</p>
+          <p class="text-base font-bold text-gray-700 mt-0.5">The "Pack Your Bags" Metric</p>
+          <p class="text-xs text-gray-500 mt-1">How many viewers clicked through and took the action your content asked for.</p>
+        </div>
+        <div class="mt-auto pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-400">Trending: <span class="font-semibold text-gray-500">—</span></p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Tab bar -->
   <div class="border-b border-gray-200 mb-8 overflow-x-auto">
     <nav class="-mb-px flex space-x-1 min-w-max" aria-label="Tabs">
@@ -128,8 +187,45 @@
   <div id="tab-strategy" class="detail-tab-content hidden space-y-6">
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="mb-6">
-        <h3 class="text-lg font-bold text-gray-900">Step 4 — Creative Strategy</h3>
-        <p class="text-sm text-gray-500 mt-1">The core identity of your assistant — who it speaks to, what it says, and how it sounds.</p>
+        <h3 class="text-lg font-bold text-gray-900">Objective &amp; Message</h3>
+        <p class="text-sm text-gray-500 mt-1">The strategic goal and core message that drives everything your assistant produces.</p>
+      </div>
+      <div class="space-y-5">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-2">Primary Objective</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition text-sm font-medium text-gray-800">
+              <input type="radio" name="edit_objective" value="brand_awareness" class="text-emerald-700 focus:ring-emerald-700"> Brand Awareness
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition text-sm font-medium text-gray-800">
+              <input type="radio" name="edit_objective" value="lead_generation" class="text-emerald-700 focus:ring-emerald-700"> Lead Generation
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition text-sm font-medium text-gray-800">
+              <input type="radio" name="edit_objective" value="direct_sales" class="text-emerald-700 focus:ring-emerald-700"> Direct Sales
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition text-sm font-medium text-gray-800">
+              <input type="radio" name="edit_objective" value="community_engagement" class="text-emerald-700 focus:ring-emerald-700"> Community &amp; Engagement
+            </label>
+          </div>
+        </div>
+        <div>
+          <label for="edit_core_message" class="block text-sm font-bold text-gray-700 mb-1">Core Message</label>
+          <input type="text" id="edit_core_message" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., We help busy founders reclaim their time without sacrificing growth.">
+        </div>
+        <div>
+          <label for="edit_cta" class="block text-sm font-bold text-gray-700 mb-1">Primary Call-to-Action (CTA)</label>
+          <input type="text" id="edit_cta" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Book a free 15-minute discovery call.">
+        </div>
+        <div>
+          <label for="edit_incentive" class="block text-sm font-bold text-gray-700 mb-1">The Incentive</label>
+          <input type="text" id="edit_incentive" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Get the first month free. No obligation.">
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Audience &amp; Voice</h3>
+        <p class="text-sm text-gray-500 mt-1">Who your assistant speaks to, and how it sounds.</p>
       </div>
       <div class="space-y-5">
         <div>
