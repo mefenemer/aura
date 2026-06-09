@@ -257,14 +257,6 @@
     </div>
   </div>
 
-  <!-- Sticky save bar -->
-  <div id="save-bar" class="fixed bottom-0 left-0 right-0 md:left-64 z-30 bg-white border-t border-gray-200 shadow-lg px-6 py-3 flex justify-between items-center">
-    <p class="text-sm text-gray-500">Changes are <span class="font-semibold text-gray-700">not saved yet</span> — save when you're ready.</p>
-    <button id="btn-save-changes" onclick="saveChanges()"
-      class="px-6 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg shadow transition text-sm cursor-pointer">
-      Save Changes
-    </button>
-  </div>
 
 </div>
 
@@ -426,7 +418,7 @@
     el.textContent = msg;
   }
 
-  window.saveChanges = async function() {
+  async function persistChanges() {
     if (!assistantId) return;
     setSaveStatus('Saving…', 'text-gray-400');
     const { newContext, newConfiguration } = collectFormData();
@@ -442,12 +434,28 @@
         setSaveStatus('✓ Saved', 'text-emerald-600');
         setTimeout(() => setSaveStatus(''), 3000);
       } else {
-        setSaveStatus('Save failed — try again', 'text-red-500');
+        setSaveStatus('Save failed', 'text-red-500');
       }
     } catch {
-      setSaveStatus('Save failed — try again', 'text-red-500');
+      setSaveStatus('Save failed', 'text-red-500');
     }
-  };
+  }
+
+  function triggerAutoSave() {
+    setSaveStatus('Unsaved changes…', 'text-gray-400');
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(persistChanges, 1200);
+  }
+
+  function attachAutoSave() {
+    document.querySelectorAll(
+      '#assistant-settings-form input, #assistant-settings-form textarea, #assistant-settings-form select,' +
+      '[id^="edit_"], [id^="handle_"], input[name="edit_trigger"], input[name="edit_source"], .platform-edit-chk'
+    ).forEach(el => {
+      el.addEventListener('input', triggerAutoSave);
+      el.addEventListener('change', triggerAutoSave);
+    });
+  }
 
   // ── Load assistant data ───────────────────────────────────────
   async function loadAssistant() {
@@ -478,6 +486,7 @@
       if (toggleBtn) toggleBtn.textContent = currentData.isActive ? 'Pause Assistant' : 'Resume Assistant';
 
       hydrate(currentData);
+      attachAutoSave();
     } catch (e) {
       console.error('Failed to load assistant:', e);
     }
