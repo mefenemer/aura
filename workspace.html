@@ -183,7 +183,8 @@
       'settings': { file: 'user-settings.html', title: '| Account Settings' },
       'billing': { file: 'billing.html', title: '| Subscription & Billing' },
       'help': { file: 'help-content.html', title: '| Help & Support' },
-      'my-content': { file: 'my-content.html', title: '| My Content' }
+      'my-content': { file: 'my-content.html', title: '| My Content' },
+      'calendar': { file: 'calendar.html', title: '| Content Calendar' }
     };
 
     // Consolidated DOM element hooks
@@ -198,7 +199,8 @@
       'settings': document.getElementById('nav-settings'),
       'billing': document.getElementById('nav-billing'),
       'help': document.getElementById('nav-help'),
-      'my-content': document.getElementById('nav-my-content')
+      'my-content': document.getElementById('nav-my-content'),
+      'calendar': document.getElementById('nav-calendar')
     };
 
     async function loadView(routeKey, param = null) {
@@ -264,6 +266,10 @@
 
         if (routeKey === 'my-content' && typeof window.initMyContent === 'function') {
           await window.initMyContent();
+        }
+
+        if (routeKey === 'calendar' && typeof window.initCalendar === 'function') {
+          await window.initCalendar();
         }
 
         // --- NEW: Assistants Directory & Board Room ---
@@ -641,5 +647,6 @@
 <script src="/assistants.js"></script>
 <script src="/help.js"></script>
 <script src="/my-content.js"></script>
+<script src="/calendar.js"></script>
 </body>
 </html>

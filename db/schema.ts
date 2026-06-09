@@ -353,3 +353,49 @@ export const contentAssets = pgTable("content_assets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Scheduled Posts Table — Content Calendar & Post Governance
+export const scheduledPosts = pgTable("scheduled_posts", {
+  id: serial("id").primaryKey(),
+  assistantId: integer("assistant_id")
+      .references(() => aiAssistants.id, { onDelete: "set null" }),
+  userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id")
+      .references(() => organisations.id, { onDelete: "cascade" }),
+
+  // Publishing logistics
+  platform: text("platform").notNull(),         // facebook|instagram|linkedin|x
+  postFormat: text("post_format").notNull(),     // text|image|carousel|reel|story|thread|video
+  publishDate: timestamp("publish_date").notNull(),
+  publishedAt: timestamp("published_at"),
+  platformPostId: text("platform_post_id"),      // external ID after publish
+  platformPostUrl: text("platform_post_url"),    // live URL after publish
+
+  // Content & creative
+  caption: text("caption"),
+  contentAssetIds: jsonb("content_asset_ids").default([]),  // array of contentAssets.id
+  linkUrl: text("link_url"),
+  ctaText: text("cta_text"),
+  hashtags: text("hashtags"),                    // space-separated or newline-separated
+  mentions: text("mentions"),
+  utmParams: text("utm_params"),
+
+  // Workflow & governance
+  // Status: draft | in_review | approved | scheduled | published | rejected | cancelled
+  status: text("status").notNull().default("draft"),
+  ownerId: integer("owner_id")
+      .references(() => users.id, { onDelete: "set null" }),
+  ownerLabel: text("owner_label"),               // e.g. "AI: Marketing Mike" or "Jane Smith"
+  isAutonomous: boolean("is_autonomous").default(false).notNull(),
+  campaign: text("campaign"),
+  pillar: text("pillar"),
+
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  cancelledAt: timestamp("cancelled_at"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

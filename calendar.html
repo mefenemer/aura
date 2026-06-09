@@ -1,0 +1,205 @@
+<div class="flex flex-col h-full min-h-[calc(100vh-64px)]">
+
+  <!-- ── Toolbar ──────────────────────────────────────────────────── -->
+  <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
+
+    <!-- Left: navigation -->
+    <div class="flex items-center gap-2">
+      <button id="cal-btn-prev" type="button"
+        class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <button id="cal-btn-today" type="button"
+        class="px-3 py-1.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition cursor-pointer">
+        Today
+      </button>
+      <button id="cal-btn-next" type="button"
+        class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <h2 id="cal-title" class="text-base sm:text-lg font-extrabold text-gray-900 ml-1 min-w-[160px]"></h2>
+    </div>
+
+    <!-- Right: view toggle -->
+    <div class="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+      <button data-view="month" id="view-month"
+        class="cal-view-btn px-3 py-1.5 text-sm font-bold rounded-lg transition cursor-pointer bg-white shadow text-gray-900">
+        Month
+      </button>
+      <button data-view="week" id="view-week"
+        class="cal-view-btn px-3 py-1.5 text-sm font-bold rounded-lg transition cursor-pointer text-gray-500 hover:text-gray-700">
+        Week
+      </button>
+      <button data-view="list" id="view-list"
+        class="cal-view-btn px-3 py-1.5 text-sm font-bold rounded-lg transition cursor-pointer text-gray-500 hover:text-gray-700">
+        List
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Calendar body ────────────────────────────────────────────── -->
+  <div class="flex flex-1 overflow-hidden relative">
+
+    <!-- Main calendar area -->
+    <div id="cal-main" class="flex-1 overflow-y-auto bg-gray-50">
+      <!-- Populated by calendar.js -->
+      <div class="flex items-center justify-center py-20 text-gray-400 text-sm">
+        <svg class="w-5 h-5 animate-spin mr-3 text-emerald-500" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/></svg>
+        Loading calendar…
+      </div>
+    </div>
+
+    <!-- Aura Format slide-out panel (hidden by default) -->
+    <div id="aura-panel" class="hidden absolute inset-y-0 right-0 w-full sm:w-[420px] bg-white border-l border-gray-200 shadow-2xl flex flex-col z-30 overflow-hidden">
+
+      <!-- Panel header -->
+      <div id="panel-header" class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+        <div class="flex items-center gap-3">
+          <div id="panel-platform-icon" class="w-9 h-9 rounded-xl flex items-center justify-center text-base font-bold shadow-sm shrink-0"></div>
+          <div>
+            <p id="panel-platform-name" class="font-extrabold text-gray-900 text-sm"></p>
+            <p id="panel-publish-date" class="text-xs text-gray-500 mt-0.5"></p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="panel-status-badge" class="text-xs font-bold px-2.5 py-1 rounded-full border"></span>
+          <button type="button" onclick="window._calClosePanel()"
+            class="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Panel scrollable body -->
+      <div class="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+
+        <!-- Section 1: Publishing Logistics -->
+        <div>
+          <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Publishing Logistics</h4>
+          <div class="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
+            <div class="flex items-center justify-between px-4 py-3">
+              <span class="text-xs font-bold text-gray-500">Platform</span>
+              <span id="panel-logistics-platform" class="text-xs font-bold text-gray-900"></span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+              <span class="text-xs font-bold text-gray-500">Publish Date &amp; Time</span>
+              <span id="panel-logistics-datetime" class="text-xs font-bold text-gray-900"></span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+              <span class="text-xs font-bold text-gray-500">Post Format</span>
+              <span id="panel-logistics-format" class="text-xs font-bold text-gray-900 capitalize"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Content & Creative -->
+        <div>
+          <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Content &amp; Creative</h4>
+          <div class="space-y-3">
+            <!-- Caption -->
+            <div>
+              <p class="text-xs font-bold text-gray-500 mb-1.5">Caption / Copy</p>
+              <div id="panel-caption-display" class="text-sm text-gray-800 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 leading-relaxed whitespace-pre-wrap"></div>
+              <textarea id="panel-caption-edit" rows="5"
+                class="hidden w-full text-sm text-gray-800 bg-white border border-emerald-500 rounded-xl px-4 py-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"></textarea>
+            </div>
+            <!-- Creative assets -->
+            <div id="panel-assets-wrap">
+              <p class="text-xs font-bold text-gray-500 mb-1.5">Creative Assets</p>
+              <div id="panel-assets-list" class="grid grid-cols-2 gap-2"></div>
+            </div>
+            <!-- Links & CTAs -->
+            <div id="panel-links-wrap" class="hidden">
+              <p class="text-xs font-bold text-gray-500 mb-1.5">Links &amp; CTAs</p>
+              <div id="panel-links-content" class="space-y-1"></div>
+            </div>
+            <!-- Tags -->
+            <div id="panel-tags-wrap" class="hidden">
+              <p class="text-xs font-bold text-gray-500 mb-1.5">Tags &amp; Hashtags</p>
+              <p id="panel-tags-content" class="text-xs text-gray-700 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 leading-relaxed font-mono"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Workflow & Governance -->
+        <div>
+          <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Workflow &amp; Governance</h4>
+          <div class="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
+            <div class="flex items-center justify-between px-4 py-3">
+              <span class="text-xs font-bold text-gray-500">Status</span>
+              <span id="panel-gov-status" class="text-xs font-bold text-gray-900 capitalize"></span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+              <span class="text-xs font-bold text-gray-500">Owner</span>
+              <span id="panel-gov-owner" class="text-xs font-bold text-gray-900"></span>
+            </div>
+            <div id="panel-gov-autonomous-row" class="hidden flex items-center justify-between px-4 py-3">
+              <span class="text-xs font-bold text-gray-500">Generated by</span>
+              <span class="text-xs font-bold text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full">100% AI-Generated</span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+              <span class="text-xs font-bold text-gray-500">Campaign</span>
+              <span id="panel-gov-campaign" class="text-xs font-bold text-gray-900"></span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+              <span class="text-xs font-bold text-gray-500">Pillar</span>
+              <span id="panel-gov-pillar" class="text-xs font-bold text-gray-900"></span>
+            </div>
+          </div>
+          <div id="panel-rejection-reason" class="hidden mt-2 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700"></div>
+        </div>
+
+      </div>
+
+      <!-- Panel footer actions -->
+      <div id="panel-footer" class="shrink-0 px-5 py-4 border-t border-gray-100 bg-gray-50/50 space-y-2">
+        <!-- Published: read-only -->
+        <div id="panel-actions-published" class="hidden">
+          <a id="panel-live-link" href="#" target="_blank" rel="noopener"
+            class="flex items-center justify-center gap-2 w-full py-2.5 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            View Live Post
+          </a>
+        </div>
+        <!-- Editable actions -->
+        <div id="panel-actions-editable" class="hidden space-y-2">
+          <div class="flex gap-2">
+            <button id="btn-panel-approve" type="button" onclick="window._calApprovePost()"
+              class="flex-1 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition cursor-pointer shadow-sm">
+              ✓ Approve
+            </button>
+            <button id="btn-panel-edit" type="button" onclick="window._calToggleEdit()"
+              class="flex-1 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl transition cursor-pointer">
+              ✏ Edit Copy
+            </button>
+          </div>
+          <button id="btn-panel-cancel" type="button" onclick="window._calCancelPost()"
+            class="w-full py-2.5 text-sm font-bold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-xl transition cursor-pointer">
+            ✕ Cancel Post
+          </button>
+          <!-- Save edits (shown when in edit mode) -->
+          <button id="btn-panel-save" type="button" onclick="window._calSaveEdits()"
+            class="hidden w-full py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition cursor-pointer">
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Reschedule confirmation modal ─────────────────────────────── -->
+<div id="modal-reschedule" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-xl mb-4">📅</div>
+    <h3 class="text-lg font-bold text-gray-900 mb-1">Reschedule post?</h3>
+    <p id="reschedule-msg" class="text-gray-600 text-sm mb-5"></p>
+    <div class="flex gap-3 justify-end">
+      <button onclick="window._calCancelReschedule()" class="px-4 py-2 font-bold text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer" type="button">Cancel</button>
+      <button id="btn-confirm-reschedule" type="button" onclick="window._calConfirmReschedule()"
+        class="px-5 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 cursor-pointer">
+        Reschedule
+      </button>
+    </div>
+  </div>
+</div>
