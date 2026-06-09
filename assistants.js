@@ -117,7 +117,7 @@ function _detailHydrate(data) {
     _detailSetVal('edit_audience', ctx.target_audience || '');
     _detailSetVal('edit_tone', ctx.tone_of_voice || '');
     _detailSetVal('edit_pillars', ctx.content_pillars || '');
-    _detailSetVal('edit_workflow', inputs.workflowText || '');
+    // workflowText is Aura-Assist IP — not displayed to the user
 
     // Radios — trigger
     const triggerVal = inputs.trigger_type || '';
@@ -199,7 +199,7 @@ function _detailCollect(currentData) {
                 document.getElementById('edit_pillars')?.value ? `- Core Topics: ${document.getElementById('edit_pillars').value}` : '',
                 document.getElementById('edit_tone')?.value ? `- Preferred Tone: ${document.getElementById('edit_tone').value}` : '',
             ].filter(Boolean),
-            workflowText: document.getElementById('edit_workflow')?.value || '',
+            workflowText: currentData.configuration?.inputs?.workflowText || '', // preserved, not editable
             strictRules: strictLines,
         }
     };
