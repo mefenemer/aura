@@ -44,32 +44,44 @@ export const handler: Handler = async (event) => {
         // --- POST: SECURE CONNECTION CREATION ---
         if (event.httpMethod === 'POST') {
             const body = JSON.parse(event.body || '{}');
-            const { serviceName, connectionType, apiKey, username, password } = body;
+            const { serviceName, connectionType, apiKey, handle, pageUrl } = body;
 
-            let encryptedToken = null;
-            let externalId = null;
-
-            if (connectionType === 'api_key') {
-                if (!apiKey) return { statusCode: 400, body: JSON.stringify({ error: 'API Key required.' }) };
-                encryptedToken = encryptCredential(apiKey);
-                externalId = 'API Key';
-            } else if (connectionType === 'legacy') {
-                if (!username || !password) return { statusCode: 400, body: JSON.stringify({ error: 'Credentials required.' }) };
-                encryptedToken = encryptCredential(password);
-                externalId = username; // Safe to store username in plain text
-            } else {
-                return { statusCode: 400, body: JSON.stringify({ error: 'OAuth flows require dedicated redirect handlers.' }) };
+            if (!serviceName || !apiKey) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'Service name and access token are required.' }) };
             }
 
-            await db.insert(systemConnections).values({
-                userId: currentUserId,
-                serviceName,
-                connectionType,
-                accessToken: encryptedToken, // Stored Encrypted Only
-                externalUserId: externalId,
-                status: 'active',
-                isActive: true
-            });
+            const encryptedToken = encryptCredential(apiKey);
+
+            // Upsert — if the user already has a connection for this service, replace it
+            const existing = await db
+                .select({ id: systemConnections.id })
+                .from(systemConnections)
+                .where(and(eq(systemConnections.userId, currentUserId), eq(systemConnections.serviceName, serviceName)))
+                .limit(1);
+
+            if (existing.length > 0) {
+                await db.update(systemConnections)
+                    .set({
+                        accessToken: encryptedToken,
+                        externalUserId: handle || null,
+                        metadata: pageUrl ? { pageUrl } : null,
+                        status: 'active',
+                        isActive: true,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(systemConnections.id, existing[0].id));
+            } else {
+                await db.insert(systemConnections).values({
+                    userId: currentUserId,
+                    serviceName,
+                    connectionType,
+                    accessToken: encryptedToken,
+                    externalUserId: handle || null,
+                    metadata: pageUrl ? { pageUrl } : null,
+                    status: 'active',
+                    isActive: true,
+                });
+            }
 
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
