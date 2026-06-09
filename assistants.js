@@ -397,7 +397,154 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
 
     // ── Integrations ──────────────────────────────────────────────
     await window.fetchAndRenderIntegrations();
+
+    // ── Workspace defaults (Brand Profile + Assistant Rules) ──────
+    await _fetchAndRenderWorkspaceDefaults(assistantId, currentData, triggerAutoSave);
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Workspace Defaults renderer — Brand Profile + Assistant Rules
+// ─────────────────────────────────────────────────────────────────
+async function _fetchAndRenderWorkspaceDefaults(assistantId, currentData, triggerAutoSave) {
+    const appliedDefaults = currentData.configuration?.appliedDefaults || {};
+
+    let defaults = { assistantRules: [], brandProfile: null };
+    try {
+        const res = await fetch('/.netlify/functions/get-workspace-defaults');
+        if (res.ok) defaults = await res.json();
+    } catch (e) {
+        console.warn('Could not load workspace defaults:', e);
+    }
+
+    // ── Assistant Rules ───────────────────────────────────────────
+    const rulesContainer = document.getElementById('global-assistant-rules-list');
+    if (rulesContainer) {
+        if (!defaults.assistantRules || defaults.assistantRules.length === 0) {
+            rulesContainer.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-6 text-center gap-2">
+                    <p class="text-sm text-gray-500">No global rules have been configured yet.</p>
+                    <a href="#" onclick="window.loadView('instructions')" class="text-sm font-bold text-emerald-600 hover:underline cursor-pointer">Go to Assistant Rules settings →</a>
+                </div>`;
+        } else {
+            rulesContainer.innerHTML = '';
+            defaults.assistantRules.forEach(rule => {
+                const isEnabled = appliedDefaults.assistantRules?.[rule.id] !== false; // default ON
+                const rowId = `rule-toggle-${rule.id}`;
+                rulesContainer.insertAdjacentHTML('beforeend', `
+                    <div class="flex items-start gap-4 py-3.5 border-b border-gray-100 last:border-0">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-gray-800 font-medium">${_escapeHtml(rule.text)}</p>
+                            ${rule.category ? `<p class="text-xs text-gray-400 mt-0.5">${_escapeHtml(rule.category)}</p>` : ''}
+                        </div>
+                        <label class="flex items-center cursor-pointer relative shrink-0 mt-0.5">
+                            <input type="checkbox" id="${rowId}" data-rule-id="${rule.id}" class="sr-only peer global-rule-toggle" ${isEnabled ? 'checked' : ''}>
+                            <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                    </div>`);
+            });
+
+            // Auto-save on toggle
+            rulesContainer.querySelectorAll('.global-rule-toggle').forEach(chk => {
+                chk.addEventListener('change', async () => {
+                    const ruleStates = {};
+                    rulesContainer.querySelectorAll('.global-rule-toggle').forEach(c => {
+                        ruleStates[c.dataset.ruleId] = c.checked;
+                    });
+                    const statusEl = document.getElementById('rules-save-status');
+                    if (statusEl) statusEl.textContent = 'Saving…';
+                    try {
+                        const r = await fetch('/.netlify/functions/update-assistant-context', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                assistantId: parseInt(assistantId),
+                                newContext: window.cachedContext,
+                                appliedDefaults: { assistantRules: ruleStates },
+                            }),
+                        });
+                        if (r.ok) {
+                            if (!currentData.configuration) currentData.configuration = {};
+                            if (!currentData.configuration.appliedDefaults) currentData.configuration.appliedDefaults = {};
+                            currentData.configuration.appliedDefaults.assistantRules = ruleStates;
+                            if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(() => statusEl.textContent = '', 2000); }
+                        }
+                    } catch {
+                        if (document.getElementById('rules-save-status')) document.getElementById('rules-save-status').textContent = 'Error saving';
+                    }
+                });
+            });
+        }
+    }
+
+    // ── Brand Profile ─────────────────────────────────────────────
+    const brandContainer = document.getElementById('global-brand-profile-content');
+    if (brandContainer) {
+        if (!defaults.brandProfile || Object.keys(defaults.brandProfile).length === 0) {
+            brandContainer.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-6 text-center gap-2">
+                    <p class="text-sm text-gray-500">No brand profile has been configured yet.</p>
+                    <a href="#" onclick="window.loadView('assets')" class="text-sm font-bold text-emerald-600 hover:underline cursor-pointer">Go to Brand Profile settings →</a>
+                </div>`;
+        } else {
+            const bp = defaults.brandProfile;
+            const brandEnabled = appliedDefaults.brandProfile !== false; // default ON
+            const fields = [
+                { label: 'Business Name', value: bp.businessName },
+                { label: 'Industry', value: bp.industry },
+                { label: 'Brand Values', value: bp.brandValues },
+                { label: 'Mission', value: bp.mission },
+                { label: 'Website', value: bp.website },
+            ].filter(f => f.value);
+
+            brandContainer.innerHTML = `
+                <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
+                    <p class="text-sm font-bold text-gray-700">Apply this Brand Profile to the assistant</p>
+                    <label class="flex items-center cursor-pointer relative">
+                        <input type="checkbox" id="brand-profile-toggle" class="sr-only peer" ${brandEnabled ? 'checked' : ''}>
+                        <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                </div>
+                <dl id="brand-profile-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 ${brandEnabled ? '' : 'opacity-40 pointer-events-none'}">
+                    ${fields.map(f => `
+                        <div>
+                            <dt class="text-xs font-bold text-gray-400 uppercase tracking-wide">${_escapeHtml(f.label)}</dt>
+                            <dd class="text-sm text-gray-800 mt-0.5">${_escapeHtml(f.value)}</dd>
+                        </div>`).join('')}
+                </dl>`;
+
+            document.getElementById('brand-profile-toggle')?.addEventListener('change', async (e) => {
+                const enabled = e.target.checked;
+                const fieldsEl = document.getElementById('brand-profile-fields');
+                if (fieldsEl) fieldsEl.className = fieldsEl.className.replace(/opacity-40 pointer-events-none/g, '') + (enabled ? '' : ' opacity-40 pointer-events-none');
+                const statusEl = document.getElementById('brand-save-status');
+                if (statusEl) statusEl.textContent = 'Saving…';
+                try {
+                    const r = await fetch('/.netlify/functions/update-assistant-context', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            assistantId: parseInt(assistantId),
+                            newContext: window.cachedContext,
+                            appliedDefaults: { brandProfile: enabled },
+                        }),
+                    });
+                    if (r.ok) {
+                        if (!currentData.configuration) currentData.configuration = {};
+                        if (!currentData.configuration.appliedDefaults) currentData.configuration.appliedDefaults = {};
+                        currentData.configuration.appliedDefaults.brandProfile = enabled;
+                        if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(() => statusEl.textContent = '', 2000); }
+                    }
+                } catch {
+                    if (document.getElementById('brand-save-status')) document.getElementById('brand-save-status').textContent = 'Error saving';
+                }
+            });
+        }
+    }
+}
+
+function _escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 // ==========================================
 // 6. INTEGRATIONS RENDER ENGINE

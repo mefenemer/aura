@@ -185,6 +185,21 @@
 
   <!-- ── TAB: Creative Strategy ────────────────────────────────── -->
   <div id="tab-strategy" class="detail-tab-content hidden space-y-6">
+
+    <!-- Global Brand Profile -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="flex items-start justify-between mb-5 gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Brand Profile</h3>
+          <p class="text-sm text-gray-500 mt-1">Your global brand identity from <a href="#" onclick="window.loadView('assets')" class="text-emerald-600 hover:underline font-medium">Brand Profile settings</a>. Toggle to apply it to this assistant.</p>
+        </div>
+        <span id="brand-save-status" class="text-sm font-bold text-emerald-600 shrink-0 transition-all"></span>
+      </div>
+      <div id="global-brand-profile-content">
+        <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading brand profile…</div>
+      </div>
+    </div>
+
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="mb-6">
         <h3 class="text-lg font-bold text-gray-900">Objective &amp; Message</h3>
@@ -296,10 +311,12 @@
 
   <!-- ── TAB: Guardrails ───────────────────────────────────────── -->
   <div id="tab-guardrails" class="detail-tab-content hidden space-y-6">
+
+    <!-- Assistant-specific strict rules -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="mb-6">
         <h3 class="text-lg font-bold text-gray-900">Guardrails &amp; Rules</h3>
-        <p class="text-sm text-gray-500 mt-1">Hard constraints your assistant must always follow. These override any AI-generated suggestions.</p>
+        <p class="text-sm text-gray-500 mt-1">Hard constraints specific to this assistant. These override any AI-generated suggestions.</p>
       </div>
       <div class="space-y-5">
         <div>
@@ -317,6 +334,21 @@
         </div>
       </div>
     </div>
+
+    <!-- Global Assistant Rules (from workspace defaults) -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="flex items-start justify-between mb-5 gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Assistant Rules</h3>
+          <p class="text-sm text-gray-500 mt-1">Global rules from your <a href="#" onclick="window.loadView('instructions')" class="text-emerald-600 hover:underline font-medium">Assistant Rules settings</a>. Toggle each one on or off for this assistant only.</p>
+        </div>
+        <span id="rules-save-status" class="text-sm font-bold text-emerald-600 shrink-0 transition-all"></span>
+      </div>
+      <div id="global-assistant-rules-list">
+        <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading rules…</div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ── TAB: Integrations ─────────────────────────────────────── -->
@@ -324,8 +356,8 @@
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h3 class="text-lg font-bold text-gray-900">Connected Platforms</h3>
-          <p class="text-sm text-gray-500">Toggling access auto-saves immediately.</p>
+          <h3 class="text-lg font-bold text-gray-900">Connections</h3>
+          <p class="text-sm text-gray-500">Your global connections from <a href="#" onclick="window.loadView('integrations')" class="text-emerald-600 hover:underline font-medium">Connections settings</a>. Toggle each one on or off for this assistant only.</p>
         </div>
         <span id="integration-save-status" class="text-sm font-bold text-emerald-600 transition-all"></span>
       </div>
