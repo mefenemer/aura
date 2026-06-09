@@ -198,7 +198,7 @@ function _renderList() {
     const year = _anchor.getFullYear(), month = _anchor.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    const groups: { date: Date; posts: any[] }[] = [];
+    const groups = [];
     for (let d = 1; d <= daysInMonth; d++) {
         const date = new Date(year, month, d);
         const posts = _postsOnDate(date);
