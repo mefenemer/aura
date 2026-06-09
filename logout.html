@@ -59,6 +59,10 @@
         }
     }
 
+    // Expire the session cookie immediately — covers both Secure and non-Secure contexts
+    document.cookie = 'aura_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure';
+    document.cookie = 'aura_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+
     document.addEventListener("DOMContentLoaded", async () => {
         await loadComponent("nav-placeholder", "./components/nav.html");
         loadComponent("footer-placeholder", "./components/footer.html");
