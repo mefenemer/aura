@@ -70,54 +70,34 @@ export const handler: Handler = async (event) => {
     if (!masterPlan) return { statusCode: 400, body: JSON.stringify({ error: 'Invalid plan tier.' }) };
 
     const stripePriceId = STRIPE_PRICE_IDS[tierKey];
-    if (!stripePriceId) return { statusCode: 400, body: JSON.stringify({ error: `No Stripe price configured for tier: ${tierKey}` }) };
+    if (!stripePriceId) {
+      return { statusCode: 400, body: JSON.stringify({ error: `No Stripe price configured for tier: ${tierKey}` }) };
+    }
 
-    // 3. CREATE STRIPE CUSTOMER + SUBSCRIPTION
+    // 3. CREATE STRIPE CUSTOMER
     const customer = await stripe.customers.create({
       email: user.email,
       name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
       metadata: { auraUserId: user.id.toString() },
     });
 
-    const subscription = await stripe.subscriptions.create({
+    // 4. CREATE PAYMENT INTENT
+    // setup_future_usage: 'off_session' saves the card for recurring subscription charges.
+    // The webhook (payment_intent.succeeded) creates the Stripe subscription + DB records.
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(Number(masterPlan.monthlyPriceGbp) * 100),
+      currency: 'gbp',
       customer: customer.id,
-      items: [{ price: stripePriceId }],
-      payment_behavior: 'default_incomplete',
-      payment_settings: { save_default_payment_method: 'on_subscription' },
+      setup_future_usage: 'off_session',
       metadata: {
         userId: user.id.toString(),
         organisationId: user.organisationId.toString(),
         tier: tierKey,
         masterPlanId: masterPlan.id.toString(),
+        stripePriceId,
+        stripeCustomerId: customer.id,
       },
     });
-
-    // Resolve the latest invoice ID (may be a string or an expanded object)
-    const invoiceId = typeof subscription.latest_invoice === 'string'
-      ? subscription.latest_invoice
-      : (subscription.latest_invoice as any)?.id;
-
-    if (!invoiceId) throw new Error('Subscription was created but has no invoice.');
-
-    // Fetch the invoice with payment_intent expanded explicitly
-    const invoice = await stripe.invoices.retrieve(invoiceId, {
-      expand: ['payment_intent'],
-    });
-
-    // Debug: log invoice shape to understand what the API version returns
-    console.log('Invoice debug:', JSON.stringify({
-      id: invoice.id,
-      status: invoice.status,
-      billing_reason: invoice.billing_reason,
-      payment_intent: invoice.payment_intent,
-      amount_due: invoice.amount_due,
-      keys: Object.keys(invoice),
-    }));
-
-    const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
-    if (!paymentIntent?.client_secret) {
-      throw new Error(`Invoice ${invoice.id} status="${invoice.status}" has no payment_intent. Available keys: ${Object.keys(invoice).join(', ')}`);
-    }
 
     return {
       statusCode: 200,
@@ -127,13 +107,12 @@ export const handler: Handler = async (event) => {
           publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
           planName: masterPlan.name,
           amountGbp: masterPlan.monthlyPriceGbp,
-          tier: tier.toLowerCase(),
+          tier: tierKey,
         },
       }),
     };
   } catch (error: any) {
     console.error('create-subscription error:', error);
-    // Return the real error message in non-production so it's visible in the browser
     const detail = error?.message || String(error);
     return { statusCode: 500, body: JSON.stringify({ error: 'Failed to initialise checkout.', detail }) };
   }
