@@ -116,7 +116,7 @@ export const handler: Handler = async (event) => {
         return {
             statusCode: 200,
             headers: getHeaders(sessionCookie),
-            body: JSON.stringify({ success: true, redirect: `${baseUrl}/onboarding-social-media.html?tier=${tierKey}` })
+            body: JSON.stringify({ success: true, redirect: `${baseUrl}/checkout.html?tier=${tierKey}` })
         };
     } catch (error: any) {
         console.error('Verification/Stripe Error:', error);
