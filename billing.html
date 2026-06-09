@@ -1,127 +1,87 @@
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full pb-20">
 
-    <div class="mb-10">
-        <h1 class="text-3xl font-extrabold text-gray-900">Billing & Subscription</h1>
-        <p class="text-gray-500 mt-1">Manage your plan, compute budget, and payment details.</p>
+  <div class="flex items-start justify-between mb-10 gap-4">
+    <div>
+      <h1 class="text-3xl font-extrabold text-gray-900">Billing &amp; Subscription</h1>
+      <p class="text-gray-500 mt-1">Your active plans, payment history, and invoice downloads.</p>
     </div>
-
-    <div class="space-y-8">
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h2 class="text-lg font-bold text-gray-900">Current Plan</h2>
-                        <p class="text-sm text-gray-500">The Workflow Saver</p>
-                    </div>
-                    <span class="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-100">Active</span>
-                </div>
-                <div class="mb-6">
-                    <span class="text-3xl font-extrabold text-gray-900">£50.00</span>
-                    <span class="text-gray-500 text-sm">/month</span>
-                </div>
-                <ul class="space-y-2 mb-6 flex-grow">
-                    <li class="flex items-center text-sm text-gray-600">
-                        <span class="text-emerald-500 mr-2">✓</span> 1 Smart Assistant
-                    </li>
-                    <li class="flex items-center text-sm text-gray-600">
-                        <span class="text-emerald-500 mr-2">✓</span> Multi-step processes
-                    </li>
-                    <li class="flex items-center text-sm text-gray-600">
-                        <span class="text-emerald-500 mr-2">✓</span> 2 Monthly Updates
-                    </li>
-                </ul>
-                <div class="flex gap-3 mt-auto">
-                    <button class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold py-2 rounded-lg border border-gray-200 transition text-sm">Change Plan</button>
-                    <button class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-2 rounded-lg border border-red-100 transition text-sm">Cancel</button>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h2 class="text-lg font-bold text-gray-900">Computing Power</h2>
-                        <p class="text-sm text-gray-500">Billed at cost, pennies per task.</p>
-                    </div>
-                </div>
-
-                <div class="mb-6">
-                    <div class="flex justify-between text-sm mb-1">
-                        <span class="font-medium text-gray-700">Used this month</span>
-                        <span class="font-bold text-gray-900">£1.42</span>
-                    </div>
-                    <div class="w-full bg-gray-100 rounded-full h-2.5 mb-2">
-                        <div class="bg-emerald-500 h-2.5 rounded-full" style="width: 28%"></div>
-                    </div>
-                    <div class="flex justify-between text-xs text-gray-500">
-                        <span>£0.00</span>
-                        <span>Cap: £5.00</span>
-                    </div>
-                </div>
-
-                <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-100 mt-auto">
-                    <p class="text-sm text-emerald-800 font-medium mb-2">Safety Cap Active</p>
-                    <p class="text-xs text-emerald-600 mb-3">If your assistants use £5.00 of raw computing power, they will pause until you approve more. No surprise bills.</p>
-                    <button class="text-sm font-bold text-emerald-700 hover:text-emerald-900 transition">Adjust Budget Cap</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <div class="bg-gray-100 p-3 rounded-md border border-gray-200">
-                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                </div>
-                <div>
-                    <h3 class="text-sm font-bold text-gray-900">Visa ending in 4242</h3>
-                    <p class="text-xs text-gray-500">Expires 12/2028</p>
-                </div>
-            </div>
-            <button class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition">Update</button>
-        </div>
-
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div class="p-6 border-b border-gray-100">
-                <h3 class="text-lg font-bold text-gray-900">Billing History</h3>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                    <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                        <th class="p-4 font-medium">Date</th>
-                        <th class="p-4 font-medium">Description</th>
-                        <th class="p-4 font-medium">Amount</th>
-                        <th class="p-4 font-medium">Status</th>
-                        <th class="p-4 font-medium text-right">Receipt</th>
-                    </tr>
-                    </thead>
-                    <tbody class="text-sm divide-y divide-gray-100">
-                    <tr class="hover:bg-gray-50 transition">
-                        <td class="p-4 text-gray-600">May 27, 2026</td>
-                        <td class="p-4 font-medium text-gray-900">The Workflow Saver + Compute</td>
-                        <td class="p-4 text-gray-600">£51.42</td>
-                        <td class="p-4">
-                            <span class="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-bold">Paid</span>
-                        </td>
-                        <td class="p-4 text-right">
-                            <a href="#" class="text-emerald-700 hover:text-emerald-800 font-semibold">Download</a>
-                        </td>
-                    </tr>
-                    <tr class="hover:bg-gray-50 transition">
-                        <td class="p-4 text-gray-600">Apr 27, 2026</td>
-                        <td class="p-4 font-medium text-gray-900">The Workflow Saver + Compute</td>
-                        <td class="p-4 text-gray-600">£50.95</td>
-                        <td class="p-4">
-                            <span class="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-bold">Paid</span>
-                        </td>
-                        <td class="p-4 text-right">
-                            <a href="#" class="text-emerald-700 hover:text-emerald-800 font-semibold">Download</a>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
+    <div id="billing-sync-badge" class="hidden items-center gap-1.5 text-xs text-gray-400 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-full">
+      <svg class="w-3 h-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+      Synced with Stripe
     </div>
+  </div>
+
+  <!-- Loading state -->
+  <div id="billing-loading" class="flex items-center justify-center py-24 text-gray-400 gap-3">
+    <svg class="w-5 h-5 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
+      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/>
+    </svg>
+    <span class="text-sm font-medium">Loading billing data…</span>
+  </div>
+
+  <!-- Error state -->
+  <div id="billing-error" class="hidden text-center py-16">
+    <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3C7.029 3 3 7.029 3 12s4.029 9 9 9 9-4.029 9-9-4.029-9-9-9z"/></svg>
+    </div>
+    <p id="billing-error-msg" class="text-sm text-gray-500 mb-4">Unable to load billing information.</p>
+    <button onclick="window.initBilling()" class="text-sm font-bold text-emerald-600 hover:text-emerald-700 transition cursor-pointer">Try again</button>
+  </div>
+
+  <!-- Main content (hidden until loaded) -->
+  <div id="billing-content" class="hidden space-y-8">
+
+    <!-- ── Active Subscriptions ────────────────────────────────── -->
+    <section id="subscriptions-section">
+      <h2 class="text-lg font-extrabold text-gray-900 mb-4">Active Subscriptions</h2>
+
+      <!-- Empty state -->
+      <div id="subscriptions-empty" class="hidden bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
+        <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+        </div>
+        <h3 class="text-base font-bold text-gray-700 mb-1">No active subscriptions</h3>
+        <p class="text-sm text-gray-500 mb-5">You don't have any active Digital Assistants yet. Browse available roles to get started.</p>
+        <a href="#" onclick="window.loadView('catalog')"
+          class="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Browse Digital Assistants
+        </a>
+      </div>
+
+      <!-- Subscription cards -->
+      <div id="subscriptions-list" class="space-y-4"></div>
+    </section>
+
+    <!-- ── Payment History ─────────────────────────────────────── -->
+    <section id="history-section">
+      <h2 class="text-lg font-extrabold text-gray-900 mb-4">Payment History</h2>
+
+      <!-- Empty state -->
+      <div id="history-empty" class="hidden bg-white rounded-2xl border border-dashed border-gray-300 p-8 text-center">
+        <p class="text-sm text-gray-500">No payment records found.</p>
+      </div>
+
+      <!-- History table -->
+      <div id="history-wrap" class="hidden bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-100">
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Date</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Description</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Amount</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Payment Method</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Receipt</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody" class="divide-y divide-gray-100 text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </div>
 </div>

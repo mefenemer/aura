@@ -272,6 +272,10 @@
           await window.initCalendar();
         }
 
+        if (routeKey === 'billing' && typeof window.initBilling === 'function') {
+          await window.initBilling();
+        }
+
         // --- NEW: Assistants Directory & Board Room ---
         if (routeKey === 'assistants' && typeof window.initAssistantsDirectory === 'function') {
           await window.initAssistantsDirectory(loadView);
@@ -648,5 +652,6 @@
 <script src="/help.js"></script>
 <script src="/my-content.js"></script>
 <script src="/calendar.js"></script>
+<script src="/billing.js"></script>
 </body>
 </html>
