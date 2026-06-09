@@ -3,7 +3,7 @@ import { Handler, HandlerResponse } from '@netlify/functions';
 import { eq, and, gt } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
-import { users } from '../../db/schema';
+import { users, plans } from '../../db/schema';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 
@@ -91,14 +91,24 @@ export const handler: Handler = async (event) => {
             'price_1Tg6fiCuS8qyNSsF787zwCwh': 'employee',
         };
 
-        // If no priceId (e.g. link opened in a different browser), send them to
-        // the pricing page to re-select their plan. The page detects ?verified=true
-        // and skips registration — sending them straight to onboarding instead.
+        // If no priceId — this is a returning user logging in (not a new registration).
+        // Check if they already have an active plan; if so send them to the workspace.
+        // If not (edge case: registered but never paid), send them back to pricing.
         if (!priceId || !priceToTier[priceId]) {
+            const [existingPlan] = await db
+                .select({ id: plans.id })
+                .from(plans)
+                .where(and(eq(plans.userId, user.id), eq(plans.status, 'active')))
+                .limit(1);
+
+            const destination = existingPlan
+                ? `${baseUrl}/workspace.html`
+                : `${baseUrl}/pricing.html?verified=true`;
+
             return {
                 statusCode: 200,
                 headers: getHeaders(sessionCookie),
-                body: JSON.stringify({ success: true, redirect: `${baseUrl}/pricing.html?verified=true` })
+                body: JSON.stringify({ success: true, redirect: destination })
             };
         }
 
