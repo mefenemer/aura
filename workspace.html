@@ -34,6 +34,17 @@
   </div>
 </div>
 
+<!-- Draft saved toast -->
+<div id="draft-saved-toast"
+  class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 bg-gray-900 text-white text-sm font-semibold rounded-xl shadow-2xl transition-opacity duration-500 opacity-0">
+  <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+  </svg>
+  <span>Progress saved — pick up where you left off any time.</span>
+  <button onclick="this.closest('#draft-saved-toast').classList.add('hidden')"
+    class="ml-2 text-gray-400 hover:text-white transition text-lg leading-none">&times;</button>
+</div>
+
 <nav class="fixed top-0 left-0 right-0 z-50 h-16 w-full bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8">
 
   <div class="flex items-center gap-3 sm:gap-4">
@@ -301,6 +312,21 @@
       document.getElementById('payment-welcome-modal').classList.remove('hidden');
       document.getElementById('payment-welcome-modal').classList.add('flex');
       history.replaceState(null, '', window.location.pathname);
+    }
+
+    // Show saved-draft toast if returning from "Save & Continue Later"
+    if (new URLSearchParams(window.location.search).get('draft') === 'saved') {
+      history.replaceState(null, '', window.location.pathname);
+      const toast = document.getElementById('draft-saved-toast');
+      if (toast) {
+        toast.classList.remove('hidden', 'opacity-0');
+        toast.classList.add('opacity-100');
+        setTimeout(() => {
+          toast.classList.remove('opacity-100');
+          toast.classList.add('opacity-0');
+          setTimeout(() => toast.classList.add('hidden'), 500);
+        }, 4000);
+      }
     }
   });
 

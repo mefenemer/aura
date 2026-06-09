@@ -573,9 +573,18 @@
           <button type="button" id="btn-back" onclick="prevStep()" class="text-gray-500 font-semibold hover:text-gray-900 transition">
             ← Back
           </button>
-          <button type="button" id="btn-next" onclick="nextStep()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
-            Next Step
-          </button>
+          <div class="flex items-center gap-4">
+            <button type="button" id="btn-save-exit" onclick="saveAndExit()"
+              class="text-sm text-gray-400 hover:text-gray-600 font-medium transition flex items-center gap-1.5 group">
+              <svg class="w-4 h-4 group-hover:text-gray-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              </svg>
+              Save &amp; Continue Later
+            </button>
+            <button type="button" id="btn-next" onclick="nextStep()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
+              Next Step
+            </button>
+          </div>
         </div>
 
       </form>
@@ -1228,6 +1237,17 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
     autoExpandTextareas();
     document.getElementById('progress-bar').style.width = `${(currentStep / totalSteps) * 100}%`;
+
+    // Hide "Save & Continue Later" on the final submit step
+    const saveExitBtn = document.getElementById('btn-save-exit');
+    if (saveExitBtn) saveExitBtn.classList.toggle('invisible', currentStep === totalSteps);
+  }
+
+  async function saveAndExit() {
+    const btn = document.getElementById('btn-save-exit');
+    if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+    await saveDraftToBackend();
+    window.location.href = 'workspace.html?draft=saved';
   }
 
   async function submitToBackend() {
