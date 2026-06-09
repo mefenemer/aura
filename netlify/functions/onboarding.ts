@@ -17,6 +17,7 @@ import {
   masterAssistants,
   onboardingDrafts,
 } from '../../db/schema';
+import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
 if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
@@ -68,6 +69,8 @@ ${fmt(inputs.strictRules, missing)}
 
 APPROVAL PROTOCOL
 All requests requiring your sign-off are managed exclusively through your Aura-Assist Workspace. You will be notified by email immediately upon the creation of any new request.
+
+${AURA_SAFE_CONTENT_BENCHMARK}
 `.trim();
 }
 

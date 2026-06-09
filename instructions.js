@@ -214,7 +214,68 @@ window.initInstructions = function() {
         }
     })();
 
-    // --- 5. HTML5 DRAG AND DROP ENGINE ---
+    // --- 6. SAFETY FEEDBACK MODAL ---
+    window._openSafetyFeedback = function () {
+        document.getElementById('safety-suggestion').value = '';
+        document.getElementById('safety-context').value = '';
+        document.getElementById('safety-feedback-error').classList.add('hidden');
+        document.getElementById('safety-feedback-success').classList.add('hidden');
+        const btn = document.getElementById('btn-safety-submit');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg> Submit Suggestion';
+        }
+        document.getElementById('modal-safety-feedback').classList.remove('hidden');
+    };
+
+    window._submitSafetyFeedback = async function () {
+        const suggestion = document.getElementById('safety-suggestion').value.trim();
+        const context = document.getElementById('safety-context').value.trim();
+        const errorEl = document.getElementById('safety-feedback-error');
+        const successEl = document.getElementById('safety-feedback-success');
+        const btn = document.getElementById('btn-safety-submit');
+
+        errorEl.classList.add('hidden');
+        successEl.classList.add('hidden');
+
+        if (!suggestion) {
+            errorEl.textContent = 'Please describe your suggested safety rule.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/></svg> Sending…';
+
+        try {
+            const res = await fetch('/.netlify/functions/safety-feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ suggestion, context }),
+            });
+
+            if (res.ok) {
+                successEl.classList.remove('hidden');
+                btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Sent!';
+                setTimeout(() => {
+                    document.getElementById('modal-safety-feedback').classList.add('hidden');
+                }, 2200);
+            } else {
+                const data = await res.json().catch(() => ({}));
+                errorEl.textContent = data.error || 'Submission failed. Please try again.';
+                errorEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg> Submit Suggestion';
+            }
+        } catch {
+            errorEl.textContent = 'Network error. Please check your connection and try again.';
+            errorEl.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg> Submit Suggestion';
+        }
+    };
+
+    // --- 7. HTML5 DRAG AND DROP ENGINE ---
     let draggedRow = null;
 
     function attachDragEvents(row) {
