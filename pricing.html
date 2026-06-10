@@ -35,6 +35,17 @@
         @media (min-width: 1024px) {
             .pricing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
         }
+        /* Billing cycle toggle */
+        .billing-toggle-track {
+            display: inline-flex; align-items: center; background: #f3f4f6;
+            border-radius: 999px; padding: 4px; gap: 2px; border: 1px solid #e5e7eb;
+        }
+        .billing-toggle-btn {
+            padding: 8px 20px; border-radius: 999px; font-size: 13px; font-weight: 700;
+            cursor: pointer; border: none; background: transparent; color: #6b7280;
+            transition: background .2s, color .2s; white-space: nowrap;
+        }
+        .billing-toggle-btn.active { background: #ffffff; color: #111827; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
     </style>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
@@ -68,6 +79,23 @@
 
     <!-- ══ PRICING CARDS — 4 column grid ════════════════════════════ -->
     <section class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+
+        <!-- ── Billing cycle toggle ──────────────────────────────── -->
+        <div class="flex flex-col items-center mb-10 gap-3">
+            <div class="billing-toggle-track" role="group" aria-label="Billing frequency">
+                <button id="toggle-monthly" class="billing-toggle-btn active" onclick="setBillingCycle('monthly')">
+                    Pay Monthly
+                </button>
+                <button id="toggle-annual" class="billing-toggle-btn" onclick="setBillingCycle('annual')">
+                    Pay Annually
+                    <span style="background:#dcfce7;color:#166534;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;">Save 20%</span>
+                </button>
+            </div>
+            <p id="billing-cycle-note" class="text-sm text-gray-400" style="display:none;">
+                Annual plans billed as a single upfront payment. Cancel any time.
+            </p>
+        </div>
+
         <div class="pricing-grid grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
 
             <!-- ── Tier 1: The Busywork Buster ──────────────────── -->
@@ -77,10 +105,10 @@
                     <h2 class="text-lg font-extrabold text-gray-900 mb-3">The Busywork Buster</h2>
                     <p class="text-sm text-gray-500 leading-relaxed mb-4 italic">Hand off your most annoying daily task to a helper that never takes a day off.</p>
                     <div class="flex items-end gap-1 mb-1">
-                        <span class="text-4xl font-extrabold text-gray-900 leading-none">£29</span>
+                        <span id="card-price-t1" class="text-4xl font-extrabold text-gray-900 leading-none">£29</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
-                    <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
+                    <p id="card-note-t1" class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
                 <div class="p-6 flex-grow flex flex-col">
                     <!-- Capacity stat boxes — pink -->
@@ -128,10 +156,10 @@
                     <h2 class="text-lg font-extrabold text-gray-900 mb-3">The Workflow Saver</h2>
                     <p class="text-sm text-gray-500 leading-relaxed mb-4 italic">Scale your business by building your own mini digital department.</p>
                     <div class="flex items-end gap-1 mb-1">
-                        <span class="text-4xl font-extrabold text-gray-900 leading-none">£99</span>
+                        <span id="card-price-t2" class="text-4xl font-extrabold text-gray-900 leading-none">£99</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
-                    <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
+                    <p id="card-note-t2" class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
                 <div class="p-6 flex-grow flex flex-col">
                     <div class="grid grid-cols-3 gap-2 mb-6">
@@ -174,10 +202,10 @@
                     <h2 class="text-lg font-extrabold text-gray-900 mb-3">The Business Automator</h2>
                     <p class="text-sm text-gray-500 leading-relaxed mb-4 italic">A complete digital workforce built for growing businesses and collaborative teams.</p>
                     <div class="flex items-end gap-1 mb-1">
-                        <span class="text-4xl font-extrabold text-gray-900 leading-none">£349</span>
+                        <span id="card-price-t3" class="text-4xl font-extrabold text-gray-900 leading-none">£349</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
-                    <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
+                    <p id="card-note-t3" class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
                 <div class="p-6 flex-grow flex flex-col">
                     <div class="grid grid-cols-3 gap-2 mb-6">
@@ -278,20 +306,20 @@
                             <th class="text-center px-4 py-5 bg-gray-50 w-[15%]" style="vertical-align:top">
                                 <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tier 1</div>
                                 <div class="font-extrabold text-gray-900 text-sm leading-snug">The Busywork<br>Buster</div>
-                                <div class="font-extrabold text-gray-900 text-base mt-1.5">£29</div>
+                                <div id="tbl-price-t1" class="font-extrabold text-gray-900 text-base mt-1.5">£29</div>
                                 <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
                             </th>
                             <th class="text-center px-4 py-5 w-[15%] pk-col-th" style="vertical-align:top">
                                 <div class="text-[10px] font-bold uppercase tracking-wider pk-text mb-0.5">Tier 2</div>
                                 <div class="font-extrabold text-gray-900 text-sm leading-snug">The Workflow<br>Saver</div>
-                                <div class="font-extrabold text-gray-900 text-base mt-1.5">£99</div>
+                                <div id="tbl-price-t2" class="font-extrabold text-gray-900 text-base mt-1.5">£99</div>
                                 <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
                                 <div class="mt-2"><span class="pk-pill inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">Popular</span></div>
                             </th>
                             <th class="text-center px-4 py-5 bg-gray-50 w-[15%]" style="vertical-align:top">
                                 <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tier 3</div>
                                 <div class="font-extrabold text-gray-900 text-sm leading-snug">The Business<br>Automator</div>
-                                <div class="font-extrabold text-gray-900 text-base mt-1.5">£349</div>
+                                <div id="tbl-price-t3" class="font-extrabold text-gray-900 text-base mt-1.5">£349</div>
                                 <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
                             </th>
                             <th class="text-center px-4 py-5 bg-gray-50 w-[15%]" style="vertical-align:top">
@@ -626,6 +654,50 @@
 <script src="./mobileMenu.js"></script>
 <script>
 (function () {
+    // ── Billing cycle state ────────────────────────────────────────
+    let _billingCycle = 'monthly'; // 'monthly' | 'annual'
+
+    const BILLING_CONFIG = {
+        monthly: {
+            t1: { price: '£29',  note: 'Billed monthly · cancel any time' },
+            t2: { price: '£99',  note: 'Billed monthly · cancel any time' },
+            t3: { price: '£349', note: 'Billed monthly · cancel any time' },
+        },
+        annual: {
+            // Monthly equivalent shown on cards; actual charge is the annual total below.
+            t1: { price: '£23',  note: 'Billed £276 annually · cancel any time' },
+            t2: { price: '£79',  note: 'Billed £948 annually · cancel any time' },
+            t3: { price: '£279', note: 'Billed £3,348 annually · cancel any time' },
+        },
+    };
+
+    window.setBillingCycle = function (cycle) {
+        _billingCycle = cycle;
+
+        // Toggle button states
+        document.getElementById('toggle-monthly').classList.toggle('active', cycle === 'monthly');
+        document.getElementById('toggle-annual').classList.toggle('active', cycle === 'annual');
+
+        // Show/hide annual note
+        const note = document.getElementById('billing-cycle-note');
+        if (note) note.style.display = cycle === 'annual' ? 'block' : 'none';
+
+        // Update card prices
+        const cfg = BILLING_CONFIG[cycle];
+        ['t1', 't2', 't3'].forEach(t => {
+            const priceEl = document.getElementById('card-price-' + t);
+            const noteEl  = document.getElementById('card-note-' + t);
+            const tblEl   = document.getElementById('tbl-price-' + t);
+            if (priceEl) priceEl.textContent = cfg[t].price;
+            if (noteEl)  noteEl.textContent  = cfg[t].note;
+            if (tblEl)   tblEl.textContent   = cfg[t].price;
+        });
+
+        // Persist for checkout handoff
+        sessionStorage.setItem('billing_cycle', cycle);
+    };
+
+    // Monthly price IDs (test env) — used when billing_cycle = 'monthly'
     const PRICE_IDS = {
         starter:  'price_1TgGNFE7lvVYjk1BAsnhUzBp',
         pro_team: 'price_1TgGP8E7lvVYjk1BRBeEZVd6',
@@ -650,8 +722,10 @@
 
     window.choosePlan = function (tier) {
         if (tier === 'enterprise') { openEnterpriseModal(); return; }
+        const cycle = _billingCycle || 'monthly';
+        sessionStorage.setItem('billing_cycle', cycle);
         if (isLoggedIn()) {
-            window.location.href = 'checkout.html?tier=' + tier;
+            window.location.href = 'checkout.html?tier=' + tier + '&cycle=' + cycle;
         } else {
             sessionStorage.setItem('pending_price_id', PRICE_IDS[tier] || PRICE_IDS.pro_team);
             sessionStorage.setItem('pending_tier', tier);

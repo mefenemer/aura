@@ -3,7 +3,7 @@ import { Handler, HandlerResponse } from '@netlify/functions';
 import { eq, and, gt } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
-import { users, plans } from '../../db/schema';
+import { users, plans, aiAssistants, onboardingDrafts } from '../../db/schema';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 
@@ -91,9 +91,19 @@ export const handler: Handler = async (event) => {
             'price_1Tg6fiCuS8qyNSsF787zwCwh': 'employee',
         };
 
+        // Onboarding path → HTML page map (mirrors onboarding-reminder.ts)
+        const ONBOARDING_PAGE: Record<string, string> = {
+            'social-media':  'onboarding-social-media.html',
+            'social_media':  'onboarding-social-media.html',
+            'custom':        'onboarding-custom.html',
+            'inventory':     'onboarding-inventory.html',
+            'performance':   'onboarding-performance.html',
+        };
+
         // If no priceId — this is a returning user logging in (not a new registration).
-        // Check if they already have an active plan; if so send them to the workspace.
-        // If not (edge case: registered but never paid), send them back to pricing.
+        // Priority:  active plan + incomplete onboarding → resume onboarding step
+        //            active plan + complete onboarding   → workspace
+        //            no plan                             → pricing
         if (!priceId || !priceToTier[priceId]) {
             const [existingPlan] = await db
                 .select({ id: plans.id })
@@ -101,14 +111,46 @@ export const handler: Handler = async (event) => {
                 .where(and(eq(plans.userId, user.id), eq(plans.status, 'active')))
                 .limit(1);
 
-            const destination = existingPlan
-                ? `${baseUrl}/workspace.html`
-                : `${baseUrl}/pricing.html?verified=true`;
+            if (!existingPlan) {
+                return {
+                    statusCode: 200,
+                    headers: getHeaders(sessionCookie),
+                    body: JSON.stringify({ success: true, redirect: `${baseUrl}/pricing.html?verified=true` })
+                };
+            }
+
+            // Has an active plan — check whether onboarding is complete
+            const [assistant] = await db
+                .select({ id: aiAssistants.id })
+                .from(aiAssistants)
+                .where(eq(aiAssistants.userId, user.id))
+                .limit(1);
+
+            if (!assistant) {
+                // Incomplete onboarding — route back to the exact step they left off
+                const [draft] = await db
+                    .select({ currentStep: onboardingDrafts.currentStep, onboardingPath: onboardingDrafts.onboardingPath })
+                    .from(onboardingDrafts)
+                    .where(eq(onboardingDrafts.userId, user.id))
+                    .limit(1);
+
+                if (draft) {
+                    const page = ONBOARDING_PAGE[draft.onboardingPath] || 'onboarding.html';
+                    return {
+                        statusCode: 200,
+                        headers: getHeaders(sessionCookie),
+                        body: JSON.stringify({
+                            success: true,
+                            redirect: `${baseUrl}/${page}?step=${draft.currentStep}&resumed=true`
+                        })
+                    };
+                }
+            }
 
             return {
                 statusCode: 200,
                 headers: getHeaders(sessionCookie),
-                body: JSON.stringify({ success: true, redirect: destination })
+                body: JSON.stringify({ success: true, redirect: `${baseUrl}/workspace.html` })
             };
         }
 

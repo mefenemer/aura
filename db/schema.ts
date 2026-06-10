@@ -334,7 +334,9 @@ export const onboardingDrafts = pgTable("onboarding_drafts", {
   currentStep: integer("current_step").default(2).notNull(),
   onboardingPath: text("onboarding_path").notNull(),
   draftData: jsonb("draft_data").default({}).notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull()
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  // Tracks when the last abandoned-onboarding reminder was sent to avoid duplicate emails
+  reminderSentAt: timestamp("reminder_sent_at"),
 });
 
 // Content Assets Table — Media Hub (My Content)

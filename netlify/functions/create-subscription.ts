@@ -59,8 +59,13 @@ export const handler: Handler = async (event) => {
       return { statusCode: 403, body: JSON.stringify({ error: 'Account not active.' }) };
     }
 
-    const { tier } = JSON.parse(event.body || '{}');
+    const { tier, billingCycle: rawCycle } = JSON.parse(event.body || '{}');
     if (!tier) return { statusCode: 400, body: JSON.stringify({ error: 'Missing tier.' }) };
+
+    const billingCycle: 'monthly' | 'annual' = rawCycle === 'annual' ? 'annual' : 'monthly';
+
+    // Annual discount: 20% off (12 months × monthly price × 0.8)
+    const ANNUAL_DISCOUNT = 0.80;
 
     // 2. LOOK UP MASTER PLAN
     const tierKey = tier.toLowerCase();
@@ -74,6 +79,17 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: `No Stripe price configured for tier: ${tierKey}` }) };
     }
 
+    // Compute charge amount based on billing cycle
+    const monthlyGbp  = Number(masterPlan.monthlyPriceGbp);
+    const chargeGbp   = billingCycle === 'annual'
+        ? parseFloat((monthlyGbp * 12 * ANNUAL_DISCOUNT).toFixed(2))  // annual lump-sum
+        : monthlyGbp;                                                   // monthly
+    const chargePence = Math.round(chargeGbp * 100);
+
+    const billingCycleLabel = billingCycle === 'annual'
+        ? `Annual subscription (${Math.round((1 - ANNUAL_DISCOUNT) * 100)}% off)`
+        : 'Monthly subscription';
+
     // 3. CREATE STRIPE CUSTOMER
     const customer = await stripe.customers.create({
       email: user.email,
@@ -84,18 +100,20 @@ export const handler: Handler = async (event) => {
     // 4. CREATE PAYMENT INTENT
     // setup_future_usage: 'off_session' saves the card for recurring subscription charges.
     // The webhook (payment_intent.succeeded) creates the Stripe subscription + DB records.
+    // billingCycle is passed in metadata so the webhook can set interval: 'year' for annual plans.
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(Number(masterPlan.monthlyPriceGbp) * 100),
+      amount: chargePence,
       currency: 'gbp',
       customer: customer.id,
       setup_future_usage: 'off_session',
       metadata: {
-        userId: user.id.toString(),
-        organisationId: user.organisationId.toString(),
-        tier: tierKey,
-        masterPlanId: masterPlan.id.toString(),
+        userId:           user.id.toString(),
+        organisationId:   user.organisationId.toString(),
+        tier:             tierKey,
+        masterPlanId:     masterPlan.id.toString(),
         stripePriceId,
         stripeCustomerId: customer.id,
+        billingCycle,
       },
     });
 
@@ -103,11 +121,13 @@ export const handler: Handler = async (event) => {
       statusCode: 200,
       body: JSON.stringify({
         data: {
-          clientSecret: paymentIntent.client_secret,
-          publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
-          planName: masterPlan.name,
-          amountGbp: masterPlan.monthlyPriceGbp,
-          tier: tierKey,
+          clientSecret:      paymentIntent.client_secret,
+          publishableKey:    process.env.STRIPE_PUBLISHABLE_KEY,
+          planName:          masterPlan.name,
+          amountGbp:         chargeGbp.toString(),
+          tier:              tierKey,
+          billingCycle,
+          billingCycleLabel,
         },
       }),
     };

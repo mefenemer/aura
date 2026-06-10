@@ -129,10 +129,10 @@
               <div id="submit-spinner" class="hidden w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
             </button>
 
-            <p class="text-center text-xs text-gray-400 mt-4">
+            <p id="checkout-tos-copy" class="text-center text-xs text-gray-400 mt-4">
               By confirming, you agree to Aura-Assist's
               <a href="terms_of_service.html" class="underline hover:text-gray-600">Terms of Service</a>
-              and authorise this recurring monthly charge. Cancel anytime.
+              and authorise this recurring charge. Cancel anytime.
             </p>
           </form>
         </div>
@@ -165,15 +165,18 @@
   }
 
   async function initCheckout() {
-    const tier = new URLSearchParams(window.location.search).get('tier') || 'saver';
-    const planInfo = PLAN_INFO[tier] || PLAN_INFO.saver;
+    const params      = new URLSearchParams(window.location.search);
+    const tier        = params.get('tier') || 'saver';
+    // Billing cycle: URL param takes priority, fall back to sessionStorage, then default 'monthly'
+    const billingCycle = params.get('cycle') || sessionStorage.getItem('billing_cycle') || 'monthly';
+    const planInfo    = PLAN_INFO[tier] || PLAN_INFO.saver;
 
     let checkoutData;
     try {
       const res = await fetch('/.netlify/functions/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier }),
+        body: JSON.stringify({ tier, billingCycle }),
       });
       const json = await res.json();
       if (!res.ok) { showError(json.detail || json.error || 'Failed to initialise checkout.'); return; }
@@ -183,15 +186,19 @@
       return;
     }
 
-    const { clientSecret, publishableKey, planName, amountGbp } = checkoutData;
+    const { clientSecret, publishableKey, planName, amountGbp, billingCycleLabel } = checkoutData;
     if (!clientSecret || !publishableKey) { showError('Payment configuration missing. Please contact support.'); return; }
 
     // Populate summary
-    const priceNum = parseFloat(amountGbp || '0');
+    const priceNum  = parseFloat(amountGbp || '0');
     const formatted = '£' + priceNum.toFixed(2).replace(/\.00$/, '');
+    const cycleLabel = billingCycleLabel || (billingCycle === 'annual' ? 'Annual subscription' : 'Monthly subscription');
     document.getElementById('summary-plan-name').textContent = planName || planInfo.label;
-    document.getElementById('summary-price').textContent = formatted + '/mo';
+    document.getElementById('summary-price').textContent = formatted + (billingCycle === 'annual' ? '/yr' : '/mo');
     document.getElementById('summary-total').textContent = formatted;
+    // Update the "Monthly subscription" row label
+    const subsLabel = document.querySelector('#checkout-content .text-gray-500 span');
+    if (subsLabel) subsLabel.textContent = cycleLabel;
     document.getElementById('summary-features').innerHTML = planInfo.features.map(f => `
       <div class="flex items-center gap-2.5 text-sm text-gray-600">
         <span class="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">

@@ -24,7 +24,7 @@ export const handler: Handler = async (event) => {
     // ── payment_intent.succeeded — initial checkout ───────────────
     if (stripeEvent.type === 'payment_intent.succeeded') {
         const pi = stripeEvent.data.object as Stripe.PaymentIntent;
-        const { userId, organisationId, tier, masterPlanId, stripePriceId, stripeCustomerId } = pi.metadata || {};
+        const { userId, organisationId, tier, masterPlanId, stripePriceId, stripeCustomerId, billingCycle } = pi.metadata || {};
 
         // Only handle payment intents created by our checkout flow (they have userId in metadata)
         if (!userId || !stripeCustomerId) {
@@ -60,23 +60,49 @@ export const handler: Handler = async (event) => {
             }
         }
 
-        // Look up plan name
+        // Look up plan name + keep masterPlan record for subscription creation below
         let planName = tier ? `Aura-Assist (${tier})` : 'Aura-Assist Subscription';
+        let masterPlan: typeof masterPlans.$inferSelect | null = null;
         if (masterPlanIdInt) {
             const [mp] = await db.select().from(masterPlans).where(eq(masterPlans.id, masterPlanIdInt)).limit(1);
-            if (mp) planName = mp.name;
+            if (mp) { planName = mp.name; masterPlan = mp; }
         }
 
-        // Create Stripe subscription with the saved payment method for recurring billing
-        if (stripePriceId && pi.payment_method) {
-            await stripe.subscriptions.create({
-                customer: stripeCustomerId,
-                items: [{ price: stripePriceId }],
-                default_payment_method: pi.payment_method as string,
-                billing_cycle_anchor: 'now',
-                proration_behavior: 'none',
-                metadata: { userId, organisationId, tier: tier || '', masterPlanId: masterPlanId || '' },
-            }).catch(err => console.error('Subscription creation after payment failed:', err));
+        // Create Stripe subscription with the saved payment method for recurring billing.
+        // For annual subscriptions use inline price_data (interval: year); monthly uses the fixed price ID.
+        if (pi.payment_method) {
+            const isAnnual  = billingCycle === 'annual';
+            const subMeta   = { userId, organisationId, tier: tier || '', masterPlanId: masterPlanId || '', billingCycle: billingCycle || 'monthly' };
+
+            if (isAnnual && masterPlan) {
+                // Build annual price inline so no pre-created yearly price ID is required.
+                // Amount is 12 × monthly × 0.8 (20% discount), same as what the PaymentIntent charged.
+                const annualAmount = Math.round(Number(masterPlan.monthlyPriceGbp) * 12 * 0.80 * 100);
+                await stripe.subscriptions.create({
+                    customer: stripeCustomerId,
+                    items: [{
+                        price_data: {
+                            currency: 'gbp',
+                            product_data: { name: masterPlan.name },
+                            unit_amount: annualAmount,
+                            recurring: { interval: 'year' },
+                        },
+                    }],
+                    default_payment_method: pi.payment_method as string,
+                    billing_cycle_anchor: 'now',
+                    proration_behavior: 'none',
+                    metadata: subMeta,
+                }).catch(err => console.error('[stripe-webhook] Annual subscription creation failed:', err));
+            } else if (stripePriceId) {
+                await stripe.subscriptions.create({
+                    customer: stripeCustomerId,
+                    items: [{ price: stripePriceId }],
+                    default_payment_method: pi.payment_method as string,
+                    billing_cycle_anchor: 'now',
+                    proration_behavior: 'none',
+                    metadata: subMeta,
+                }).catch(err => console.error('[stripe-webhook] Monthly subscription creation failed:', err));
+            }
         }
 
         // Create plan record
