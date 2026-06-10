@@ -252,7 +252,7 @@
     // ── Main render ───────────────────────────────────────────────
     function _render(subscriptions, paymentHistory) {
         _renderSubscriptions(subscriptions);
-        _renderPaymentMethod(subscriptions);
+        _renderPaymentMethod(subscriptions, paymentHistory);
         _renderHistory(paymentHistory);
 
         _showState('content');
@@ -327,10 +327,20 @@
     }
 
     // ── Payment Method ────────────────────────────────────────────
-    function _renderPaymentMethod(subs) {
+    function _renderPaymentMethod(subs, history) {
         const cardEl  = document.getElementById('payment-method-card');
         const emptyEl = document.getElementById('payment-method-empty');
-        const pm      = subs.find(s => s.paymentMethod)?.paymentMethod || null;
+
+        // 1. Prefer card details from a live Stripe subscription (most current)
+        let pm = subs.find(s => s.paymentMethod)?.paymentMethod || null;
+
+        // 2. Fall back to DB-stored card details from the most recent completed payment
+        if (!pm && Array.isArray(history)) {
+            const recent = history.find(p =>
+                p.paymentMethod && typeof p.paymentMethod === 'object' && p.paymentMethod.last4
+            );
+            if (recent) pm = recent.paymentMethod;
+        }
 
         if (!pm) { cardEl.classList.add('hidden'); emptyEl.classList.remove('hidden'); return; }
         emptyEl.classList.add('hidden');
