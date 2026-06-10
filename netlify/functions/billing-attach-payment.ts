@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users } from '../../db/schema';
+import { users, payments } from '../../db/schema';
 
 const jwtSecret    = process.env.JWT_SECRET;
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
@@ -89,8 +89,22 @@ export const handler: Handler = async (event) => {
             )
         );
 
-        // Return only the safe card summary — last4 is all that's stored/displayed
+        // Persist updated card details to all existing payment records for this user
+        // so the payment history shows the card that was active at change time.
         const card = pm.card;
+        if (card) {
+            await db.update(payments)
+                .set({
+                    cardBrand:    card.brand    || null,
+                    cardLast4:    card.last4    || null,
+                    cardExpMonth: card.exp_month || null,
+                    cardExpYear:  card.exp_year  || null,
+                    paymentMethod: `${card.brand} ending ${card.last4}`,
+                })
+                .where(eq(payments.userId, userId));
+        }
+
+        // Return only the safe card summary — last4 is all that's stored/displayed
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },

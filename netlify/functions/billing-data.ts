@@ -71,6 +71,10 @@ export const handler: Handler = async (event) => {
                 paymentMethod: payments.paymentMethod,
                 externalPaymentId: payments.externalPaymentId,
                 description: payments.description,
+                cardBrand: payments.cardBrand,
+                cardLast4: payments.cardLast4,
+                cardExpMonth: payments.cardExpMonth,
+                cardExpYear: payments.cardExpYear,
                 createdAt: payments.createdAt,
                 paidAt: payments.paidAt,
             })
@@ -213,8 +217,29 @@ export const handler: Handler = async (event) => {
         });
 
         const paymentHistory = userPayments.map(p => {
-            const pmDetails = p.externalPaymentId ? stripePaymentMethods[p.externalPaymentId] : null;
+            // Card details: DB columns are primary source of truth (stored at payment time).
+            // Stripe live enrichment used as fallback for older records that pre-date the columns.
+            const stripeCard = p.externalPaymentId ? stripePaymentMethods[p.externalPaymentId] : null;
             const receiptUrl = p.externalPaymentId ? stripeInvoiceUrls[p.externalPaymentId] : null;
+
+            let cardDetails: { brand: string; last4: string; expMonth: number; expYear: number } | null = null;
+            if (p.cardBrand && p.cardLast4) {
+                // DB-stored card details (authoritative)
+                cardDetails = {
+                    brand:    p.cardBrand,
+                    last4:    p.cardLast4,
+                    expMonth: p.cardExpMonth!,
+                    expYear:  p.cardExpYear!,
+                };
+            } else if (stripeCard) {
+                // Stripe live enrichment fallback
+                cardDetails = {
+                    brand:    stripeCard.brand,
+                    last4:    stripeCard.last4,
+                    expMonth: stripeCard.expMonth,
+                    expYear:  stripeCard.expYear,
+                };
+            }
 
             return {
                 id: p.id,
@@ -223,12 +248,7 @@ export const handler: Handler = async (event) => {
                 amount: p.amount,
                 currency: p.currency || 'GBP',
                 status: p.status,
-                paymentMethod: pmDetails ? {
-                    brand: pmDetails.brand,
-                    last4: pmDetails.last4,
-                    expMonth: pmDetails.expMonth,
-                    expYear: pmDetails.expYear,
-                } : (p.paymentMethod || null),
+                paymentMethod: cardDetails ?? (p.paymentMethod || null),
                 receiptUrl,
             };
         });

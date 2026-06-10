@@ -115,6 +115,11 @@ export const payments = pgTable("payments", {
   paymentMethod: text("payment_method"),
   externalPaymentId: text("external_payment_id"),
   description: text("description"),
+  // Card details — brand/last4/expiry stored at payment time; PAN and CVC never stored
+  cardBrand: text("card_brand"),
+  cardLast4: text("card_last4"),
+  cardExpMonth: integer("card_exp_month"),
+  cardExpYear: integer("card_exp_year"),
   metadata: jsonb("metadata"),
   paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
