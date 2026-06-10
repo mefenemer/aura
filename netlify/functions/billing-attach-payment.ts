@@ -75,14 +75,14 @@ export const handler: Handler = async (event) => {
             invoice_settings: { default_payment_method: paymentMethodId },
         });
 
-        // Update default_payment_method on all active subscriptions
-        const subs = await stripe.subscriptions.list({
-            customer: customerId,
-            status: 'active',
-            limit: 20,
-        });
+        // Update default_payment_method on all active and trialing subscriptions
+        const [activeSubs, trialingSubs] = await Promise.all([
+            stripe.subscriptions.list({ customer: customerId, status: 'active',   limit: 20 }),
+            stripe.subscriptions.list({ customer: customerId, status: 'trialing', limit: 20 }),
+        ]);
+        const allSubs = [...activeSubs.data, ...trialingSubs.data];
         await Promise.all(
-            subs.data.map(sub =>
+            allSubs.map(sub =>
                 stripe.subscriptions.update(sub.id, {
                     default_payment_method: paymentMethodId,
                 })

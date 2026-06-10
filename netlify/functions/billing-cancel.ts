@@ -5,9 +5,9 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users } from '../../db/schema';
+import { users, plans } from '../../db/schema';
 
 const jwtSecret    = process.env.JWT_SECRET;
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
@@ -65,10 +65,16 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'Subscription is already cancelled.' }) };
         }
 
-        // Set cancel at period end (graceful cancel — access continues until renewal date)
+        // Set cancel at period end in Stripe (graceful — access continues until renewal date)
         const updated = await stripe.subscriptions.update(stripeSubscriptionId, {
             cancel_at_period_end: true,
         });
+
+        // Mirror the pending-cancellation status in our DB immediately.
+        // The webhook (customer.subscription.deleted) will set it to 'cancelled' at period end.
+        await db.update(plans)
+            .set({ status: 'cancelling' })
+            .where(and(eq(plans.userId, userId), eq(plans.status, 'active')));
 
         return {
             statusCode: 200,

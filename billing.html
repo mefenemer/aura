@@ -228,6 +228,36 @@
     </div>
   </div>
 
+  <!-- ── Receipt Modal ──────────────────────────────────────────── -->
+  <div id="modal-receipt" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="window._billingCloseReceiptModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl z-10 overflow-hidden flex flex-col" style="height: min(82vh, 680px);">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <h3 class="font-extrabold text-gray-900">Payment Receipt</h3>
+        <div class="flex items-center gap-4">
+          <a id="receipt-new-tab-link" href="#" target="_blank" rel="noopener"
+             class="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition hidden sm:inline-flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17H7V7m10 0l-10 10M7 7h10"/></svg>
+            Open / Print
+          </a>
+          <button onclick="window._billingCloseReceiptModal()"
+                  class="text-gray-400 hover:text-gray-600 transition text-2xl leading-none cursor-pointer">&times;</button>
+        </div>
+      </div>
+      <div id="receipt-iframe-wrap" class="flex-1 relative overflow-hidden">
+        <div id="receipt-loading" class="absolute inset-0 flex items-center justify-center text-gray-400 gap-2">
+          <svg class="w-5 h-5 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
+            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/>
+          </svg>
+          <span class="text-sm">Loading receipt…</span>
+        </div>
+        <iframe id="receipt-iframe" src="about:blank" title="Payment Receipt"
+                class="w-full h-full border-0 opacity-0 transition-opacity duration-200"></iframe>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Cancel Subscription Modal ─────────────────────────────── -->
   <div id="modal-cancel-sub" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="window._billingCloseCancelModal()"></div>

@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans } from '../../db/schema';
 
@@ -305,10 +305,10 @@ export const handler: Handler = async (event) => {
         const sub    = stripeEvent.data.object as Stripe.Subscription;
         const userId = await _resolveUserIdFromSub(sub);
         if (userId) {
-            // Mark plans as cancelled in our DB
+            // Mark plans as cancelled — covers both 'active' and 'cancelling' (set by billing-cancel.ts)
             await db.update(plans)
                 .set({ status: 'cancelled' })
-                .where(and(eq(plans.userId, userId), eq(plans.status, 'active')));
+                .where(and(eq(plans.userId, userId), inArray(plans.status, ['active', 'cancelling'])));
 
             await db.insert(notifications).values({
                 userId,

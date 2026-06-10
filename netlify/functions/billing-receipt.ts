@@ -52,12 +52,15 @@ export const handler: Handler = async (event) => {
             if (org) orgName = org.name;
         }
 
-        // Load plan name
+        // Load plan name — append " Plan" suffix if not already present
         let planName = payment.description || 'Aura-Assist Subscription';
         if (payment.planId) {
             const [plan] = await db.select({ planName: plans.planName })
                 .from(plans).where(eq(plans.id, payment.planId));
-            if (plan) planName = plan.planName;
+            if (plan) {
+                const base = plan.planName.replace(/\s*Plan\s*$/i, '').trim();
+                planName = `${base} Plan`;
+            }
         }
 
         // Format values
@@ -71,9 +74,20 @@ export const handler: Handler = async (event) => {
         const receiptNo   = `RCP-${String(payment.id).padStart(6, '0')}`;
         const customerName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || orgName;
 
-        const cardLine = payment.cardBrand && payment.cardLast4
-            ? `${_cap(payment.cardBrand)} ending ${payment.cardLast4}${payment.cardExpMonth ? ` (exp ${String(payment.cardExpMonth).padStart(2, '0')}/${payment.cardExpYear})` : ''}`
-            : payment.paymentMethod || '—';
+        // Payment type: prefer card details columns → then paymentMethod text → fallback to "Card payment"
+        const cardLine = (() => {
+            if (payment.cardBrand && payment.cardLast4) {
+                const expiry = payment.cardExpMonth
+                    ? ` (exp ${String(payment.cardExpMonth).padStart(2, '0')}/${payment.cardExpYear})`
+                    : '';
+                return `${_cap(payment.cardBrand)} ending ${payment.cardLast4}${expiry}`;
+            }
+            if (payment.paymentMethod) {
+                // paymentMethod is a text like "visa ending 4242" — capitalise first word
+                return payment.paymentMethod.replace(/^([a-z])/, (_: string, c: string) => c.toUpperCase());
+            }
+            return 'Card payment';
+        })();
 
         const statusLabel = payment.status === 'completed' || payment.status === 'paid' ? 'Paid' : _cap(payment.status || '');
         const statusColor = statusLabel === 'Paid' ? '#059669' : '#d97706';

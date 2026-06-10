@@ -242,6 +242,39 @@
         }
     };
 
+    // ── Receipt Modal ─────────────────────────────────────────────
+    window._billingOpenReceiptModal = function (paymentId) {
+        const modal     = document.getElementById('modal-receipt');
+        const iframe    = document.getElementById('receipt-iframe');
+        const loading   = document.getElementById('receipt-loading');
+        const tabLink   = document.getElementById('receipt-new-tab-link');
+        const url       = `/.netlify/functions/billing-receipt?id=${paymentId}`;
+
+        // Reset
+        iframe.src      = 'about:blank';
+        iframe.classList.add('opacity-0');
+        loading.classList.remove('hidden');
+        if (tabLink) tabLink.href = url;
+
+        modal.classList.remove('hidden');
+
+        // Load receipt HTML into iframe
+        iframe.onload = function () {
+            // about:blank fires onload too — skip it
+            if (iframe.src === 'about:blank' || iframe.src === window.location.href) return;
+            loading.classList.add('hidden');
+            iframe.classList.remove('opacity-0');
+        };
+        iframe.src = url;
+    };
+
+    window._billingCloseReceiptModal = function () {
+        const modal  = document.getElementById('modal-receipt');
+        const iframe = document.getElementById('receipt-iframe');
+        modal.classList.add('hidden');
+        iframe.src = 'about:blank';
+    };
+
     // ── State helpers ─────────────────────────────────────────────
     function _showState(state) {
         document.getElementById('billing-loading').classList.toggle('hidden', state !== 'loading');
@@ -264,7 +297,8 @@
         const empty = document.getElementById('subscriptions-empty');
 
         const active = subs.filter(s =>
-            ['active', 'trialing'].includes(s.stripeStatus || '') || s.status === 'active'
+            ['active', 'trialing'].includes(s.stripeStatus || '') ||
+            ['active', 'cancelling'].includes(s.status)
         );
 
         if (active.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
@@ -274,10 +308,11 @@
 
     function _subscriptionCard(sub) {
         const statusMeta = {
-            active:   { label: 'Active',   cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-            trialing: { label: 'Trial',    cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-            past_due: { label: 'Past Due', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-            cancelled:{ label: 'Cancelled',cls: 'bg-gray-100 text-gray-500 border-gray-200' },
+            active:      { label: 'Active',            cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+            trialing:    { label: 'Trial',              cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+            past_due:    { label: 'Past Due',           cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+            cancelling:  { label: 'Cancelling',         cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+            cancelled:   { label: 'Cancelled',          cls: 'bg-gray-100 text-gray-500 border-gray-200' },
         };
         const sm     = statusMeta[sub.stripeStatus || sub.status] || statusMeta['active'];
         const cycle  = sub.billingCycle === 'year' ? 'Annually' : 'Monthly';
@@ -292,7 +327,8 @@
 
         // Show cancel button for any active/trialing plan — Stripe sub ID required for API cancel,
         // but also show it if we only have a local plan (user can contact support fallback)
-        const isCancelling = sub.cancelAtPeriodEnd;
+        // 'cancelling' DB status means billing-cancel.ts already called Stripe but webhook hasn't fired yet
+        const isCancelling = sub.cancelAtPeriodEnd || sub.status === 'cancelling';
         const isTerminated = ['cancelled', 'canceled'].includes(sub.stripeStatus || sub.status);
         const showCancel   = !isCancelling && !isTerminated;
 
@@ -420,15 +456,13 @@
                 pmCell = _esc(p.paymentMethod);
             }
 
-            // Always show a receipt button — generated receipt is the primary action,
-            // Stripe PDF is an optional secondary link when available.
-            const receiptUrl = `/.netlify/functions/billing-receipt?id=${p.id}`;
+            // Receipt opens as an in-page modal; Stripe PDF link shown alongside when available.
             const receiptCell = `<div class="flex items-center justify-end gap-3">
-                     <a href="${receiptUrl}" target="_blank" rel="noopener"
-                         class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 text-xs font-semibold rounded-lg transition bg-white">
+                     <button onclick="window._billingOpenReceiptModal(${p.id})"
+                         class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 text-xs font-semibold rounded-lg transition bg-white cursor-pointer">
                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                          Receipt
-                     </a>
+                     </button>
                      ${p.receiptPdf ? `<a href="${p.receiptPdf}" target="_blank" rel="noopener"
                          class="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 text-xs font-semibold transition">
                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
