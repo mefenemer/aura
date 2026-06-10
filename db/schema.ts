@@ -239,9 +239,26 @@ export const masterAssistants = pgTable("master_assistants", {
   roleKey: text("role_key").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"),
+  category: text("category").notNull().default("Administration"),
+  iconKey: text("icon_key").notNull().default("document"),
+  iconColor: text("icon_color").notNull().default("blue"),
+  comingSoon: boolean("coming_soon").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Waitlist table — interest signups for coming-soon assistant roles
+export const waitlist = pgTable("waitlist", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  masterAssistantId: integer("master_assistant_id").notNull().references(() => masterAssistants.id, { onDelete: "cascade" }),
+  source: text("source").notNull().default("public"), // 'public' | 'registered'
+  notified: boolean("notified").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  emailRoleUnique: unique("waitlist_email_role_unique").on(t.email, t.masterAssistantId),
+}));
 
 // Add this to your existing db/schema.ts file
 

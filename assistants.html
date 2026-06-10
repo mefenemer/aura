@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Assistant Library | Aura-Assist</title>
+  <link href="./style.css" rel="stylesheet">
+  <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
+  <link rel="manifest" href="/favicon/manifest.json">
+  <style>
+    .pill-tab { transition: background 0.15s, color 0.15s; }
+    .pill-tab.active { background: #065f46; color: #fff; }
+    .pill-tab:not(.active) { background: #fff; color: #374151; border: 1px solid #e5e7eb; }
+    .assistant-card { transition: box-shadow 0.15s, transform 0.15s; }
+    .assistant-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.10); transform: translateY(-2px); }
+    .icon-blue   { background: #eff6ff; color: #2563eb; }
+    .icon-purple { background: #f5f3ff; color: #7c3aed; }
+    .icon-orange { background: #fff7ed; color: #ea580c; }
+    .icon-teal   { background: #f0fdfa; color: #0d9488; }
+    .icon-pink   { background: #fdf2f8; color: #db2777; }
+    .icon-green  { background: #f0fdf4; color: #16a34a; }
+    .icon-yellow { background: #fefce8; color: #ca8a04; }
+    .icon-red    { background: #fef2f2; color: #dc2626; }
+  </style>
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<!-- Nav -->
+<nav class="bg-white shadow-sm sticky top-0 z-40">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-16 items-center">
+      <a href="index.html" class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura-Assist</a>
+      <div class="flex items-center gap-3">
+        <a id="nav-login" href="login.html" class="text-sm font-medium text-gray-600 hover:text-emerald-700 transition">Log in</a>
+        <a href="pricing.html" class="px-4 py-2 bg-emerald-700 text-white text-sm font-bold rounded-lg hover:bg-emerald-800 transition shadow-sm">Get Started</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="bg-white border-b border-gray-100 py-14 px-4">
+  <div class="max-w-3xl mx-auto text-center">
+    <span class="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold uppercase tracking-wider mb-4">Digital Assistant Library</span>
+    <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight mb-4">Hire the perfect role for your team</h1>
+    <p class="text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">Browse our growing catalog of specialist AI assistants. Each one is purpose-built to take a complete business process off your plate — from day one.</p>
+  </div>
+</section>
+
+<!-- Search + Filter -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-4 w-full">
+  <div class="flex flex-col sm:flex-row gap-4 items-center justify-between mb-8">
+    <!-- Search -->
+    <div class="relative w-full sm:max-w-sm">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </div>
+      <input id="search-input" type="text" placeholder="Search assistants…" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-white transition">
+    </div>
+    <!-- Category pills -->
+    <div id="category-tabs" class="flex flex-wrap gap-2">
+      <button class="pill-tab active px-4 py-2 rounded-full text-sm font-semibold" data-cat="All Roles">All Roles</button>
+      <button class="pill-tab px-4 py-2 rounded-full text-sm font-semibold" data-cat="Administration">Administration</button>
+      <button class="pill-tab px-4 py-2 rounded-full text-sm font-semibold" data-cat="Marketing &amp; Sales">Marketing &amp; Sales</button>
+      <button class="pill-tab px-4 py-2 rounded-full text-sm font-semibold" data-cat="Operations">Operations</button>
+    </div>
+  </div>
+
+  <!-- Grid -->
+  <div id="assistants-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-4">
+    <!-- Loading skeleton -->
+    <div class="col-span-full flex justify-center py-20 text-gray-400" id="grid-loading">
+      <div class="flex flex-col items-center gap-3">
+        <div class="w-8 h-8 border-4 border-gray-200 border-t-emerald-600 rounded-full animate-spin"></div>
+        <p class="text-sm">Loading assistants…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div id="grid-empty" class="hidden py-20 text-center">
+    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </div>
+    <h3 class="text-base font-bold text-gray-900">No assistants found</h3>
+    <p class="text-sm text-gray-500 mt-1">Try a different search term or category.</p>
+  </div>
+</div>
+
+<!-- Custom Request Banner -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 w-full">
+  <div class="mt-8 bg-emerald-50 rounded-2xl p-8 border border-emerald-100 flex flex-col md:flex-row items-center justify-between gap-6">
+    <div>
+      <h3 class="text-xl font-bold text-emerald-900 mb-2">Need a role that isn't listed?</h3>
+      <p class="text-emerald-700 max-w-xl">We're constantly training new assistants. Let us know what process you want to automate and we'll prioritise it.</p>
+    </div>
+    <a href="mailto:hello@aura-assist.com?subject=Custom%20Role%20Request" class="flex-shrink-0 bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold shadow-sm hover:bg-emerald-800 transition">Request a Role</a>
+  </div>
+</div>
+
+<!-- Waitlist Modal -->
+<div id="waitlist-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" style="background:rgba(0,0,0,0.4)">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative">
+    <button id="waitlist-close" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <div id="waitlist-form-wrap">
+      <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-4">
+        <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+      </div>
+      <h2 class="text-xl font-extrabold text-gray-900 mb-1">Join the Waitlist</h2>
+      <p id="waitlist-role-name" class="text-sm text-emerald-600 font-semibold mb-4"></p>
+      <p class="text-sm text-gray-500 mb-5">Be the first to know when this assistant is ready. We'll send you one email — no spam.</p>
+      <div id="waitlist-email-wrap">
+        <label class="block text-sm font-bold text-gray-700 mb-1.5">Your email address</label>
+        <input id="waitlist-email" type="email" placeholder="you@company.com" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm mb-4 transition">
+      </div>
+      <p id="waitlist-error" class="hidden text-sm text-red-600 mb-3"></p>
+      <button id="waitlist-submit" class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition flex items-center justify-center gap-2">
+        <span id="waitlist-btn-text">Notify Me</span>
+        <div id="waitlist-spinner" class="hidden w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
+      </button>
+    </div>
+    <div id="waitlist-success" class="hidden text-center py-4">
+      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <h3 class="text-lg font-extrabold text-gray-900 mb-1">You're on the list!</h3>
+      <p class="text-sm text-gray-500">We'll let you know the moment this assistant is available.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="bg-white border-t border-gray-100 mt-auto">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+    <p class="text-sm text-gray-400">&copy; 2025 Aura-Assist Ltd. All rights reserved.</p>
+    <div class="flex gap-6 text-sm text-gray-400">
+      <a href="privacy_policy.html" class="hover:text-gray-600 transition">Privacy</a>
+      <a href="terms_of_service.html" class="hover:text-gray-600 transition">Terms</a>
+      <a href="mailto:hello@aura-assist.com" class="hover:text-gray-600 transition">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Icons ────────────────────────────────────────────────────────────────────
+const ICONS = {
+  document: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`,
+  smile:    `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+  megaphone:`<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>`,
+  globe:    `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>`,
+  chart:    `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>`,
+  lightning:`<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>`,
+  mail:     `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>`,
+  cog:      `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>`,
+};
+
+// ── State ────────────────────────────────────────────────────────────────────
+let _all = [];
+let _activeCategory = 'All Roles';
+let _searchQ = '';
+let _isLoggedIn = false;
+let _waitlistPending = null; // { id, name }
+
+// ── Auth check ───────────────────────────────────────────────────────────────
+async function checkAuth() {
+  // Try a lightweight authenticated endpoint to determine login state
+  try {
+    const res = await fetch('/.netlify/functions/check-capacity');
+    _isLoggedIn = res.ok;
+  } catch { /* ignore */ }
+  if (_isLoggedIn) {
+    document.getElementById('nav-login').textContent = 'Dashboard';
+    document.getElementById('nav-login').href = 'workspace.html';
+  }
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderCard(a) {
+  const iconSvg = ICONS[a.iconKey] || ICONS.document;
+  const iconClass = `icon-${a.iconColor || 'blue'}`;
+
+  if (a.comingSoon) {
+    return `
+      <div class="assistant-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col relative">
+        <div class="absolute top-4 right-4 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">Coming Soon</div>
+        <div class="p-6 flex-grow">
+          <div class="w-12 h-12 rounded-xl ${iconClass} flex items-center justify-center mb-4">${iconSvg}</div>
+          <h2 class="text-xl font-bold text-gray-900 mb-1 pr-20">${escHtml(a.name)}</h2>
+          <p class="text-sm text-gray-500 font-medium mb-4">${escHtml(a.category)}</p>
+          <p class="text-sm text-gray-600 leading-relaxed">${escHtml(a.description || '')}</p>
+        </div>
+        <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center gap-3">
+          <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">${a.waitlistCount > 0 ? `${a.waitlistCount} on waitlist` : 'Join Waitlist'}</span>
+          <button onclick="openWaitlist(${a.id}, '${escAttr(a.name)}', ${a.onWaitlist})"
+            class="${a.onWaitlist ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-default' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'} px-4 py-2 rounded-lg text-sm font-semibold transition"
+            ${a.onWaitlist ? 'disabled' : ''}>
+            ${a.onWaitlist ? '✓ On Waitlist' : 'Notify Me'}
+          </button>
+        </div>
+      </div>`;
+  }
+
+  // Live assistant
+  const cta = _isLoggedIn
+    ? `<button onclick="hireAssistant('${escAttr(a.roleKey)}')" class="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition">Hire Assistant</button>`
+    : `<a href="pricing.html" class="bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-800 transition">Get Started</a>`;
+
+  return `
+    <div class="assistant-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+      <div class="p-6 flex-grow">
+        <div class="w-12 h-12 rounded-xl ${iconClass} flex items-center justify-center mb-4">${iconSvg}</div>
+        <h2 class="text-xl font-bold text-gray-900 mb-1">${escHtml(a.name)}</h2>
+        <p class="text-sm text-gray-500 font-medium mb-4">${escHtml(a.category)}</p>
+        <p class="text-sm text-gray-600 leading-relaxed">${escHtml(a.description || '')}</p>
+      </div>
+      <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center gap-3">
+        <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Available Now</span>
+        ${cta}
+      </div>
+    </div>`;
+}
+
+function renderGrid() {
+  const grid = document.getElementById('assistants-grid');
+  const empty = document.getElementById('grid-empty');
+  let list = _all;
+
+  if (_activeCategory !== 'All Roles') {
+    list = list.filter(a => a.category === _activeCategory);
+  }
+  if (_searchQ) {
+    const q = _searchQ.toLowerCase();
+    list = list.filter(a =>
+      a.name.toLowerCase().includes(q) ||
+      (a.description || '').toLowerCase().includes(q) ||
+      a.category.toLowerCase().includes(q)
+    );
+  }
+
+  document.getElementById('grid-loading').classList.add('hidden');
+
+  if (list.length === 0) {
+    grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  grid.innerHTML = list.map(renderCard).join('');
+}
+
+// ── Load data ────────────────────────────────────────────────────────────────
+async function loadCatalog() {
+  try {
+    const res = await fetch('/.netlify/functions/master-assistants');
+    if (!res.ok) throw new Error('Failed to load.');
+    const { assistants } = await res.json();
+    _all = assistants || [];
+  } catch {
+    _all = [];
+  }
+  renderGrid();
+}
+
+// ── Category tabs ────────────────────────────────────────────────────────────
+document.getElementById('category-tabs').addEventListener('click', e => {
+  const btn = e.target.closest('[data-cat]');
+  if (!btn) return;
+  document.querySelectorAll('#category-tabs .pill-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _activeCategory = btn.dataset.cat;
+  renderGrid();
+});
+
+// ── Search ───────────────────────────────────────────────────────────────────
+let _searchTimer;
+document.getElementById('search-input').addEventListener('input', e => {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(() => {
+    _searchQ = e.target.value.trim();
+    renderGrid();
+  }, 250);
+});
+
+// ── Waitlist modal ───────────────────────────────────────────────────────────
+function openWaitlist(id, name, alreadyOn) {
+  if (alreadyOn) return;
+  _waitlistPending = { id, name };
+  document.getElementById('waitlist-role-name').textContent = name;
+  document.getElementById('waitlist-email').value = '';
+  document.getElementById('waitlist-error').classList.add('hidden');
+  document.getElementById('waitlist-form-wrap').classList.remove('hidden');
+  document.getElementById('waitlist-success').classList.add('hidden');
+  // Logged-in: hide email field
+  document.getElementById('waitlist-email-wrap').style.display = _isLoggedIn ? 'none' : 'block';
+  document.getElementById('waitlist-modal').classList.remove('hidden');
+}
+
+document.getElementById('waitlist-close').addEventListener('click', () => {
+  document.getElementById('waitlist-modal').classList.add('hidden');
+});
+document.getElementById('waitlist-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('waitlist-modal')) {
+    document.getElementById('waitlist-modal').classList.add('hidden');
+  }
+});
+
+document.getElementById('waitlist-submit').addEventListener('click', async () => {
+  if (!_waitlistPending) return;
+
+  const email = document.getElementById('waitlist-email').value.trim();
+  const errEl = document.getElementById('waitlist-error');
+  errEl.classList.add('hidden');
+
+  if (!_isLoggedIn && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    errEl.textContent = 'Please enter a valid email address.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const btn = document.getElementById('waitlist-submit');
+  const spinner = document.getElementById('waitlist-spinner');
+  const btnText = document.getElementById('waitlist-btn-text');
+  btn.disabled = true;
+  spinner.classList.remove('hidden');
+  btnText.textContent = 'Joining…';
+
+  try {
+    const body = { masterAssistantId: _waitlistPending.id };
+    if (!_isLoggedIn) body.email = email;
+
+    const res = await fetch('/.netlify/functions/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Something went wrong. Please try again.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    // Update state so button shows ✓ when modal closes
+    const idx = _all.findIndex(a => a.id === _waitlistPending.id);
+    if (idx !== -1) {
+      _all[idx].onWaitlist = true;
+      _all[idx].waitlistCount = (_all[idx].waitlistCount || 0) + 1;
+    }
+
+    document.getElementById('waitlist-form-wrap').classList.add('hidden');
+    document.getElementById('waitlist-success').classList.remove('hidden');
+
+    setTimeout(() => {
+      document.getElementById('waitlist-modal').classList.add('hidden');
+      renderGrid();
+    }, 2000);
+  } catch {
+    errEl.textContent = 'Connection failed. Please try again.';
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    spinner.classList.add('hidden');
+    btnText.textContent = 'Notify Me';
+  }
+});
+
+// ── Hire assistant (logged-in workspace redirect) ────────────────────────────
+function hireAssistant(roleKey) {
+  // Store intended role in sessionStorage so the workspace catalog can pre-filter
+  sessionStorage.setItem('intended_role', roleKey);
+  window.location.href = 'workspace.html?view=catalog';
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s).replace(/'/g,"\\'");
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await checkAuth();
+  await loadCatalog();
+});
+</script>
+</body>
+</html>

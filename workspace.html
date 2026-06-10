@@ -490,6 +490,13 @@
       history.replaceState(null, '', window.location.pathname);
     }
 
+    // Deep-link: ?view=catalog (e.g. from public /assistants.html "Hire Assistant" CTA)
+    const viewParam = qs.get('view');
+    if (viewParam === 'catalog') {
+      history.replaceState(null, '', window.location.pathname);
+      await loadView('catalog');
+    }
+
     // Show saved-draft toast if returning from "Save & Continue Later"
     if (new URLSearchParams(window.location.search).get('draft') === 'saved') {
       history.replaceState(null, '', window.location.pathname);
