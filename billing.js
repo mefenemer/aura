@@ -255,9 +255,6 @@
         _renderPaymentMethod(subscriptions);
         _renderHistory(paymentHistory);
 
-        const badge = document.getElementById('billing-sync-badge');
-        if (badge) { badge.classList.remove('hidden'); badge.classList.add('flex'); }
-
         _showState('content');
     }
 
