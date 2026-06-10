@@ -27,17 +27,7 @@
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
 <!-- Nav -->
-<nav class="bg-white shadow-sm sticky top-0 z-40">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex justify-between h-16 items-center">
-      <a href="index.html" class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura-Assist</a>
-      <div class="flex items-center gap-3">
-        <a id="nav-login" href="login.html" class="text-sm font-medium text-gray-600 hover:text-emerald-700 transition">Log in</a>
-        <a href="pricing.html" class="px-4 py-2 bg-emerald-700 text-white text-sm font-bold rounded-lg hover:bg-emerald-800 transition shadow-sm">Get Started</a>
-      </div>
-    </div>
-  </div>
-</nav>
+<div id="nav-placeholder"></div>
 
 <!-- Hero -->
 <section class="bg-white border-b border-gray-100 py-14 px-4">
@@ -198,17 +188,9 @@
 </div>
 
 <!-- Footer -->
-<footer class="bg-white border-t border-gray-100 mt-auto">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-    <p class="text-sm text-gray-400">&copy; 2025 Aura-Assist Ltd. All rights reserved.</p>
-    <div class="flex gap-6 text-sm text-gray-400">
-      <a href="privacy_policy.html" class="hover:text-gray-600 transition">Privacy</a>
-      <a href="terms_of_service.html" class="hover:text-gray-600 transition">Terms</a>
-      <a href="mailto:hello@aura-assist.com" class="hover:text-gray-600 transition">Contact</a>
-    </div>
-  </div>
-</footer>
+<div id="footer-placeholder"></div>
 
+<script src="./mobileMenu.js"></script>
 <script>
 // ── Icons ────────────────────────────────────────────────────────────────────
 const ICONS = {
@@ -231,15 +213,29 @@ let _waitlistPending = null; // { id, name }
 
 // ── Auth check ───────────────────────────────────────────────────────────────
 async function checkAuth() {
-  // Try a lightweight authenticated endpoint to determine login state
   try {
     const res = await fetch('/.netlify/functions/check-capacity');
     _isLoggedIn = res.ok;
   } catch { /* ignore */ }
+  // If logged in, swap the nav public/app link sets (same pattern as other public pages)
   if (_isLoggedIn) {
-    document.getElementById('nav-login').textContent = 'Dashboard';
-    document.getElementById('nav-login').href = 'workspace.html';
+    const pub = document.getElementById('nav-public-links');
+    const app = document.getElementById('nav-app-links');
+    const mobPub = document.getElementById('mobile-public-links');
+    const mobApp = document.getElementById('mobile-app-links');
+    if (pub) pub.classList.add('hidden');
+    if (app) app.classList.remove('hidden');
+    if (mobPub) mobPub.style.display = 'none';
+    if (mobApp) mobApp.style.display = 'flex';
   }
+}
+
+// ── Component loader ──────────────────────────────────────────────────────────
+async function loadComponent(id, path) {
+  try {
+    const r = await fetch(path);
+    if (r.ok) document.getElementById(id).innerHTML = await r.text();
+  } catch {}
 }
 
 // ── Render ───────────────────────────────────────────────────────────────────
@@ -305,7 +301,7 @@ function renderGrid() {
     );
   }
 
-  document.getElementById('grid-loading').classList.add('hidden');
+  document.getElementById('grid-loading')?.classList.add('hidden');
 
   if (list.length === 0) {
     grid.innerHTML = '';
@@ -511,6 +507,9 @@ async function submitRoleRequest() {
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  await loadComponent('nav-placeholder', './components/nav.html');
+  loadComponent('footer-placeholder', './components/footer.html');
+  if (typeof setupMobileMenu === 'function') setupMobileMenu();
   await checkAuth();
   await loadCatalog();
 });
