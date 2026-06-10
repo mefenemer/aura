@@ -301,8 +301,7 @@
 
         const cancelBtn = showCancel
             ? `<button onclick="window._billingOpenCancelModal('${_esc(sub.stripeSubscriptionId || '')}','${_esc(sub.planName)}','${sub.renewalDate || ''}')"
-                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 rounded-lg transition cursor-pointer">
-                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                 class="inline-flex items-center px-4 py-2 border border-red-200 hover:border-red-300 text-red-600 hover:text-red-700 text-sm font-semibold rounded-xl transition cursor-pointer bg-white hover:bg-red-50">
                  Cancel Subscription
                </button>`
             : isCancelling
