@@ -146,23 +146,40 @@ export const handler: Handler = async (event) => {
       .limit(1);
 
     // 6. CREATE AI ASSISTANT (subscription already paid — activate immediately)
-    const [newAssistant] = await db.insert(aiAssistants).values({
-      organisationId: existingUser.organisationId!,
-      userId: existingUser.id,
-      masterAssistantId: assistantRecord?.id || null,
-      name: targetName,
-      model: 'gpt-4o',
-      aiAssistantJobRole: assistantRecord?.name || 'General Assistant',
-      systemPrompt: secureSystemPrompt,
-      configuration: {
-        type: assistantRecord ? assistantRecord.roleKey : 'custom',
-        active: true,
-        inputs: rawInputs || {},
-      },
-      onboardingContext: onboardingContext || {},
-      isActive: true,
-      provisioningStatus: 'pending', // Ready for async provisioning
-    }).returning();
+    // The DB has a unique constraint on (userId, name) to prevent duplicate provisioning
+    // from race conditions. We catch PostgreSQL error 23505 (unique_violation) and return 409.
+    let newAssistant: typeof aiAssistants.$inferSelect;
+    try {
+      const [inserted] = await db.insert(aiAssistants).values({
+        organisationId: existingUser.organisationId!,
+        userId: existingUser.id,
+        masterAssistantId: assistantRecord?.id || null,
+        name: targetName,
+        model: 'gpt-4o',
+        aiAssistantJobRole: assistantRecord?.name || 'General Assistant',
+        systemPrompt: secureSystemPrompt,
+        configuration: {
+          type: assistantRecord ? assistantRecord.roleKey : 'custom',
+          active: true,
+          inputs: rawInputs || {},
+        },
+        onboardingContext: onboardingContext || {},
+        isActive: true,
+        provisioningStatus: 'pending', // Ready for async provisioning
+      }).returning();
+      newAssistant = inserted;
+    } catch (insertErr: any) {
+      // PostgreSQL unique_violation error code 23505 = duplicate (userId, name)
+      if (insertErr?.code === '23505' || insertErr?.message?.includes('ai_assistants_user_name_unique')) {
+        console.warn('[onboarding] Duplicate assistant creation prevented by DB constraint:', targetName);
+        return {
+          statusCode: 409,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'An assistant with this name already exists for your account.' }),
+        };
+      }
+      throw insertErr; // Re-throw unexpected errors
+    }
 
     // 7. CLEAR DRAFT & NOTIFY
     await db.delete(onboardingDrafts).where(eq(onboardingDrafts.userId, existingUser.id));

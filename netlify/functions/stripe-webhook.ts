@@ -1,8 +1,8 @@
 import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices } from '../../db/schema';
+import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices, processedWebhookEvents } from '../../db/schema';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -20,6 +20,20 @@ export const handler: Handler = async (event) => {
     }
 
     const db = getDb();
+
+    // ── Idempotency guard — reject already-processed events ───────
+    // Stripe retries webhooks on non-2xx responses; this prevents
+    // double-charging, duplicate plans, and duplicate invoices.
+    try {
+        await db.insert(processedWebhookEvents).values({
+            stripeEventId: stripeEvent.id,
+            eventType: stripeEvent.type,
+        });
+    } catch {
+        // Unique constraint violation = already processed; return 200 to stop retries
+        console.log(`[stripe-webhook] Duplicate event ignored: ${stripeEvent.id}`);
+        return { statusCode: 200, body: JSON.stringify({ received: true, duplicate: true }) };
+    }
 
     // ── payment_intent.succeeded — initial checkout ───────────────
     if (stripeEvent.type === 'payment_intent.succeeded') {
@@ -317,6 +331,29 @@ export const handler: Handler = async (event) => {
                 });
             }
 
+            // ── Grace period recovery — restore assistants if plan was past_due ─
+            // If the user had a payment failure + grace period active, a successful payment
+            // should restore the plan to 'active' and re-enable any 'paused_payment' assistants.
+            const [maybePastDuePlan] = await db
+                .select({ id: plans.id })
+                .from(plans)
+                .where(and(eq(plans.userId, userId), eq(plans.status, 'past_due')))
+                .limit(1);
+
+            if (maybePastDuePlan) {
+                await db.update(plans)
+                    .set({ status: 'active', gracePeriodEndsAt: null, updatedAt: new Date() })
+                    .where(eq(plans.id, maybePastDuePlan.id));
+
+                // Re-enable assistants that were paused specifically due to payment failure
+                await db.update(aiAssistants)
+                    .set({ isActive: true, provisioningStatus: 'complete', updatedAt: new Date() })
+                    .where(and(
+                        eq(aiAssistants.userId, userId),
+                        eq(aiAssistants.provisioningStatus, 'paused_payment'),
+                    ));
+            }
+
             // In-app notification: Subscription renewed
             if (billingReason === 'subscription_cycle') {
                 await db.insert(notifications).values({
@@ -332,12 +369,14 @@ export const handler: Handler = async (event) => {
                     },
                 });
             } else {
-                // Manual payment / other invoice paid
+                // Manual payment / other invoice paid (covers grace-period recovery payments)
                 await db.insert(notifications).values({
                     userId,
                     type: 'billing_payment_received',
-                    title: 'Payment Received',
-                    message: `A payment of ${amount || 'your invoice'} has been received and your account is up to date.`,
+                    title: maybePastDuePlan ? 'Payment Received — Assistants Restored' : 'Payment Received',
+                    message: maybePastDuePlan
+                        ? `A payment of ${amount || 'your invoice'} has been received. Your account is back to active and your assistants have been re-enabled.`
+                        : `A payment of ${amount || 'your invoice'} has been received and your account is up to date.`,
                     isRead: false,
                     metadata: {
                         invoiceId: invoice.id,
@@ -348,7 +387,10 @@ export const handler: Handler = async (event) => {
         }
     }
 
-    // ── invoice.payment_failed — declined card ────────────────────
+    // ── invoice.payment_failed — declined card / grace-period policy ─
+    // Grace period: 7 days from first failure — assistants keep running.
+    // After grace period expires (enforced by check-capacity at runtime) assistants are blocked.
+    // On attempt ≥ 3 (Stripe default final attempt): pause assistants immediately.
     if (stripeEvent.type === 'invoice.payment_failed') {
         const invoice = stripeEvent.data.object as Stripe.Invoice;
         const userId  = await _resolveUserId(invoice.customer as string);
@@ -360,28 +402,103 @@ export const handler: Handler = async (event) => {
                 ? new Date(nextAttempt * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
                 : null;
 
+            // Set grace period to 7 days from now on first failure; don't extend it on subsequent failures
+            const now = new Date();
+            const gracePeriodEndsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+            const [existingPlan] = await db
+                .select({ id: plans.id, gracePeriodEndsAt: plans.gracePeriodEndsAt })
+                .from(plans)
+                .where(and(eq(plans.userId, userId), inArray(plans.status, ['active', 'past_due'])))
+                .limit(1);
+
+            if (existingPlan) {
+                await db.update(plans)
+                    .set({
+                        status: 'past_due',
+                        // Only set grace period on first failure; preserve it on subsequent attempts
+                        gracePeriodEndsAt: existingPlan.gracePeriodEndsAt ?? gracePeriodEndsAt,
+                        updatedAt: now,
+                    })
+                    .where(eq(plans.id, existingPlan.id));
+            }
+
+            // On final attempt (≥ 3): immediately pause all assistants
+            if (attemptCount >= 3) {
+                await db.update(aiAssistants)
+                    .set({ isActive: false, provisioningStatus: 'paused_payment', updatedAt: now })
+                    .where(and(eq(aiAssistants.userId, userId), eq(aiAssistants.isActive, true)));
+            }
+
             const urgency = attemptCount >= 3
-                ? 'Your subscription will be cancelled if payment is not received. '
-                : nextTry ? `We will try again on ${nextTry}. ` : '';
+                ? 'Your assistants have been paused. Please update your payment details immediately to restore access. '
+                : attemptCount === 1
+                    ? `Your assistants will continue running for 7 days while we retry. `
+                    : nextTry ? `We will try again on ${nextTry}. ` : '';
 
             await db.insert(notifications).values({
                 userId,
                 type: 'billing_payment_failed',
-                title: 'Payment Failed',
-                message: `We were unable to charge ${amount || 'your account'} for your subscription. ${urgency}Please update your payment details to keep your assistants active.`,
+                title: `Payment Failed${attemptCount >= 3 ? ' — Assistants Paused' : ''}`,
+                message: `We were unable to charge ${amount || 'your account'} for your subscription. ${urgency}Update your payment details in the Billing section.`,
                 isRead: false,
                 metadata: {
                     invoiceId: invoice.id,
                     amountDue: invoice.amount_due,
                     attemptCount,
+                    gracePeriodEndsAt: attemptCount < 3 ? gracePeriodEndsAt.toISOString() : null,
                     nextPaymentAttempt: nextAttempt ? new Date(nextAttempt * 1000).toISOString() : null,
                 },
             });
+        }
+    }
 
-            // Also mark the plan as past_due in our DB
-            await db.update(plans)
-                .set({ status: 'past_due' })
-                .where(and(eq(plans.userId, userId), eq(plans.status, 'active')));
+    // ── customer.subscription.updated — plan change / downgrade ──
+    // Fires when Stripe changes the subscription (upgrade, downgrade, cancel_at_period_end).
+    // We enforce the new assistant limit: pause excess assistants oldest-first.
+    if (stripeEvent.type === 'customer.subscription.updated') {
+        const sub    = stripeEvent.data.object as Stripe.Subscription;
+        const userId = await _resolveUserIdFromSub(sub);
+        if (userId) {
+            // Resolve new plan limits from subscription metadata
+            const newMasterPlanId = sub.metadata?.masterPlanId ? parseInt(sub.metadata.masterPlanId) : null;
+            if (newMasterPlanId) {
+                const [newMasterPlan] = await db
+                    .select({ assistantLimit: masterPlans.assistantLimit, name: masterPlans.name })
+                    .from(masterPlans)
+                    .where(eq(masterPlans.id, newMasterPlanId))
+                    .limit(1);
+
+                if (newMasterPlan?.assistantLimit !== null && newMasterPlan?.assistantLimit !== undefined) {
+                    // Count currently active assistants
+                    const activeAssistants = await db
+                        .select({ id: aiAssistants.id, name: aiAssistants.name, createdAt: aiAssistants.createdAt })
+                        .from(aiAssistants)
+                        .where(and(eq(aiAssistants.userId, userId), eq(aiAssistants.isActive, true)))
+                        .orderBy(desc(aiAssistants.createdAt)); // newest first → pause oldest
+
+                    const excess = activeAssistants.length - newMasterPlan.assistantLimit;
+                    if (excess > 0) {
+                        // Pause the oldest (last in desc-sorted list) excess assistants
+                        const toPause = activeAssistants.slice(newMasterPlan.assistantLimit);
+                        const pauseIds = toPause.map(a => a.id);
+                        const pausedNames = toPause.map(a => a.name).join(', ');
+
+                        await db.update(aiAssistants)
+                            .set({ isActive: false, provisioningStatus: 'paused_limit', updatedAt: new Date() })
+                            .where(and(eq(aiAssistants.userId, userId), inArray(aiAssistants.id, pauseIds)));
+
+                        await db.insert(notifications).values({
+                            userId,
+                            type: 'assistants_paused_downgrade',
+                            title: 'Assistants Paused — Plan Limit Reached',
+                            message: `Your plan change reduced your assistant limit to ${newMasterPlan.assistantLimit}. The following assistant${excess > 1 ? 's have' : ' has'} been paused: ${pausedNames}. You can delete or swap assistants from your workspace.`,
+                            isRead: false,
+                            metadata: { pausedIds: pauseIds, newLimit: newMasterPlan.assistantLimit },
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -390,16 +507,21 @@ export const handler: Handler = async (event) => {
         const sub    = stripeEvent.data.object as Stripe.Subscription;
         const userId = await _resolveUserIdFromSub(sub);
         if (userId) {
-            // Mark plans as cancelled — covers both 'active' and 'cancelling' (set by billing-cancel.ts)
+            // Mark plans as cancelled
             await db.update(plans)
-                .set({ status: 'cancelled' })
-                .where(and(eq(plans.userId, userId), inArray(plans.status, ['active', 'cancelling'])));
+                .set({ status: 'cancelled', updatedAt: new Date() })
+                .where(and(eq(plans.userId, userId), inArray(plans.status, ['active', 'cancelling', 'past_due'])));
+
+            // Pause ALL active assistants — no active subscription
+            await db.update(aiAssistants)
+                .set({ isActive: false, provisioningStatus: 'paused_payment', updatedAt: new Date() })
+                .where(and(eq(aiAssistants.userId, userId), eq(aiAssistants.isActive, true)));
 
             await db.insert(notifications).values({
                 userId,
                 type: 'billing_cancelled',
-                title: 'Subscription Cancelled',
-                message: 'Your subscription has been cancelled and your Digital Assistants have been deactivated. You can re-subscribe at any time from the Billing area.',
+                title: 'Subscription Cancelled — Assistants Paused',
+                message: 'Your subscription has been cancelled and your Digital Assistants have been paused. You can re-subscribe at any time from the Billing area to restore full access.',
                 isRead: false,
                 metadata: { subscriptionId: sub.id },
             });

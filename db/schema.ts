@@ -76,10 +76,14 @@ export const plans = pgTable("plans", {
   masterPlanId: integer("master_plan_id").references(() => masterPlans.id),
   planName: text("plan_name").notNull(),
   planType: text("plan_type").notNull().default("subscription"),
+  // status: 'active' | 'past_due' | 'cancelling' | 'cancelled'
+  // past_due = payment failed; assistants still run during gracePeriodEndsAt window
   status: text("status").notNull().default("active"),
   maxSeats: integer("max_seats"),
   startedAt: timestamp("started_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at"),
+  // Grace period end: set to NOW()+7d on first payment failure; assistants pause after this date
+  gracePeriodEndsAt: timestamp("grace_period_ends_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -144,13 +148,17 @@ export const aiAssistants = pgTable("ai_assistants", {
   isActive: boolean("is_active").notNull().default(true),
   configuration: jsonb("configuration"),
 
-  // NEW: Flexible schema expansion for role-specific answers (Scenario 1)
+  // Flexible schema expansion for role-specific answers
   onboardingContext: jsonb("onboarding_context"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  // provisioningStatus: 'pending' | 'complete' | 'failed' | 'cancelled' | 'paused_limit' | 'paused_payment'
   provisioningStatus: text("provisioning_status").default("pending"),
-});
+}, (t) => ({
+  // DB-level unique guard prevents race-condition duplicates during concurrent onboarding submissions
+  userNameUnique: unique("ai_assistants_user_name_unique").on(t.userId, t.name),
+}));
 
 // User profiles table — extended profile details for a user
 export const userProfiles = pgTable("user_profiles", {
@@ -220,6 +228,15 @@ export const systemConnections = pgTable("system_connections", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ── Webhook idempotency log — prevents double-processing Stripe events ────────
+// One row per Stripe event ID; inserted before handling, acts as a distributed lock.
+export const processedWebhookEvents = pgTable("processed_webhook_events", {
+  id: serial().primaryKey(),
+  stripeEventId: text("stripe_event_id").notNull().unique(),
+  eventType: text("event_type").notNull(),
+  processedAt: timestamp("processed_at").defaultNow().notNull(),
+});
+
 // MASTER CATALOG TABLES
 export const masterPlans = pgTable("master_plans", {
   id: serial().primaryKey(),
@@ -227,8 +244,10 @@ export const masterPlans = pgTable("master_plans", {
   name: text("name").notNull(),
   monthlyPriceGbp: numeric("monthly_price_gbp", { precision: 10, scale: 2 }).notNull(),
   // Capacity limits — enforced at runtime; null = unlimited
-  assistantLimit: integer("assistant_limit"),        // max active AI assistants
-  monthlyTaskLimit: integer("monthly_task_limit"),   // max task runs per calendar month
+  assistantLimit: integer("assistant_limit"),           // max active AI assistants (total per account)
+  monthlyTaskLimit: integer("monthly_task_limit"),      // max task runs per calendar month
+  monthlyTokenLimit: integer("monthly_token_limit"),    // max LLM tokens per calendar month; null = unlimited
+  appConnectionLimit: integer("app_connection_limit"),  // max OAuth/API integrations per assistant; null = unlimited
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -241,6 +260,7 @@ export const taskRuns = pgTable("task_runs", {
   assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
   taskType: text("task_type").notNull().default("automated"),  // 'automated' | 'manual' | 'scheduled'
   status: text("status").notNull().default("completed"),       // 'completed' | 'failed' | 'skipped'
+  tokensUsed: integer("tokens_used").default(0),               // LLM tokens consumed by this run
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

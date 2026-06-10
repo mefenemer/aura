@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants, notifications } from '../../db/schema';
 
@@ -11,9 +11,11 @@ export const handler: Handler = async (event) => {
         // Perform complex API integrations (Meta/LinkedIn) here
         // ... (API calls) ...
 
+        // Guard: only update if still 'pending' — prevents race condition where
+        // two parallel invocations both try to complete the same assistant.
         const [updated] = await db.update(aiAssistants)
             .set({ provisioningStatus: 'complete', isActive: true })
-            .where(eq(aiAssistants.id, assistantId))
+            .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.provisioningStatus, 'pending')))
             .returning();
 
         // ── US2 Sc3: "Provisioning complete" in-app notification ─────────────
