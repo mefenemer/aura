@@ -1,28 +1,38 @@
-// admin-api.ts  (US6, US8, US9)
+// admin-api.ts  (US6, US8, US9, US13)
 // Secure admin-only REST API for the Admin Workspace.
 // All endpoints require a valid session AND users.role IN ('admin','super_admin').
 //
-// GET  /admin-api?resource=dashboard          → KPIs summary
-// GET  /admin-api?resource=users[&q=&page=]   → paginated user list
-// GET  /admin-api?resource=user&id=N          → single user detail
-// PATCH /admin-api?resource=user&id=N         → edit user (status, role, subscription)
-// DELETE /admin-api?resource=user&id=N        → delete user account
+// GET  /admin-api?resource=dashboard                          → KPIs + subscription tier breakdown
+// GET  /admin-api?resource=users[&q=&page=]                  → paginated user list
+// GET  /admin-api?resource=user&id=N                         → single user detail
+// PATCH /admin-api?resource=user&id=N                        → edit user (status, role, name)
+// DELETE /admin-api?resource=user&id=N                       → delete user account
+// POST  /admin-api?resource=send-login-link&id=N             → email passwordless link to user (US6 Sc2)
 // GET  /admin-api?resource=tickets[&status=&category=&page=] → support ticket list
-// GET  /admin-api?resource=catalog            → master assistants list
-// PATCH /admin-api?resource=catalog&id=N      → toggle comingSoon / isActive on master assistant
-// GET  /admin-api?resource=analytics          → sign-up counts grouped by role (US9)
-// GET  /admin-api?resource=model-config       → AI model config rows (US13)
-// PATCH /admin-api?resource=model-config&id=N → update a model config slot (US13)
+// GET  /admin-api?resource=admins                            → list of admin users (for assignment dropdown)
+// GET  /admin-api?resource=catalog                           → master assistants list
+// PATCH /admin-api?resource=catalog&id=N                     → toggle comingSoon / isActive
+// GET  /admin-api?resource=analytics[&from=ISO&to=ISO]       → sign-up counts + date filter (US9)
+// GET  /admin-api?resource=logs[&page=]                      → paginated audit log (US6 Sc3)
+// GET  /admin-api?resource=model-config                      → AI model config rows (US13)
+// POST  /admin-api?resource=model-config                     → create new model config slot
+// PATCH /admin-api?resource=model-config&id=N                → update a model config slot
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, ilike, desc, sql, and, or, count } from 'drizzle-orm';
+import * as crypto from 'crypto';
+import { Resend } from 'resend';
+import { eq, ilike, desc, and, or, count, gte, lte } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     users, userProfiles, plans, aiAssistants,
     supportTickets, masterAssistants, waitlist,
     leads, auditLogs, notifications, aiModelConfig,
 } from '../../db/schema';
+import { sendMagicLinkEmail } from '../../src/utils/email';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM_EMAIL = process.env.FROM_EMAIL || 'hello@aura-assist.com';
 
 const jwtSecret = process.env.JWT_SECRET;
 const PAGE_SIZE = 25;
@@ -71,14 +81,22 @@ export const handler: Handler = async (event) => {
     const db = getDb();
 
     try {
-        // ── GET: dashboard KPIs ───────────────────────────────────────────────
+        // ── GET: dashboard KPIs (US6 Sc4) ────────────────────────────────────
         if (event.httpMethod === 'GET' && resource === 'dashboard') {
-            const [totalUsers] = await db.select({ c: count() }).from(users);
-            const [pendingUsers] = await db.select({ c: count() }).from(users).where(eq(users.status, 'pending_verification'));
-            const [activeAssistants] = await db.select({ c: count() }).from(aiAssistants).where(and(eq(aiAssistants.isActive, true)));
-            const [pausedAssistants] = await db.select({ c: count() }).from(aiAssistants).where(eq(aiAssistants.isActive, false));
-            const [activePlans] = await db.select({ c: count() }).from(plans).where(eq(plans.status, 'active'));
-            const [openTickets] = await db.select({ c: count() }).from(supportTickets).where(eq(supportTickets.status, 'open'));
+            const [totalUsers]      = await db.select({ c: count() }).from(users);
+            const [pendingUsers]    = await db.select({ c: count() }).from(users).where(eq(users.status, 'pending_verification'));
+            const [activeAssistants]= await db.select({ c: count() }).from(aiAssistants).where(eq(aiAssistants.isActive, true));
+            const [pausedAssistants]= await db.select({ c: count() }).from(aiAssistants).where(eq(aiAssistants.isActive, false));
+            const [activePlans]     = await db.select({ c: count() }).from(plans).where(eq(plans.status, 'active'));
+            const [openTickets]     = await db.select({ c: count() }).from(supportTickets).where(eq(supportTickets.status, 'open'));
+
+            // Subscription tier breakdown (US6 Sc4)
+            const tierBreakdown = await db
+                .select({ planName: plans.planName, c: count() })
+                .from(plans)
+                .where(eq(plans.status, 'active'))
+                .groupBy(plans.planName)
+                .orderBy(desc(count()));
 
             // Waitlist totals per coming-soon assistant
             const waitlistCounts = await db
@@ -97,6 +115,7 @@ export const handler: Handler = async (event) => {
                     pausedAssistants: pausedAssistants.c,
                     activePlans: activePlans.c,
                     openTickets: openTickets.c,
+                    tierBreakdown,
                     waitlistCounts,
                 }),
             };
@@ -276,34 +295,138 @@ export const handler: Handler = async (event) => {
             };
         }
 
-        // ── GET: analytics — sign-up counts per role (US9) ───────────────────
+        // ── POST: send passwordless login link to user (US6 Sc2) ─────────────
+        if (event.httpMethod === 'POST' && resource === 'send-login-link') {
+            const uid = parseInt(qs.id || '');
+            if (!uid) return { statusCode: 400, body: JSON.stringify({ error: 'id required.' }) };
+
+            const [targetUser] = await db
+                .select({ id: users.id, email: users.email, firstName: users.firstName })
+                .from(users).where(eq(users.id, uid)).limit(1);
+            if (!targetUser) return { statusCode: 404, body: JSON.stringify({ error: 'User not found.' }) };
+            if (!targetUser.email) return { statusCode: 400, body: JSON.stringify({ error: 'User has no email address.' }) };
+
+            // Generate a single-use token valid for 24 h
+            const token = crypto.randomBytes(32).toString('hex');
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+            await db.update(users)
+                .set({ verificationToken: token, tokenExpiresAt: expiresAt, updatedAt: new Date() })
+                .where(eq(users.id, uid));
+
+            const loginUrl = `${process.env.SITE_URL || 'https://aura-assist.com'}/verify.html?token=${token}`;
+
+            if (process.env.RESEND_API_KEY) {
+                await resend.emails.send({
+                    from: FROM_EMAIL,
+                    to: targetUser.email,
+                    subject: 'Your Aura Assist Login Link',
+                    html: `
+<div style="font-family:-apple-system,sans-serif;max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
+  <div style="background:#111827;padding:24px 32px">
+    <span style="color:#10b981;font-size:22px;font-weight:800">Aura</span><span style="color:#fff;font-size:22px;font-weight:800">-Assist</span>
+  </div>
+  <div style="padding:32px">
+    <h2 style="margin:0 0 12px;color:#111827">Admin-sent login link</h2>
+    <p style="color:#6b7280;font-size:15px;line-height:1.6">Hi ${targetUser.firstName || 'there'},<br><br>
+      An Aura Assist admin has sent you a one-click login link. Click below to access your account — this link expires in 24 hours.</p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${loginUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:700;font-size:16px;padding:14px 32px;border-radius:8px;text-decoration:none">Log in to Aura Assist</a>
+    </div>
+    <p style="margin:0;color:#9ca3af;font-size:13px">If you did not expect this email, you can safely ignore it.</p>
+  </div>
+</div>`,
+                });
+            }
+
+            await audit(db, adminId, 'SEND_LOGIN_LINK', 'users', uid);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ success: true, expiresAt }),
+            };
+        }
+
+        // ── GET: admins list — for ticket assignment dropdown (US7 Sc2) ───────
+        if (event.httpMethod === 'GET' && resource === 'admins') {
+            const adminUsers = await db
+                .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, role: users.role })
+                .from(users)
+                .where(or(eq(users.role, 'admin'), eq(users.role, 'super_admin')))
+                .orderBy(users.firstName);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ admins: adminUsers }),
+            };
+        }
+
+        // ── GET: paginated audit log (US6 Sc3) ────────────────────────────────
+        if (event.httpMethod === 'GET' && resource === 'logs') {
+            const page = Math.max(0, parseInt(qs.page || '0'));
+
+            const rows = await db
+                .select({
+                    id: auditLogs.id,
+                    actionType: auditLogs.actionType,
+                    resourceType: auditLogs.resourceType,
+                    resourceId: auditLogs.resourceId,
+                    newState: auditLogs.newState,
+                    createdAt: auditLogs.createdAt,
+                    adminId: auditLogs.userId,
+                    adminEmail: users.email,
+                    adminFirstName: users.firstName,
+                    adminLastName: users.lastName,
+                })
+                .from(auditLogs)
+                .leftJoin(users, eq(users.id, auditLogs.userId))
+                .orderBy(desc(auditLogs.createdAt))
+                .limit(PAGE_SIZE)
+                .offset(page * PAGE_SIZE);
+
+            const [{ c: total }] = await db.select({ c: count() }).from(auditLogs);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ logs: rows, total, page, pageSize: PAGE_SIZE }),
+            };
+        }
+
+        // ── GET: analytics — sign-up counts per role (US9, with date filter US9 Sc3) ──
         if (event.httpMethod === 'GET' && resource === 'analytics') {
+            // Optional date range
+            const fromDate = qs.from ? new Date(qs.from) : null;
+            const toDate   = qs.to   ? new Date(qs.to)   : null;
+
+            const dateCondition = (col: any) => {
+                if (fromDate && toDate) return and(gte(col, fromDate), lte(col, toDate));
+                if (fromDate) return gte(col, fromDate);
+                if (toDate)   return lte(col, toDate);
+                return undefined;
+            };
+
             // Count ai_assistants grouped by role (live sign-ups)
             const byRole = await db
-                .select({
-                    role: aiAssistants.aiAssistantJobRole,
-                    c: count(),
-                })
+                .select({ role: aiAssistants.aiAssistantJobRole, c: count() })
                 .from(aiAssistants)
+                .where(dateCondition(aiAssistants.createdAt))
                 .groupBy(aiAssistants.aiAssistantJobRole)
                 .orderBy(desc(count()));
 
-            // Also count raw leads (pre-registration interest)
+            // Raw leads (pre-registration interest)
             const leadsByRole = await db
-                .select({
-                    role: leads.opportunityReason,
-                    c: count(),
-                })
+                .select({ role: leads.opportunityReason, c: count() })
                 .from(leads)
+                .where(dateCondition(leads.createdAt))
                 .groupBy(leads.opportunityReason)
                 .orderBy(desc(count()));
 
-            // Count waitlist entries per master assistant
+            // Waitlist entries per master assistant
             const waitlistByRole = await db
-                .select({
-                    masterAssistantId: waitlist.masterAssistantId,
-                    c: count(),
-                })
+                .select({ masterAssistantId: waitlist.masterAssistantId, c: count() })
                 .from(waitlist)
                 .groupBy(waitlist.masterAssistantId);
 
@@ -321,6 +444,30 @@ export const handler: Handler = async (event) => {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ configs: rows }),
+            };
+        }
+
+        // ── POST: create new model config slot (US13) ────────────────────────
+        if (event.httpMethod === 'POST' && resource === 'model-config') {
+            const body = JSON.parse(event.body || '{}');
+            const { slot, provider, model, monthlyBudgetCents } = body;
+            if (!slot || !model) return { statusCode: 400, body: JSON.stringify({ error: 'slot and model are required.' }) };
+
+            const [created] = await db.insert(aiModelConfig).values({
+                slot,
+                provider: provider || 'openai',
+                model,
+                isActive: true,
+                monthlyBudgetCents: monthlyBudgetCents ?? null,
+                updatedBy: adminId,
+            }).returning();
+
+            await audit(db, adminId, 'CREATE', 'ai_model_config', created.id, { slot, model, provider });
+
+            return {
+                statusCode: 201,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ config: created }),
             };
         }
 

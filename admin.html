@@ -52,6 +52,9 @@
       <button onclick="adminNav('model-config')" id="nav-model-config" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
         ⚙️ AI Model Config
       </button>
+      <button onclick="adminNav('logs')" id="nav-logs" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+        📋 System Logs
+      </button>
     </nav>
     <div class="px-4 pb-5">
       <a href="/workspace.html" class="block text-center text-xs text-gray-400 hover:text-white py-2 rounded-lg hover:bg-gray-800 transition">← Back to Workspace</a>
@@ -185,6 +188,14 @@
 
       <!-- ── Analytics ──────────────────────────────────────────────── -->
       <section id="view-analytics" class="admin-view hidden">
+        <!-- Date range filter (US9 Sc3) -->
+        <div class="flex flex-wrap items-center gap-3 mb-6 bg-white rounded-2xl border border-gray-200 p-4">
+          <span class="text-xs font-bold text-gray-400 uppercase">Date range</span>
+          <label class="text-xs text-gray-600">From <input id="analytics-from" type="date" class="ml-1 border border-gray-200 rounded px-2 py-1 text-xs"></label>
+          <label class="text-xs text-gray-600">To <input id="analytics-to" type="date" class="ml-1 border border-gray-200 rounded px-2 py-1 text-xs"></label>
+          <button onclick="loadAnalytics()" class="px-4 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black transition">Apply</button>
+          <button onclick="document.getElementById('analytics-from').value='';document.getElementById('analytics-to').value='';loadAnalytics();" class="px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 transition">Clear</button>
+        </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="bg-white rounded-2xl border border-gray-200 p-6">
             <h2 class="text-base font-bold text-gray-700 mb-4">Sign-ups per Assistant Role</h2>
@@ -201,10 +212,62 @@
         </div>
       </section>
 
+      <!-- ── System Logs ──────────────────────────────────────────── -->
+      <section id="view-logs" class="admin-view hidden">
+        <p class="text-sm text-gray-500 mb-5">Audit trail of every admin write action across Users, Tickets, Catalog, and AI Config.</p>
+        <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+              <tr>
+                <th class="px-5 py-3 text-left">Time</th>
+                <th class="px-5 py-3 text-left">Admin</th>
+                <th class="px-5 py-3 text-left">Action</th>
+                <th class="px-5 py-3 text-left">Resource</th>
+                <th class="px-5 py-3 text-left">ID</th>
+                <th class="px-5 py-3 text-left">Details</th>
+              </tr>
+            </thead>
+            <tbody id="logs-tbody">
+              <tr><td colspan="6" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr>
+            </tbody>
+          </table>
+          <div class="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+            <span id="logs-count" class="text-xs text-gray-400"></span>
+            <div class="flex gap-2">
+              <button id="logs-prev" onclick="logsPage(-1)" class="px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">← Prev</button>
+              <button id="logs-next" onclick="logsPage(1)"  class="px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">Next →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ── AI Model Config ────────────────────────────────────────── -->
       <section id="view-model-config" class="admin-view hidden">
         <p class="text-sm text-gray-500 mb-5">Update the active AI model routing without deploying code. Changes take effect immediately on the next request.</p>
         <div id="model-config-list" class="space-y-4">Loading…</div>
+        <!-- Add new config slot (US13) -->
+        <div class="bg-white rounded-2xl border border-dashed border-gray-300 p-6 mt-4">
+          <h3 class="text-sm font-bold text-gray-700 mb-4">➕ Add New Model Slot</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+            <div>
+              <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Slot name</label>
+              <input id="new-slot" type="text" placeholder="e.g. fallback2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Provider</label>
+              <input id="new-provider" type="text" value="openai" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Model</label>
+              <input id="new-model" type="text" placeholder="e.g. gpt-4o-mini" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Budget cap (¢/mo)</label>
+              <input id="new-budget" type="number" placeholder="optional" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+          </div>
+          <button onclick="createModelConfig()" class="mt-4 px-5 py-2 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-black transition">Create Slot</button>
+        </div>
       </section>
 
     </div><!-- /p-8 -->
@@ -235,6 +298,7 @@ function debounce(fn, ms) {
 const VIEW_LABELS = {
   dashboard: 'Dashboard', users: 'Users', tickets: 'Support Tickets',
   catalog: 'Assistant Catalog', analytics: 'Analytics', 'model-config': 'AI Model Config',
+  logs: 'System Logs',
 };
 
 function adminNav(view) {
@@ -250,6 +314,7 @@ function adminNav(view) {
   if (view === 'catalog')      loadCatalog();
   if (view === 'analytics')    loadAnalytics();
   if (view === 'model-config') loadModelConfig();
+  if (view === 'logs')         loadLogs();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -287,14 +352,14 @@ async function api(url, opts) {
 async function loadDashboard() {
   try {
     const d = await api('/.netlify/functions/admin-api?resource=dashboard');
-    document.getElementById('kpi-grid').innerHTML = [
-      ['Total Users', d.totalUsers, '👥', 'blue'],
-      ['Pending Verification', d.pendingUsers, '⏳', 'amber'],
-      ['Active Assistants', d.activeAssistants, '🤖', 'emerald'],
-      ['Active Plans', d.activePlans, '💳', 'purple'],
-      ['Open Tickets', d.openTickets, '🎫', 'red'],
-      ['Paused Assistants', d.pausedAssistants, '⏸', 'gray'],
-    ].map(([label, val, icon, color]) => `
+    const kpiCards = [
+      ['Total Users', d.totalUsers, '👥'],
+      ['Pending Verification', d.pendingUsers, '⏳'],
+      ['Active Assistants', d.activeAssistants, '🤖'],
+      ['Active Plans', d.activePlans, '💳'],
+      ['Open Tickets', d.openTickets, '🎫'],
+      ['Paused Assistants', d.pausedAssistants, '⏸'],
+    ].map(([label, val, icon]) => `
       <div class="bg-white rounded-2xl border border-gray-200 p-5">
         <div class="flex items-center gap-3 mb-2">
           <span class="text-2xl">${icon}</span>
@@ -302,6 +367,23 @@ async function loadDashboard() {
         </div>
         <div class="text-3xl font-extrabold text-gray-900">${val ?? '—'}</div>
       </div>`).join('');
+
+    // Subscription tier breakdown card (US6 Sc4)
+    const tierRows = (d.tierBreakdown || []).map(t =>
+      `<div class="flex justify-between text-sm py-1 border-b border-gray-50 last:border-0">
+        <span class="font-medium text-gray-700 capitalize">${t.planName || 'Unknown'}</span>
+        <span class="font-bold text-gray-900">${t.c}</span>
+      </div>`).join('') || '<p class="text-sm text-gray-400">No active plans.</p>';
+    const tierCard = `
+      <div class="col-span-2 lg:col-span-4 bg-white rounded-2xl border border-gray-200 p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="text-2xl">📊</span>
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Subscription Tier Breakdown</span>
+        </div>
+        <div class="divide-y divide-gray-50">${tierRows}</div>
+      </div>`;
+
+    document.getElementById('kpi-grid').innerHTML = kpiCards + tierCard;
 
     // Recent open tickets
     const td = await api('/.netlify/functions/admin-api?resource=tickets&status=open');
@@ -382,6 +464,7 @@ async function openUserPanel(uid) {
         ${d.assistants.map(a => `<div class="text-sm py-1 border-b border-gray-50">${a.name} <span class="text-xs text-gray-400">${a.provisioningStatus}</span></div>`).join('')}
       </div>` : ''}
       <div class="space-y-2 pt-2">
+        <button onclick="sendLoginLink(${u.id})" class="w-full py-2 text-sm font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:opacity-80">📧 Send Login Link</button>
         <button onclick="promoteAdmin(${u.id})" class="w-full py-2 text-sm font-bold border border-gray-200 rounded-lg hover:bg-gray-50">Make Admin</button>
         <button onclick="suspendUser(${u.id})" class="w-full py-2 text-sm font-bold bg-amber-50 border border-amber-200 text-amber-700 rounded-lg hover:opacity-80">Suspend Account</button>
         <button onclick="deleteUser(${u.id},'${(u.email||'').replace(/'/g,"&#39;")}')" class="w-full py-2 text-sm font-bold bg-red-50 border border-red-200 text-red-600 rounded-lg hover:opacity-80">Delete Account</button>
@@ -469,6 +552,12 @@ async function openTicketPanel(tid) {
         <div><span class="text-gray-400 text-xs font-bold uppercase">Priority</span><br>
           <select onchange="patchTicket(${t.id},'priority',this.value)" class="mt-1 text-xs border border-gray-200 rounded px-2 py-1">
             ${['low','normal','high','urgent'].map(s=>`<option value="${s}" ${t.priority===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-span-2"><span class="text-gray-400 text-xs font-bold uppercase">Assigned To</span><br>
+          <select id="ticket-assign-${t.id}" onchange="patchTicket(${t.id},'assignedTo',this.value||null)" class="mt-1 text-xs border border-gray-200 rounded px-2 py-1 w-full">
+            <option value="">— Unassigned —</option>
+            ${(window._adminsList||[]).map(a=>`<option value="${a.id}" ${t.assignedTo===a.id?'selected':''}>${a.firstName||''} ${a.lastName||''} (${a.email})</option>`).join('')}
           </select>
         </div>
         <div class="col-span-2"><span class="text-gray-400 text-xs font-bold uppercase">Submitter</span><br>
@@ -594,10 +683,44 @@ async function toggleCatalogStatus(id, currentlyComingSoon) {
   } catch(e) { alert(e.message); }
 }
 
+// ── System Logs ───────────────────────────────────────────────────────────────
+let _logsPage = 0;
+async function loadLogs() {
+  const tbody = document.getElementById('logs-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" class="px-5 py-8 text-center text-gray-400 animate-pulse">Loading…</td></tr>';
+  try {
+    const d = await api(`/.netlify/functions/admin-api?resource=logs&page=${_logsPage}`);
+    document.getElementById('logs-count').textContent = `${d.total} total log entries`;
+    document.getElementById('logs-prev').disabled = _logsPage === 0;
+    document.getElementById('logs-next').disabled = (_logsPage + 1) * 25 >= d.total;
+    tbody.innerHTML = (d.logs || []).map(l => {
+      const admin = l.adminEmail ? `${l.adminFirstName||''} ${l.adminEmail}` : `#${l.adminId}`;
+      const details = l.newState ? `<code class="text-xs bg-gray-100 px-1 rounded">${JSON.stringify(l.newState).slice(0,80)}</code>` : '—';
+      return `<tr class="border-t border-gray-50 hover:bg-gray-50 transition">
+        <td class="px-5 py-3 text-xs text-gray-400 whitespace-nowrap">${fmt(l.createdAt)}</td>
+        <td class="px-5 py-3 text-xs text-gray-600">${admin}</td>
+        <td class="px-5 py-3"><span class="text-xs font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded">${l.actionType}</span></td>
+        <td class="px-5 py-3 text-xs text-gray-500">${l.resourceType}</td>
+        <td class="px-5 py-3 text-xs font-mono text-gray-400">${l.resourceId}</td>
+        <td class="px-5 py-3">${details}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" class="px-5 py-8 text-center text-gray-400">No log entries yet.</td></tr>';
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="6" class="px-5 py-5 text-red-500 text-sm">${e.message}</td></tr>`;
+  }
+}
+function logsPage(delta) {
+  _logsPage = Math.max(0, _logsPage + delta);
+  loadLogs();
+}
+
 // ── Analytics ─────────────────────────────────────────────────────────────────
 async function loadAnalytics() {
-  try {
-    const d = await api('/.netlify/functions/admin-api?resource=analytics');
+  const from = document.getElementById('analytics-from')?.value || '';
+  const to   = document.getElementById('analytics-to')?.value   || '';
+  let url = '/.netlify/functions/admin-api?resource=analytics';
+  if (from) url += '&from=' + encodeURIComponent(from);
+  if (to)   url += '&to='   + encodeURIComponent(to);
     const bar = (rows, labelKey, countKey) => {
       if (!rows?.length) return '<p class="text-gray-400 text-sm">No data yet.</p>';
       const max = Math.max(...rows.map(r => Number(r[countKey]) || 0));
@@ -674,7 +797,43 @@ async function toggleModelActive(id, isActive) {
   } catch(e) { alert(e.message); }
 }
 
+async function createModelConfig() {
+  const slot     = document.getElementById('new-slot')?.value?.trim();
+  const provider = document.getElementById('new-provider')?.value?.trim() || 'openai';
+  const model    = document.getElementById('new-model')?.value?.trim();
+  const budget   = document.getElementById('new-budget')?.value;
+  if (!slot || !model) { alert('Slot name and model are required.'); return; }
+  try {
+    await api('/.netlify/functions/admin-api?resource=model-config', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ slot, provider, model, monthlyBudgetCents: budget ? parseInt(budget) : null }),
+    });
+    document.getElementById('new-slot').value = '';
+    document.getElementById('new-model').value = '';
+    document.getElementById('new-budget').value = '';
+    loadModelConfig();
+  } catch(e) { alert(e.message); }
+}
+
+// ── Send Login Link (US6 Sc2) ─────────────────────────────────────────────────
+async function sendLoginLink(uid) {
+  if (!confirm('Send a 24-hour passwordless login link to this user\'s email?')) return;
+  try {
+    await api(`/.netlify/functions/admin-api?resource=send-login-link&id=${uid}`, { method:'POST' });
+    alert('✅ Login link sent successfully.');
+  } catch(e) { alert('Failed: ' + e.message); }
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
+// Pre-fetch admin list for ticket assignment dropdown (US7 Sc2)
+window._adminsList = [];
+(async () => {
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=admins');
+    window._adminsList = d.admins || [];
+  } catch { /* non-blocking */ }
+})();
+
 loadDashboard();
 </script>
 </body>
