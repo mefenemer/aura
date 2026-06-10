@@ -14,8 +14,12 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, ilike, or } from 'drizzle-orm';
+import { Resend } from 'resend';
 import { getDb } from '../../db/client';
 import { masterAssistants, waitlist, userProfiles, notifications } from '../../db/schema';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM_EMAIL = process.env.FROM_EMAIL || 'hello@aura-assist.com';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -104,6 +108,58 @@ async function handlePatch(event: any): Promise<any> {
                 .update(waitlist)
                 .set({ notified: true })
                 .where(eq(waitlist.masterAssistantId, id));
+
+            // ── US11: Send personalised Resend email to every waitlist entry ──────
+            if (process.env.RESEND_API_KEY) {
+                const waitlistEntries = await db
+                    .select({ email: waitlist.email })
+                    .from(waitlist)
+                    .where(eq(waitlist.masterAssistantId, id));
+
+                for (const entry of waitlistEntries) {
+                    try {
+                        await resend.emails.send({
+                            from: FROM_EMAIL,
+                            to: entry.email,
+                            subject: `${updated.name} is now Live on Aura Assist!`,
+                            html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+    <div style="background:#111827;padding:28px 32px;text-align:center">
+      <span style="color:#10b981;font-size:28px;font-weight:800;letter-spacing:-1px">Aura</span>
+      <span style="color:#fff;font-size:28px;font-weight:800;letter-spacing:-1px">-Assist</span>
+    </div>
+    <div style="padding:32px">
+      <div style="width:56px;height:56px;background:#d1fae5;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px;text-align:center;line-height:56px">🎉</div>
+      <h1 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#111827;text-align:center">
+        ${updated.name} is now Live!
+      </h1>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;line-height:1.7;text-align:center">
+        The role you've been waiting for is ready. Hire your ${updated.name} today and put AI to work for your business.
+      </p>
+      <div style="text-align:center;margin-bottom:32px">
+        <a href="https://aura-assist.com/assistants.html"
+           style="display:inline-block;background:#10b981;color:#fff;font-weight:700;font-size:16px;padding:14px 32px;border-radius:8px;text-decoration:none">
+          View ${updated.name} &rarr;
+        </a>
+      </div>
+      <p style="margin:0;color:#9ca3af;font-size:13px;text-align:center">
+        You're receiving this because you joined the waitlist for ${updated.name}.<br>
+        <a href="https://aura-assist.com/workspace.html" style="color:#10b981;text-decoration:none">Manage preferences</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`,
+                        });
+                    } catch (emailErr) {
+                        console.warn(`[master-assistants] Waitlist email failed for ${entry.email}:`, emailErr);
+                    }
+                }
+            }
         } catch (fanOutErr) {
             // Non-blocking — update already applied; log and continue
             console.error('[master-assistants] Fan-out error (non-blocking):', fanOutErr);

@@ -1,6 +1,9 @@
 // netlify/functions/generate-names.ts
 import { HandlerEvent } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
+import { eq } from 'drizzle-orm';
+import { getDb } from '../../db/client';
+import { users } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 const openAiKey = process.env.OPENAI_API_KEY;
@@ -21,22 +24,35 @@ export const handler = async (event: HandlerEvent) => {
     const sessionToken = cookies['aura_session'];
     if (!sessionToken) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
 
+    let decoded: { userId: number };
     try {
-        jwt.verify(sessionToken, jwtSecret);
+        decoded = jwt.verify(sessionToken, jwtSecret) as { userId: number };
     } catch (err) {
         return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) };
     }
+
+    // Fetch org context for AI metadata tagging (US12)
+    const db = getDb();
+    const [userRow] = await db
+        .select({ id: users.id, organisationId: users.organisationId })
+        .from(users)
+        .where(eq(users.id, decoded.userId))
+        .limit(1);
+    const orgId = userRow?.organisationId ?? null;
 
     const { theme, role } = JSON.parse(event.body || '{}');
     if (!theme || !role) return { statusCode: 400, body: JSON.stringify({ error: 'Theme and Role are required.' }) };
 
     try {
-        // 2. Prompt the LLM
+        // 2. Prompt the LLM — attach org/user metadata headers for token-cost attribution (US12)
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${openAiKey}`
+                'Authorization': `Bearer ${openAiKey}`,
+                // Metadata headers for cost attribution in AI Gateway / OpenAI dashboard
+                'X-User-Id': String(decoded.userId),
+                ...(orgId ? { 'X-Organization-Id': String(orgId) } : {}),
             },
             body: JSON.stringify({
                 model: 'gpt-3.5-turbo',

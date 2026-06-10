@@ -3,7 +3,7 @@ import { Handler, HandlerResponse } from '@netlify/functions';
 import { eq, and, gt } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
-import { users, plans, aiAssistants, onboardingDrafts } from '../../db/schema';
+import { users, plans, aiAssistants, onboardingDrafts, notifications } from '../../db/schema';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 
@@ -68,9 +68,34 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        // Detect first-ever login (was 'pending_verification' → now 'active')
+        const isFirstLogin = user.status === 'pending_verification';
+
         await db.update(users)
             .set({ status: 'active', verificationToken: null, tokenExpiresAt: null })
             .where(eq(users.id, user.id));
+
+        // ── US3 Sc3 + US2 Sc1: Welcome + onboard prompt on first login ───────
+        if (isFirstLogin) {
+            try {
+                await db.insert(notifications).values([
+                    {
+                        userId: user.id,
+                        type: 'welcome',
+                        title: 'Welcome to Aura Assist!',
+                        message: 'Thanks for registering and welcome to Aura Assist. Your workspace is ready.',
+                    },
+                    {
+                        userId: user.id,
+                        type: 'onboarding_prompt',
+                        title: 'Onboard your digital assistant',
+                        message: "You're one step away from having your own AI team member. Complete onboarding to get started.",
+                    },
+                ]);
+            } catch (notifErr) {
+                console.warn('[verify] Welcome notification insert failed (non-blocking):', notifErr);
+            }
+        }
 
         const tokenPayload = { userId: user.id, email: user.email };
         const signedToken = jwt.sign(tokenPayload, jwtSecret, { expiresIn: '7d' });
@@ -127,7 +152,17 @@ export const handler: Handler = async (event) => {
                 .limit(1);
 
             if (!assistant) {
-                // Incomplete onboarding — route back to the exact step they left off
+                // Incomplete onboarding — US2 Sc2: fire reminder notification (best-effort)
+                try {
+                    await db.insert(notifications).values({
+                        userId: user.id,
+                        type: 'onboarding_incomplete',
+                        title: 'Complete your assistant setup',
+                        message: 'You have not yet completed the onboarding of your digital assistant. Pick up where you left off.',
+                    });
+                } catch { /* non-blocking */ }
+
+                // Route back to the exact step they left off
                 const [draft] = await db
                     .select({ currentStep: onboardingDrafts.currentStep, onboardingPath: onboardingDrafts.onboardingPath })
                     .from(onboardingDrafts)

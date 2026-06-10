@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    // Guard: check admin role before rendering — redirect immediately if not admin
+    (async () => {
+      try {
+        const r = await fetch('/.netlify/functions/admin-api?resource=dashboard');
+        if (r.status === 403 || r.status === 401) {
+          window.location.replace('/workspace.html?error=access_denied');
+        }
+      } catch {
+        window.location.replace('/workspace.html?error=access_denied');
+      }
+    })();
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Workspace | Aura-Assist</title>
+  <link href="./style.css" rel="stylesheet">
+  <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-100 min-h-screen">
+
+<!-- ── Layout ──────────────────────────────────────────────────────────── -->
+<div class="flex min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="w-56 bg-gray-900 text-white flex flex-col flex-shrink-0">
+    <div class="px-6 py-5 border-b border-gray-700">
+      <div class="text-lg font-extrabold">
+        <span class="text-emerald-400">Aura</span>-Assist
+      </div>
+      <div class="text-xs text-gray-400 mt-0.5 font-semibold uppercase tracking-wider">Admin</div>
+    </div>
+    <nav class="flex-1 py-4 space-y-1 px-3">
+      <button onclick="adminNav('dashboard')" id="nav-dashboard" class="admin-nav-btn active w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+        📊 Dashboard
+      </button>
+      <button onclick="adminNav('users')" id="nav-users" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+        👥 Users
+      </button>
+      <button onclick="adminNav('tickets')" id="nav-tickets" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+        🎫 Support Tickets
+      </button>
+      <button onclick="adminNav('catalog')" id="nav-catalog" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+        🤖 Assistant Catalog
+      </button>
+      <button onclick="adminNav('analytics')" id="nav-analytics" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+        📈 Analytics
+      </button>
+      <button onclick="adminNav('model-config')" id="nav-model-config" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+        ⚙️ AI Model Config
+      </button>
+    </nav>
+    <div class="px-4 pb-5">
+      <a href="/workspace.html" class="block text-center text-xs text-gray-400 hover:text-white py-2 rounded-lg hover:bg-gray-800 transition">← Back to Workspace</a>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="flex-1 overflow-auto">
+    <!-- Header bar -->
+    <header class="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+      <h1 id="admin-page-title" class="text-xl font-extrabold text-gray-900">Dashboard</h1>
+      <span class="text-xs bg-red-100 text-red-700 font-bold px-3 py-1 rounded-full">Admin Mode</span>
+    </header>
+
+    <!-- Views -->
+    <div class="p-8">
+
+      <!-- ── Dashboard ──────────────────────────────────────────────── -->
+      <section id="view-dashboard" class="admin-view">
+        <div id="kpi-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <div class="col-span-full text-center text-gray-400 py-8 animate-pulse">Loading KPIs…</div>
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 class="text-base font-bold text-gray-700 mb-4">Recent open support tickets</h2>
+          <div id="dashboard-recent-tickets" class="text-sm text-gray-500">Loading…</div>
+        </div>
+      </section>
+
+      <!-- ── Users ──────────────────────────────────────────────────── -->
+      <section id="view-users" class="admin-view hidden">
+        <div class="flex items-center gap-4 mb-6">
+          <input id="user-search" type="text" placeholder="Search by name or email…"
+            class="flex-1 max-w-sm border border-gray-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            oninput="debounce(() => loadUsers(), 350)">
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+              <tr>
+                <th class="px-5 py-3 text-left">Name</th>
+                <th class="px-5 py-3 text-left">Email</th>
+                <th class="px-5 py-3 text-left">Status</th>
+                <th class="px-5 py-3 text-left">Role</th>
+                <th class="px-5 py-3 text-left">Plan</th>
+                <th class="px-5 py-3 text-left">Joined</th>
+                <th class="px-5 py-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="7" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr>
+            </tbody>
+          </table>
+          <div class="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+            <span id="users-count" class="text-xs text-gray-400"></span>
+            <div class="flex gap-2">
+              <button id="users-prev" onclick="usersPage(-1)" class="px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">← Prev</button>
+              <button id="users-next" onclick="usersPage(1)"  class="px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">Next →</button>
+            </div>
+          </div>
+        </div>
+        <!-- User detail slide-over -->
+        <div id="user-detail-panel" class="hidden fixed inset-0 z-40">
+          <div class="absolute inset-0 bg-black/40" onclick="closeUserPanel()"></div>
+          <div class="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+              <h2 class="font-bold text-gray-900">User Detail</h2>
+              <button onclick="closeUserPanel()" class="text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="user-detail-body" class="p-6 space-y-5"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Support Tickets ────────────────────────────────────────── -->
+      <section id="view-tickets" class="admin-view hidden">
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <select id="ticket-status-filter" onchange="loadTickets()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option value="">All Statuses</option>
+            <option value="open">Open</option>
+            <option value="pending_customer">Pending Customer</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+          </select>
+          <select id="ticket-category-filter" onchange="loadTickets()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option value="">All Categories</option>
+            <option value="Billing">Billing</option>
+            <option value="Technical">Technical</option>
+            <option value="Onboarding">Onboarding</option>
+            <option value="General">General</option>
+          </select>
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+              <tr>
+                <th class="px-5 py-3 text-left">#</th>
+                <th class="px-5 py-3 text-left">Subject</th>
+                <th class="px-5 py-3 text-left">User</th>
+                <th class="px-5 py-3 text-left">Category</th>
+                <th class="px-5 py-3 text-left">Priority</th>
+                <th class="px-5 py-3 text-left">Status</th>
+                <th class="px-5 py-3 text-left">Age</th>
+                <th class="px-5 py-3 text-left">Action</th>
+              </tr>
+            </thead>
+            <tbody id="tickets-tbody">
+              <tr><td colspan="8" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Ticket detail slide-over -->
+        <div id="ticket-detail-panel" class="hidden fixed inset-0 z-40">
+          <div class="absolute inset-0 bg-black/40" onclick="closeTicketPanel()"></div>
+          <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white shadow-2xl overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+              <h2 id="ticket-panel-title" class="font-bold text-gray-900">Ticket Detail</h2>
+              <button onclick="closeTicketPanel()" class="text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="ticket-detail-body" class="p-6 space-y-5"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Catalog ────────────────────────────────────────────────── -->
+      <section id="view-catalog" class="admin-view hidden">
+        <p class="text-sm text-gray-500 mb-5">Toggle &#34;Coming Soon&#34; / &#34;Live&#34; status. Switching to Live triggers the waitlist notification loop.</p>
+        <div id="catalog-grid" class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div class="px-5 py-8 text-center text-gray-400">Loading…</div>
+        </div>
+      </section>
+
+      <!-- ── Analytics ──────────────────────────────────────────────── -->
+      <section id="view-analytics" class="admin-view hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white rounded-2xl border border-gray-200 p-6">
+            <h2 class="text-base font-bold text-gray-700 mb-4">Sign-ups per Assistant Role</h2>
+            <div id="analytics-by-role" class="space-y-3">Loading…</div>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-200 p-6">
+            <h2 class="text-base font-bold text-gray-700 mb-4">Waitlist Entries per Coming-Soon Role</h2>
+            <div id="analytics-waitlist" class="space-y-3">Loading…</div>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-200 p-6 lg:col-span-2">
+            <h2 class="text-base font-bold text-gray-700 mb-4">Raw Leads by Role (pre-registration interest)</h2>
+            <div id="analytics-leads" class="space-y-3">Loading…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── AI Model Config ────────────────────────────────────────── -->
+      <section id="view-model-config" class="admin-view hidden">
+        <p class="text-sm text-gray-500 mb-5">Update the active AI model routing without deploying code. Changes take effect immediately on the next request.</p>
+        <div id="model-config-list" class="space-y-4">Loading…</div>
+      </section>
+
+    </div><!-- /p-8 -->
+  </main>
+</div>
+
+<style>
+  .admin-nav-btn { color: #9ca3af; }
+  .admin-nav-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+  .admin-nav-btn.active { background: #10b981; color: #fff; }
+  .admin-view { animation: fadeIn .15s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+</style>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let _usersPage = 0;
+let _ticketPanelId = null;
+let _userPanelId = null;
+let _debounceTimer = null;
+
+function debounce(fn, ms) {
+  clearTimeout(_debounceTimer);
+  _debounceTimer = setTimeout(fn, ms);
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+const VIEW_LABELS = {
+  dashboard: 'Dashboard', users: 'Users', tickets: 'Support Tickets',
+  catalog: 'Assistant Catalog', analytics: 'Analytics', 'model-config': 'AI Model Config',
+};
+
+function adminNav(view) {
+  document.querySelectorAll('.admin-view').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.admin-nav-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + view)?.classList.remove('hidden');
+  document.getElementById('nav-' + view)?.classList.add('active');
+  document.getElementById('admin-page-title').textContent = VIEW_LABELS[view] || view;
+  // Lazy-load section data
+  if (view === 'dashboard')    loadDashboard();
+  if (view === 'users')        loadUsers();
+  if (view === 'tickets')      loadTickets();
+  if (view === 'catalog')      loadCatalog();
+  if (view === 'analytics')    loadAnalytics();
+  if (view === 'model-config') loadModelConfig();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+function age(dateStr) {
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const h = Math.floor(ms / 3600000);
+  if (h < 24) return h + 'h';
+  return Math.floor(h / 24) + 'd';
+}
+function statusBadge(s) {
+  const map = {
+    open: 'bg-blue-100 text-blue-700',
+    pending_customer: 'bg-amber-100 text-amber-700',
+    resolved: 'bg-emerald-100 text-emerald-700',
+    closed: 'bg-gray-100 text-gray-600',
+    new: 'bg-purple-100 text-purple-700',
+  };
+  return `<span class="px-2 py-0.5 rounded-full text-xs font-bold ${map[s]||'bg-gray-100 text-gray-600'}">${s||'—'}</span>`;
+}
+function priorityBadge(p) {
+  const map = { low:'bg-gray-100 text-gray-500', normal:'bg-blue-50 text-blue-600', high:'bg-orange-100 text-orange-700', urgent:'bg-red-100 text-red-700' };
+  return `<span class="px-2 py-0.5 rounded-full text-xs font-bold ${map[p]||''}">${p||'normal'}</span>`;
+}
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) { const d = await r.json().catch(()=>({})); throw new Error(d.error || r.statusText); }
+  return r.json();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=dashboard');
+    document.getElementById('kpi-grid').innerHTML = [
+      ['Total Users', d.totalUsers, '👥', 'blue'],
+      ['Pending Verification', d.pendingUsers, '⏳', 'amber'],
+      ['Active Assistants', d.activeAssistants, '🤖', 'emerald'],
+      ['Active Plans', d.activePlans, '💳', 'purple'],
+      ['Open Tickets', d.openTickets, '🎫', 'red'],
+      ['Paused Assistants', d.pausedAssistants, '⏸', 'gray'],
+    ].map(([label, val, icon, color]) => `
+      <div class="bg-white rounded-2xl border border-gray-200 p-5">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-2xl">${icon}</span>
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">${label}</span>
+        </div>
+        <div class="text-3xl font-extrabold text-gray-900">${val ?? '—'}</div>
+      </div>`).join('');
+
+    // Recent open tickets
+    const td = await api('/.netlify/functions/admin-api?resource=tickets&status=open');
+    const tbody = (td.tickets || []).slice(0, 5).map(t => `
+      <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+        <div>
+          <span class="font-semibold text-gray-800">#${t.id} ${t.subject}</span>
+          <span class="ml-2 text-xs text-gray-400">${t.userEmail}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          ${priorityBadge(t.priority)}
+          <button onclick="openTicketPanel(${t.id})" class="text-xs text-emerald-600 font-semibold hover:underline">View →</button>
+        </div>
+      </div>`).join('');
+    document.getElementById('dashboard-recent-tickets').innerHTML = tbody || '<p class="text-gray-400 text-sm">No open tickets.</p>';
+  } catch(e) {
+    document.getElementById('kpi-grid').innerHTML = `<div class="col-span-full text-red-500 text-sm">${e.message}</div>`;
+  }
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  const q = document.getElementById('user-search')?.value || '';
+  const url = `/.netlify/functions/admin-api?resource=users&page=${_usersPage}&q=${encodeURIComponent(q)}`;
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" class="px-5 py-8 text-center text-gray-400 animate-pulse">Loading…</td></tr>';
+  try {
+    const d = await api(url);
+    document.getElementById('users-count').textContent = `${d.total} total users`;
+    document.getElementById('users-prev').disabled = _usersPage === 0;
+    document.getElementById('users-next').disabled = (_usersPage + 1) * 25 >= d.total;
+    tbody.innerHTML = (d.users || []).map(u => `
+      <tr class="border-t border-gray-50 hover:bg-gray-50 transition">
+        <td class="px-5 py-3 font-medium">${u.firstName||''} ${u.lastName||''}</td>
+        <td class="px-5 py-3 text-gray-500">${u.email}</td>
+        <td class="px-5 py-3">${statusBadge(u.status)}</td>
+        <td class="px-5 py-3"><span class="text-xs font-bold ${u.role==='admin'||u.role==='super_admin'?'text-red-600':'text-gray-500'}">${u.role}</span></td>
+        <td class="px-5 py-3 text-xs text-gray-500">${u.planName||'—'}</td>
+        <td class="px-5 py-3 text-xs text-gray-400">${fmt(u.createdAt)}</td>
+        <td class="px-5 py-3">
+          <button onclick="openUserPanel(${u.id})" class="text-xs text-emerald-600 font-semibold hover:underline mr-3">View</button>
+          <button onclick="suspendUser(${u.id})" class="text-xs text-amber-600 font-semibold hover:underline mr-3">Suspend</button>
+          <button onclick="deleteUser(${u.id},'${(u.email||'').replace(/'/g,"&#39;")}')" class="text-xs text-red-600 font-semibold hover:underline">Delete</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="7" class="px-5 py-8 text-center text-gray-400">No users found.</td></tr>';
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" class="px-5 py-5 text-red-500 text-sm">${e.message}</td></tr>`;
+  }
+}
+
+function usersPage(delta) {
+  _usersPage = Math.max(0, _usersPage + delta);
+  loadUsers();
+}
+
+async function openUserPanel(uid) {
+  _userPanelId = uid;
+  document.getElementById('user-detail-panel').classList.remove('hidden');
+  const body = document.getElementById('user-detail-body');
+  body.innerHTML = '<div class="text-gray-400 animate-pulse">Loading…</div>';
+  try {
+    const d = await api(`/.netlify/functions/admin-api?resource=user&id=${uid}`);
+    const u = d.user;
+    body.innerHTML = `
+      <div>
+        <h3 class="font-bold text-lg text-gray-900 mb-1">${u.firstName||''} ${u.lastName||''}</h3>
+        <p class="text-sm text-gray-500">${u.email}</p>
+      </div>
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div><span class="text-gray-400 text-xs font-bold uppercase">Status</span><br>${statusBadge(u.status)}</div>
+        <div><span class="text-gray-400 text-xs font-bold uppercase">Role</span><br><span class="font-semibold">${u.role}</span></div>
+        <div><span class="text-gray-400 text-xs font-bold uppercase">Plan</span><br>${d.plan?.planName||'None'}</div>
+        <div><span class="text-gray-400 text-xs font-bold uppercase">Joined</span><br>${fmt(u.createdAt)}</div>
+      </div>
+      ${d.assistants?.length ? `
+      <div>
+        <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">Provisioned Assistants</h4>
+        ${d.assistants.map(a => `<div class="text-sm py-1 border-b border-gray-50">${a.name} <span class="text-xs text-gray-400">${a.provisioningStatus}</span></div>`).join('')}
+      </div>` : ''}
+      <div class="space-y-2 pt-2">
+        <button onclick="promoteAdmin(${u.id})" class="w-full py-2 text-sm font-bold border border-gray-200 rounded-lg hover:bg-gray-50">Make Admin</button>
+        <button onclick="suspendUser(${u.id})" class="w-full py-2 text-sm font-bold bg-amber-50 border border-amber-200 text-amber-700 rounded-lg hover:opacity-80">Suspend Account</button>
+        <button onclick="deleteUser(${u.id},'${(u.email||'').replace(/'/g,"&#39;")}')" class="w-full py-2 text-sm font-bold bg-red-50 border border-red-200 text-red-600 rounded-lg hover:opacity-80">Delete Account</button>
+      </div>`;
+  } catch(e) {
+    body.innerHTML = `<p class="text-red-500">${e.message}</p>`;
+  }
+}
+
+function closeUserPanel() { document.getElementById('user-detail-panel').classList.add('hidden'); }
+
+async function suspendUser(uid) {
+  if (!confirm('Suspend this user?')) return;
+  try {
+    await api(`/.netlify/functions/admin-api?resource=user&id=${uid}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status:'suspended' }) });
+    closeUserPanel(); loadUsers();
+  } catch(e) { alert(e.message); }
+}
+
+async function promoteAdmin(uid) {
+  if (!confirm('Grant admin role to this user?')) return;
+  try {
+    await api(`/.netlify/functions/admin-api?resource=user&id=${uid}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ role:'admin' }) });
+    closeUserPanel(); loadUsers();
+  } catch(e) { alert(e.message); }
+}
+
+async function deleteUser(uid, email) {
+  if (!confirm(`Permanently delete user "${email}"? This cannot be undone.`)) return;
+  try {
+    await api(`/.netlify/functions/admin-api?resource=user&id=${uid}`, { method:'DELETE' });
+    closeUserPanel(); loadUsers();
+  } catch(e) { alert(e.message); }
+}
+
+// ── Support Tickets ───────────────────────────────────────────────────────────
+async function loadTickets() {
+  const status = document.getElementById('ticket-status-filter')?.value || '';
+  const category = document.getElementById('ticket-category-filter')?.value || '';
+  let url = '/.netlify/functions/admin-api?resource=tickets';
+  if (status)   url += '&status='   + encodeURIComponent(status);
+  if (category) url += '&category=' + encodeURIComponent(category);
+  const tbody = document.getElementById('tickets-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" class="px-5 py-8 text-center text-gray-400 animate-pulse">Loading…</td></tr>';
+  try {
+    const d = await api(url);
+    tbody.innerHTML = (d.tickets||[]).map(t => {
+      const slaBreach = t.slaBreachedAt ? '<span class="ml-1 text-xs bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded">SLA Breached</span>' : '';
+      return `
+      <tr class="border-t border-gray-50 hover:bg-gray-50 transition ${t.slaBreachedAt?'bg-red-50/30':''}">
+        <td class="px-5 py-3 font-mono text-xs text-gray-500">#${t.id}${slaBreach}</td>
+        <td class="px-5 py-3 font-medium max-w-xs truncate">${t.subject}</td>
+        <td class="px-5 py-3 text-xs text-gray-500">${t.userEmail}</td>
+        <td class="px-5 py-3 text-xs">${t.category}</td>
+        <td class="px-5 py-3">${priorityBadge(t.priority)}</td>
+        <td class="px-5 py-3">${statusBadge(t.status)}</td>
+        <td class="px-5 py-3 text-xs text-gray-400">${age(t.createdAt)}</td>
+        <td class="px-5 py-3">
+          <button onclick="openTicketPanel(${t.id})" class="text-xs text-emerald-600 font-semibold hover:underline">Manage →</button>
+        </td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="8" class="px-5 py-8 text-center text-gray-400">No tickets found.</td></tr>';
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-5 text-red-500 text-sm">${e.message}</td></tr>`;
+  }
+}
+
+async function openTicketPanel(tid) {
+  _ticketPanelId = tid;
+  document.getElementById('ticket-detail-panel').classList.remove('hidden');
+  const body = document.getElementById('ticket-detail-body');
+  body.innerHTML = '<div class="text-gray-400 animate-pulse">Loading…</div>';
+  try {
+    const d = await api(`/.netlify/functions/admin-helpdesk?ticketId=${tid}`);
+    const t = d.ticket; const replies = d.replies || [];
+    document.getElementById('ticket-panel-title').textContent = `#${t.id} — ${t.subject}`;
+    body.innerHTML = `
+      <!-- Metadata bar -->
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div><span class="text-gray-400 text-xs font-bold uppercase">Status</span><br>
+          <select onchange="patchTicket(${t.id},'status',this.value)" class="mt-1 text-xs border border-gray-200 rounded px-2 py-1">
+            ${['new','open','pending_customer','resolved','closed'].map(s=>`<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div><span class="text-gray-400 text-xs font-bold uppercase">Priority</span><br>
+          <select onchange="patchTicket(${t.id},'priority',this.value)" class="mt-1 text-xs border border-gray-200 rounded px-2 py-1">
+            ${['low','normal','high','urgent'].map(s=>`<option value="${s}" ${t.priority===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-span-2"><span class="text-gray-400 text-xs font-bold uppercase">Submitter</span><br>
+          <span class="font-medium">${d.submitter?.firstName||''} ${d.submitter?.email||''}</span>
+        </div>
+      </div>
+      <!-- Original description -->
+      <div class="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed">${t.description}</div>
+      <!-- Reply thread -->
+      <div id="reply-thread" class="space-y-3">
+        ${replies.map(r => `
+        <div class="rounded-xl p-3 text-sm ${r.isInternal ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-100'}">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-bold ${r.isInternal?'text-yellow-700':'text-blue-700'}">${r.authorEmail} ${r.isInternal?'· Internal Note':''}</span>
+            <span class="text-xs text-gray-400">${fmt(r.createdAt)}</span>
+          </div>
+          <p class="text-gray-800 whitespace-pre-wrap">${r.body}</p>
+        </div>`).join('')}
+      </div>
+      <!-- Reply composer -->
+      <div class="border border-gray-200 rounded-xl overflow-hidden">
+        <div class="flex border-b border-gray-100">
+          <button id="reply-tab-public" onclick="setReplyMode(false)" class="flex-1 py-2 text-xs font-bold text-blue-600 bg-blue-50">Public Reply</button>
+          <button id="reply-tab-internal" onclick="setReplyMode(true)" class="flex-1 py-2 text-xs font-semibold text-gray-500 hover:bg-yellow-50 transition">Internal Note</button>
+        </div>
+        <textarea id="reply-body" rows="4" placeholder="Type your reply…"
+          class="w-full px-4 py-3 text-sm text-gray-800 focus:outline-none resize-none border-0"></textarea>
+        <div class="px-4 py-3 bg-gray-50 flex justify-end">
+          <button onclick="submitReply(${t.id})" class="px-4 py-2 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-black transition">Send Reply</button>
+        </div>
+      </div>`;
+  } catch(e) {
+    body.innerHTML = `<p class="text-red-500">${e.message}</p>`;
+  }
+}
+
+function closeTicketPanel() { document.getElementById('ticket-detail-panel').classList.add('hidden'); _ticketPanelId = null; }
+
+let _isInternalNote = false;
+function setReplyMode(isInternal) {
+  _isInternalNote = isInternal;
+  document.getElementById('reply-tab-public').className    = `flex-1 py-2 text-xs font-bold transition ${!isInternal?'text-blue-600 bg-blue-50':'text-gray-500 hover:bg-blue-50'}`;
+  document.getElementById('reply-tab-internal').className  = `flex-1 py-2 text-xs font-bold transition ${isInternal?'text-yellow-700 bg-yellow-50':'text-gray-500 hover:bg-yellow-50'}`;
+}
+
+async function patchTicket(tid, field, value) {
+  try {
+    await api(`/.netlify/functions/admin-helpdesk?ticketId=${tid}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ [field]: value }),
+    });
+    if (document.getElementById('view-tickets') && !document.getElementById('view-tickets').classList.contains('hidden')) loadTickets();
+  } catch(e) { alert(e.message); }
+}
+
+async function submitReply(tid) {
+  const body = document.getElementById('reply-body')?.value?.trim();
+  if (!body) return;
+  try {
+    await api(`/.netlify/functions/admin-helpdesk?ticketId=${tid}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ replyBody: body, isInternal: _isInternalNote }),
+    });
+    document.getElementById('reply-body').value = '';
+    await openTicketPanel(tid);
+    if (!document.getElementById('view-tickets').classList.contains('hidden')) loadTickets();
+  } catch(e) { alert(e.message); }
+}
+
+// ── Catalog ───────────────────────────────────────────────────────────────────
+async function loadCatalog() {
+  const el = document.getElementById('catalog-grid');
+  el.innerHTML = '<div class="px-5 py-8 text-center text-gray-400 animate-pulse">Loading…</div>';
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=catalog');
+    el.innerHTML = `<table class="w-full text-sm">
+      <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase">
+        <tr>
+          <th class="px-5 py-3 text-left">Role</th>
+          <th class="px-5 py-3 text-left">Category</th>
+          <th class="px-5 py-3 text-left">Status</th>
+          <th class="px-5 py-3 text-left">Waitlist</th>
+          <th class="px-5 py-3 text-left">Toggle</th>
+        </tr>
+      </thead>
+      <tbody>${(d.catalog||[]).map(a => `
+        <tr class="border-t border-gray-50 hover:bg-gray-50 transition">
+          <td class="px-5 py-3 font-medium">${a.name}</td>
+          <td class="px-5 py-3 text-xs text-gray-500">${a.category}</td>
+          <td class="px-5 py-3">
+            ${a.comingSoon
+              ? '<span class="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">Coming Soon</span>'
+              : '<span class="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-full">Live</span>'}
+          </td>
+          <td class="px-5 py-3 text-xs">${a.waitlistCount || 0} entries</td>
+          <td class="px-5 py-3">
+            <button onclick="toggleCatalogStatus(${a.id}, ${a.comingSoon})"
+              class="px-3 py-1.5 text-xs font-bold ${a.comingSoon?'bg-emerald-600 text-white hover:bg-emerald-700':'bg-amber-100 text-amber-700 hover:opacity-80'} rounded-lg transition">
+              ${a.comingSoon ? '🚀 Launch Now' : '⏸ Mark Coming Soon'}
+            </button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  } catch(e) {
+    el.innerHTML = `<div class="px-5 py-5 text-red-500 text-sm">${e.message}</div>`;
+  }
+}
+
+async function toggleCatalogStatus(id, currentlyComingSoon) {
+  const action = currentlyComingSoon ? 'launch this role live' : 'mark this role as Coming Soon';
+  if (!confirm(`Are you sure you want to ${action}? ${currentlyComingSoon ? 'This will trigger the waitlist email blast.' : ''}`)) return;
+  try {
+    // Use master-assistants PATCH which also handles notification fan-out
+    const r = await fetch(`/.netlify/functions/master-assistants?id=${id}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ comingSoon: !currentlyComingSoon }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+    const d = await r.json();
+    if (d.notifiedCount) alert(`✅ Role launched! ${d.notifiedCount} users notified.`);
+    loadCatalog();
+  } catch(e) { alert(e.message); }
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+async function loadAnalytics() {
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=analytics');
+    const bar = (rows, labelKey, countKey) => {
+      if (!rows?.length) return '<p class="text-gray-400 text-sm">No data yet.</p>';
+      const max = Math.max(...rows.map(r => Number(r[countKey]) || 0));
+      return rows.map(r => {
+        const pct = max ? Math.round((Number(r[countKey]) / max) * 100) : 0;
+        return `<div>
+          <div class="flex justify-between text-xs mb-1"><span class="font-medium text-gray-700 truncate max-w-[200px]">${r[labelKey]||'Unknown'}</span><span class="font-bold text-gray-900">${r[countKey]}</span></div>
+          <div class="h-2 bg-gray-100 rounded-full"><div class="h-2 bg-emerald-500 rounded-full" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join('');
+    };
+    document.getElementById('analytics-by-role').innerHTML = bar(d.byRole, 'role', 'c');
+    document.getElementById('analytics-leads').innerHTML   = bar(d.leadsByRole, 'role', 'c');
+    document.getElementById('analytics-waitlist').innerHTML = bar(d.waitlistByRole, 'masterAssistantId', 'c');
+  } catch(e) {
+    document.getElementById('analytics-by-role').innerHTML = `<p class="text-red-500 text-sm">${e.message}</p>`;
+  }
+}
+
+// ── AI Model Config ───────────────────────────────────────────────────────────
+async function loadModelConfig() {
+  const el = document.getElementById('model-config-list');
+  el.innerHTML = '<div class="text-gray-400 animate-pulse">Loading…</div>';
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=model-config');
+    el.innerHTML = (d.configs||[]).length
+      ? d.configs.map(c => `
+        <div class="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col sm:flex-row sm:items-center gap-5">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-bold text-gray-900 capitalize">${c.slot}</span>
+              <span class="text-xs font-bold px-2 py-0.5 rounded-full ${c.isActive?'bg-emerald-100 text-emerald-700':'bg-gray-100 text-gray-500'}">${c.isActive?'Active':'Disabled'}</span>
+            </div>
+            <p class="text-sm text-gray-500">${c.provider} / <code class="bg-gray-100 px-1 rounded">${c.model}</code></p>
+            ${c.monthlyBudgetCents ? `<p class="text-xs text-gray-400 mt-0.5">Budget cap: $${(c.monthlyBudgetCents/100).toFixed(2)}/mo</p>` : ''}
+          </div>
+          <div class="flex flex-wrap gap-2 text-sm">
+            <input id="model-input-${c.id}" type="text" value="${c.model}"
+              class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-48 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <button onclick="saveModelConfig(${c.id})"
+              class="px-3 py-1.5 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-black transition">Save</button>
+            <button onclick="toggleModelActive(${c.id}, ${c.isActive})"
+              class="px-3 py-1.5 border text-sm font-bold rounded-lg transition ${c.isActive?'border-red-200 text-red-600 hover:bg-red-50':'border-emerald-200 text-emerald-700 hover:bg-emerald-50'}">
+              ${c.isActive ? 'Disable' : 'Enable'}
+            </button>
+          </div>
+        </div>`).join('')
+      : '<p class="text-gray-500 text-sm">No model config rows found. Insert rows into the <code>ai_model_config</code> table to get started.</p>';
+  } catch(e) {
+    el.innerHTML = `<p class="text-red-500 text-sm">${e.message}</p>`;
+  }
+}
+
+async function saveModelConfig(id) {
+  const model = document.getElementById(`model-input-${id}`)?.value?.trim();
+  if (!model) return;
+  try {
+    await api(`/.netlify/functions/admin-api?resource=model-config&id=${id}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model }),
+    });
+    loadModelConfig();
+  } catch(e) { alert(e.message); }
+}
+
+async function toggleModelActive(id, isActive) {
+  if (!confirm(`${isActive?'Disable':'Enable'} this model slot? Changes take effect immediately.`)) return;
+  try {
+    await api(`/.netlify/functions/admin-api?resource=model-config&id=${id}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ isActive: !isActive }),
+    });
+    loadModelConfig();
+  } catch(e) { alert(e.message); }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+loadDashboard();
+</script>
+</body>
+</html>

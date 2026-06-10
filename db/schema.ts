@@ -33,6 +33,9 @@ export const users = pgTable('users', {
   verificationToken: text('verification_token'),
   tokenExpiresAt: timestamp('token_expires_at'),
 
+  // Platform role — 'user' (default) | 'admin' | 'super_admin'
+  role: text('role').notNull().default('user'),
+
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -56,6 +59,8 @@ export const leads = pgTable('leads', {
   email: text('email').notNull(),
   opportunityReason: text('opportunity_reason').notNull(),
   action: text('action').notNull().default('notify user of AI Assistant readiness'),
+  // Notification lifecycle: 'notification_pending' | 'notification_sent'
+  status: text('status').notNull().default('notification_pending'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => ({
@@ -330,11 +335,49 @@ export const supportTickets = pgTable("support_tickets", {
   category: text("category").notNull(),
   description: text("description").notNull(),
 
-  // Status tracking: 'open', 'pending', 'resolved'
+  // Status lifecycle: 'new' | 'open' | 'pending_customer' | 'resolved' | 'closed'
   status: text("status").notNull().default("open"),
+
+  // Helpdesk fields (US7)
+  priority: text("priority").notNull().default("normal"), // 'low' | 'normal' | 'high' | 'urgent'
+  assignedTo: integer("assigned_to").references(() => users.id, { onDelete: "set null" }),
+  firstResponseAt: timestamp("first_response_at"),
+  resolvedAt: timestamp("resolved_at"),
+  closedAt: timestamp("closed_at"),
+  slaBreachedAt: timestamp("sla_breached_at"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Ticket Replies Table — threaded conversation history for each support ticket (US7)
+export const ticketReplies = pgTable("ticket_replies", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id")
+      .notNull()
+      .references(() => supportTickets.id, { onDelete: "cascade" }),
+  authorId: integer("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  body: text("body").notNull(),
+  // isInternal: true = private note (yellow, not emailed to customer)
+  isInternal: boolean("is_internal").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// AI Model Config Table — runtime routing rules; admin-editable without deploys (US13)
+export const aiModelConfig = pgTable("ai_model_config", {
+  id: serial("id").primaryKey(),
+  // Logical slot: 'primary' | 'fallback' | 'moderation'
+  slot: text("slot").notNull().unique(),
+  provider: text("provider").notNull().default("openai"), // 'openai' | 'anthropic' | 'google'
+  model: text("model").notNull(),                         // e.g. 'gpt-4o' | 'claude-3-5-sonnet-20241022'
+  isActive: boolean("is_active").notNull().default(true),
+  // Optional per-slot spend cap (USD cents per month); null = unlimited
+  monthlyBudgetCents: integer("monthly_budget_cents"),
+  updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 // User Notifications Table — Global feed for alerts, tickets, and billing
 export const userNotifications = pgTable("user_notifications", {
