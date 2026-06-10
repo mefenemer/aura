@@ -9,21 +9,21 @@
     <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
     <link rel="manifest" href="/favicon/manifest.json">
     <style>
-        .check-icon { color: #059669; flex-shrink: 0; margin-top: 1px; }
-        .cross-icon { color: #d1d5db; flex-shrink: 0; margin-top: 1px; }
-        .tier-card  { display: flex; flex-direction: column; }
         .hero-gradient { background: linear-gradient(160deg, #f0fdf4 0%, #f9fafb 55%, #f5f3ff 100%); }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-        .fade-up { animation: fadeUp .45s ease both; }
-        .fade-up-2 { animation: fadeUp .45s .1s ease both; }
-        .fade-up-3 { animation: fadeUp .45s .2s ease both; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+        .fade-up   { animation: fadeUp .4s ease both; }
+        .fade-up-2 { animation: fadeUp .4s .08s ease both; }
+        .fade-up-3 { animation: fadeUp .4s .16s ease both; }
+
+        /* Comparison table sticky header */
+        .cmp-thead th { position: sticky; top: 0; z-index: 1; }
     </style>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
 <div id="nav-placeholder"></div>
 
-<!-- ── HERO ──────────────────────────────────────────────────────── -->
+<!-- ══ HERO ═══════════════════════════════════════════════════════ -->
 <section class="hero-gradient border-b border-gray-100">
     <div class="max-w-4xl mx-auto px-4 py-20 text-center">
         <span class="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-6 fade-up">
@@ -37,91 +37,58 @@
             One flat monthly fee. No hidden costs. No surprise bills.<br>
             Tell us what you want automated — our team builds it for you.
         </p>
-        <!-- Trust bar -->
         <div class="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-400 fade-up-3">
-            <span class="flex items-center gap-1.5">
-                <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                Stripe-secured payments
-            </span>
-            <span class="flex items-center gap-1.5">
-                <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                GDPR compliant
-            </span>
-            <span class="flex items-center gap-1.5">
-                <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                Live in 5 minutes
-            </span>
-            <span class="flex items-center gap-1.5">
-                <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                Human-built assistants
-            </span>
+            <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>Stripe-secured payments</span>
+            <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>GDPR compliant</span>
+            <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Live in 5 minutes</span>
+            <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>Human-built assistants</span>
         </div>
     </div>
 </section>
 
 <main class="flex-grow w-full">
 
-    <!-- ── PRICING CARDS ──────────────────────────────────────────── -->
+    <!-- ══ PRICING CARDS ══════════════════════════════════════════ -->
     <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-start">
 
-            <!-- ── Starter ──────────────────────────────────────── -->
-            <div class="tier-card bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
+            <!-- ── Tier 1: The Busywork Buster ──────────────────── -->
+            <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
                 <div class="p-8 pb-6 border-b border-gray-100">
-                    <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Starter</p>
-                    <h2 class="text-2xl font-extrabold text-gray-900 mb-1">Solo Automator</h2>
-                    <p class="text-sm text-gray-500 leading-relaxed mb-6">Hand off your single most annoying daily chore — forever.</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 1</p>
+                    <h2 class="text-xl font-extrabold text-gray-900 mb-1">The Busywork Buster</h2>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-6">"Hand off your single most time consuming or annoying task to a dedicated digital helper."</p>
                     <div class="flex items-end gap-1 mb-1">
                         <span class="text-5xl font-extrabold text-gray-900 leading-none">£29</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
-                    <p class="text-xs text-gray-400">Billed monthly · cancel any time</p>
+                    <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
                 <div class="p-8 flex-grow">
-                    <div class="grid grid-cols-3 gap-3 mb-7">
-                        <div class="text-center bg-gray-50 rounded-xl py-3">
+                    <!-- Capacity callout -->
+                    <div class="grid grid-cols-3 gap-2 mb-7">
+                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
                             <div class="text-xl font-extrabold text-gray-900">1</div>
-                            <div class="text-xs text-gray-500 mt-0.5">Assistant</div>
+                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Assistant</div>
                         </div>
-                        <div class="text-center bg-gray-50 rounded-xl py-3">
+                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
                             <div class="text-xl font-extrabold text-gray-900">500</div>
-                            <div class="text-xs text-gray-500 mt-0.5">Tasks/mo</div>
+                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Tasks/mo</div>
                         </div>
-                        <div class="text-center bg-gray-50 rounded-xl py-3">
-                            <div class="text-xl font-extrabold text-gray-900">1</div>
-                            <div class="text-xs text-gray-500 mt-0.5">App</div>
+                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold text-gray-900">2</div>
+                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Apps</div>
                         </div>
                     </div>
-                    <ul class="space-y-3 text-sm text-gray-600">
-                        <li class="flex gap-3">
-                            <svg class="check-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>Command-triggered — forward an email, it acts</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="check-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>Static instructions you set once</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="check-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>1 instruction update per month</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="check-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>Email &amp; help-centre support</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="cross-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span class="text-gray-400">Automated triggers</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="cross-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span class="text-gray-400">Multi-app workflows</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="cross-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span class="text-gray-400">Style &amp; memory learning</span>
-                        </li>
+                    <ul class="space-y-2.5 text-sm text-gray-600">
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Basic Reporting</strong> — summary of tasks completed</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Brand Memory</strong> — learns your tone, mission &amp; history</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Around-the-Clock Workflows</strong> — runs securely while you sleep</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Draft Approvals</strong> — sign off before anything is sent</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Content Calendar</strong> — schedule &amp; review upcoming work</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>"My Content" Hub</strong> — drop in photos, videos &amp; links</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Brand Protection Guarantee</strong> — Aura Safe Content Benchmark</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Continuous Evolution</strong> — free capability upgrades as we improve</span></li>
                     </ul>
                 </div>
                 <div class="px-8 pb-8">
@@ -132,65 +99,44 @@
                 </div>
             </div>
 
-            <!-- ── Pro Team (FEATURED) ──────────────────────────── -->
-            <div class="tier-card bg-emerald-700 rounded-2xl shadow-2xl overflow-hidden relative md:-translate-y-4">
-                <div class="absolute top-4 right-4 bg-white/20 text-white text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full">
-                    Most Popular
+            <!-- ── Tier 2: The Workflow Saver (FEATURED) ─────────── -->
+            <div class="flex flex-col bg-emerald-700 rounded-2xl shadow-2xl overflow-hidden relative md:-translate-y-4">
+                <div class="absolute top-4 right-4">
+                    <span class="bg-white/20 text-white text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full">Most Popular</span>
                 </div>
                 <div class="p-8 pb-6 border-b border-white/10">
-                    <p class="text-xs font-bold uppercase tracking-widest text-emerald-200 mb-3">Pro Team</p>
-                    <h2 class="text-2xl font-extrabold text-white mb-1">Workflow Accelerator</h2>
-                    <p class="text-sm text-emerald-100 leading-relaxed mb-6">Connect your apps and put entire processes on autopilot.</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-emerald-200 mb-2">Tier 2</p>
+                    <h2 class="text-xl font-extrabold text-white mb-1">The Workflow Saver</h2>
+                    <p class="text-sm text-emerald-100 leading-relaxed mb-6">"Scale your operations by building a multi-role digital department."</p>
                     <div class="flex items-end gap-1 mb-1">
                         <span class="text-5xl font-extrabold text-white leading-none">£99</span>
                         <span class="text-emerald-200 text-base font-medium mb-1">/month</span>
                     </div>
-                    <p class="text-xs text-emerald-300">Billed monthly · cancel any time</p>
+                    <p class="text-xs text-emerald-300 mt-1">Billed monthly · cancel any time</p>
                 </div>
                 <div class="p-8 flex-grow">
-                    <div class="grid grid-cols-3 gap-3 mb-7">
-                        <div class="text-center bg-white/10 rounded-xl py-3">
+                    <div class="grid grid-cols-3 gap-2 mb-7">
+                        <div class="text-center bg-white/10 rounded-xl py-3 px-1">
                             <div class="text-xl font-extrabold text-white">3</div>
-                            <div class="text-xs text-emerald-200 mt-0.5">Assistants</div>
+                            <div class="text-xs text-emerald-200 mt-0.5 leading-tight">Assistants</div>
                         </div>
-                        <div class="text-center bg-white/10 rounded-xl py-3">
-                            <div class="text-xl font-extrabold text-white">2k</div>
-                            <div class="text-xs text-emerald-200 mt-0.5">Tasks/mo</div>
+                        <div class="text-center bg-white/10 rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold text-white">2.5k</div>
+                            <div class="text-xs text-emerald-200 mt-0.5 leading-tight">Tasks/mo</div>
                         </div>
-                        <div class="text-center bg-white/10 rounded-xl py-3">
-                            <div class="text-xl font-extrabold text-white">3</div>
-                            <div class="text-xs text-emerald-200 mt-0.5">Apps</div>
+                        <div class="text-center bg-white/10 rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold text-white">∞</div>
+                            <div class="text-xs text-emerald-200 mt-0.5 leading-tight">Apps</div>
                         </div>
                     </div>
-                    <ul class="space-y-3 text-sm text-emerald-50">
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span><strong class="text-white">Automated triggers</strong> — reacts the moment a task arrives</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span><strong class="text-white">Learns your style</strong> — remembers voice, tone &amp; history</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>Handles <strong class="text-white">multi-step processes</strong> end-to-end</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>4 instruction updates per month</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>Priority email support</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-white/30 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span class="text-emerald-300/60">24/7 background monitoring</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-white/30 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span class="text-emerald-300/60">Live business data access</span>
-                        </li>
+                    <p class="text-xs font-bold text-emerald-300 uppercase tracking-wider mb-3">Everything in Tier 1, plus:</p>
+                    <ul class="space-y-2.5 text-sm text-emerald-50">
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong class="text-white">3 Digital Assistants</strong> — deploy multiple distinct roles</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong class="text-white">Unlimited app connections</strong></span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong class="text-white">Advanced Reporting</strong> — performance breakdowns &amp; time saved</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong class="text-white">The Quality Reviewer</strong> — one assistant critiques the others' work</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong class="text-white">Early Access</strong> — new assistant roles before public release</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Priority email &amp; chat support</span></li>
                     </ul>
                 </div>
                 <div class="px-8 pb-8">
@@ -201,62 +147,40 @@
                 </div>
             </div>
 
-            <!-- ── Business Automator ───────────────────────────── -->
-            <div class="tier-card bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
+            <!-- ── Tier 3: The Business Automator ────────────────── -->
+            <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
                 <div class="p-8 pb-6 border-b border-gray-100">
-                    <p class="text-xs font-bold uppercase tracking-widest text-purple-500 mb-3">Business</p>
-                    <h2 class="text-2xl font-extrabold text-gray-900 mb-1">Business Automator</h2>
-                    <p class="text-sm text-gray-500 leading-relaxed mb-6">Like hiring a whole operations team — without the HR headache.</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-purple-500 mb-2">Tier 3</p>
+                    <h2 class="text-xl font-extrabold text-gray-900 mb-1">The Business Automator</h2>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-6">"A complete digital workforce for scaling businesses and collaborative teams."</p>
                     <div class="flex items-end gap-1 mb-1">
                         <span class="text-5xl font-extrabold text-gray-900 leading-none">£349</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
-                    <p class="text-xs text-gray-400">Billed monthly · cancel any time</p>
+                    <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
                 <div class="p-8 flex-grow">
-                    <div class="grid grid-cols-3 gap-3 mb-7">
-                        <div class="text-center bg-purple-50 rounded-xl py-3">
+                    <div class="grid grid-cols-3 gap-2 mb-7">
+                        <div class="text-center bg-purple-50 rounded-xl py-3 px-1">
                             <div class="text-xl font-extrabold text-purple-700">10</div>
-                            <div class="text-xs text-purple-500 mt-0.5">Assistants</div>
+                            <div class="text-xs text-purple-500 mt-0.5 leading-tight">Assistants</div>
                         </div>
-                        <div class="text-center bg-purple-50 rounded-xl py-3">
+                        <div class="text-center bg-purple-50 rounded-xl py-3 px-1">
                             <div class="text-xl font-extrabold text-purple-700">10k</div>
-                            <div class="text-xs text-purple-500 mt-0.5">Tasks/mo</div>
+                            <div class="text-xs text-purple-500 mt-0.5 leading-tight">Tasks/mo</div>
                         </div>
-                        <div class="text-center bg-purple-50 rounded-xl py-3">
+                        <div class="text-center bg-purple-50 rounded-xl py-3 px-1">
                             <div class="text-xl font-extrabold text-purple-700">∞</div>
-                            <div class="text-xs text-purple-500 mt-0.5">Apps</div>
+                            <div class="text-xs text-purple-500 mt-0.5 leading-tight">Apps</div>
                         </div>
                     </div>
-                    <ul class="space-y-3 text-sm text-gray-600">
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span><strong>24/7 background monitoring</strong> — works while you sleep</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span><strong>Reads your real business data</strong> — CRM, spreadsheets, databases</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>Manages <strong>complete end-to-end processes</strong></span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>Unlimited instruction updates</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>Priority support with dedicated account manager</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>Advanced analytics dashboard</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <svg class="cross-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span class="text-gray-400">Custom SLA &amp; bespoke onboarding</span>
-                        </li>
+                    <p class="text-xs font-bold text-purple-400 uppercase tracking-wider mb-3">Everything in Tier 2, plus:</p>
+                    <ul class="space-y-2.5 text-sm text-gray-600">
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Custom Reporting</strong> — build dashboards for your key metrics</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Workspace Collaboration</strong> — invite team members &amp; clients</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Advanced Tool Vault</strong> — connect specialist &amp; premium third-party software</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>1-on-1 Strategy &amp; Onboarding Call</strong> with an Aura-Assist expert</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Roadmap Influence</strong> — vote on which assistant roles we build next</span></li>
                     </ul>
                 </div>
                 <div class="px-8 pb-8">
@@ -269,208 +193,296 @@
 
         </div><!-- /grid -->
 
-        <!-- ── Enterprise band ────────────────────────────────────── -->
+        <!-- ── Tier 4: Custom Enterprise band ────────────────────── -->
         <div class="mt-8 rounded-2xl bg-gray-900 overflow-hidden">
-            <div class="flex flex-col lg:flex-row items-center gap-8 p-8 lg:p-10">
-                <!-- Left: branding -->
-                <div class="lg:w-56 shrink-0 text-center lg:text-left">
-                    <span class="inline-block text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3">Enterprise</span>
-                    <div class="text-4xl font-extrabold text-white leading-none">£1,199<span class="text-2xl text-gray-400">+</span></div>
-                    <div class="text-sm text-gray-400 mt-1">per month</div>
-                    <div class="text-xs text-gray-500 mt-0.5">Scoped to your requirements</div>
+            <div class="flex flex-col lg:flex-row items-start lg:items-center gap-8 p-8 lg:p-10">
+                <!-- Price -->
+                <div class="lg:w-56 shrink-0">
+                    <span class="inline-block text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3">Tier 4 · Enterprise</span>
+                    <h2 class="text-xl font-extrabold text-white mb-1">Custom Enterprise</h2>
+                    <p class="text-sm text-gray-400 leading-relaxed mb-3">"Bespoke digital architecture for complex corporate environments."</p>
+                    <div class="text-3xl font-extrabold text-white leading-none">£1,199<span class="text-xl text-gray-400">+</span></div>
+                    <div class="text-xs text-gray-500 mt-1">Scoped to your requirements</div>
                 </div>
                 <!-- Divider -->
-                <div class="hidden lg:block w-px self-stretch bg-white/10"></div>
-                <!-- Middle: features -->
-                <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-3">
-                    <div class="flex gap-3 text-sm text-gray-300">
-                        <svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                        <span>Unlimited assistants, tasks &amp; app integrations</span>
-                    </div>
-                    <div class="flex gap-3 text-sm text-gray-300">
-                        <svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                        <span>Dedicated success manager</span>
-                    </div>
-                    <div class="flex gap-3 text-sm text-gray-300">
-                        <svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                        <span>Fully bespoke multi-system integration</span>
-                    </div>
-                    <div class="flex gap-3 text-sm text-gray-300">
-                        <svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                        <span>Custom SLA — uptime guarantee in writing</span>
-                    </div>
-                    <div class="flex gap-3 text-sm text-gray-300">
-                        <svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                        <span>Reads your internal company databases</span>
-                    </div>
-                    <div class="flex gap-3 text-sm text-gray-300">
-                        <svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                        <span>Enterprise security review &amp; DPA</span>
+                <div class="hidden lg:block w-px self-stretch bg-white/10 shrink-0"></div>
+                <!-- Features -->
+                <div class="flex-1">
+                    <p class="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-4">Everything in Tier 3, plus:</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-3">
+                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Tailored assistant &amp; task volume limits</span></div>
+                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Dedicated account manager</span></div>
+                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SSO integration for corporate-wide access</span></div>
+                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SMS &amp; WhatsApp alerts for critical approvals</span></div>
+                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Internal systems access — private databases &amp; legacy software</span></div>
+                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>VIP influence — co-create exclusive assistants with our engineers</span></div>
                     </div>
                 </div>
-                <!-- Right: CTA -->
-                <div class="shrink-0 text-center">
+                <!-- CTA -->
+                <div class="shrink-0 text-center lg:text-right">
                     <button onclick="openEnterpriseModal()"
                             class="inline-flex items-center gap-2 px-7 py-3.5 bg-emerald-400 hover:bg-emerald-300 text-gray-900 font-bold rounded-xl shadow-lg transition whitespace-nowrap">
                         Book a Discovery Call
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                     </button>
-                    <p class="text-xs text-gray-500 mt-2">We'll scope your requirements &amp; quote within 24 hrs</p>
+                    <p class="text-xs text-gray-500 mt-2">We'll quote within 24 hours</p>
                 </div>
             </div>
         </div>
 
     </section>
 
-    <!-- ── FEATURE COMPARISON ─────────────────────────────────────── -->
+    <!-- ══ FEATURE COMPARISON TABLE ══════════════════════════════ -->
     <section class="bg-white border-y border-gray-100 py-16">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 class="text-2xl font-extrabold text-gray-900 text-center mb-2">Compare every feature</h2>
-            <p class="text-gray-500 text-center text-sm mb-10">Everything included in each plan at a glance.</p>
+            <p class="text-gray-500 text-center text-sm mb-10">A complete breakdown of what's included at each tier.</p>
 
             <div class="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
                 <table class="w-full text-sm">
-                    <thead>
+                    <thead class="cmp-thead">
                         <tr class="bg-gray-50 border-b border-gray-200">
-                            <th class="text-left px-6 py-4 font-semibold text-gray-600 w-2/5">Feature</th>
-                            <th class="text-center px-4 py-4 font-semibold text-gray-700 w-[13%]">
-                                <div class="text-xs uppercase tracking-wider text-gray-400 font-bold mb-0.5">Starter</div>
-                                <div class="text-base font-extrabold text-gray-900">£29</div>
+                            <th class="text-left px-6 py-5 font-semibold text-gray-600 w-2/5 bg-gray-50"></th>
+                            <th class="text-center px-4 py-5 bg-gray-50 w-[14%]">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tier 1</div>
+                                <div class="font-extrabold text-gray-900 text-base">£29</div>
+                                <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
                             </th>
-                            <th class="text-center px-4 py-4 w-[13%] bg-emerald-50">
-                                <div class="text-xs uppercase tracking-wider text-emerald-600 font-bold mb-0.5">Pro Team</div>
-                                <div class="text-base font-extrabold text-emerald-700">£99</div>
+                            <th class="text-center px-4 py-5 bg-emerald-600 w-[14%]">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-200 mb-0.5">Tier 2</div>
+                                <div class="font-extrabold text-white text-base">£99</div>
+                                <div class="text-[10px] text-emerald-300 mt-0.5">/ month</div>
                             </th>
-                            <th class="text-center px-4 py-4 font-semibold text-gray-700 w-[13%]">
-                                <div class="text-xs uppercase tracking-wider text-gray-400 font-bold mb-0.5">Business</div>
-                                <div class="text-base font-extrabold text-gray-900">£349</div>
+                            <th class="text-center px-4 py-5 bg-gray-50 w-[14%]">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tier 3</div>
+                                <div class="font-extrabold text-gray-900 text-base">£349</div>
+                                <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
                             </th>
-                            <th class="text-center px-4 py-4 font-semibold text-gray-700 w-[13%]">
-                                <div class="text-xs uppercase tracking-wider text-gray-400 font-bold mb-0.5">Enterprise</div>
-                                <div class="text-base font-extrabold text-gray-900">£1,199+</div>
+                            <th class="text-center px-4 py-5 bg-gray-900 w-[14%]">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-0.5">Tier 4</div>
+                                <div class="font-extrabold text-white text-base">£1,199+</div>
+                                <div class="text-[10px] text-gray-500 mt-0.5">/ month</div>
                             </th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Capacity -->
-                        <tr class="bg-gray-50/60">
+
+                        <!-- CAPACITY -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
                             <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Capacity</td>
                         </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Active Assistants</td>
-                            <td class="px-4 py-4 text-center font-semibold text-gray-900">1</td>
-                            <td class="px-4 py-4 text-center font-bold text-emerald-700 bg-emerald-50/40">3</td>
-                            <td class="px-4 py-4 text-center font-semibold text-gray-900">10</td>
-                            <td class="px-4 py-4 text-center font-semibold text-gray-900">Unlimited</td>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Digital Assistants</td>
+                            <td class="px-4 py-4 text-center font-bold text-gray-900">1</td>
+                            <td class="px-4 py-4 text-center font-bold text-white bg-emerald-600/10 text-emerald-700">3</td>
+                            <td class="px-4 py-4 text-center font-bold text-gray-900">10</td>
+                            <td class="px-4 py-4 text-center font-bold text-gray-900">Custom</td>
                         </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Tasks per Month</td>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Completed Tasks / Month</td>
                             <td class="px-4 py-4 text-center text-gray-700">500</td>
-                            <td class="px-4 py-4 text-center font-bold text-emerald-700 bg-emerald-50/40">2,000</td>
+                            <td class="px-4 py-4 text-center font-semibold text-emerald-700 bg-emerald-600/10">2,500</td>
                             <td class="px-4 py-4 text-center text-gray-700">10,000</td>
-                            <td class="px-4 py-4 text-center text-gray-700">Unlimited</td>
+                            <td class="px-4 py-4 text-center text-gray-700">Custom</td>
                         </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
-                            <td class="px-6 py-4 text-gray-700 font-medium">App Integrations</td>
-                            <td class="px-4 py-4 text-center text-gray-700">1</td>
-                            <td class="px-4 py-4 text-center text-emerald-700 bg-emerald-50/40">3</td>
-                            <td class="px-4 py-4 text-center text-gray-700">Unlimited</td>
-                            <td class="px-4 py-4 text-center text-gray-700">Unlimited</td>
-                        </tr>
-                        <!-- Automation -->
-                        <tr class="bg-gray-50/60 border-t border-gray-100">
-                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Automation</td>
-                        </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Automated Triggers</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center bg-emerald-50/40"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                        </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Style &amp; Memory Learning</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center bg-emerald-50/40"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                        </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
-                            <td class="px-6 py-4 text-gray-700 font-medium">24/7 Background Monitoring</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-50/40">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                        </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Live Business Data Access</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-50/40">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                        </tr>
-                        <!-- Management -->
-                        <tr class="bg-gray-50/60 border-t border-gray-100">
-                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Management</td>
-                        </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Instruction Updates / month</td>
-                            <td class="px-4 py-4 text-center text-gray-700">1</td>
-                            <td class="px-4 py-4 text-center text-emerald-700 bg-emerald-50/40">4</td>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">App Connections</td>
+                            <td class="px-4 py-4 text-center text-gray-700">Up to 2</td>
+                            <td class="px-4 py-4 text-center font-semibold text-emerald-700 bg-emerald-600/10">Unlimited</td>
                             <td class="px-4 py-4 text-center text-gray-700">Unlimited</td>
                             <td class="px-4 py-4 text-center text-gray-700">Unlimited</td>
                         </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Analytics Dashboard</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-50/40">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+
+                        <!-- CORE FEATURES -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Core Features (all tiers)</td>
                         </tr>
-                        <!-- Support -->
-                        <tr class="bg-gray-50/60 border-t border-gray-100">
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Brand Memory</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Around-the-Clock Workflows</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Draft Approvals</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Content Calendar</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">"My Content" Hub</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Brand Protection Guarantee</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+
+                        <!-- REPORTING -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Reporting</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Basic Reporting <span class="text-gray-400 font-normal text-xs">— task summary</span></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Advanced Reporting <span class="text-gray-400 font-normal text-xs">— performance &amp; time saved</span></td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Custom Reporting <span class="text-gray-400 font-normal text-xs">— bespoke dashboards</span></td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-600/10">—</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+
+                        <!-- TEAM & ADVANCED -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Team &amp; Advanced Features</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">The Quality Reviewer</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Workspace Collaboration</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-600/10">—</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Advanced Tool Vault</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-600/10">—</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Internal Systems Access</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-600/10">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">SSO Integration</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-600/10">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">SMS &amp; WhatsApp Alerts</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-600/10">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+
+                        <!-- SUPPORT -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
                             <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Support</td>
                         </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
                             <td class="px-6 py-4 text-gray-700 font-medium">Support Channel</td>
                             <td class="px-4 py-4 text-center text-xs text-gray-500">Email &amp; Help Centre</td>
-                            <td class="px-4 py-4 text-center text-xs font-semibold text-emerald-700 bg-emerald-50/40">Priority Email</td>
-                            <td class="px-4 py-4 text-center text-xs text-gray-500">Dedicated Manager</td>
-                            <td class="px-4 py-4 text-center text-xs text-gray-500">White-Glove</td>
+                            <td class="px-4 py-4 text-center text-xs font-semibold text-emerald-700 bg-emerald-600/10">Priority Email &amp; Chat</td>
+                            <td class="px-4 py-4 text-center text-xs text-gray-500">Priority + Strategy Call</td>
+                            <td class="px-4 py-4 text-center text-xs text-gray-500">Dedicated Account Manager</td>
                         </tr>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50/50">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Custom SLA</td>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">1-on-1 Strategy &amp; Onboarding Call</td>
                             <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-50/40">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-600/10">—</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
+
+                        <!-- CONTINUOUS EVOLUTION -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Continuous Evolution</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Free Capability Upgrades</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Early Access to New Roles</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center bg-emerald-600/10"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">Roadmap Influence &amp; Voting</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-600/10">—</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-4 text-gray-700 font-medium">VIP Co-creation with Engineers</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300 bg-emerald-600/10">—</td>
+                            <td class="px-4 py-4 text-center text-gray-300">—</td>
+                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+
                         <!-- CTA row -->
                         <tr class="border-t-2 border-gray-200 bg-gray-50">
                             <td class="px-6 py-5"></td>
                             <td class="px-4 py-5 text-center">
                                 <a href="#" onclick="event.preventDefault(); choosePlan('starter');"
-                                   class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-gray-800 hover:bg-gray-900 transition">
-                                    Get Started
-                                </a>
+                                   class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-gray-800 hover:bg-gray-900 transition">Get Started</a>
                             </td>
-                            <td class="px-4 py-5 text-center bg-emerald-50/40">
+                            <td class="px-4 py-5 text-center bg-emerald-600/10">
                                 <a href="#" onclick="event.preventDefault(); choosePlan('pro_team');"
-                                   class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 transition">
-                                    Choose Pro
-                                </a>
+                                   class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 transition">Choose Tier 2</a>
                             </td>
                             <td class="px-4 py-5 text-center">
                                 <a href="#" onclick="event.preventDefault(); choosePlan('business');"
-                                   class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-purple-600 hover:bg-purple-700 transition">
-                                    Choose Business
-                                </a>
+                                   class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-purple-600 hover:bg-purple-700 transition">Choose Tier 3</a>
                             </td>
                             <td class="px-4 py-5 text-center">
                                 <button onclick="openEnterpriseModal()"
-                                        class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-gray-900 hover:bg-gray-700 transition">
-                                    Contact Us
-                                </button>
+                                        class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-gray-900 hover:bg-gray-700 transition">Contact Us</button>
                             </td>
                         </tr>
                     </tbody>
@@ -479,85 +491,64 @@
         </div>
     </section>
 
-    <!-- ── FAQ ───────────────────────────────────────────────────── -->
+    <!-- ══ FAQ ════════════════════════════════════════════════════ -->
     <section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <h2 class="text-3xl font-extrabold text-center text-gray-900 mb-2">Frequently asked questions</h2>
         <p class="text-gray-500 text-center text-sm mb-10">Still have questions? <a href="mailto:support@aura-assist.com" class="text-emerald-600 hover:underline font-medium">Drop us a line</a></p>
-
         <div class="space-y-3">
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:shadow-md open:border-emerald-200 transition-all">
+            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
-                    <span>What counts as a "task"?</span>
+                    <span>What counts as a completed task?</span>
                     <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
-                    Each time one of your assistants completes an action — drafts a reply, files a document, posts a report — that counts as one task. Browsing your dashboard or updating instructions does <strong class="text-gray-700">not</strong> count.
-                </div>
+                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">Each time your assistant completes an action — drafts a post, files a document, sends a report, or completes a workflow step — that counts as one task. Browsing your dashboard, scheduling, or updating instructions does <strong class="text-gray-700">not</strong> count.</div>
             </details>
-
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:shadow-md open:border-emerald-200 transition-all">
+            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
                     <span>What happens when I reach my task limit?</span>
                     <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
-                    You'll receive an in-app notification at <strong class="text-gray-700">80%</strong> of your monthly allowance. At 100%, automated tasks are paused and you'll be prompted to upgrade or wait for the next billing period. Manual on-command tasks are never blocked.
-                </div>
+                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">You'll receive an in-app notification at <strong class="text-gray-700">80%</strong> of your monthly allowance. At 100%, automated tasks are paused and you'll be prompted to upgrade or wait for the next billing period. Manual on-command tasks are never blocked.</div>
             </details>
-
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:shadow-md open:border-emerald-200 transition-all">
+            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
                     <span>Is there a risk of a surprise bill?</span>
                     <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
-                    No. Every plan is a fixed flat fee — there are no per-task or per-compute charges. Your bill is <strong class="text-gray-700">exactly the same amount every month</strong>.
-                </div>
+                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">No. Every plan is a fixed flat fee — there are no per-task or per-compute charges. Your bill is <strong class="text-gray-700">exactly the same amount every month</strong>.</div>
             </details>
-
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:shadow-md open:border-emerald-200 transition-all">
+            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
                     <span>What apps can my assistant connect to?</span>
                     <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
-                    Almost anything — Gmail, Slack, Google Sheets, HubSpot, Salesforce, Notion, and hundreds more. Our team verifies compatibility during onboarding before you ever pay a penny.
-                </div>
+                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">Almost anything — Gmail, WordPress, LinkedIn, Slack, Google Sheets, HubSpot, Salesforce, Notion, and hundreds more. Our team verifies compatibility during onboarding before you ever pay a penny.</div>
             </details>
-
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:shadow-md open:border-emerald-200 transition-all">
+            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
-                    <span>Is my business data safe?</span>
+                    <span>What is the Brand Protection Guarantee?</span>
                     <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
-                    Your data is never used to train public AI models. It's locked in a secure vault that belongs exclusively to your account. We are GDPR-compliant and happy to sign a data processing agreement.
-                </div>
+                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">Every assistant is governed by the <strong class="text-gray-700">Aura Safe Content Benchmark</strong> — a built-in set of safety guidelines that ensures your assistant never publishes anything harmful, off-brand, or legally problematic. Combined with Draft Approvals, you stay in full control.</div>
             </details>
-
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:shadow-md open:border-emerald-200 transition-all">
+            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
                     <span>Do I need to know anything about coding?</span>
                     <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
-                    Absolutely not. You describe what you want in plain English on a short form. Our human team handles everything from there.
-                </div>
+                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">Absolutely not. You describe what you want in plain English on a short form. Our human team handles everything from there.</div>
             </details>
-
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:shadow-md open:border-emerald-200 transition-all">
+            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
                     <span>Am I locked into a long-term contract?</span>
                     <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
-                    No. All plans are rolling monthly subscriptions. Cancel or upgrade at any time — no notice period, no penalties.
-                </div>
+                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">No. All plans are rolling monthly subscriptions. Cancel or upgrade at any time — no notice period, no penalties.</div>
             </details>
         </div>
     </section>
 
-    <!-- ── FINAL CTA BAND ─────────────────────────────────────────── -->
+    <!-- ══ FINAL CTA ═══════════════════════════════════════════════ -->
     <section class="bg-emerald-700">
         <div class="max-w-3xl mx-auto px-4 py-14 text-center">
             <h2 class="text-3xl font-extrabold text-white mb-3">Ready to reclaim your time?</h2>
@@ -565,7 +556,7 @@
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
                 <a href="#" onclick="event.preventDefault(); choosePlan('pro_team');"
                    class="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-emerald-700 font-bold rounded-xl shadow-md hover:bg-emerald-50 transition text-base">
-                    Start with Pro Team — £99/mo
+                    Start with The Workflow Saver — £99/mo
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                 </a>
                 <button onclick="openEnterpriseModal()"
@@ -578,7 +569,7 @@
 
 </main>
 
-<!-- ── Enterprise Lead Capture Modal ────────────────────────────── -->
+<!-- ══ ENTERPRISE MODAL ═══════════════════════════════════════════ -->
 <div id="modal-enterprise" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="ent-modal-title">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div class="bg-gray-900 px-8 py-6 flex items-start justify-between">
@@ -592,30 +583,25 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-first-name">First name</label>
-                    <input id="ent-first-name" type="text" required placeholder="Sarah"
-                           class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    <input id="ent-first-name" type="text" required placeholder="Sarah" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-last-name">Last name</label>
-                    <input id="ent-last-name" type="text" required placeholder="Johnson"
-                           class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    <input id="ent-last-name" type="text" required placeholder="Johnson" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
                 </div>
             </div>
             <div>
                 <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-email">Work email</label>
-                <input id="ent-email" type="email" required placeholder="sarah@acmecorp.com"
-                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                <input id="ent-email" type="email" required placeholder="sarah@acmecorp.com" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-company">Company</label>
-                    <input id="ent-company" type="text" required placeholder="Acme Corp"
-                           class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    <input id="ent-company" type="text" required placeholder="Acme Corp" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-team-size">Team size</label>
-                    <select id="ent-team-size"
-                            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
+                    <select id="ent-team-size" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
                         <option value="">Select…</option>
                         <option value="1-10">1–10 people</option>
                         <option value="11-50">11–50 people</option>
@@ -627,20 +613,12 @@
             </div>
             <div>
                 <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-use-case">What do you want to automate?</label>
-                <textarea id="ent-use-case" rows="3" required
-                          placeholder="e.g. Route and summarise inbound support emails, then update our CRM automatically…"
-                          class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"></textarea>
+                <textarea id="ent-use-case" rows="3" required placeholder="e.g. Route and summarise inbound support emails, then update our CRM automatically…" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"></textarea>
             </div>
             <p id="ent-form-error" class="text-red-600 text-sm hidden bg-red-50 border border-red-200 rounded-lg px-4 py-2.5"></p>
             <div class="flex gap-3 pt-1">
-                <button type="button" onclick="closeEnterpriseModal()"
-                        class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
-                    Cancel
-                </button>
-                <button type="submit" id="ent-submit-btn"
-                        class="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition">
-                    Request Discovery Call
-                </button>
+                <button type="button" onclick="closeEnterpriseModal()" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">Cancel</button>
+                <button type="submit" id="ent-submit-btn" class="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition">Request Discovery Call</button>
             </div>
         </form>
         <div id="enterprise-success" class="px-8 py-12 text-center hidden">
@@ -658,7 +636,6 @@
 <script src="./mobileMenu.js"></script>
 <script>
 (function () {
-
     const PRICE_IDS = {
         starter:  'price_1TgGNFE7lvVYjk1BAsnhUzBp',
         pro_team: 'price_1TgGP8E7lvVYjk1BRBeEZVd6',
@@ -694,16 +671,14 @@
 
     window.openEnterpriseModal = function () {
         const m = document.getElementById('modal-enterprise');
-        m.classList.remove('hidden');
-        m.classList.add('flex');
+        m.classList.remove('hidden'); m.classList.add('flex');
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('ent-first-name').focus(), 50);
     };
 
     window.closeEnterpriseModal = function () {
         const m = document.getElementById('modal-enterprise');
-        m.classList.add('hidden');
-        m.classList.remove('flex');
+        m.classList.add('hidden'); m.classList.remove('flex');
         document.body.style.overflow = '';
         document.getElementById('enterprise-form').classList.remove('hidden');
         document.getElementById('enterprise-success').classList.add('hidden');
@@ -711,33 +686,27 @@
         document.getElementById('ent-form-error').classList.add('hidden');
     };
 
-    document.getElementById('modal-enterprise').addEventListener('click', function (e) {
-        if (e.target === this) closeEnterpriseModal();
-    });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeEnterpriseModal();
-    });
+    document.getElementById('modal-enterprise').addEventListener('click', function (e) { if (e.target === this) closeEnterpriseModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeEnterpriseModal(); });
 
     window.submitEnterpriseForm = async function (e) {
         e.preventDefault();
-        const btn   = document.getElementById('ent-submit-btn');
+        const btn = document.getElementById('ent-submit-btn');
         const errEl = document.getElementById('ent-form-error');
         errEl.classList.add('hidden');
-        btn.disabled    = true;
-        btn.textContent = 'Sending…';
-
+        btn.disabled = true; btn.textContent = 'Sending…';
         try {
             const res = await fetch('/.netlify/functions/capture-lead', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email:              document.getElementById('ent-email').value.trim(),
-                    role:               'Enterprise',
-                    name:               `${document.getElementById('ent-first-name').value.trim()} ${document.getElementById('ent-last-name').value.trim()}`,
-                    company:            document.getElementById('ent-company').value.trim(),
-                    teamSize:           document.getElementById('ent-team-size').value,
-                    useCase:            document.getElementById('ent-use-case').value.trim(),
-                    opportunityReason:  'Enterprise pricing enquiry',
+                    email:             document.getElementById('ent-email').value.trim(),
+                    role:              'Enterprise',
+                    name:              `${document.getElementById('ent-first-name').value.trim()} ${document.getElementById('ent-last-name').value.trim()}`,
+                    company:           document.getElementById('ent-company').value.trim(),
+                    teamSize:          document.getElementById('ent-team-size').value,
+                    useCase:           document.getElementById('ent-use-case').value.trim(),
+                    opportunityReason: 'Enterprise pricing enquiry',
                 }),
             });
             const data = await res.json();
@@ -748,23 +717,18 @@
             errEl.textContent = err.message || 'Something went wrong. Please try again.';
             errEl.classList.remove('hidden');
         } finally {
-            btn.disabled    = false;
-            btn.textContent = 'Request Discovery Call';
+            btn.disabled = false; btn.textContent = 'Request Discovery Call';
         }
     };
 
     async function loadComponent(id, path) {
-        try {
-            const r = await fetch(path);
-            if (r.ok) document.getElementById(id).innerHTML = await r.text();
-        } catch {}
+        try { const r = await fetch(path); if (r.ok) document.getElementById(id).innerHTML = await r.text(); } catch {}
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
         await loadComponent('nav-placeholder', './components/nav.html');
         loadComponent('footer-placeholder', './components/footer.html');
         setupMobileMenu();
-
         if (new URLSearchParams(window.location.search).get('verified') === 'true') {
             const banner = document.createElement('div');
             banner.className = 'fixed top-0 left-0 right-0 z-50 bg-emerald-700 text-white text-center py-3 px-4 text-sm font-semibold shadow-md';
@@ -772,7 +736,6 @@
             document.body.prepend(banner);
         }
     });
-
 })();
 </script>
 </body>
