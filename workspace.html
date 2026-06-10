@@ -54,13 +54,31 @@
       <p id="upgrade-modal-subtitle" class="text-emerald-200 text-sm">This feature isn't available on your current plan.</p>
     </div>
     <div class="px-8 py-6">
-      <p id="upgrade-modal-body" class="text-gray-600 text-sm mb-6">Upgrade your plan to unlock this feature and continue scaling your automation.</p>
+      <p id="upgrade-modal-body" class="text-gray-600 text-sm mb-4">Upgrade your plan to unlock this feature and continue scaling your automation.</p>
+
+      <!-- Delta: what you get on the next tier -->
+      <div id="upgrade-modal-delta" class="hidden mb-5 rounded-xl bg-emerald-50 border border-emerald-100 p-4">
+        <p class="text-xs font-bold text-emerald-700 uppercase tracking-wide mb-2">What you unlock by upgrading</p>
+        <ul id="upgrade-modal-delta-list" class="space-y-1.5 text-sm text-emerald-900"></ul>
+      </div>
+
+      <!-- Current usage bar -->
+      <div id="upgrade-modal-usage" class="hidden mb-5">
+        <div class="flex justify-between text-xs text-gray-500 mb-1">
+          <span id="upgrade-usage-label">Usage</span>
+          <span id="upgrade-usage-count"></span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-2">
+          <div id="upgrade-usage-bar" class="bg-emerald-600 h-2 rounded-full transition-all" style="width:0%"></div>
+        </div>
+      </div>
+
       <div class="flex gap-3">
         <button onclick="document.getElementById('modal-upgrade').classList.replace('flex','hidden');"
                 class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
           Maybe Later
         </button>
-        <a href="/pricing.html" target="_blank"
+        <a id="upgrade-modal-cta" href="/pricing.html"
            class="flex-1 block text-center px-4 py-2.5 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition">
           View Plans →
         </a>
@@ -127,6 +145,41 @@
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
+    // ── P3: Post-login alert banner ──────────────────────────────
+    // verify.ts appends ?alert=<type> when routing a returning user back to workspace.
+    // Show a contextual banner so the user knows why they're here and what to do.
+    (function showAlertBanner() {
+      const alertParam = new URLSearchParams(window.location.search).get('alert');
+      const ALERTS = {
+        payment_overdue: {
+          cls: 'bg-amber-50 border-amber-300 text-amber-900',
+          icon: '⚠️',
+          msg: 'Your last payment failed. Your assistants are still active during the grace period — please <a href="/billing.html" class="font-bold underline">update your payment method</a> to avoid interruption.',
+        },
+        subscription_ended: {
+          cls: 'bg-red-50 border-red-300 text-red-900',
+          icon: '🔴',
+          msg: 'Your subscription has ended and your assistants are paused. <a href="/pricing.html" class="font-bold underline">Re-subscribe</a> to restore full access.',
+        },
+        no_plan: {
+          cls: 'bg-blue-50 border-blue-200 text-blue-900',
+          icon: 'ℹ️',
+          msg: 'You don\'t have an active plan. <a href="/pricing.html" class="font-bold underline">Choose a plan</a> to activate your assistants.',
+        },
+      };
+      const alert = alertParam ? ALERTS[alertParam] : null;
+      if (!alert) return;
+      const banner = document.createElement('div');
+      banner.className = `fixed top-16 inset-x-0 z-40 border-b ${alert.cls} px-4 py-3 text-sm flex items-center gap-3`;
+      banner.innerHTML = `<span>${alert.icon}</span><span>${alert.msg}</span>
+        <button class="ml-auto flex-shrink-0 text-lg leading-none opacity-60 hover:opacity-100" onclick="this.parentElement.remove()">×</button>`;
+      document.body.appendChild(banner);
+      // Remove the param from the URL so refreshing doesn't re-show
+      const url = new URL(window.location.href);
+      url.searchParams.delete('alert');
+      history.replaceState(null, '', url.toString());
+    })();
+
     // 1. Force the sidebar to inject before drawing main components
     await loadSidebar("sidebar-placeholder");
     // NEW: Check for unread notifications immediately upon layout initialization
@@ -262,11 +315,27 @@
         if (routeKey === 'catalog') {
           const cap = await window.checkCapacity(true);
           if (cap && cap.assistantLimit !== null && cap.assistantCount >= cap.assistantLimit) {
+            // Build delta: what the next tier unlocks relative to current
+            const TIER_DELTA = {
+              buster:   ['Up to 3 active assistants', 'Multi-step workflow support', 'Connect up to 3 apps'],
+              saver:    ['Up to 5 active assistants', 'Full process automation (up to 5 steps)', 'Connect all standard apps', '24/7 monitoring'],
+              employee: ['Unlimited assistants', 'Dedicated account manager', 'Custom SLA & priority support'],
+            };
+            const delta = TIER_DELTA[cap.tierKey] || ['More active assistants', 'Higher monthly task volume'];
+
             window.openUpgradeModal(
               'Assistant Limit Reached',
               `Your ${cap.tierName || 'current'} plan allows up to ${cap.assistantLimit} active assistant${cap.assistantLimit === 1 ? '' : 's'}.`,
-              `You currently have ${cap.assistantCount} active assistant${cap.assistantCount === 1 ? '' : 's'}. `
-                + `Upgrade to the next plan to hire more and keep your automation growing.`
+              `You're using all ${cap.assistantLimit} assistant slot${cap.assistantLimit === 1 ? '' : 's'}. To hire a new assistant, upgrade your plan or delete one you no longer need.`,
+              {
+                delta,
+                usage: {
+                  label: 'Active assistants',
+                  current: cap.assistantCount,
+                  limit: cap.assistantLimit,
+                },
+                ctaHref: '/pricing.html',
+              }
             );
             return; // Do not render the catalog — show the upgrade modal instead
           }
@@ -354,10 +423,45 @@
     };
 
     // Open the upgrade modal with context-specific copy.
-    window.openUpgradeModal = function (title, subtitle, body) {
-      document.getElementById('upgrade-modal-title').textContent   = title    || 'Upgrade Required';
+    // opts.delta   = string[] — bullet points of what the next plan unlocks
+    // opts.usage   = { label, current, limit } — shows a usage bar
+    // opts.ctaHref = string — override the "View Plans" link
+    window.openUpgradeModal = function (title, subtitle, body, opts = {}) {
+      document.getElementById('upgrade-modal-title').textContent    = title    || 'Upgrade Required';
       document.getElementById('upgrade-modal-subtitle').textContent = subtitle || 'This feature isn\'t included in your current plan.';
       document.getElementById('upgrade-modal-body').textContent     = body     || 'Upgrade your plan to unlock this feature.';
+
+      // Delta block
+      const deltaBlock = document.getElementById('upgrade-modal-delta');
+      const deltaList  = document.getElementById('upgrade-modal-delta-list');
+      if (opts.delta && opts.delta.length) {
+        deltaList.innerHTML = opts.delta.map(d =>
+          `<li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span><span>${d}</span></li>`
+        ).join('');
+        deltaBlock.classList.remove('hidden');
+      } else {
+        deltaBlock.classList.add('hidden');
+      }
+
+      // Usage bar
+      const usageBlock = document.getElementById('upgrade-modal-usage');
+      if (opts.usage) {
+        const { label, current, limit } = opts.usage;
+        const pct = limit ? Math.min(100, Math.round((current / limit) * 100)) : 100;
+        document.getElementById('upgrade-usage-label').textContent = label || 'Usage';
+        document.getElementById('upgrade-usage-count').textContent = limit ? `${current} / ${limit}` : `${current}`;
+        document.getElementById('upgrade-usage-bar').style.width = pct + '%';
+        document.getElementById('upgrade-usage-bar').className =
+          'h-2 rounded-full transition-all ' + (pct >= 100 ? 'bg-red-500' : 'bg-emerald-600');
+        usageBlock.classList.remove('hidden');
+      } else {
+        usageBlock.classList.add('hidden');
+      }
+
+      // CTA link
+      const cta = document.getElementById('upgrade-modal-cta');
+      cta.href = opts.ctaHref || '/pricing.html';
+
       const m = document.getElementById('modal-upgrade');
       m.classList.remove('hidden');
       m.classList.add('flex');

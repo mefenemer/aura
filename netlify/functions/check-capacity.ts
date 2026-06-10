@@ -24,7 +24,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, gte, count, sum } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { plans, masterPlans, aiAssistants, taskRuns } from '../../db/schema';
+import { plans, masterPlans, aiAssistants, taskRuns, userOrganisations, users } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -58,6 +58,7 @@ export const handler: Handler = async (event) => {
                 monthlyTaskLimit: masterPlans.monthlyTaskLimit,
                 monthlyTokenLimit: masterPlans.monthlyTokenLimit,
                 appConnectionLimit: masterPlans.appConnectionLimit,
+                seatLimit: masterPlans.seatLimit,
             })
             .from(plans)
             .leftJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
@@ -79,6 +80,7 @@ export const handler: Handler = async (event) => {
                     monthlyTaskLimit: masterPlans.monthlyTaskLimit,
                     monthlyTokenLimit: masterPlans.monthlyTokenLimit,
                     appConnectionLimit: masterPlans.appConnectionLimit,
+                    seatLimit: masterPlans.seatLimit,
                 })
                 .from(plans)
                 .leftJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
@@ -92,12 +94,29 @@ export const handler: Handler = async (event) => {
         const monthlyTaskLimit: number | null = plan?.monthlyTaskLimit ?? null;
         const monthlyTokenLimit: number | null = plan?.monthlyTokenLimit ?? null;
         const appConnectionLimit: number | null = plan?.appConnectionLimit ?? null;
+        const seatLimit: number | null = plan?.seatLimit ?? null;
 
-        // ── 2. Count active assistants ──────────────────────────────
+        // ── 2. Count active assistants & workspace seats used ───────
         const [{ value: assistantCount }] = await db
             .select({ value: count() })
             .from(aiAssistants)
             .where(and(eq(aiAssistants.userId, userId), eq(aiAssistants.isActive, true)));
+
+        // Seat count = number of active users in the same organisation
+        const [userOrg] = await db
+            .select({ organisationId: users.organisationId })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1);
+
+        let seatCount = 1; // default: just the owner
+        if (userOrg?.organisationId) {
+            const [{ value: orgMemberCount }] = await db
+                .select({ value: count() })
+                .from(userOrganisations)
+                .where(eq(userOrganisations.organisationId, userOrg.organisationId));
+            seatCount = orgMemberCount || 1;
+        }
 
         // ── 3. Count task_runs and sum tokens this calendar month ───
         const now = new Date();
@@ -131,6 +150,10 @@ export const handler: Handler = async (event) => {
             : null;
         const graceExpired = gracePeriodEndsAt ? new Date() > new Date(gracePeriodEndsAt) : false;
 
+        const seatPct = seatLimit
+            ? Math.min(100, Math.round((seatCount / seatLimit) * 100))
+            : 0;
+
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -142,6 +165,9 @@ export const handler: Handler = async (event) => {
                 tokenUsage,
                 monthlyTokenLimit,
                 appConnectionLimit,
+                seatCount,
+                seatLimit,
+                seatPct,
                 assistantPct,
                 taskPct,
                 tokenPct,

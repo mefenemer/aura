@@ -266,9 +266,11 @@ export const handler: Handler = async (event) => {
                 }
             }
 
+            // userId guard: defence-in-depth — ownership already checked above,
+            // but bind userId in the UPDATE to prevent any TOCTOU race.
             const [updated] = await db.update(contentAssets)
                 .set(updatePayload)
-                .where(eq(contentAssets.id, assetId))
+                .where(and(eq(contentAssets.id, assetId), eq(contentAssets.userId, userId)))
                 .returning();
 
             return { statusCode: 200, body: JSON.stringify({ asset: updated }) };

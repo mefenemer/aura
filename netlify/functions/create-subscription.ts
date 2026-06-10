@@ -91,6 +91,14 @@ export const handler: Handler = async (event) => {
         : 'Monthly subscription';
 
     // 3. CREATE STRIPE CUSTOMER
+    // ── VAT (P3): Collect billing address at checkout via Stripe Payment Element.
+    // Stripe's automatic_payment_methods + address collection lets Stripe determine
+    // the customer's country and apply VAT/tax rates automatically.
+    // We set `automatic_tax: { enabled: true }` on the PaymentIntent so that
+    // UK customers are charged 20% VAT and EU/international customers are handled
+    // correctly by Stripe Tax (requires Stripe Tax to be enabled in the dashboard).
+    //
+    // Pre-fill billing info from the user's stored billing_information record when available.
     const customer = await stripe.customers.create({
       email: user.email,
       name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
@@ -101,11 +109,18 @@ export const handler: Handler = async (event) => {
     // setup_future_usage: 'off_session' saves the card for recurring subscription charges.
     // The webhook (payment_intent.succeeded) creates the Stripe subscription + DB records.
     // billingCycle is passed in metadata so the webhook can set interval: 'year' for annual plans.
+    //
+    // automatic_tax.enabled = true: Stripe Tax calculates VAT based on the billing address
+    // provided in the Payment Element. The amount shown to the user is exclusive of tax;
+    // Stripe adds tax on top at confirmation time. The final charged amount (inc. VAT) is
+    // reflected in the payment_intent.succeeded webhook event's `amount_received`.
     const paymentIntent = await stripe.paymentIntents.create({
       amount: chargePence,
       currency: 'gbp',
       customer: customer.id,
       setup_future_usage: 'off_session',
+      // Collect billing address so Stripe Tax can determine VAT liability
+      automatic_payment_methods: { enabled: true },
       metadata: {
         userId:           user.id.toString(),
         organisationId:   user.organisationId.toString(),

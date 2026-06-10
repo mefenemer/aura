@@ -32,6 +32,9 @@ export const users = pgTable('users', {
   status: text('status').notNull().default('pending_verification'),
   verificationToken: text('verification_token'),
   tokenExpiresAt: timestamp('token_expires_at'),
+  // Rate-limit fence: set to NOW() each time a magic link is sent.
+  // Concurrent requests check this with a DB-level conditional update to prevent race conditions.
+  lastMagicLinkSentAt: timestamp('last_magic_link_sent_at'),
 
   // Platform role — 'user' (default) | 'admin' | 'super_admin'
   role: text('role').notNull().default('user'),
@@ -248,6 +251,7 @@ export const masterPlans = pgTable("master_plans", {
   monthlyTaskLimit: integer("monthly_task_limit"),      // max task runs per calendar month
   monthlyTokenLimit: integer("monthly_token_limit"),    // max LLM tokens per calendar month; null = unlimited
   appConnectionLimit: integer("app_connection_limit"),  // max OAuth/API integrations per assistant; null = unlimited
+  seatLimit: integer("seat_limit"),                     // max workspace members (users in the same org); null = solo only (1 seat)
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

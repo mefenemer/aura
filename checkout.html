@@ -123,6 +123,16 @@
               <p id="payment-error-message" class="text-sm text-red-700"></p>
             </div>
 
+            <!-- Annual billing refund acknowledgment — only shown for annual plans -->
+            <div id="annual-ack-block" class="hidden mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <label class="flex items-start gap-3 cursor-pointer">
+                <input id="annual-ack-checkbox" type="checkbox" class="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700 border-gray-300 rounded">
+                <span class="text-sm text-amber-800">
+                  <strong>Annual billing acknowledgment:</strong> I understand that annual plans are charged as a single upfront payment. Refunds are available within 14 days of purchase if the assistant has not been used. After 14 days, no refund is issued for the remaining term.
+                </span>
+              </label>
+            </div>
+
             <button id="submit-btn" type="submit"
               class="w-full flex items-center justify-center gap-2 px-6 py-4 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-base rounded-xl shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed">
               <span id="submit-text">Start My Subscription</span>
@@ -233,11 +243,22 @@
       },
     });
 
-    elements.create('payment', { layout: { type: 'tabs', defaultCollapsed: false } }).mount('#payment-element');
+    // Request billing address so Stripe Tax can determine VAT liability (P3)
+    elements.create('payment', {
+      layout: { type: 'tabs', defaultCollapsed: false },
+      fields: { billingDetails: { address: 'auto' } },
+    }).mount('#payment-element');
 
     document.getElementById('page-loading').classList.add('hidden');
     document.getElementById('checkout-content').classList.remove('hidden');
     document.getElementById('checkout-content').classList.add('grid');
+
+    // Show annual acknowledgment checkbox if billing cycle is annual
+    const annualAckBlock = document.getElementById('annual-ack-block');
+    const annualAckCheckbox = document.getElementById('annual-ack-checkbox');
+    if (billingCycle === 'annual') {
+      annualAckBlock.classList.remove('hidden');
+    }
 
     // Submit
     const form = document.getElementById('payment-form');
@@ -249,6 +270,15 @@
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+
+      // Gate annual plans behind the acknowledgment checkbox
+      if (billingCycle === 'annual' && !annualAckCheckbox.checked) {
+        errorMsg.textContent = 'Please read and accept the annual billing acknowledgment before proceeding.';
+        errorDiv.classList.remove('hidden');
+        annualAckBlock.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+
       submitBtn.disabled = true;
       submitText.textContent = 'Processing…';
       submitSpinner.classList.remove('hidden');

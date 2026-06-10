@@ -7,6 +7,30 @@ import { getDb } from '../../db/client';
 import { workspaceAssets } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
 
+// ── Prompt-injection sanitiser ─────────────────────────────────────────────
+// Strips patterns commonly used to hijack LLM system prompts embedded in
+// untrusted external content (websites, PDFs, user-submitted text).
+// This is a belt-and-braces defence — the primary protection is wrapping
+// RAG content in an explicit "DOCUMENT CONTENT START/END" boundary in the
+// system prompt so the model knows to treat it as data, not instructions.
+function _stripPromptInjection(text: string): string {
+    // Remove lines that look like system prompt overrides
+    return text
+        // Classic instruction override patterns
+        .replace(/ignore\s+(all\s+)?(previous|prior|above)\s+instructions?/gi, '[content removed]')
+        .replace(/disregard\s+(all\s+)?(previous|prior|above)\s+instructions?/gi, '[content removed]')
+        .replace(/forget\s+(all\s+)?(previous|prior)\s+instructions?/gi, '[content removed]')
+        .replace(/you\s+are\s+now\s+(?:acting\s+as|a|an)\s+/gi, '[content removed] ')
+        .replace(/new\s+instructions?\s*:/gi, '[content removed]:')
+        .replace(/system\s*:\s*/gi, '[content removed]: ')
+        .replace(/\[system\]/gi, '[content removed]')
+        .replace(/<\|im_start\|>|<\|im_end\|>/g, '')  // OpenAI special tokens
+        .replace(/###\s*instruction/gi, '### [removed]')
+        .replace(/HUMAN:|ASSISTANT:|USER:|SYSTEM:/g, '[role removed]:')
+        // Trim to prevent whitespace smuggling
+        .trim();
+}
+
 export const handler = async (event: HandlerEvent) => {
     try {
         const body = JSON.parse(event.body || '{}');
@@ -19,6 +43,13 @@ export const handler = async (event: HandlerEvent) => {
         // 1. Fetch the processing asset from the database
         const [asset] = await db.select().from(workspaceAssets).where(eq(workspaceAssets.id, assetId));
         if (!asset) return { statusCode: 404, body: 'Asset not found' };
+
+        // ── RAG Namespace safety note ────────────────────────────────
+        // When a vector database is wired, ALL upserts and queries MUST
+        // be namespaced by organisationId to prevent cross-tenant RAG leakage:
+        //   namespace = `org_${asset.organisationId}`
+        // Never use a global namespace — see security audit finding RAG/Vector Namespace Collision.
+        const _ragNamespace = `org_${asset.organisationId}`; // used when vector DB is connected
 
         let extractedText = '';
 
@@ -41,6 +72,13 @@ export const handler = async (event: HandlerEvent) => {
 
                 // Extract clean text and normalize whitespace
                 extractedText = $('body').text().replace(/\s+/g, ' ').trim();
+
+                // ── Prompt-injection defence ─────────────────────────────
+                // Scraped web content is untrusted. Strip common LLM instruction
+                // injection patterns before it reaches the RAG pipeline.
+                // We wrap the text in a structural boundary at query time (see
+                // system prompt template) — this strip removes attempts to break out.
+                extractedText = _stripPromptInjection(extractedText);
             }
                 // ---------------------------------------------------------
                 // EXTRACTION LOGIC B: PHYSICAL FILES (PDF, TXT, CSV)
@@ -67,6 +105,11 @@ export const handler = async (event: HandlerEvent) => {
 
                 // Simulated extraction for current mock storage
                 extractedText = `[Simulated Document Content for: ${asset.name}]. This text represents the brand guidelines that the AI will use to maintain consistency.`;
+            }
+
+            // Also sanitise file-extracted text
+            if (asset.assetType === 'file') {
+                extractedText = _stripPromptInjection(extractedText);
             }
 
             // 2. Cap the token length for safety (e.g., 100,000 characters)

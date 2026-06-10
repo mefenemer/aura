@@ -7,7 +7,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, auditLogs } from '../../db/schema';
+import { users, auditLogs, aiAssistants } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -40,6 +40,18 @@ export const handler: Handler = async (event) => {
         const [user] = await db.select({ id: users.id })
             .from(users).where(eq(users.id, userId));
         if (!user) return { statusCode: 403, body: JSON.stringify({ error: 'User not found.' }) };
+
+        // ── IDOR guard: verify caller owns this assistant ─────────
+        // Without this, any authenticated user can read another user's audit trail.
+        const [ownedAssistant] = await db
+            .select({ id: aiAssistants.id })
+            .from(aiAssistants)
+            .where(and(eq(aiAssistants.id, parseInt(assistantId)), eq(aiAssistants.userId, userId)))
+            .limit(1);
+        if (!ownedAssistant) {
+            // Return 404 (not 403) to avoid leaking whether the assistant exists
+            return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
+        }
 
         // Query audit logs for this assistant, most recent first, cap at 20
         const logs = await db

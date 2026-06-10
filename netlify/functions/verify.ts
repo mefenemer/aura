@@ -126,66 +126,93 @@ export const handler: Handler = async (event) => {
         };
 
         // If no priceId — this is a returning user logging in (not a new registration).
-        // Priority:  active plan + incomplete onboarding → resume onboarding step
-        //            active plan + complete onboarding   → workspace
-        //            no plan                             → pricing
+        // Priority order:
+        //   1. active plan + incomplete onboarding draft   → resume onboarding step
+        //   2. active plan + at least one assistant        → workspace (P3: re-discovery)
+        //   3. active plan + no assistant                  → pricing / onboarding
+        //   4. past_due plan (grace period) + assistants   → workspace with billing warning
+        //   5. cancelled / no plan + existing assistants   → workspace (can view, not use)
+        //   6. no plan + no assistants                     → pricing
         if (!priceId || !priceToTier[priceId]) {
+            // Check for any plan (active OR past_due — include grace-period plans)
             const [existingPlan] = await db
-                .select({ id: plans.id })
+                .select({ id: plans.id, status: plans.status })
                 .from(plans)
-                .where(and(eq(plans.userId, user.id), eq(plans.status, 'active')))
+                .where(eq(plans.userId, user.id))
+                .orderBy(plans.startedAt)
                 .limit(1);
 
-            if (!existingPlan) {
-                return {
-                    statusCode: 200,
-                    headers: getHeaders(sessionCookie),
-                    body: JSON.stringify({ success: true, redirect: `${baseUrl}/pricing.html?verified=true` })
-                };
-            }
-
-            // Has an active plan — check whether onboarding is complete
-            const [assistant] = await db
-                .select({ id: aiAssistants.id })
+            // P3: Always check for existing assistants — even without an active plan
+            // a user may have paused assistants they want to see in the workspace.
+            const [existingAssistant] = await db
+                .select({ id: aiAssistants.id, provisioningStatus: aiAssistants.provisioningStatus })
                 .from(aiAssistants)
                 .where(eq(aiAssistants.userId, user.id))
                 .limit(1);
 
-            if (!assistant) {
-                // Incomplete onboarding — US2 Sc2: fire reminder notification (best-effort)
-                try {
-                    await db.insert(notifications).values({
-                        userId: user.id,
-                        type: 'onboarding_incomplete',
-                        title: 'Complete your assistant setup',
-                        message: 'You have not yet completed the onboarding of your digital assistant. Pick up where you left off.',
-                    });
-                } catch { /* non-blocking */ }
+            const hasAnyPlan      = !!existingPlan;
+            const hasActivePlan   = existingPlan?.status === 'active';
+            const hasPastDuePlan  = existingPlan?.status === 'past_due';
+            const hasAnyAssistant = !!existingAssistant;
 
-                // Route back to the exact step they left off
-                const [draft] = await db
-                    .select({ currentStep: onboardingDrafts.currentStep, onboardingPath: onboardingDrafts.onboardingPath })
-                    .from(onboardingDrafts)
-                    .where(eq(onboardingDrafts.userId, user.id))
-                    .limit(1);
+            // Case 1: Has active plan — check onboarding completeness
+            if (hasActivePlan) {
+                if (!hasAnyAssistant) {
+                    // Incomplete onboarding — US2 Sc2: fire reminder notification (best-effort)
+                    try {
+                        await db.insert(notifications).values({
+                            userId: user.id,
+                            type: 'onboarding_incomplete',
+                            title: 'Complete your assistant setup',
+                            message: 'You have not yet completed the onboarding of your digital assistant. Pick up where you left off.',
+                        });
+                    } catch { /* non-blocking */ }
 
-                if (draft) {
-                    const page = ONBOARDING_PAGE[draft.onboardingPath] || 'onboarding.html';
-                    return {
-                        statusCode: 200,
-                        headers: getHeaders(sessionCookie),
-                        body: JSON.stringify({
-                            success: true,
-                            redirect: `${baseUrl}/${page}?step=${draft.currentStep}&resumed=true`
-                        })
-                    };
+                    // Route back to the exact step they left off
+                    const [draft] = await db
+                        .select({ currentStep: onboardingDrafts.currentStep, onboardingPath: onboardingDrafts.onboardingPath })
+                        .from(onboardingDrafts)
+                        .where(eq(onboardingDrafts.userId, user.id))
+                        .limit(1);
+
+                    if (draft) {
+                        const page = ONBOARDING_PAGE[draft.onboardingPath] || 'onboarding.html';
+                        return {
+                            statusCode: 200,
+                            headers: getHeaders(sessionCookie),
+                            body: JSON.stringify({
+                                success: true,
+                                redirect: `${baseUrl}/${page}?step=${draft.currentStep}&resumed=true`
+                            })
+                        };
+                    }
                 }
+
+                // Active plan + assistants → straight to workspace
+                return {
+                    statusCode: 200,
+                    headers: getHeaders(sessionCookie),
+                    body: JSON.stringify({ success: true, redirect: `${baseUrl}/workspace.html` })
+                };
             }
 
+            // Case 4 & 5: past_due / cancelled / no plan — if they have assistants
+            // send to workspace so they can see their existing setup and take action.
+            // The workspace will show a payment warning banner via check-capacity.ts.
+            if (hasAnyAssistant) {
+                const suffix = hasPastDuePlan ? '?alert=payment_overdue' : (hasAnyPlan ? '?alert=subscription_ended' : '?alert=no_plan');
+                return {
+                    statusCode: 200,
+                    headers: getHeaders(sessionCookie),
+                    body: JSON.stringify({ success: true, redirect: `${baseUrl}/workspace.html${suffix}` })
+                };
+            }
+
+            // Case 6: No plan, no assistants → pricing page
             return {
                 statusCode: 200,
                 headers: getHeaders(sessionCookie),
-                body: JSON.stringify({ success: true, redirect: `${baseUrl}/workspace.html` })
+                body: JSON.stringify({ success: true, redirect: `${baseUrl}/pricing.html?verified=true` })
             };
         }
 

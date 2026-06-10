@@ -225,8 +225,10 @@ export const handler: Handler = async (event) => {
                 }
             }
 
+            // Include userId in WHERE clause to prevent IDOR — ownership already
+            // verified by the findAssistant() check above, this is a defence-in-depth layer.
             const [updated] = await db.update(scheduledPosts).set(updates)
-                .where(eq(scheduledPosts.id, postId)).returning();
+                .where(and(eq(scheduledPosts.id, postId), eq(scheduledPosts.userId, userId))).returning();
 
             // ── Scenarios 1 & 2: Propagate asset lifecycle on status change ─
             const linkedIds: number[] = Array.isArray(updated.contentAssetIds)
