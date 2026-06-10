@@ -76,7 +76,7 @@ export const EMAIL_CATEGORIES = [
     {
         key: 'new_role_availability',
         label: 'New Role Availability',
-        description: 'Emails when a new assistant role you've joined the waitlist for becomes live.',
+        description: "Emails when a new assistant role you've joined the waitlist for becomes live.",
         locked: false,
         defaultValue: false,
     },
