@@ -770,10 +770,11 @@
       statusHtml = `<div class="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Active</div>`;
     }
 
-    // Both cards now point directly to routeToAssistantDetail(id) ensuring unified navigation
+    // Cards: header + body are clickable (Board Room); footer has management actions
+    const isPaused = !assistant.isActive && assistant.status !== 'pending';
     return `
-      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col cursor-pointer hover:shadow-md transition-all" onclick="window.routeToAssistantDetail('${assistant.id}')">
-          <div class="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-start">
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all">
+          <div class="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-start cursor-pointer" onclick="window.routeToAssistantDetail('${assistant.id}')">
               <div class="flex items-center gap-4">
                   <div class="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-2xl font-bold">
                       ${initial}
@@ -786,7 +787,7 @@
               ${statusHtml}
           </div>
 
-          <div class="p-6 flex-grow">
+          <div class="p-6 flex-grow cursor-pointer" onclick="window.routeToAssistantDetail('${assistant.id}')">
               <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Recent Wins</h3>
               <div class="flex items-start gap-3">
                   <span class="text-gray-400 mt-0.5">⏳</span>
@@ -794,12 +795,24 @@
               </div>
           </div>
 
-          <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-              <span class="text-xs text-gray-500 flex items-center gap-1">
-                  <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-                  Monitored by Engineering
-              </span>
-            <button class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition cursor-pointer">Board Room &rarr;</button>          </div>
+          <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center gap-2 flex-wrap">
+              <button class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition cursor-pointer" onclick="window.routeToAssistantDetail('${assistant.id}')">Board Room &rarr;</button>
+              ${assistant.status !== 'pending' ? `
+              <div class="flex items-center gap-1.5">
+                  <button onclick="window._assistantEdit('${assistant.id}')"
+                    class="px-2.5 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+                    ✏️ Edit
+                  </button>
+                  <button onclick="window._assistantTogglePause('${assistant.id}', ${isPaused})"
+                    class="px-2.5 py-1.5 text-xs font-semibold ${isPaused ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-amber-700 bg-amber-50 border-amber-200'} border rounded-lg hover:opacity-80 transition">
+                    ${isPaused ? '▶ Resume' : '⏸ Pause'}
+                  </button>
+                  <button onclick="window._assistantDelete('${assistant.id}', '${(assistant.name || '').replace(/'/g, '&#39;')}')"
+                    class="px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:opacity-80 transition">
+                    🗑
+                  </button>
+              </div>` : ''}
+          </div>
       </div>`;
   };
 
@@ -858,11 +871,57 @@
   };
 
   window.initAssistantsDirectory = async function(loadViewCb) {
-    await fetchAndRenderAssistants('assistants-grid');
+    await fetchAndRenderAssistants('directory-assistants-grid');
 
     const routeToCatalogBtn = document.getElementById('route-to-catalog-from-dir');
-    if (routeToCatalogBtn) {
+    if (routeToCatalogBtn && !routeToCatalogBtn.dataset.bound) {
+      routeToCatalogBtn.dataset.bound = 'true';
       routeToCatalogBtn.addEventListener('click', () => loadViewCb('catalog'));
+    }
+  };
+
+  // ── Assistant management actions ──────────────────────────────────────
+  window._assistantEdit = function(id) {
+    // Redirect back to onboarding so the user can update their setup answers
+    window.location.href = '/onboarding-social-media.html?edit=' + id;
+  };
+
+  window._assistantTogglePause = async function(id, currentlyPaused) {
+    const action = currentlyPaused ? 'resume' : 'pause';
+    const label  = currentlyPaused ? 'resume' : 'pause';
+    if (!confirm('Are you sure you want to ' + label + ' this assistant?')) return;
+    try {
+      const res = await fetch('/.netlify/functions/manage-assistant?id=' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Failed to update assistant.');
+        return;
+      }
+      // Refresh both grids
+      await fetchAndRenderAssistants('dashboard-assistants-grid');
+      await fetchAndRenderAssistants('directory-assistants-grid');
+    } catch (e) {
+      alert('Network error — please try again.');
+    }
+  };
+
+  window._assistantDelete = async function(id, name) {
+    if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+    try {
+      const res = await fetch('/.netlify/functions/manage-assistant?id=' + id, { method: 'DELETE' });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Failed to delete assistant.');
+        return;
+      }
+      await fetchAndRenderAssistants('dashboard-assistants-grid');
+      await fetchAndRenderAssistants('directory-assistants-grid');
+    } catch (e) {
+      alert('Network error — please try again.');
     }
   };
 </script>

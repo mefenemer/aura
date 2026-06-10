@@ -386,6 +386,9 @@
   .bottom-6 {
     bottom: calc(var(--spacing) * 6);
   }
+  .bottom-14 {
+    bottom: calc(var(--spacing) * 14);
+  }
   .left-0 {
     left: calc(var(--spacing) * 0);
   }
@@ -745,6 +748,9 @@
   }
   .w-64 {
     width: calc(var(--spacing) * 64);
+  }
+  .w-80 {
+    width: calc(var(--spacing) * 80);
   }
   .w-\[13\%\] {
     width: 13%;
@@ -2910,6 +2916,13 @@
     &:hover {
       @media (hover: hover) {
         text-decoration-line: underline;
+      }
+    }
+  }
+  .hover\:opacity-80 {
+    &:hover {
+      @media (hover: hover) {
+        opacity: 80%;
       }
     }
   }
