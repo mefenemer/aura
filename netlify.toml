@@ -8,3 +8,7 @@ node_bundler = "esbuild"
 [[edge_functions]]
   function = "auth-guard"
   path = "/*.html" # Runs the check on all HTML file requests
+
+# SC3: Daily task-volume threshold check — 08:00 UTC every day
+[functions.task-volume-check]
+  schedule = "0 8 * * *"

@@ -45,6 +45,30 @@
     class="ml-2 text-gray-400 hover:text-white transition text-lg leading-none">&times;</button>
 </div>
 
+<!-- ── SC2 / SC4: Upgrade Required Modal ─────────────────────────────── -->
+<div id="modal-upgrade" class="hidden fixed inset-0 z-50 items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+    <div class="bg-gradient-to-br from-emerald-700 to-emerald-900 px-8 py-6 text-white">
+      <div class="text-3xl mb-2">🔒</div>
+      <h2 id="upgrade-modal-title" class="text-xl font-bold mb-1">Upgrade Required</h2>
+      <p id="upgrade-modal-subtitle" class="text-emerald-200 text-sm">This feature isn't available on your current plan.</p>
+    </div>
+    <div class="px-8 py-6">
+      <p id="upgrade-modal-body" class="text-gray-600 text-sm mb-6">Upgrade your plan to unlock this feature and continue scaling your automation.</p>
+      <div class="flex gap-3">
+        <button onclick="document.getElementById('modal-upgrade').classList.replace('flex','hidden');"
+                class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+          Maybe Later
+        </button>
+        <a href="/pricing.html" target="_blank"
+           class="flex-1 block text-center px-4 py-2.5 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition">
+          View Plans →
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <nav class="fixed top-0 left-0 right-0 z-50 h-16 w-full bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8">
 
   <div class="flex items-center gap-3 sm:gap-4">
@@ -225,6 +249,20 @@
         const activeNavKey = routeKey === 'assistant-detail' ? 'assistants' : routeKey;
         updateActiveNav(activeNavKey);
 
+        // ── SC2: Capacity gate — block catalog if assistant limit reached ──
+        if (routeKey === 'catalog') {
+          const cap = await window.checkCapacity(true);
+          if (cap && cap.assistantLimit !== null && cap.assistantCount >= cap.assistantLimit) {
+            window.openUpgradeModal(
+              'Assistant Limit Reached',
+              `Your ${cap.tierName || 'current'} plan allows up to ${cap.assistantLimit} active assistant${cap.assistantLimit === 1 ? '' : 's'}.`,
+              `You currently have ${cap.assistantCount} active assistant${cap.assistantCount === 1 ? '' : 's'}. `
+                + `Upgrade to the next plan to hire more and keep your automation growing.`
+            );
+            return; // Do not render the catalog — show the upgrade modal instead
+          }
+        }
+
         // Map internal action anchors
         const internalCatalogLink = document.getElementById('route-to-catalog');
         if (internalCatalogLink) {
@@ -275,6 +313,9 @@
           await window.initBilling();
         }
 
+        // ── SC4: Feature gating — overlay locked features after render ──
+        _applyFeatureGating(routeKey);
+
         // --- NEW: Assistants Directory & Board Room ---
         if (routeKey === 'assistants' && typeof window.initAssistantsDirectory === 'function') {
           await window.initAssistantsDirectory(loadView);
@@ -289,6 +330,110 @@
         contentContainer.innerHTML = `<div class="p-8 text-center text-red-600 font-medium">Failed to load requested view. Please try again.</div>`;
       }
     }
+
+    // ── SC2 / SC4: Capacity cache & upgrade modal helpers ─────────────────
+    // Loaded once at workspace boot; refreshed on-demand by checkCapacity().
+    window._capacityCache = null;
+
+    window.checkCapacity = async function (force = false) {
+      if (!force && window._capacityCache) return window._capacityCache;
+      try {
+        const res = await fetch('/.netlify/functions/check-capacity');
+        if (res.ok) window._capacityCache = await res.json();
+      } catch { /* non-fatal */ }
+      return window._capacityCache;
+    };
+
+    // Open the upgrade modal with context-specific copy.
+    window.openUpgradeModal = function (title, subtitle, body) {
+      document.getElementById('upgrade-modal-title').textContent   = title    || 'Upgrade Required';
+      document.getElementById('upgrade-modal-subtitle').textContent = subtitle || 'This feature isn\'t included in your current plan.';
+      document.getElementById('upgrade-modal-body').textContent     = body     || 'Upgrade your plan to unlock this feature.';
+      const m = document.getElementById('modal-upgrade');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    };
+
+    // Close on backdrop click
+    document.getElementById('modal-upgrade').addEventListener('click', function (e) {
+      if (e.target === this) this.classList.replace('flex', 'hidden');
+    });
+
+    // ── SC4: Feature gating — tier-keyed feature locks ─────────────────
+    // Each entry: { tiers: ['starter','pro_team',...], selector, title, subtitle, body }
+    const GATED_FEATURES = [
+      {
+        // Analytics dashboard — locked on Starter and Pro Team
+        tiers: ['starter', 'pro_team'],
+        selector: '[data-feature="analytics"]',
+        title: 'Analytics Dashboard',
+        subtitle: 'Available on Business Automator and above.',
+        body: 'Upgrade to the Business Automator plan (£349/mo) to unlock detailed task analytics, performance trends, and assistant health reports.',
+      },
+      {
+        // 24/7 monitoring — locked on Starter and Pro Team
+        tiers: ['starter', 'pro_team'],
+        selector: '[data-feature="monitoring"]',
+        title: '24/7 Background Monitoring',
+        subtitle: 'Available on Business Automator and above.',
+        body: 'Upgrade to Business Automator to enable around-the-clock monitoring so your assistants act on events even while you sleep.',
+      },
+      {
+        // Automated triggers — locked on Starter only
+        tiers: ['starter'],
+        selector: '[data-feature="auto-trigger"]',
+        title: 'Automated Triggers',
+        subtitle: 'Available on Pro Team and above.',
+        body: 'Upgrade to Pro Team (£99/mo) to let your assistants react automatically the moment a new task arrives — no manual command needed.',
+      },
+      {
+        // Style & memory learning — locked on Starter only
+        tiers: ['starter'],
+        selector: '[data-feature="memory"]',
+        title: 'Style & Memory Learning',
+        subtitle: 'Available on Pro Team and above.',
+        body: 'Upgrade to Pro Team so your assistant learns your voice, tone, and history — making every output feel more personal over time.',
+      },
+    ];
+
+    function _applyFeatureGating(routeKey) {
+      const cap = window._capacityCache;
+      const tierKey = cap?.tierKey || null;
+      if (!tierKey) return; // No plan info yet — skip silently
+
+      GATED_FEATURES.forEach(({ tiers, selector, title, subtitle, body }) => {
+        if (!tiers.includes(tierKey)) return; // Feature is available on this tier
+
+        document.querySelectorAll(selector).forEach(el => {
+          // Skip if already gated
+          if (el.dataset.gated) return;
+          el.dataset.gated = '1';
+
+          // Dim the element and add a padlock overlay
+          el.style.position = 'relative';
+          el.style.pointerEvents = 'none';
+          el.style.opacity = '0.45';
+
+          const overlay = document.createElement('div');
+          overlay.className = 'absolute inset-0 flex flex-col items-center justify-center bg-white/70 rounded-xl cursor-pointer z-10';
+          overlay.style.pointerEvents = 'all';
+          overlay.innerHTML = `
+            <div class="flex flex-col items-center gap-2 p-4 text-center">
+              <span class="text-3xl">🔒</span>
+              <span class="text-sm font-bold text-gray-700">${title}</span>
+              <span class="text-xs text-gray-500">${subtitle}</span>
+              <button class="mt-2 px-4 py-1.5 bg-emerald-700 text-white text-xs font-semibold rounded-lg hover:bg-emerald-800 transition">
+                Upgrade to Unlock
+              </button>
+            </div>`;
+          overlay.addEventListener('click', () => window.openUpgradeModal(title, subtitle, body));
+          el.appendChild(overlay);
+        });
+      });
+    }
+
+    // Pre-fetch capacity once on workspace boot (non-blocking)
+    window.checkCapacity();
 
     // Expose a global routing helper for the HTML onclick handlers in the assistants grid
     window.routeToAssistantDetail = function(assistantId) {

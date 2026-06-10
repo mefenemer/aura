@@ -13,318 +13,567 @@
 
 <div id="nav-placeholder"></div>
 
+<!-- Hero -->
 <header class="py-16 text-center max-w-4xl mx-auto px-4">
-    <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">Choose How Much Time to Save</h1>
+    <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">Simple, Transparent Pricing</h1>
     <p class="text-xl text-gray-500 mb-6">
-        Pay a flat monthly fee for us to run your digital assistant, plus a few pennies for the computing power it uses.
+        One flat monthly fee. No hidden computing costs. No surprise bills.<br>
+        Start small and scale as your team of digital assistants grows.
     </p>
-
     <div class="inline-block bg-emerald-50 border border-emerald-200 rounded-lg px-6 py-3 text-emerald-800 font-medium text-sm shadow-sm">
-        ✨ <strong>Our Guarantee:</strong> No coding. No complicated dashboards. You tell us what you hate doing on a 5-minute form, and our human team builds your digital assistant for you.
+        ✨ <strong>Our Guarantee:</strong> No coding. No complicated dashboards. Fill out a 5-minute form and our human team builds your digital assistant for you.
     </div>
 </header>
 
 <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full mb-20">
 
-    <div class="flex justify-center mb-12">
-        <div class="inline-flex bg-gray-200 rounded-lg p-1">
-            <button id="btn-consumer" onclick="switchTab('consumer')" class="px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 bg-white text-gray-900 shadow-sm cursor-pointer">
-                For Individuals & Solopreneurs
-            </button>
-            <button id="btn-business" onclick="switchTab('business')" class="px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 text-gray-500 hover:text-gray-700 cursor-pointer">
-                For Growing Businesses
-            </button>
-        </div>
-    </div>
+    <!-- ── Pricing grid — 4 tiers ──────────────────────────────── -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-20">
 
-    <div id="tab-consumer" class="block animate-fade-in">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
-
-            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 flex flex-col hover:border-emerald-300 transition relative">
-                <div class="h-32 mb-6 rounded-xl overflow-hidden shadow-sm">
-                    <img src="https://images.pexels.com/photos/3799830/pexels-photo-3799830.jpeg?auto=compress&cs=tinysrgb&w=800"
-                         alt="Enjoying personal time and music"
-                         class="w-full h-full object-cover">
-                </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-2">The Busywork Buster</h3>
-                <p class="text-gray-500 mb-6 min-h-[48px]">Hand off your single most annoying daily chore.</p>
-                <div class="mb-6">
-                    <span class="text-4xl font-extrabold text-gray-900">£20</span>
-                    <span class="text-gray-500 font-medium">/month</span>
-                </div>
-                <ul class="space-y-4 mb-8 flex-grow text-gray-600 text-sm">
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>1 Dedicated Assistant</strong></span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span>Handles <strong>one specific task</strong> perfectly every time.</span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span>Works inside <strong>1 app</strong>.</span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>Works on your command:</strong> Forward an email, and it does the chore.</span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>Follows the rules:</strong> It follows your static instructions.</span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume:</strong> We handle the maintenance.</span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>1 Update per month.</strong></span></li>
-                </ul>
-                <a href="#"
-                   onclick="event.preventDefault(); choosePlan('buster');"
-                   class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">
-                    Delegate This Task
-                </a>            </div>
-
-            <div class="bg-white border-2 border-emerald-700 rounded-2xl shadow-md p-8 flex flex-col relative transform md:-translate-y-2">
-                <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-emerald-700 text-white px-4 py-1 rounded-full text-xs font-bold tracking-wide">MOST POPULAR</div>
-                <div class="h-32 mb-6 rounded-xl overflow-hidden shadow-sm">
-                    <img src="https://images.pexels.com/photos/1684032/pexels-photo-1684032.jpeg?auto=compress&cs=tinysrgb&w=800"
-                         alt="Enjoying an outdoor meal with friends and family"
-                         class="w-full h-full object-cover">
-                </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-2">The Workflow Saver</h3>
-                <p class="text-gray-500 mb-6 min-h-[48px]">Connect your apps and put a whole process on autopilot.</p>
-                <div class="mb-6">
-                    <span class="text-4xl font-extrabold text-gray-900">£50</span>
-                    <span class="text-gray-500 font-medium">/month</span>
-                </div>
-                <ul class="space-y-4 mb-8 flex-grow text-gray-600 text-sm">
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>1 Smart Assistant</strong></span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span>Handles a <strong>multi-step process</strong>.</span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span>Connects <strong>up to 3 of your apps</strong>.</span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>Works automatically:</strong> Reacts the moment a new task arrives.</span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>Learns your style:</strong> Remembers your voice and history.</span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume:</strong> Scales instantly.</span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>2 Updates per month.</strong></span></li>
-                </ul>
-                <a href="#"
-                   onclick="event.preventDefault(); choosePlan('saver');"
-                   class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">
-                    Automate My Workflow
-                </a>            </div>
-
-            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 flex flex-col hover:border-emerald-300 transition">
-                <div class="h-32 mb-6 rounded-xl overflow-hidden shadow-sm">
-                    <img src="https://images.pexels.com/photos/3807755/pexels-photo-3807755.jpeg?auto=compress&cs=tinysrgb&w=800"
-                         alt="Taking the dog for a walk outdoors"
-                         class="w-full h-full object-cover">
-                </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-2">The Digital Employee</h3>
-                <p class="text-gray-500 mb-6 min-h-[48px]">Like hiring a specialist for one department, without the HR headache.</p>
-                <div class="mb-6">
-                    <span class="text-4xl font-extrabold text-gray-900">£100</span>
-                    <span class="text-gray-500 font-medium">/month</span>
-                </div>
-                <ul class="space-y-4 mb-8 flex-grow text-gray-600 text-sm">
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>1 Dedicated Assistant</strong> for one core area.</span></li>
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Manages a complete process</strong> (up to 5 connected steps).</span></li>
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span>Connects <strong>all standard apps</strong>.</span></li>
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Works while you sleep:</strong> 24/7 monitoring.</span></li>
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Knows your business:</strong> Uses your real data.</span></li>
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume & Tweaks.</strong></span></li>
-                </ul>
-                <a href="#"
-                   onclick="event.preventDefault(); choosePlan('employee');"
-                   class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">
-                    Hire Your Assistant
-                </a>            </div>
-        </div>
-    </div>
-
-    <div id="tab-business" class="hidden animate-fade-in">
-        <div class="text-center mb-10">
-            <h2 class="text-2xl font-bold text-gray-800">Enterprise-grade automation.</h2>
-            <p class="text-gray-500 mt-2">Replace complex, multi-step human operations across your entire team.</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 flex flex-col">
-                <h3 class="text-2xl font-bold text-gray-900 mb-2">The Department Automator</h3>
-                <div class="mb-6">
-                    <span class="text-4xl font-extrabold text-gray-900">£599</span>
-                    <span class="text-gray-500 font-medium">/month</span>
-                </div>
-                <ul class="space-y-4 mb-8 flex-grow">
-                    <li class="flex items-start"><span class="text-gray-800 mr-2">✓</span> <span class="text-gray-600">Up to 3 interconnected digital assistants</span></li>
-                    <li class="flex items-start"><span class="text-gray-800 mr-2">✓</span> <span class="text-gray-600">Continuous background optimization</span></li>
-                </ul>
-                <a href="register.html" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">Draft Your Custom Brief</a>
+        <!-- ── TIER 1: Starter ────────────────────────────────── -->
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 flex flex-col hover:border-emerald-300 transition relative">
+            <div class="mb-5">
+                <span class="inline-block bg-gray-100 text-gray-600 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3">Starter</span>
+                <h3 class="text-2xl font-bold text-gray-900 mb-1">Solo Automator</h3>
+                <p class="text-gray-500 text-sm min-h-[40px]">Hand off your single most annoying daily chore — forever.</p>
             </div>
-
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl shadow-lg p-8 flex flex-col text-white">
-                <h3 class="text-2xl font-bold text-white mb-2">Custom Architecture</h3>
-                <div class="mb-6">
-                    <span class="text-xl text-gray-400 font-medium">Starting at</span><br>
-                    <span class="text-4xl font-extrabold text-white">£1,199+</span>
-                    <span class="text-gray-400 font-medium">/month</span>
-                </div>
-                <ul class="space-y-4 mb-8 flex-grow">
-                    <li class="flex items-start"><span class="text-emerald-500 mr-2">✓</span> <span class="text-gray-300">Fully bespoke, multi-system integration</span></li>
-                    <li class="flex items-start"><span class="text-emerald-500 mr-2">✓</span> <span class="text-gray-300">It reads and remembers your internal company databases</span></li>
-                </ul>
-                <a href="register.html" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">Scope Your Architecture</a>
+            <div class="mb-6 pb-6 border-b border-gray-100">
+                <span class="text-4xl font-extrabold text-gray-900">£29</span>
+                <span class="text-gray-500 font-medium">/month</span>
+                <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
             </div>
+            <!-- Limits callout -->
+            <div class="flex gap-4 mb-6 text-center">
+                <div class="flex-1 bg-gray-50 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-gray-900">1</div>
+                    <div class="text-xs text-gray-500 font-medium">Assistant</div>
+                </div>
+                <div class="flex-1 bg-gray-50 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-gray-900">500</div>
+                    <div class="text-xs text-gray-500 font-medium">Tasks / mo</div>
+                </div>
+                <div class="flex-1 bg-gray-50 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-gray-900">1</div>
+                    <div class="text-xs text-gray-500 font-medium">App</div>
+                </div>
+            </div>
+            <ul class="space-y-3 mb-8 flex-grow text-gray-600 text-sm">
+                <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5 shrink-0">✓</span><span>Works <strong>on your command</strong> — forward an email, it acts</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5 shrink-0">✓</span><span>Follows <strong>static instructions</strong> you set once</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5 shrink-0">✓</span><span><strong>1 instruction update</strong> per month included</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5 shrink-0">✓</span><span>Email &amp; help-centre support</span></li>
+                <li class="flex items-start gap-2 text-gray-400"><span class="mt-0.5 shrink-0">–</span><span>Automated triggers</span></li>
+                <li class="flex items-start gap-2 text-gray-400"><span class="mt-0.5 shrink-0">–</span><span>Multi-app workflows</span></li>
+                <li class="flex items-start gap-2 text-gray-400"><span class="mt-0.5 shrink-0">–</span><span>Style &amp; memory learning</span></li>
+            </ul>
+            <a href="#" onclick="event.preventDefault(); choosePlan('starter');"
+               class="w-full block text-center px-6 py-3 font-semibold rounded-xl text-white bg-gray-800 hover:bg-gray-900 shadow transition mt-auto">
+                Get Started
+            </a>
         </div>
+
+        <!-- ── TIER 2: Pro Team (MOST POPULAR) ───────────────── -->
+        <div class="bg-white border-2 border-emerald-600 rounded-2xl shadow-lg p-7 flex flex-col relative transform md:-translate-y-2 xl:-translate-y-3">
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-emerald-600 text-white px-5 py-1 rounded-full text-xs font-bold tracking-widest uppercase">Most Popular</div>
+            <div class="mb-5">
+                <span class="inline-block bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3">Pro Team</span>
+                <h3 class="text-2xl font-bold text-gray-900 mb-1">Workflow Accelerator</h3>
+                <p class="text-gray-500 text-sm min-h-[40px]">Connect your apps and put entire processes on autopilot.</p>
+            </div>
+            <div class="mb-6 pb-6 border-b border-gray-100">
+                <span class="text-4xl font-extrabold text-gray-900">£99</span>
+                <span class="text-gray-500 font-medium">/month</span>
+                <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
+            </div>
+            <!-- Limits callout -->
+            <div class="flex gap-4 mb-6 text-center">
+                <div class="flex-1 bg-emerald-50 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-emerald-700">3</div>
+                    <div class="text-xs text-emerald-600 font-medium">Assistants</div>
+                </div>
+                <div class="flex-1 bg-emerald-50 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-emerald-700">2k</div>
+                    <div class="text-xs text-emerald-600 font-medium">Tasks / mo</div>
+                </div>
+                <div class="flex-1 bg-emerald-50 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-emerald-700">3</div>
+                    <div class="text-xs text-emerald-600 font-medium">Apps</div>
+                </div>
+            </div>
+            <ul class="space-y-3 mb-8 flex-grow text-gray-600 text-sm">
+                <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5 shrink-0">✓</span><span><strong>Automated triggers</strong> — reacts the moment a new task arrives</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5 shrink-0">✓</span><span><strong>Learns your style</strong> — remembers voice, tone &amp; history</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5 shrink-0">✓</span><span>Handles <strong>multi-step processes</strong> end-to-end</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5 shrink-0">✓</span><span><strong>4 instruction updates</strong> per month included</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5 shrink-0">✓</span><span>Priority email support</span></li>
+                <li class="flex items-start gap-2 text-gray-400"><span class="mt-0.5 shrink-0">–</span><span>24 / 7 background monitoring</span></li>
+                <li class="flex items-start gap-2 text-gray-400"><span class="mt-0.5 shrink-0">–</span><span>Real-time business data access</span></li>
+            </ul>
+            <a href="#" onclick="event.preventDefault(); choosePlan('pro_team');"
+               class="w-full block text-center px-6 py-3 font-semibold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition mt-auto">
+                Automate My Workflow
+            </a>
+        </div>
+
+        <!-- ── TIER 3: Business Automator ─────────────────────── -->
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 flex flex-col hover:border-emerald-300 transition relative">
+            <div class="mb-5">
+                <span class="inline-block bg-purple-50 text-purple-700 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3">Business</span>
+                <h3 class="text-2xl font-bold text-gray-900 mb-1">Business Automator</h3>
+                <p class="text-gray-500 text-sm min-h-[40px]">Like hiring a whole operations team — without the HR headache.</p>
+            </div>
+            <div class="mb-6 pb-6 border-b border-gray-100">
+                <span class="text-4xl font-extrabold text-gray-900">£349</span>
+                <span class="text-gray-500 font-medium">/month</span>
+                <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
+            </div>
+            <!-- Limits callout -->
+            <div class="flex gap-4 mb-6 text-center">
+                <div class="flex-1 bg-purple-50 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-purple-700">10</div>
+                    <div class="text-xs text-purple-600 font-medium">Assistants</div>
+                </div>
+                <div class="flex-1 bg-purple-50 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-purple-700">10k</div>
+                    <div class="text-xs text-purple-600 font-medium">Tasks / mo</div>
+                </div>
+                <div class="flex-1 bg-purple-50 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-purple-700">∞</div>
+                    <div class="text-xs text-purple-600 font-medium">Apps</div>
+                </div>
+            </div>
+            <ul class="space-y-3 mb-8 flex-grow text-gray-600 text-sm">
+                <li class="flex items-start gap-2"><span class="text-purple-600 mt-0.5 shrink-0">✓</span><span><strong>24 / 7 background monitoring</strong> — works while you sleep</span></li>
+                <li class="flex items-start gap-2"><span class="text-purple-600 mt-0.5 shrink-0">✓</span><span><strong>Reads your real business data</strong> — CRM, spreadsheets, databases</span></li>
+                <li class="flex items-start gap-2"><span class="text-purple-600 mt-0.5 shrink-0">✓</span><span>Manages <strong>complete end-to-end processes</strong></span></li>
+                <li class="flex items-start gap-2"><span class="text-purple-600 mt-0.5 shrink-0">✓</span><span><strong>Unlimited</strong> instruction updates</span></li>
+                <li class="flex items-start gap-2"><span class="text-purple-600 mt-0.5 shrink-0">✓</span><span><strong>Priority support</strong> with dedicated account manager</span></li>
+                <li class="flex items-start gap-2"><span class="text-purple-600 mt-0.5 shrink-0">✓</span><span>Advanced analytics dashboard</span></li>
+                <li class="flex items-start gap-2 text-gray-400"><span class="mt-0.5 shrink-0">–</span><span>Custom SLA &amp; on-boarding</span></li>
+            </ul>
+            <a href="#" onclick="event.preventDefault(); choosePlan('business');"
+               class="w-full block text-center px-6 py-3 font-semibold rounded-xl text-white bg-purple-700 hover:bg-purple-800 shadow transition mt-auto">
+                Scale My Business
+            </a>
+        </div>
+
+        <!-- ── TIER 4: Custom Enterprise ──────────────────────── -->
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl shadow-xl p-7 flex flex-col relative">
+            <div class="mb-5">
+                <span class="inline-block bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3">Enterprise</span>
+                <h3 class="text-2xl font-bold text-white mb-1">Custom Architecture</h3>
+                <p class="text-gray-400 text-sm min-h-[40px]">Bespoke multi-system integration built around your organisation.</p>
+            </div>
+            <div class="mb-6 pb-6 border-b border-gray-700">
+                <span class="text-xl text-gray-400 font-medium">Starting at</span><br>
+                <span class="text-4xl font-extrabold text-white">£1,199</span>
+                <span class="text-gray-400 font-medium">/month</span>
+                <p class="text-xs text-gray-500 mt-1">Pricing scoped to your requirements</p>
+            </div>
+            <!-- Limits callout -->
+            <div class="flex gap-4 mb-6 text-center">
+                <div class="flex-1 bg-gray-800 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-emerald-400">∞</div>
+                    <div class="text-xs text-gray-400 font-medium">Assistants</div>
+                </div>
+                <div class="flex-1 bg-gray-800 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-emerald-400">∞</div>
+                    <div class="text-xs text-gray-400 font-medium">Tasks / mo</div>
+                </div>
+                <div class="flex-1 bg-gray-800 rounded-xl py-3 px-2">
+                    <div class="text-2xl font-extrabold text-emerald-400">∞</div>
+                    <div class="text-xs text-gray-400 font-medium">Apps</div>
+                </div>
+            </div>
+            <ul class="space-y-3 mb-8 flex-grow text-gray-300 text-sm">
+                <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5 shrink-0">✓</span><span>Fully <strong class="text-white">bespoke</strong> multi-system integration</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5 shrink-0">✓</span><span>Reads &amp; remembers your <strong class="text-white">internal company databases</strong></span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5 shrink-0">✓</span><span>Custom <strong class="text-white">SLA</strong> — uptime guarantee in writing</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5 shrink-0">✓</span><span><strong class="text-white">Dedicated success manager</strong> — one person who knows your account</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5 shrink-0">✓</span><span>On-site scoping session &amp; white-glove onboarding</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5 shrink-0">✓</span><span>Continuous optimisation — we tune your assistants as your needs evolve</span></li>
+                <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5 shrink-0">✓</span><span>Enterprise security review &amp; data processing agreement</span></li>
+            </ul>
+            <button onclick="openEnterpriseModal()"
+               class="w-full block text-center px-6 py-3 font-semibold rounded-xl text-gray-900 bg-emerald-400 hover:bg-emerald-300 shadow-md transition mt-auto">
+                Book a Discovery Call
+            </button>
+        </div>
+
+    </div><!-- /grid -->
+
+    <!-- ── Feature comparison table ──────────────────────────────── -->
+    <div class="max-w-5xl mx-auto mb-20 overflow-x-auto">
+        <h2 class="text-2xl font-bold text-gray-900 text-center mb-8">What's included in each tier</h2>
+        <table class="w-full text-sm border-collapse">
+            <thead>
+                <tr class="border-b-2 border-gray-200">
+                    <th class="text-left py-4 pr-6 font-semibold text-gray-700 w-2/5">Feature</th>
+                    <th class="text-center py-4 px-3 font-semibold text-gray-700">Starter<br><span class="font-normal text-gray-400">£29</span></th>
+                    <th class="text-center py-4 px-3 font-bold text-emerald-700 bg-emerald-50 rounded-t-lg">Pro Team<br><span class="font-normal text-emerald-500">£99</span></th>
+                    <th class="text-center py-4 px-3 font-semibold text-gray-700">Business<br><span class="font-normal text-gray-400">£349</span></th>
+                    <th class="text-center py-4 px-3 font-semibold text-gray-700">Enterprise<br><span class="font-normal text-gray-400">£1,199+</span></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">Active Assistants</td>
+                    <td class="py-3.5 px-3 text-center text-gray-900 font-semibold">1</td>
+                    <td class="py-3.5 px-3 text-center text-emerald-700 font-semibold bg-emerald-50/50">3</td>
+                    <td class="py-3.5 px-3 text-center text-gray-900 font-semibold">10</td>
+                    <td class="py-3.5 px-3 text-center text-gray-900 font-semibold">Unlimited</td>
+                </tr>
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">Tasks per Month</td>
+                    <td class="py-3.5 px-3 text-center text-gray-900">500</td>
+                    <td class="py-3.5 px-3 text-center text-emerald-700 font-semibold bg-emerald-50/50">2,000</td>
+                    <td class="py-3.5 px-3 text-center text-gray-900">10,000</td>
+                    <td class="py-3.5 px-3 text-center text-gray-900">Unlimited</td>
+                </tr>
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">App Integrations</td>
+                    <td class="py-3.5 px-3 text-center text-gray-900">1</td>
+                    <td class="py-3.5 px-3 text-center bg-emerald-50/50">3</td>
+                    <td class="py-3.5 px-3 text-center text-gray-900">Unlimited</td>
+                    <td class="py-3.5 px-3 text-center text-gray-900">Unlimited</td>
+                </tr>
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">Automated Triggers</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400">—</td>
+                    <td class="py-3.5 px-3 text-center bg-emerald-50/50">✓</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                </tr>
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">Style &amp; Memory Learning</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400">—</td>
+                    <td class="py-3.5 px-3 text-center bg-emerald-50/50">✓</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                </tr>
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">24/7 Background Monitoring</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400">—</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400 bg-emerald-50/50">—</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                </tr>
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">Live Business Data Access</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400">—</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400 bg-emerald-50/50">—</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                </tr>
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">Instruction Updates / mo</td>
+                    <td class="py-3.5 px-3 text-center text-gray-900">1</td>
+                    <td class="py-3.5 px-3 text-center bg-emerald-50/50">4</td>
+                    <td class="py-3.5 px-3 text-center">Unlimited</td>
+                    <td class="py-3.5 px-3 text-center">Unlimited</td>
+                </tr>
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">Analytics Dashboard</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400">—</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400 bg-emerald-50/50">—</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                </tr>
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">Support</td>
+                    <td class="py-3.5 px-3 text-center text-gray-600 text-xs">Email &amp; Help Centre</td>
+                    <td class="py-3.5 px-3 text-center text-emerald-700 text-xs font-semibold bg-emerald-50/50">Priority Email</td>
+                    <td class="py-3.5 px-3 text-center text-gray-600 text-xs">Dedicated Manager</td>
+                    <td class="py-3.5 px-3 text-center text-gray-600 text-xs">White-Glove</td>
+                </tr>
+                <tr>
+                    <td class="py-3.5 pr-6 text-gray-700 font-medium">Custom SLA</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400">—</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400 bg-emerald-50/50">—</td>
+                    <td class="py-3.5 px-3 text-center text-gray-400">—</td>
+                    <td class="py-3.5 px-3 text-center">✓</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 
-    <div class="max-w-3xl mx-auto mt-24">
+    <!-- ── FAQ ──────────────────────────────────────────────────── -->
+    <div class="max-w-3xl mx-auto mt-4">
         <h2 class="text-3xl font-bold text-center text-gray-900 mb-10">Frequently Asked Questions</h2>
 
         <div class="space-y-4">
             <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
-                    <span>What are "raw computing costs"?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
+                    <span>What counts as a "task"?</span>
+                    <span class="transition group-open:rotate-180"><svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg></span>
                 </summary>
                 <div class="px-6 pb-6 text-gray-600">
-                    Think of our monthly subscription like paying for a car, and the "computing cost" like paying for the electricity. Most users spend less than £2 a month. We pass this cost to you with zero markup.
+                    Each time one of your assistants completes an action — drafts a reply, files a document, posts a report — that counts as one task. Browsing your dashboard or updating instructions does not count.
                 </div>
             </details>
 
             <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
-                    <span>Is there a risk of a huge surprise bill?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
+                    <span>What happens when I reach my task limit?</span>
+                    <span class="transition group-open:rotate-180"><svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg></span>
                 </summary>
                 <div class="px-6 pb-6 text-gray-600">
-                    No. You can set a strict monthly spending cap (e.g., £5). If your assistant reaches that, it simply pauses until you approve more.
+                    You'll receive a notification when you reach 80% of your monthly allowance. At 100%, automated tasks are paused and you'll be prompted to upgrade or wait for the new billing period. Manual "on-command" tasks are never blocked.
+                </div>
+            </details>
+
+            <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
+                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
+                    <span>Is there a risk of a surprise bill?</span>
+                    <span class="transition group-open:rotate-180"><svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg></span>
+                </summary>
+                <div class="px-6 pb-6 text-gray-600">
+                    No. Every plan has a fixed flat fee — there are no per-task or per-compute charges. Your bill is exactly the same amount every month.
                 </div>
             </details>
 
             <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
                     <span>What apps can my assistant connect to?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
+                    <span class="transition group-open:rotate-180"><svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg></span>
                 </summary>
                 <div class="px-6 pb-6 text-gray-600">
-                    Almost anything (Gmail, Slack, Sheets, CRMs). Our team verifies compatibility during onboarding before you ever pay a dime.
+                    Almost anything — Gmail, Slack, Google Sheets, HubSpot, Salesforce, Notion, and hundreds more. Our team verifies compatibility during onboarding before you ever pay a penny.
                 </div>
             </details>
 
             <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
                     <span>Is my business data safe?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
+                    <span class="transition group-open:rotate-180"><svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg></span>
                 </summary>
                 <div class="px-6 pb-6 text-gray-600">
-                    Your data is never used to train public AI models. It is locked in a secure vault that only belongs to your account.
+                    Your data is never used to train public AI models. It is locked in a secure vault that only belongs to your account. We are GDPR-compliant and happy to sign a data processing agreement.
                 </div>
             </details>
 
             <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
                     <span>Do I need to know anything about coding?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
+                    <span class="transition group-open:rotate-180"><svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg></span>
                 </summary>
                 <div class="px-6 pb-6 text-gray-600">
-                    Absolutely not. You just fill out a plain-English form. Our human team takes over from there.
+                    Absolutely not. You describe what you want in plain English on a short form. Our human team takes over from there.
                 </div>
             </details>
 
             <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
                 <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
                     <span>Am I locked into a long-term contract?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
+                    <span class="transition group-open:rotate-180"><svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg></span>
                 </summary>
                 <div class="px-6 pb-6 text-gray-600">
-                    No. All plans are rolling monthly subscriptions. Cancel or change your assistant's job at any time.
+                    No. All plans are rolling monthly subscriptions. Cancel or upgrade at any time — no notice period required.
                 </div>
             </details>
         </div>
     </div>
+
 </main>
+
+<!-- ── Enterprise Lead Capture Modal (SC5) ──────────────────────── -->
+<div id="modal-enterprise" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="ent-modal-title">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div class="bg-gray-900 px-8 py-6">
+            <h2 id="ent-modal-title" class="text-xl font-bold text-white mb-1">Book a Discovery Call</h2>
+            <p class="text-gray-400 text-sm">Tell us about your organisation and we'll schedule a call to scope your custom build.</p>
+        </div>
+        <form id="enterprise-form" class="px-8 py-6 space-y-4" onsubmit="submitEnterpriseForm(event)">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1" for="ent-first-name">First name</label>
+                    <input id="ent-first-name" type="text" required placeholder="Sarah"
+                           class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1" for="ent-last-name">Last name</label>
+                    <input id="ent-last-name" type="text" required placeholder="Johnson"
+                           class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1" for="ent-email">Work email</label>
+                <input id="ent-email" type="email" required placeholder="sarah@acmecorp.com"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1" for="ent-company">Company name</label>
+                <input id="ent-company" type="text" required placeholder="Acme Corp"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1" for="ent-team-size">Team size</label>
+                <select id="ent-team-size"
+                        class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                    <option value="">Select…</option>
+                    <option value="1-10">1–10 people</option>
+                    <option value="11-50">11–50 people</option>
+                    <option value="51-200">51–200 people</option>
+                    <option value="201-1000">201–1,000 people</option>
+                    <option value="1000+">1,000+ people</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1" for="ent-use-case">What do you want to automate?</label>
+                <textarea id="ent-use-case" rows="3" required placeholder="e.g. Automatically route and summarise inbound support emails, then update our CRM…"
+                          class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"></textarea>
+            </div>
+            <p id="ent-form-error" class="text-red-600 text-sm hidden"></p>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeEnterpriseModal()"
+                        class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button type="submit" id="ent-submit-btn"
+                        class="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 transition">
+                    Request Discovery Call
+                </button>
+            </div>
+        </form>
+        <!-- Success state -->
+        <div id="enterprise-success" class="px-8 py-10 text-center hidden">
+            <div class="text-5xl mb-4">🎉</div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Request received!</h3>
+            <p class="text-gray-500 text-sm mb-6">Our team will be in touch within one business day to schedule your discovery call.</p>
+            <button onclick="closeEnterpriseModal()" class="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 transition">Close</button>
+        </div>
+    </div>
+</div>
 
 <div id="footer-placeholder"></div>
 
 <script src="./mobileMenu.js"></script>
-
 <script>
-    function switchTab(tabId) {
-        const consumerTab = document.getElementById('tab-consumer');
-        const businessTab = document.getElementById('tab-business');
-        const btnConsumer = document.getElementById('btn-consumer');
-        const btnBusiness = document.getElementById('btn-business');
+(function () {
 
-        if (!consumerTab || !businessTab || !btnConsumer || !btnBusiness) return;
+    // ── Price IDs ────────────────────────────────────────────────
+    // Starter maps to the old 'buster' Stripe price; pro_team to 'saver'; business to 'employee'
+    const PRICE_IDS = {
+        starter:  'price_1TgGNFE7lvVYjk1BAsnhUzBp',
+        pro_team: 'price_1TgGP8E7lvVYjk1BRBeEZVd6',
+        business: 'price_1TgGPfE7lvVYjk1B1CQrS6pE',
+    };
 
-        if (tabId === 'consumer') {
-            consumerTab.classList.remove('hidden');
-            consumerTab.classList.add('block');
-            businessTab.classList.remove('block');
-            businessTab.classList.add('hidden');
-
-            btnConsumer.className = "px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 bg-white text-gray-900 shadow-sm cursor-pointer";
-            btnBusiness.className = "px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 text-gray-500 hover:text-gray-700 cursor-pointer";
-        } else if (tabId === 'business') {
-            businessTab.classList.remove('hidden');
-            businessTab.classList.add('block');
-            consumerTab.classList.remove('block');
-            consumerTab.classList.add('hidden');
-
-            btnBusiness.className = "px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 bg-white text-gray-900 shadow-sm cursor-pointer";
-            btnConsumer.className = "px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 text-gray-500 hover:text-gray-700 cursor-pointer";
-        }
-    }
-
-    async function loadComponent(placeholderId, filePath) {
-        try {
-            const response = await fetch(filePath);
-            if (response.ok) {
-                document.getElementById(placeholderId).innerHTML = await response.text();
-            }
-        } catch (error) {
-            console.error(`Error loading component ${filePath}:`, error);
-        }
-    }
-
+    // ── Helpers ──────────────────────────────────────────────────
     function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
+        const v = `; ${document.cookie}`;
+        const p = v.split(`; ${name}=`);
+        if (p.length === 2) return p.pop().split(';').shift();
         return null;
     }
 
-    // Returns true only if aura_session exists AND its JWT exp is in the future.
     function isLoggedIn() {
         const token = getCookie('aura_session');
         if (!token) return false;
         try {
             const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
             return payload.exp && payload.exp * 1000 > Date.now();
-        } catch {
-            return false;
-        }
+        } catch { return false; }
     }
 
-    // Called by every plan CTA button.
-    // Logged-in users → checkout.html?tier=…
-    // New visitors → register.html (priceId stored for email magic link)
-    // Price IDs: test env first, live env second (both map to the same tier)
-    const PRICE_IDS = {
-        buster:   'price_1TgGNFE7lvVYjk1BAsnhUzBp',   // test
-        saver:    'price_1TgGP8E7lvVYjk1BRBeEZVd6',   // test
-        employee: 'price_1TgGPfE7lvVYjk1B1CQrS6pE',   // test
-    };
-
-    function choosePlan(tier) {
+    // ── Plan CTA ─────────────────────────────────────────────────
+    window.choosePlan = function (tier) {
+        if (tier === 'enterprise') { openEnterpriseModal(); return; }
         if (isLoggedIn()) {
             window.location.href = 'checkout.html?tier=' + tier;
         } else {
-            sessionStorage.setItem('pending_price_id', PRICE_IDS[tier] || PRICE_IDS.saver);
+            sessionStorage.setItem('pending_price_id', PRICE_IDS[tier] || PRICE_IDS.pro_team);
+            sessionStorage.setItem('pending_tier', tier);
             window.location.href = 'register.html';
         }
+    };
+
+    // ── Enterprise modal ─────────────────────────────────────────
+    window.openEnterpriseModal = function () {
+        const m = document.getElementById('modal-enterprise');
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => document.getElementById('ent-first-name').focus(), 50);
+    };
+
+    window.closeEnterpriseModal = function () {
+        const m = document.getElementById('modal-enterprise');
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+        document.body.style.overflow = '';
+        // Reset form
+        document.getElementById('enterprise-form').classList.remove('hidden');
+        document.getElementById('enterprise-success').classList.add('hidden');
+        document.getElementById('enterprise-form').reset();
+        document.getElementById('ent-form-error').classList.add('hidden');
+    };
+
+    // Close modal on backdrop click
+    document.getElementById('modal-enterprise').addEventListener('click', function (e) {
+        if (e.target === this) closeEnterpriseModal();
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeEnterpriseModal();
+    });
+
+    window.submitEnterpriseForm = async function (e) {
+        e.preventDefault();
+        const btn = document.getElementById('ent-submit-btn');
+        const errEl = document.getElementById('ent-form-error');
+        errEl.classList.add('hidden');
+        btn.disabled = true;
+        btn.textContent = 'Sending…';
+
+        const firstName = document.getElementById('ent-first-name').value.trim();
+        const lastName  = document.getElementById('ent-last-name').value.trim();
+        const email     = document.getElementById('ent-email').value.trim();
+        const company   = document.getElementById('ent-company').value.trim();
+        const teamSize  = document.getElementById('ent-team-size').value;
+        const useCase   = document.getElementById('ent-use-case').value.trim();
+
+        try {
+            const res = await fetch('/.netlify/functions/capture-lead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    role: 'Enterprise',
+                    name: `${firstName} ${lastName}`,
+                    company,
+                    teamSize,
+                    useCase,
+                    opportunityReason: 'Enterprise pricing enquiry',
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to submit');
+            document.getElementById('enterprise-form').classList.add('hidden');
+            document.getElementById('enterprise-success').classList.remove('hidden');
+        } catch (err) {
+            errEl.textContent = err.message || 'Something went wrong. Please try again.';
+            errEl.classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Request Discovery Call';
+        }
+    };
+
+    // ── Page init ────────────────────────────────────────────────
+    async function loadComponent(id, path) {
+        try {
+            const r = await fetch(path);
+            if (r.ok) document.getElementById(id).innerHTML = await r.text();
+        } catch {}
     }
 
-    document.addEventListener("DOMContentLoaded", async () => {
-        await loadComponent("nav-placeholder", "./components/nav.html");
-        loadComponent("footer-placeholder", "./components/footer.html");
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadComponent('nav-placeholder', './components/nav.html');
+        loadComponent('footer-placeholder', './components/footer.html');
         setupMobileMenu();
 
-        // After email verification the user is logged in — show a banner confirming it.
         if (new URLSearchParams(window.location.search).get('verified') === 'true') {
             const banner = document.createElement('div');
             banner.className = 'fixed top-0 left-0 right-0 z-50 bg-emerald-700 text-white text-center py-3 px-4 text-sm font-semibold shadow-md';
@@ -332,6 +581,8 @@
             document.body.prepend(banner);
         }
     });
+
+})();
 </script>
 </body>
 </html>

@@ -12,6 +12,12 @@ export const handler: Handler = async (event) => {
         const body = JSON.parse(event.body || '{}');
         const rawEmail = body.email || '';
         const role = body.role || '';
+        // SC5 enterprise extra fields (optional)
+        const name             = (body.name      || '').trim();
+        const company          = (body.company   || '').trim();
+        const teamSize         = (body.teamSize   || '').trim();
+        const useCase          = (body.useCase    || '').trim();
+        const opportunityReasonOverride = (body.opportunityReason || '').trim();
 
         const email = rawEmail.trim().toLowerCase();
 
@@ -23,8 +29,10 @@ export const handler: Handler = async (event) => {
         const db = getDb();
 
         // Scenario 2: Dynamic field mapping
-        const opportunityReason = `Interest in the ${role} Role`;
-        const actionText = 'notify user of AI Assistant readiness';
+        const opportunityReason = opportunityReasonOverride || `Interest in the ${role} Role`;
+        const actionText = role === 'Enterprise'
+            ? `Enterprise discovery call requested — ${company || 'unknown company'}, ${teamSize || 'unknown size'}: ${useCase.slice(0, 120) || 'no use case provided'}`
+            : 'notify user of AI Assistant readiness';
 
         // Scenarios 1, 4, & 5: Insert or quietly update if it's a duplicate
         await db.insert(leads)

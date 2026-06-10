@@ -215,7 +215,22 @@ export const masterPlans = pgTable("master_plans", {
   tierKey: text("tier_key").notNull().unique(),
   name: text("name").notNull(),
   monthlyPriceGbp: numeric("monthly_price_gbp", { precision: 10, scale: 2 }).notNull(),
+  // Capacity limits — enforced at runtime; null = unlimited
+  assistantLimit: integer("assistant_limit"),        // max active AI assistants
+  monthlyTaskLimit: integer("monthly_task_limit"),   // max task runs per calendar month
   isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Task runs — one row per automated task execution; used for monthly volume tracking (SC3)
+export const taskRuns = pgTable("task_runs", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "set null" }),
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
+  taskType: text("task_type").notNull().default("automated"),  // 'automated' | 'manual' | 'scheduled'
+  status: text("status").notNull().default("completed"),       // 'completed' | 'failed' | 'skipped'
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
