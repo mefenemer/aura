@@ -81,7 +81,19 @@ export const handler: Handler = async (event) => {
                 timezone: 'Europe/London', // Baseline timezone
                 notifyWins: true,
                 notifyBilling: true,
-                notifyAvailability: false
+                notifyAvailability: false,
+                // Default email delivery preferences (Scenario 3)
+                // Transactional types are always true; others default as shown.
+                emailPreferences: {
+                    payment_confirmation:    true,  // transactional — locked on
+                    account_creation:        true,  // transactional — locked on
+                    account_cancellation:    true,  // transactional — locked on
+                    invoice_ready:           true,
+                    assistant_tasks:         true,
+                    onboarding_reminders:    true,
+                    new_role_availability:   false,
+                    content_calendar:        true,
+                },
             });
 
             return newUser;

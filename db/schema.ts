@@ -161,6 +161,12 @@ export const userProfiles = pgTable("user_profiles", {
   notifyWins: boolean('notify_wins').default(true).notNull(),
   notifyBilling: boolean('notify_billing').default(true).notNull(),
   notifyAvailability: boolean('notify_availability').default(false).notNull(),
+  // Email delivery preferences — one key per notification category.
+  // Shape: Record<string, boolean>. Missing key = use category default.
+  // Transactional keys (payment_confirmation, account_creation,
+  // account_cancellation) are always true in the application layer
+  // and cannot be opted out by the user.
+  emailPreferences: jsonb("email_preferences"),
   language: text("language").default("en"),
   preferences: jsonb("preferences"),
   legalConsents: jsonb("legal_consents"),

@@ -105,7 +105,11 @@
             </div>
             <!-- Creative assets -->
             <div id="panel-assets-wrap">
-              <p class="text-xs font-bold text-gray-500 mb-1.5">Creative Assets</p>
+              <div class="flex items-center justify-between mb-1.5">
+                <p class="text-xs font-bold text-gray-500">Creative Assets</p>
+                <!-- shown only for editable posts -->
+                <span id="panel-assets-hint" class="hidden text-[10px] text-gray-400 italic">Click × to detach</span>
+              </div>
               <div id="panel-assets-list" class="grid grid-cols-2 gap-2"></div>
             </div>
             <!-- Links & CTAs -->

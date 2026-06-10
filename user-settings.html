@@ -45,44 +45,64 @@
             </div>
         </div>
 
+        <!-- ── In-app Notification Preferences ──────────────────── -->
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
-                <h3 class="text-lg font-bold text-gray-900">Notification Preferences</h3>
-                <p class="text-sm text-gray-500">Control how and when your digital team interrupts you.</p>
+                <h3 class="text-lg font-bold text-gray-900">In-App Notification Preferences</h3>
+                <p class="text-sm text-gray-500">Control which activity types appear in your notification bell.</p>
             </div>
             <div class="p-6 space-y-4">
 
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-semibold text-gray-900">Assistant Wins & Summaries</p>
+                        <p class="text-sm font-semibold text-gray-900">Assistant Wins &amp; Summaries</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Daily recap of completed tasks and wins.</p>
                     </div>
                     <button type="button" id="toggle-notify-wins" data-pref-key="notifyWins" class="bg-red-500 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none" role="switch" aria-checked="false">
                         <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
                     </button>
                 </div>
 
-                <div class="border-t border-gray-100 my-4"></div>
+                <div class="border-t border-gray-100"></div>
 
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-semibold text-gray-900">Billing & Subscription</p>
+                        <p class="text-sm font-semibold text-gray-900">Billing &amp; Subscription</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Payment receipts and plan change alerts.</p>
                     </div>
                     <button type="button" id="toggle-notify-billing" data-pref-key="notifyBilling" class="bg-red-500 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none" role="switch" aria-checked="false">
                         <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
                     </button>
                 </div>
 
-                <div class="border-t border-gray-100 my-4"></div>
+                <div class="border-t border-gray-100"></div>
 
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-semibold text-gray-900">New Role Availability</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Alerts when waitlisted roles become available.</p>
                     </div>
                     <button type="button" id="toggle-notify-availability" data-pref-key="notifyAvailability" class="bg-red-500 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none" role="switch" aria-checked="false">
                         <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
                     </button>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- ── Email Notification Preferences ────────────────────── -->
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
+                <h3 class="text-lg font-bold text-gray-900">Email Notification Preferences</h3>
+                <p class="text-sm text-gray-500">Choose which categories of alerts are delivered to your inbox. Transactional emails cannot be disabled.</p>
+            </div>
+            <div id="email-prefs-loading" class="p-6 text-sm text-gray-400">Loading preferences…</div>
+            <div id="email-prefs-body" class="hidden divide-y divide-gray-100">
+                <!-- Rows injected by workspace.js -->
+            </div>
+            <div id="email-prefs-save-banner" class="hidden px-6 py-3 bg-emerald-50 border-t border-emerald-100 flex items-center gap-2 text-sm text-emerald-700 font-semibold">
+                <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                Preference saved.
             </div>
         </div>
 

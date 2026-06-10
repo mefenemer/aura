@@ -130,6 +130,63 @@ export const handler: Handler = async (event) => {
             }
 
             const body = JSON.parse(event.body || '{}');
+
+            // ── Asset detachment (Scenario 1 & 2: Remove from Queue) ──────
+            // PATCH ?id=N with { detachAssetId: number } removes the asset
+            // reference from the post and reverts the asset's status to 'pending'.
+            if (body.detachAssetId !== undefined) {
+                const detachId = Number(body.detachAssetId);
+                if (!Number.isFinite(detachId)) {
+                    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid detachAssetId.' }) };
+                }
+
+                // Remove from contentAssetIds
+                const currentIds: number[] = Array.isArray(existing.contentAssetIds) ? (existing.contentAssetIds as number[]) : [];
+                if (!currentIds.includes(detachId)) {
+                    return { statusCode: 400, body: JSON.stringify({ error: 'Asset is not attached to this post.' }) };
+                }
+                const newIds = currentIds.filter(id => id !== detachId);
+
+                // Platforms that require at least one media asset
+                const MEDIA_REQUIRED_PLATFORMS = new Set(['instagram']);
+                const mediaRequired = MEDIA_REQUIRED_PLATFORMS.has(existing.platform);
+                const postUpdates: Record<string, any> = {
+                    contentAssetIds: newIds,
+                    updatedAt: new Date(),
+                };
+
+                // Scenario 2: If post can't exist without the asset, flag it
+                let requiresAttention = false;
+                if (mediaRequired && newIds.length === 0) {
+                    postUpdates.status = 'draft';
+                    requiresAttention = true;
+                }
+
+                const [updatedPost] = await db.update(scheduledPosts)
+                    .set(postUpdates)
+                    .where(eq(scheduledPosts.id, postId))
+                    .returning();
+
+                // Revert asset status to 'pending'
+                await db.update(contentAssets)
+                    .set({ status: 'pending', updatedAt: new Date() })
+                    .where(and(
+                        eq(contentAssets.id, detachId),
+                        eq(contentAssets.userId, userId),
+                    ));
+
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify({
+                        post: updatedPost,
+                        requiresAttention,
+                        message: requiresAttention
+                            ? 'Post flagged as Draft — this platform requires at least one media asset.'
+                            : 'Asset removed from post.',
+                    }),
+                };
+            }
+
             const updates: Record<string, any> = { updatedAt: new Date() };
 
             const editableFields = ['caption', 'linkUrl', 'ctaText', 'hashtags', 'mentions', 'utmParams', 'campaign', 'pillar', 'postFormat', 'contentAssetIds'];

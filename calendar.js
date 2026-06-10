@@ -333,26 +333,45 @@ window._calOpenPost = async function (postId) {
     // Assets
     const assetsList = document.getElementById('panel-assets-list');
     const assetsWrap = document.getElementById('panel-assets-wrap');
+    const assetsHint = document.getElementById('panel-assets-hint');
+    const isEditable = !['published', 'cancelled', 'rejected'].includes(post.status);
+
+    if (assetsHint) {
+        isEditable && assets.length > 0 ? assetsHint.classList.remove('hidden') : assetsHint.classList.add('hidden');
+    }
+
     if (assets.length > 0) {
         assetsWrap.classList.remove('hidden');
         assetsList.innerHTML = assets.map(a => {
+            const detachBtn = isEditable
+                ? `<button type="button"
+                    onclick="window._calDetachAsset(${a.id})"
+                    title="Remove from post"
+                    class="absolute top-1 right-1 w-5 h-5 bg-white/90 border border-gray-300 rounded-full flex items-center justify-center text-gray-500 hover:text-red-600 hover:border-red-300 shadow-sm transition text-xs font-bold z-10"
+                    >✕</button>`
+                : '';
             if (a.assetType === 'image' && a.storageUrl) {
-                return `<div class="aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
+                return `<div class="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
                     <img src="${a.storageUrl}" alt="${_escHtml(a.name)}" class="w-full h-full object-cover">
+                    ${detachBtn}
                 </div>`;
             }
             if (a.assetType === 'video') {
-                return `<div class="aspect-square rounded-xl border border-gray-200 bg-gray-100 flex flex-col items-center justify-center gap-1 text-gray-400">
+                return `<div class="relative aspect-square rounded-xl border border-gray-200 bg-gray-100 flex flex-col items-center justify-center gap-1 text-gray-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.72v6.56a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                     <p class="text-[10px] text-center px-2 truncate w-full text-center">${_escHtml(a.name)}</p>
+                    ${detachBtn}
                 </div>`;
             }
             if (a.externalUrl) {
-                return `<a href="${a.externalUrl}" target="_blank" rel="noopener"
-                    class="aspect-square rounded-xl border border-blue-200 bg-blue-50 flex flex-col items-center justify-center gap-1 text-blue-600 hover:bg-blue-100 transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-                    <p class="text-[10px] px-2 truncate w-full text-center">${_escHtml(a.name)}</p>
-                </a>`;
+                return `<div class="relative aspect-square">
+                    <a href="${a.externalUrl}" target="_blank" rel="noopener"
+                        class="block w-full h-full rounded-xl border border-blue-200 bg-blue-50 flex flex-col items-center justify-center gap-1 text-blue-600 hover:bg-blue-100 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                        <p class="text-[10px] px-2 truncate w-full text-center">${_escHtml(a.name)}</p>
+                    </a>
+                    ${detachBtn}
+                </div>`;
             }
             return '';
         }).join('');
@@ -441,6 +460,49 @@ window._calClosePanel = function () {
     document.getElementById('aura-panel')?.classList.add('hidden');
     _openPostId = null;
     _editMode = false;
+};
+
+// ── Asset detachment ──────────────────────────────────────────────
+window._calDetachAsset = async function (assetId) {
+    if (!_openPostId) return;
+    if (!confirm('Remove this asset from the post? The asset will be returned to Pending status.')) return;
+
+    try {
+        const res = await fetch(`/.netlify/functions/scheduled-posts?id=${_openPostId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ detachAssetId: assetId }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            alert(data.error || 'Failed to remove asset. Please try again.');
+            return;
+        }
+
+        // Update local cache
+        _updateLocalPost(data.post);
+
+        // Scenario 2: warn if post needs attention
+        if (data.requiresAttention) {
+            // Show a brief attention banner inside the panel
+            const panel = document.getElementById('aura-panel');
+            if (panel) {
+                const banner = document.createElement('div');
+                banner.className = 'mx-5 mb-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 font-semibold flex items-start gap-2';
+                banner.innerHTML = `<svg class="w-4 h-4 shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3C7.029 3 3 7.029 3 12s4.029 9 9 9 9-4.029 9-9-4.029-9-9-9z"/></svg>
+                    <span>${_escHtml(data.message)}</span>`;
+                const footer = document.getElementById('panel-footer');
+                if (footer) footer.parentNode.insertBefore(banner, footer);
+                setTimeout(() => banner.remove(), 6000);
+            }
+        }
+
+        // Refresh the panel to reflect removed asset
+        await window._calOpenPost(_openPostId);
+        _render(); // re-render chips in case status changed
+    } catch (e) {
+        alert('Connection failed. Please try again.');
+    }
 };
 
 // ── Edit mode ─────────────────────────────────────────────────────

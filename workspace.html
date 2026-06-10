@@ -636,6 +636,77 @@
       });
     });
 
+    // ── Email Notification Preferences (Scenario 1-3) ──────────────
+    async function initEmailPreferences() {
+      const loadingEl = document.getElementById('email-prefs-loading');
+      const bodyEl    = document.getElementById('email-prefs-body');
+      if (!bodyEl) return; // Not on settings view
+
+      try {
+        const res = await fetch('/.netlify/functions/notification-preferences');
+        if (!res.ok) throw new Error('Load failed');
+        const { preferences, categories } = await res.json();
+
+        // Build rows
+        bodyEl.innerHTML = categories.map(cat => {
+          const isOn = preferences[cat.key] !== false; // default true if missing
+          const locked = cat.locked;
+          const toggleId = `email-toggle-${cat.key}`;
+          return `
+            <div class="flex items-center justify-between px-6 py-4 gap-4">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <p class="text-sm font-semibold text-gray-900">${cat.label}</p>
+                  ${locked ? `<span class="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full border border-gray-200 shrink-0">Required</span>` : ''}
+                </div>
+                <p class="text-xs text-gray-400 mt-0.5 leading-snug">${cat.description}</p>
+              </div>
+              <button type="button"
+                id="${toggleId}"
+                data-email-pref-key="${cat.key}"
+                ${locked ? 'disabled aria-disabled="true"' : ''}
+                class="${locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isOn ? 'bg-green-500' : 'bg-red-500'} relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                role="switch"
+                aria-checked="${isOn ? 'true' : 'false'}">
+                <span aria-hidden="true" class="${isOn ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+              </button>
+            </div>`;
+        }).join('');
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+        bodyEl.classList.remove('hidden');
+
+        // Attach click handlers
+        categories.forEach(cat => {
+          if (cat.locked) return;
+          const btn = document.getElementById(`email-toggle-${cat.key}`);
+          if (!btn) return;
+          btn.addEventListener('click', async () => {
+            const current = btn.getAttribute('aria-checked') === 'true';
+            const next = !current;
+            updateToggleView(btn, next);
+            try {
+              const r = await fetch('/.netlify/functions/notification-preferences', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: cat.key, value: next }),
+              });
+              if (!r.ok) { updateToggleView(btn, current); return; }
+              // Flash save banner
+              const banner = document.getElementById('email-prefs-save-banner');
+              if (banner) {
+                banner.classList.remove('hidden');
+                setTimeout(() => banner.classList.add('hidden'), 2500);
+              }
+            } catch { updateToggleView(btn, current); }
+          });
+        });
+      } catch {
+        if (loadingEl) loadingEl.textContent = 'Could not load preferences. Please refresh.';
+      }
+    }
+    initEmailPreferences();
+
     // Helper function to animate the toggle switches smoothly to match the provided image
     function updateToggleView(el, status) {
       el.setAttribute('aria-checked', status ? 'true' : 'false');
