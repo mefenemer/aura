@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:push": "drizzle-kit push",
+    "db:seed-catalog": "ts-node -r dotenv/config db/seed-catalog.ts",
     "build:css": "tailwindcss -i ./input.css -o ./style.css --watch"
   },
   "private": true,
