@@ -15,7 +15,22 @@
         .fade-up-2 { animation: fadeUp .4s .08s ease both; }
         .fade-up-3 { animation: fadeUp .4s .16s ease both; }
         /* Comparison table sticky header */
-        .cmp-thead th { position: sticky; top: 0; z-index: 1; }
+        .cmp-thead th { position: sticky; top: 0; z-index: 1; vertical-align: top; }
+        /* Pink palette — defined here so Tailwind purging cannot remove them */
+        .pk-btn        { background-color: #ec4899; color: #ffffff; }
+        .pk-btn:hover  { background-color: #db2777; }
+        .pk-stat-box   { background-color: #fdf2f8; }
+        .pk-stat-num   { color: #be185d; }
+        .pk-stat-lbl   { color: #9d174d; }
+        .pk-check      { color: #ec4899; }
+        .pk-pill       { background-color: #ec4899; color: #ffffff; }
+        .pk-col-tint   { background-color: #fdf2f8; }
+        .pk-col-th     { background-color: #fdf2f8; }
+        .pk-text       { color: #ec4899; }
+        .pk-text-dark  { color: #be185d; }
+        .pk-divider    { border-color: #fce7f3; }
+        .pk-ent-label  { color: #f9a8d4; }
+        .pk-ent-check  { color: #f9a8d4; }
     </style>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
@@ -53,45 +68,49 @@
 
             <!-- ── Tier 1: The Busywork Buster ──────────────────── -->
             <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
+                <!-- HEADER: tier label + name + price only → ensures divider aligns across all 3 cards -->
                 <div class="p-8 pb-6 border-b border-gray-100">
                     <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 1</p>
-                    <h2 class="text-xl font-extrabold text-gray-900 mb-1">The Busywork Buster</h2>
-                    <p class="text-sm text-gray-500 leading-relaxed mb-6">"Hand off your single most time consuming or annoying task to a dedicated digital helper."</p>
+                    <h2 class="text-xl font-extrabold text-gray-900 mb-4">The Busywork Buster</h2>
                     <div class="flex items-end gap-1 mb-1">
                         <span class="text-5xl font-extrabold text-gray-900 leading-none">£29</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
                     <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
-                <div class="p-8 flex-grow">
-                    <div class="grid grid-cols-3 gap-2 mb-7">
-                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
-                            <div class="text-xl font-extrabold text-gray-900">1</div>
-                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Assistant</div>
+                <div class="p-8 flex-grow flex flex-col">
+                    <p class="text-sm text-gray-500 leading-relaxed mb-5 italic">"Hand off your single most time consuming or annoying task to a dedicated digital helper."</p>
+                    <!-- Capacity stat boxes — pink -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">1</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Assistant</div>
                         </div>
-                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
-                            <div class="text-xl font-extrabold text-gray-900">500</div>
-                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Tasks/mo</div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">500</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Tasks/mo</div>
                         </div>
-                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
-                            <div class="text-xl font-extrabold text-gray-900">2</div>
-                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Apps</div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">2</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Apps</div>
                         </div>
                     </div>
-                    <ul class="space-y-2.5 text-sm text-gray-600">
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Basic Reporting</strong> — summary of tasks completed</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Brand Memory</strong> — learns your tone, mission &amp; history</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Around-the-Clock Workflows</strong> — runs securely while you sleep</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Draft Approvals</strong> — sign off before anything is sent</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Content Calendar</strong> — schedule &amp; review upcoming work</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>"My Content" Hub</strong> — drop in photos, videos &amp; links</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Brand Protection Guarantee</strong> — Aura Safe Content Benchmark</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Continuous Evolution</strong> — free capability upgrades as we improve</span></li>
+                    <!-- Divider after stat boxes -->
+                    <hr class="my-5 pk-divider border-t">
+                    <ul class="space-y-2.5 text-sm text-gray-600 flex-grow">
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Basic Reporting</strong> — a clear summary of what your assistant completed each month</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Brand Memory</strong> — your assistant learns your voice, values, and history from day one</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Around-the-Clock Workflows</strong> — scheduled tasks run automatically, even while you're offline</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Draft Approvals</strong> — every output lands in your inbox for sign-off before it's published</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Content Calendar</strong> — plan, schedule, and review upcoming work in one view</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>"My Content" Hub</strong> — drop in photos, videos, and links as source material</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Brand Protection Guarantee</strong> — built-in safety rules keeping every output on-brand and compliant</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Continuous Evolution</strong> — your assistant automatically improves as we release new capabilities</span></li>
                     </ul>
                 </div>
                 <div class="px-8 pb-8">
                     <a href="#" onclick="event.preventDefault(); choosePlan('starter');"
-                       class="w-full block text-center px-6 py-3.5 font-bold rounded-xl text-white bg-pink-500 hover:bg-pink-600 shadow-sm transition">
+                       class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
                         Get Started
                     </a>
                 </div>
@@ -100,46 +119,47 @@
             <!-- ── Tier 2: The Workflow Saver ─────────────────────── -->
             <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden relative">
                 <div class="absolute top-4 right-4">
-                    <span class="bg-pink-500 text-white text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full">Most Popular</span>
+                    <span class="pk-pill text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full">Most Popular</span>
                 </div>
                 <div class="p-8 pb-6 border-b border-gray-100">
                     <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 2</p>
-                    <h2 class="text-xl font-extrabold text-gray-900 mb-1">The Workflow Saver</h2>
-                    <p class="text-sm text-gray-500 leading-relaxed mb-6">"Scale your operations by building a multi-role digital department."</p>
+                    <h2 class="text-xl font-extrabold text-gray-900 mb-4">The Workflow Saver</h2>
                     <div class="flex items-end gap-1 mb-1">
                         <span class="text-5xl font-extrabold text-gray-900 leading-none">£99</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
                     <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
-                <div class="p-8 flex-grow">
-                    <div class="grid grid-cols-3 gap-2 mb-7">
-                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
-                            <div class="text-xl font-extrabold text-gray-900">3</div>
-                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Assistants</div>
+                <div class="p-8 flex-grow flex flex-col">
+                    <p class="text-sm text-gray-500 leading-relaxed mb-5 italic">"Scale your operations by building a multi-role digital department."</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">3</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Assistants</div>
                         </div>
-                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
-                            <div class="text-xl font-extrabold text-gray-900">2.5k</div>
-                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Tasks/mo</div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">2.5k</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Tasks/mo</div>
                         </div>
-                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
-                            <div class="text-xl font-extrabold text-gray-900">∞</div>
-                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Apps</div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">∞</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Apps</div>
                         </div>
                     </div>
+                    <hr class="my-5 pk-divider border-t">
                     <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Everything in Tier 1, plus:</p>
-                    <ul class="space-y-2.5 text-sm text-gray-600">
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>3 Digital Assistants</strong> — deploy multiple distinct roles</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Unlimited app connections</strong></span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Advanced Reporting</strong> — performance breakdowns &amp; time saved</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>The Quality Reviewer</strong> — one assistant critiques the others' work</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Early Access</strong> — new assistant roles before public release</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Priority email &amp; chat support</span></li>
+                    <ul class="space-y-2.5 text-sm text-gray-600 flex-grow">
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>3 Digital Assistants</strong> — deploy multiple distinct roles across your business</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Unlimited app connections</strong> — connect every tool in your workflow, no restrictions</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Advanced Reporting</strong> — detailed performance breakdowns and time-saved metrics</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>The Quality Reviewer</strong> — a dedicated assistant that checks and critiques the others' work</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Early Access</strong> — new assistant roles available to you before public release</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Priority email &amp; chat support</strong> — faster response times from our customer success team</span></li>
                     </ul>
                 </div>
                 <div class="px-8 pb-8">
                     <a href="#" onclick="event.preventDefault(); choosePlan('pro_team');"
-                       class="w-full block text-center px-6 py-3.5 font-bold rounded-xl text-white bg-pink-500 hover:bg-pink-600 shadow-sm transition">
+                       class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
                         Automate My Workflow
                     </a>
                 </div>
@@ -149,41 +169,42 @@
             <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
                 <div class="p-8 pb-6 border-b border-gray-100">
                     <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 3</p>
-                    <h2 class="text-xl font-extrabold text-gray-900 mb-1">The Business Automator</h2>
-                    <p class="text-sm text-gray-500 leading-relaxed mb-6">"A complete digital workforce for scaling businesses and collaborative teams."</p>
+                    <h2 class="text-xl font-extrabold text-gray-900 mb-4">The Business Automator</h2>
                     <div class="flex items-end gap-1 mb-1">
                         <span class="text-5xl font-extrabold text-gray-900 leading-none">£349</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
                     <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
-                <div class="p-8 flex-grow">
-                    <div class="grid grid-cols-3 gap-2 mb-7">
-                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
-                            <div class="text-xl font-extrabold text-gray-900">10</div>
-                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Assistants</div>
+                <div class="p-8 flex-grow flex flex-col">
+                    <p class="text-sm text-gray-500 leading-relaxed mb-5 italic">"A complete digital workforce for scaling businesses and collaborative teams."</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">10</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Assistants</div>
                         </div>
-                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
-                            <div class="text-xl font-extrabold text-gray-900">10k</div>
-                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Tasks/mo</div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">10k</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Tasks/mo</div>
                         </div>
-                        <div class="text-center bg-gray-50 rounded-xl py-3 px-1">
-                            <div class="text-xl font-extrabold text-gray-900">∞</div>
-                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Apps</div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">∞</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Apps</div>
                         </div>
                     </div>
+                    <hr class="my-5 pk-divider border-t">
                     <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Everything in Tier 2, plus:</p>
-                    <ul class="space-y-2.5 text-sm text-gray-600">
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Custom Reporting</strong> — build dashboards for your key metrics</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Workspace Collaboration</strong> — invite team members &amp; clients</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Advanced Tool Vault</strong> — connect specialist &amp; premium third-party software</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>1-on-1 Strategy &amp; Onboarding Call</strong> with an Aura-Assist expert</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Roadmap Influence</strong> — vote on which assistant roles we build next</span></li>
+                    <ul class="space-y-2.5 text-sm text-gray-600 flex-grow">
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Custom Reporting</strong> — tailored dashboards built around the metrics that matter most to your business</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Workspace Collaboration</strong> — invite team members, managers, or clients to view and approve outputs</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Advanced Tool Vault</strong> — access to premium and specialist third-party integrations beyond the standard set</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>1-on-1 Strategy &amp; Onboarding Call</strong> — a dedicated session with an Aura-Assist expert to set up and optimise your workspace</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Roadmap Influence</strong> — vote on which features and assistant types we prioritise building next</span></li>
                     </ul>
                 </div>
                 <div class="px-8 pb-8">
                     <a href="#" onclick="event.preventDefault(); choosePlan('business');"
-                       class="w-full block text-center px-6 py-3.5 font-bold rounded-xl text-white bg-pink-500 hover:bg-pink-600 shadow-sm transition">
+                       class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
                         Scale My Business
                     </a>
                 </div>
@@ -193,37 +214,37 @@
 
         <!-- ── Tier 4: Custom Enterprise band ────────────────────── -->
         <div class="mt-8 rounded-2xl bg-gray-900 overflow-hidden">
-            <div class="flex flex-col lg:flex-row items-start lg:items-center gap-8 p-8 lg:p-10">
-                <!-- Price -->
-                <div class="lg:w-56 shrink-0">
-                    <span class="inline-block text-xs font-bold uppercase tracking-widest text-pink-400 mb-3">Tier 4 · Enterprise</span>
-                    <h2 class="text-xl font-extrabold text-white mb-1">Custom Enterprise</h2>
-                    <p class="text-sm text-gray-400 leading-relaxed mb-3">"Bespoke digital architecture for complex corporate environments."</p>
-                    <div class="text-3xl font-extrabold text-white leading-none">£1,199<span class="text-xl text-gray-400">+</span></div>
+            <div class="flex flex-col lg:flex-row items-start lg:items-center gap-6 p-7 lg:p-8">
+                <!-- Price block -->
+                <div class="lg:w-52 shrink-0">
+                    <span class="inline-block text-xs font-bold uppercase tracking-widest pk-ent-label mb-2">Tier 4 · Enterprise</span>
+                    <h2 class="text-lg font-extrabold text-white mb-1">Custom Enterprise</h2>
+                    <p class="text-xs text-gray-400 leading-relaxed mb-3">"Bespoke digital architecture for complex corporate environments."</p>
+                    <div class="text-2xl font-extrabold text-white leading-none">£1,199<span class="text-lg text-gray-400">+</span></div>
                     <div class="text-xs text-gray-500 mt-1">Scoped to your requirements</div>
                 </div>
                 <!-- Divider -->
                 <div class="hidden lg:block w-px self-stretch bg-white/10 shrink-0"></div>
-                <!-- Features -->
-                <div class="flex-1">
-                    <p class="text-xs font-bold text-pink-400 uppercase tracking-wider mb-4">Everything in Tier 3, plus:</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-3">
-                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-pink-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Tailored assistant &amp; task volume limits</span></div>
-                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-pink-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Dedicated account manager</span></div>
-                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-pink-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SSO integration for corporate-wide access</span></div>
-                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-pink-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SMS &amp; WhatsApp alerts for critical approvals</span></div>
-                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-pink-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Internal systems access — private databases &amp; legacy software</span></div>
-                        <div class="flex gap-3 text-sm text-gray-300"><svg class="w-4 h-4 text-pink-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>➕ <strong class="text-white">Premium Add-On: VIP Engineering Co-Creation</strong> — commission our core engineering team to build bespoke Digital Assistants exclusive to your organisation <span class="text-gray-400">(scoped &amp; billed per project)</span></span></div>
+                <!-- Features grid -->
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold pk-ent-label uppercase tracking-wider mb-3">Everything in Tier 3, plus:</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
+                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Tailored assistant &amp; task volume limits</span></div>
+                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Dedicated account manager</span></div>
+                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SSO integration for corporate-wide access</span></div>
+                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SMS &amp; WhatsApp alerts for critical approvals</span></div>
+                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Internal systems access — private databases &amp; legacy software</span></div>
+                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>➕ Premium Add-On: VIP Engineering Co-Creation — bespoke Digital Assistants built exclusively for your organisation <span class="text-gray-500">(scoped &amp; billed per project)</span></span></div>
                     </div>
                 </div>
                 <!-- CTA -->
-                <div class="shrink-0 text-center lg:text-right">
+                <div class="shrink-0 lg:pl-2">
                     <button onclick="openEnterpriseModal()"
-                            class="inline-flex items-center gap-2 px-7 py-3.5 bg-pink-500 hover:bg-pink-400 text-white font-bold rounded-xl shadow-lg transition whitespace-nowrap">
+                            class="pk-btn inline-flex items-center gap-2 px-6 py-3 font-bold rounded-xl shadow-lg transition whitespace-nowrap text-sm">
                         Book a Discovery Call
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                     </button>
-                    <p class="text-xs text-gray-500 mt-2">We'll quote within 24 hours</p>
+                    <p class="text-xs text-gray-500 mt-2 text-center lg:text-right">We'll quote within 24 hours</p>
                 </div>
             </div>
         </div>
@@ -240,30 +261,30 @@
                 <table class="w-full text-sm">
                     <thead class="cmp-thead">
                         <tr class="bg-gray-50 border-b border-gray-200">
-                            <th class="text-left px-6 py-5 font-semibold text-gray-600 w-2/5 bg-gray-50"></th>
-                            <th class="text-center px-4 py-5 bg-gray-50 w-[15%]">
+                            <th class="text-left px-6 py-5 font-semibold text-gray-600 w-2/5 bg-gray-50" style="vertical-align:top"></th>
+                            <th class="text-center px-4 py-5 bg-gray-50 w-[15%]" style="vertical-align:top">
                                 <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tier 1</div>
-                                <div class="font-extrabold text-gray-900 text-sm leading-tight">The Busywork Buster</div>
-                                <div class="font-extrabold text-gray-900 text-base mt-1">£29</div>
+                                <div class="font-extrabold text-gray-900 text-sm leading-snug">The Busywork<br>Buster</div>
+                                <div class="font-extrabold text-gray-900 text-base mt-1.5">£29</div>
                                 <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
                             </th>
-                            <th class="text-center px-4 py-5 bg-pink-50 w-[15%]">
-                                <div class="text-[10px] font-bold uppercase tracking-wider text-pink-400 mb-0.5">Tier 2</div>
-                                <div class="font-extrabold text-gray-900 text-sm leading-tight">The Workflow Saver</div>
-                                <div class="font-extrabold text-gray-900 text-base mt-1">£99</div>
+                            <th class="text-center px-4 py-5 w-[15%] pk-col-th" style="vertical-align:top">
+                                <div class="text-[10px] font-bold uppercase tracking-wider pk-text mb-0.5">Tier 2</div>
+                                <div class="font-extrabold text-gray-900 text-sm leading-snug">The Workflow<br>Saver</div>
+                                <div class="font-extrabold text-gray-900 text-base mt-1.5">£99</div>
                                 <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
-                                <div class="mt-2"><span class="inline-block bg-pink-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">Most Popular</span></div>
+                                <div class="mt-2"><span class="pk-pill inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">Popular</span></div>
                             </th>
-                            <th class="text-center px-4 py-5 bg-gray-50 w-[15%]">
+                            <th class="text-center px-4 py-5 bg-gray-50 w-[15%]" style="vertical-align:top">
                                 <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tier 3</div>
-                                <div class="font-extrabold text-gray-900 text-sm leading-tight">The Business Automator</div>
-                                <div class="font-extrabold text-gray-900 text-base mt-1">£349</div>
+                                <div class="font-extrabold text-gray-900 text-sm leading-snug">The Business<br>Automator</div>
+                                <div class="font-extrabold text-gray-900 text-base mt-1.5">£349</div>
                                 <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
                             </th>
-                            <th class="text-center px-4 py-5 bg-gray-900 w-[15%]">
-                                <div class="text-[10px] font-bold uppercase tracking-wider text-pink-400 mb-0.5">Tier 4</div>
-                                <div class="font-extrabold text-white text-sm leading-tight">Custom Enterprise</div>
-                                <div class="font-extrabold text-white text-base mt-1">£1,199+</div>
+                            <th class="text-center px-4 py-5 bg-gray-900 w-[15%]" style="vertical-align:top">
+                                <div class="text-[10px] font-bold uppercase tracking-wider pk-ent-label mb-0.5">Tier 4</div>
+                                <div class="font-extrabold text-white text-sm leading-snug">Custom<br>Enterprise</div>
+                                <div class="font-extrabold text-white text-base mt-1.5">£1,199+</div>
                                 <div class="text-[10px] text-gray-500 mt-0.5">/ month</div>
                             </th>
                         </tr>
@@ -275,79 +296,79 @@
                             <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Capacity</td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Digital Assistants</td>
-                            <td class="px-4 py-4 text-center font-bold text-gray-900">1</td>
-                            <td class="px-4 py-4 text-center font-bold text-pink-600 bg-pink-50/40">3</td>
-                            <td class="px-4 py-4 text-center font-bold text-gray-900">10</td>
-                            <td class="px-4 py-4 text-center font-bold text-gray-900">Custom</td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Digital Assistants<br><span class="text-xs text-gray-400 font-normal">The number of distinct AI roles you can deploy in your account</span></td>
+                            <td class="px-4 py-3.5 text-center font-bold text-gray-900 align-middle">1</td>
+                            <td class="px-4 py-3.5 text-center font-bold pk-text-dark pk-col-tint align-middle">3</td>
+                            <td class="px-4 py-3.5 text-center font-bold text-gray-900 align-middle">10</td>
+                            <td class="px-4 py-3.5 text-center font-bold text-gray-900 align-middle">Custom</td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Completed Tasks / Month</td>
-                            <td class="px-4 py-4 text-center text-gray-700">500</td>
-                            <td class="px-4 py-4 text-center font-semibold text-pink-600 bg-pink-50/40">2,500</td>
-                            <td class="px-4 py-4 text-center text-gray-700">10,000</td>
-                            <td class="px-4 py-4 text-center text-gray-700">Custom</td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Completed Tasks / Month<br><span class="text-xs text-gray-400 font-normal">Each action your assistant completes counts as one task</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle">500</td>
+                            <td class="px-4 py-3.5 text-center font-semibold pk-text-dark pk-col-tint align-middle">2,500</td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle">10,000</td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle">Custom</td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">App Connections</td>
-                            <td class="px-4 py-4 text-center text-gray-700">Up to 2</td>
-                            <td class="px-4 py-4 text-center font-semibold text-pink-600 bg-pink-50/40">Unlimited</td>
-                            <td class="px-4 py-4 text-center text-gray-700">Unlimited</td>
-                            <td class="px-4 py-4 text-center text-gray-700">Unlimited</td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">App Connections<br><span class="text-xs text-gray-400 font-normal">The tools and platforms your assistants can connect to and work within</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle">Up to 2</td>
+                            <td class="px-4 py-3.5 text-center font-semibold pk-text-dark pk-col-tint align-middle">Unlimited</td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle">Unlimited</td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle">Unlimited</td>
                         </tr>
 
                         <!-- CORE FEATURES -->
                         <tr class="bg-gray-50/70 border-t border-gray-200">
-                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Core Features (all tiers)</td>
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Core Features — included on every plan</td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Aura Safe Content Benchmark</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Aura Safe Content Benchmark<br><span class="text-xs text-gray-400 font-normal">Built-in safety rules that keep every output on-brand and legally compliant</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Brand Memory</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Brand Memory<br><span class="text-xs text-gray-400 font-normal">Your assistant learns your voice, values, and history from day one</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Around-the-Clock Workflows</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Around-the-Clock Workflows<br><span class="text-xs text-gray-400 font-normal">Scheduled tasks run automatically, even while you're offline or asleep</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Draft Approvals</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Draft Approvals<br><span class="text-xs text-gray-400 font-normal">Every output lands in your inbox for sign-off before it's published or sent</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Content Calendar</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Content Calendar<br><span class="text-xs text-gray-400 font-normal">Plan, schedule, and review your assistant's upcoming work in one view</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">"My Content" Hub</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">"My Content" Hub<br><span class="text-xs text-gray-400 font-normal">Drop in photos, videos, and links for your assistant to use as source material</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Brand Protection Guarantee</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Brand Protection Guarantee<br><span class="text-xs text-gray-400 font-normal">Your assistants are governed by our Safe Content Benchmark on every plan</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
 
                         <!-- REPORTING -->
@@ -355,25 +376,25 @@
                             <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Reporting</td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Basic Reporting <span class="text-gray-400 font-normal text-xs">— task summary</span></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Basic Reporting<br><span class="text-xs text-gray-400 font-normal">A clear monthly summary of what your assistant completed</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Advanced Reporting <span class="text-gray-400 font-normal text-xs">— performance &amp; time saved</span></td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Advanced Reporting<br><span class="text-xs text-gray-400 font-normal">Detailed breakdowns of assistant performance, output quality, and time saved</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Custom Reporting <span class="text-gray-400 font-normal text-xs">— bespoke dashboards</span></td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-pink-50/40">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Custom Reporting<br><span class="text-xs text-gray-400 font-normal">Tailored dashboards built around the metrics that matter most to your business</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
 
                         <!-- TEAM & ADVANCED -->
@@ -381,46 +402,46 @@
                             <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Team &amp; Advanced Features</td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">The Quality Reviewer</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">The Quality Reviewer<br><span class="text-xs text-gray-400 font-normal">A dedicated assistant that checks and critiques the work of your other assistants</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Workspace Collaboration</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-pink-50/40">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Workspace Collaboration<br><span class="text-xs text-gray-400 font-normal">Invite team members, managers, or clients to view and approve outputs</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Advanced Tool Vault</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-pink-50/40">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Advanced Tool Vault<br><span class="text-xs text-gray-400 font-normal">Access to premium and specialist third-party integrations beyond the standard set</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Internal Systems Access</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-pink-50/40">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Internal Systems Access<br><span class="text-xs text-gray-400 font-normal">Connect assistants directly to your private databases and legacy business software</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">SSO Integration</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-pink-50/40">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">SSO Integration<br><span class="text-xs text-gray-400 font-normal">Single sign-on for seamless, secure corporate-wide access management</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">SMS &amp; WhatsApp Alerts</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-pink-50/40">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">SMS &amp; WhatsApp Alerts<br><span class="text-xs text-gray-400 font-normal">Receive push notifications for urgent approvals directly via SMS or WhatsApp</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
 
                         <!-- SUPPORT -->
@@ -428,18 +449,18 @@
                             <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Support</td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Support Channel</td>
-                            <td class="px-4 py-4 text-center text-xs text-gray-500">Email &amp; Help Centre</td>
-                            <td class="px-4 py-4 text-center text-xs font-semibold text-pink-600 bg-pink-50/40">Priority Email &amp; Chat</td>
-                            <td class="px-4 py-4 text-center text-xs text-gray-500">Priority + Strategy Call</td>
-                            <td class="px-4 py-4 text-center text-xs text-gray-500">Dedicated Account Manager</td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Support Channel<br><span class="text-xs text-gray-400 font-normal">How you can reach our team when you need help</span></td>
+                            <td class="px-4 py-3.5 text-center text-xs text-gray-500">Email &amp; Help Centre</td>
+                            <td class="px-4 py-3.5 text-center text-xs font-semibold pk-text-dark pk-col-tint">Priority Email &amp; Chat</td>
+                            <td class="px-4 py-3.5 text-center text-xs text-gray-500">Priority + Strategy Call</td>
+                            <td class="px-4 py-3.5 text-center text-xs text-gray-500">Dedicated Account Manager</td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">1-on-1 Strategy &amp; Onboarding Call</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-pink-50/40">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">1-on-1 Strategy &amp; Onboarding Call<br><span class="text-xs text-gray-400 font-normal">A dedicated session with an Aura-Assist expert to set up and optimise your workspace</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
 
                         <!-- CONTINUOUS EVOLUTION -->
@@ -447,35 +468,35 @@
                             <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Continuous Evolution</td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Free Capability Upgrades</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Free Capability Upgrades<br><span class="text-xs text-gray-400 font-normal">Your assistants automatically improve as we release new capabilities — no extra cost ever</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Early Access to New Roles</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center bg-pink-50/40"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Early Access to New Roles<br><span class="text-xs text-gray-400 font-normal">Be first to try new assistant roles before they launch to the general public</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700 font-medium">Roadmap Influence &amp; Voting</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-pink-50/40">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Roadmap Influence &amp; Voting<br><span class="text-xs text-gray-400 font-normal">Vote on which features and assistant types we prioritise building next</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
                         <tr class="border-t border-gray-100 hover:bg-gray-50/40">
-                            <td class="px-6 py-4 text-gray-700">
-                                <div class="font-semibold text-gray-800">➕ Premium Add-On: VIP Engineering Co-Creation</div>
-                                <div class="text-xs text-gray-400 mt-1 leading-relaxed max-w-xs">Commission our core engineering team to architect and build completely bespoke Digital Assistants exclusive to your private organisation. <em>(Scoped and billed per project)</em></div>
+                            <td class="px-6 py-3.5 text-gray-700">
+                                <span class="font-medium">➕ Premium Add-On: VIP Engineering Co-Creation</span><br>
+                                <span class="text-xs text-gray-400 font-normal">Commission our core engineering team to architect and build completely bespoke Digital Assistants exclusive to your private organisation. <em>(Scoped and billed per project)</em></span>
                             </td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300 bg-pink-50/40">—</td>
-                            <td class="px-4 py-4 text-center text-gray-300">—</td>
-                            <td class="px-4 py-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
                         </tr>
 
                         <!-- CTA row -->
@@ -483,15 +504,15 @@
                             <td class="px-6 py-5"></td>
                             <td class="px-4 py-5 text-center">
                                 <a href="#" onclick="event.preventDefault(); choosePlan('starter');"
-                                   class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition">Get Started</a>
+                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Get Started</a>
                             </td>
-                            <td class="px-4 py-5 text-center bg-pink-50/40">
+                            <td class="px-4 py-5 text-center pk-col-tint">
                                 <a href="#" onclick="event.preventDefault(); choosePlan('pro_team');"
-                                   class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition">Choose Tier 2</a>
+                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Choose Tier 2</a>
                             </td>
                             <td class="px-4 py-5 text-center">
                                 <a href="#" onclick="event.preventDefault(); choosePlan('business');"
-                                   class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition">Choose Tier 3</a>
+                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Choose Tier 3</a>
                             </td>
                             <td class="px-4 py-5 text-center">
                                 <button onclick="openEnterpriseModal()"
