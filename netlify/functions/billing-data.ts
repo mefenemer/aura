@@ -207,6 +207,7 @@ export const handler: Handler = async (event) => {
                     : null,
                 cancelAtPeriodEnd: matchedSub?.cancelAtPeriodEnd || false,
                 stripeStatus: matchedSub?.status || null,
+                stripeSubscriptionId: matchedSub?.id || null,
                 paymentMethod: matchedSub?.paymentMethod || null,
             };
         });
