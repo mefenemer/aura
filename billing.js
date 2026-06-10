@@ -4,6 +4,7 @@
     // ── Module state ──────────────────────────────────────────────
     let _subscriptions  = [];
     let _cancelTarget   = null;
+    let _billingInfo    = null;   // cached billing details object
 
     // Stripe Elements state
     let _stripe         = null;
@@ -18,14 +19,33 @@
         _cancelTarget = null;
         _showState('loading');
         try {
-            const res = await fetch('/.netlify/functions/billing-data');
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || `HTTP ${res.status}`);
+            const [billingRes, invoicesRes, billingInfoRes] = await Promise.all([
+                fetch('/.netlify/functions/billing-data'),
+                fetch('/.netlify/functions/invoice-list'),
+                fetch('/.netlify/functions/billing-information'),
+            ]);
+
+            if (!billingRes.ok) {
+                const err = await billingRes.json().catch(() => ({}));
+                throw new Error(err.error || `HTTP ${billingRes.status}`);
             }
-            const { subscriptions, paymentHistory } = await res.json();
+
+            const { subscriptions, paymentHistory } = await billingRes.json();
+            const invoicesData  = invoicesRes.ok  ? await invoicesRes.json().catch(() => ({}))  : {};
+            const billingInfoData = billingInfoRes.ok ? await billingInfoRes.json().catch(() => ({})) : {};
+
             _subscriptions = subscriptions || [];
-            _render(_subscriptions, paymentHistory || []);
+            _billingInfo   = billingInfoData.billingInfo || null;
+
+            _render(_subscriptions, paymentHistory || [], invoicesData.invoices || [], _billingInfo);
+
+            // If navigated here via notification deep-link
+            if (window.location.hash === '#invoice-history') {
+                setTimeout(() => {
+                    const el = document.getElementById('invoice-history-section');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 300);
+            }
         } catch (e) {
             console.error('[billing]', e);
             const msg = document.getElementById('billing-error-msg');
@@ -275,6 +295,149 @@
         iframe.src = 'about:blank';
     };
 
+    // ── Billing Details ───────────────────────────────────────────
+    function _renderBillingDetails(info) {
+        const emptyEl = document.getElementById('billing-details-empty');
+        const infoEl  = document.getElementById('billing-details-info');
+        if (!info) {
+            emptyEl.classList.remove('hidden');
+            infoEl.classList.add('hidden');
+            return;
+        }
+        emptyEl.classList.add('hidden');
+        infoEl.classList.remove('hidden');
+
+        document.getElementById('bd-name').textContent    = info.fullName || '—';
+        document.getElementById('bd-email').textContent   = info.email || '—';
+        document.getElementById('bd-vat').textContent     = info.vatNumber || '—';
+
+        const addrParts = [
+            info.addressLine1, info.addressLine2,
+            info.city, info.state, info.postalCode, info.country
+        ].filter(Boolean);
+        document.getElementById('bd-address').textContent = addrParts.join('\n') || '—';
+    }
+
+    window._billingDetailsEdit = function () {
+        const info = _billingInfo;
+        // Populate form with existing data (or blank)
+        document.getElementById('bd-input-name').value    = info?.fullName    || '';
+        document.getElementById('bd-input-email').value   = info?.email       || '';
+        document.getElementById('bd-input-vat').value     = info?.vatNumber   || '';
+        document.getElementById('bd-input-addr1').value   = info?.addressLine1 || '';
+        document.getElementById('bd-input-addr2').value   = info?.addressLine2 || '';
+        document.getElementById('bd-input-city').value    = info?.city        || '';
+        document.getElementById('bd-input-postal').value  = info?.postalCode  || '';
+        document.getElementById('bd-input-state').value   = info?.state       || '';
+        document.getElementById('bd-input-country').value = info?.country     || '';
+
+        document.getElementById('billing-details-display').classList.add('hidden');
+        document.getElementById('billing-details-form').classList.remove('hidden');
+        document.getElementById('btn-edit-billing-details').classList.add('hidden');
+        document.getElementById('bd-form-error').classList.add('hidden');
+    };
+
+    window._billingDetailsCancel = function () {
+        document.getElementById('billing-details-display').classList.remove('hidden');
+        document.getElementById('billing-details-form').classList.add('hidden');
+        document.getElementById('btn-edit-billing-details').classList.remove('hidden');
+    };
+
+    window._billingDetailsSave = async function () {
+        const saveBtn = document.getElementById('btn-save-billing-details');
+        const errorEl = document.getElementById('bd-form-error');
+        errorEl.classList.add('hidden');
+
+        const fullName = document.getElementById('bd-input-name').value.trim();
+        if (!fullName) {
+            errorEl.textContent = 'Legal name / company name is required.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+
+        try {
+            const body = {
+                fullName,
+                email:        document.getElementById('bd-input-email').value.trim(),
+                vatNumber:    document.getElementById('bd-input-vat').value.trim(),
+                addressLine1: document.getElementById('bd-input-addr1').value.trim(),
+                addressLine2: document.getElementById('bd-input-addr2').value.trim(),
+                city:         document.getElementById('bd-input-city').value.trim(),
+                postalCode:   document.getElementById('bd-input-postal').value.trim(),
+                state:        document.getElementById('bd-input-state').value.trim(),
+                country:      document.getElementById('bd-input-country').value.trim(),
+            };
+
+            const res  = await fetch('/.netlify/functions/billing-information', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+            _billingInfo = data.billingInfo || body;
+            _renderBillingDetails(_billingInfo);
+            window._billingDetailsCancel();
+
+        } catch (e) {
+            console.error('[billing-details-save]', e);
+            errorEl.textContent = e.message || 'Failed to save. Please try again.';
+            errorEl.classList.remove('hidden');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save Details`;
+        }
+    };
+
+    // ── Invoice History ───────────────────────────────────────────
+    function _renderInvoiceHistory(userInvoices) {
+        const wrap  = document.getElementById('invoice-history-wrap');
+        const empty = document.getElementById('invoice-history-empty');
+        const tbody = document.getElementById('invoice-history-tbody');
+
+        if (!userInvoices || userInvoices.length === 0) {
+            wrap.classList.add('hidden');
+            empty.classList.remove('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+        wrap.classList.remove('hidden');
+
+        const statusMeta = {
+            paid:     { label: 'Paid',     cls: 'bg-emerald-50 text-emerald-700' },
+            void:     { label: 'Void',     cls: 'bg-gray-100 text-gray-500' },
+            refunded: { label: 'Refunded', cls: 'bg-amber-50 text-amber-700' },
+        };
+
+        tbody.innerHTML = userInvoices.map(inv => {
+            const sm       = statusMeta[(inv.status || '').toLowerCase()] || { label: inv.status || '—', cls: 'bg-gray-100 text-gray-500' };
+            const currency = (inv.currency || 'GBP').toUpperCase();
+            const symbol   = currency === 'GBP' ? '£' : `${currency} `;
+            const amount   = inv.total ? `${symbol}${parseFloat(inv.total).toFixed(2)}` : '—';
+            const date     = inv.issueDate || inv.createdAt;
+
+            const downloadBtn = `<a href="/.netlify/functions/invoice-pdf?id=${inv.id}" target="_blank" rel="noopener"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-emerald-300 hover:border-emerald-400 text-emerald-700 hover:text-emerald-800 text-xs font-semibold rounded-lg transition bg-white cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Download PDF
+            </a>`;
+
+            return `
+            <tr class="hover:bg-gray-50 transition">
+              <td class="px-5 py-4 font-mono text-xs text-gray-600 whitespace-nowrap">${_esc(inv.invoiceNumber || '—')}</td>
+              <td class="px-5 py-4 text-gray-600 whitespace-nowrap">${_fmtDate(date)}</td>
+              <td class="px-5 py-4 font-medium text-gray-900">${_esc(inv.planName || '—')}</td>
+              <td class="px-5 py-4 font-bold text-gray-900 whitespace-nowrap">${amount}</td>
+              <td class="px-5 py-4"><span class="text-xs font-bold px-2.5 py-1 rounded-full ${sm.cls}">${sm.label}</span></td>
+              <td class="px-5 py-4 text-right">${downloadBtn}</td>
+            </tr>`;
+        }).join('');
+    }
+
     // ── State helpers ─────────────────────────────────────────────
     function _showState(state) {
         document.getElementById('billing-loading').classList.toggle('hidden', state !== 'loading');
@@ -283,9 +446,11 @@
     }
 
     // ── Main render ───────────────────────────────────────────────
-    function _render(subscriptions, paymentHistory) {
+    function _render(subscriptions, paymentHistory, userInvoices, billingInfo) {
         _renderSubscriptions(subscriptions);
         _renderPaymentMethod(subscriptions, paymentHistory);
+        _renderBillingDetails(billingInfo);
+        _renderInvoiceHistory(userInvoices || []);
         _renderHistory(paymentHistory);
 
         _showState('content');

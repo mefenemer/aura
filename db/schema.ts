@@ -375,6 +375,33 @@ export const contentAssets = pgTable("content_assets", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Invoices table — one row per generated invoice, created on every successful payment
+export const invoices = pgTable("invoices", {
+  id: serial().primaryKey(),
+  userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id")
+      .references(() => organisations.id, { onDelete: "cascade" }),
+  planId: integer("plan_id")
+      .references(() => plans.id, { onDelete: "set null" }),
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  issueDate: timestamp("issue_date").notNull().defaultNow(),
+  billingPeriodStart: timestamp("billing_period_start"),
+  billingPeriodEnd: timestamp("billing_period_end"),
+  planName: text("plan_name").notNull(),
+  subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
+  taxRate: numeric("tax_rate", { precision: 5, scale: 4 }).notNull().default('0'),
+  taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).notNull().default('0'),
+  total: numeric("total", { precision: 12, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("GBP"),
+  status: text("status").notNull().default("paid"),   // 'paid' | 'void' | 'refunded'
+  stripeInvoiceId: text("stripe_invoice_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Scheduled Posts Table — Content Calendar & Post Governance
 export const scheduledPosts = pgTable("scheduled_posts", {
   id: serial("id").primaryKey(),

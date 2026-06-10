@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans } from '../../db/schema';
+import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices } from '../../db/schema';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -108,7 +108,37 @@ export const handler: Handler = async (event) => {
             paymentMethod: cardBrand && cardLast4 ? `${cardBrand} ending ${cardLast4}` : null,
         });
 
-        // Notify user to complete onboarding
+        // ── Create invoice record ─────────────────────────────────
+        const billingPeriodStart = new Date();
+        const billingPeriodEnd   = new Date(billingPeriodStart);
+        billingPeriodEnd.setMonth(billingPeriodEnd.getMonth() + 1);
+
+        const inv = await _createInvoice({
+            userId:               userIdInt,
+            organisationId:       orgIdInt || null,
+            planId:               newPlan.id,
+            planName,
+            amountPence:          pi.amount || 0,
+            currency:             pi.currency || 'gbp',
+            billingPeriodStart,
+            billingPeriodEnd,
+            stripePaymentIntentId: pi.id,
+        });
+
+        // ── Notifications ─────────────────────────────────────────
+        // 1. Invoice ready notification
+        if (inv) {
+            await db.insert(notifications).values({
+                userId: userIdInt,
+                type: 'invoice_ready',
+                title: `Your invoice for ${planName} is ready`,
+                message: `Invoice ${inv.invoiceNumber} has been generated for your ${planName} subscription. View it in your Invoice History.`,
+                isRead: false,
+                metadata: { invoiceId: inv.id, invoiceNumber: inv.invoiceNumber, action: 'view_invoices' },
+            });
+        }
+
+        // 2. Onboarding nudge
         await db.insert(notifications).values({
             userId: userIdInt,
             type: 'billing',
@@ -232,6 +262,35 @@ export const handler: Handler = async (event) => {
                 }).catch(err => console.warn('[stripe-webhook] Duplicate payment insert skipped:', err.message));
             }
 
+            // ── Create invoice record for this renewal ────────────
+            const renewPlanRecord = planRecord[0]; // already fetched above
+            const periodStart = invoice.period_start ? new Date(invoice.period_start * 1000) : null;
+            const periodEndDate = invoice.period_end ? new Date(invoice.period_end * 1000) : null;
+
+            const renewInv = await _createInvoice({
+                userId,
+                planId:               renewPlanRecord?.id ?? null,
+                planName:             renewPlanRecord?.planName ?? 'Aura-Assist Subscription',
+                amountPence:          invoice.amount_paid || 0,
+                currency:             invoice.currency || 'gbp',
+                billingPeriodStart:   periodStart,
+                billingPeriodEnd:     periodEndDate,
+                stripeInvoiceId:      invoice.id,
+                stripePaymentIntentId: invoice.payment_intent as string || null,
+            });
+
+            // ── Invoice ready notification ────────────────────────
+            if (renewInv) {
+                await db.insert(notifications).values({
+                    userId,
+                    type: 'invoice_ready',
+                    title: `Your invoice for ${renewPlanRecord?.planName ?? 'your subscription'} is ready`,
+                    message: `Invoice ${renewInv.invoiceNumber} has been generated. View it in your Invoice History.`,
+                    isRead: false,
+                    metadata: { invoiceId: renewInv.id, invoiceNumber: renewInv.invoiceNumber, action: 'view_invoices' },
+                });
+            }
+
             // In-app notification: Subscription renewed
             if (billingReason === 'subscription_cycle') {
                 await db.insert(notifications).values({
@@ -325,6 +384,68 @@ export const handler: Handler = async (event) => {
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Generate a sequential invoice number and insert an invoice record.
+ * Returns the newly inserted invoice.
+ */
+async function _createInvoice(params: {
+    userId: number;
+    organisationId?: number | null;
+    planId?: number | null;
+    planName: string;
+    amountPence: number;   // Stripe amount in smallest currency unit (pence for GBP)
+    currency: string;
+    billingPeriodStart?: Date | null;
+    billingPeriodEnd?: Date | null;
+    stripeInvoiceId?: string | null;
+    stripePaymentIntentId?: string | null;
+}): Promise<typeof invoices.$inferSelect | null> {
+    try {
+        const db = getDb();
+        const total    = (params.amountPence / 100).toFixed(2);
+        const taxRate  = '0';    // Adjust if you collect VAT; update per-region logic here
+        const taxAmt   = '0.00';
+        const subtotal = total;  // subtotal == total when taxRate is 0
+
+        // Insert with placeholder invoice number, then update once we have the DB id
+        const [inv] = await db.insert(invoices).values({
+            userId:               params.userId,
+            organisationId:       params.organisationId ?? null,
+            planId:               params.planId ?? null,
+            invoiceNumber:        'PENDING',
+            issueDate:            new Date(),
+            billingPeriodStart:   params.billingPeriodStart ?? null,
+            billingPeriodEnd:     params.billingPeriodEnd ?? null,
+            planName:             params.planName,
+            subtotal,
+            taxRate,
+            taxAmount:            taxAmt,
+            total,
+            currency:             (params.currency || 'GBP').toUpperCase(),
+            status:               'paid',
+            stripeInvoiceId:      params.stripeInvoiceId ?? null,
+            stripePaymentIntentId: params.stripePaymentIntentId ?? null,
+        }).returning();
+
+        if (!inv) return null;
+
+        // Assign deterministic invoice number: INV-YYYYMM-000001
+        const now     = new Date();
+        const yyyymm  = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const invNum  = `INV-${yyyymm}-${String(inv.id).padStart(6, '0')}`;
+
+        const [updated] = await db.update(invoices)
+            .set({ invoiceNumber: invNum })
+            .where(eq(invoices.id, inv.id))
+            .returning();
+
+        return updated ?? null;
+    } catch (err) {
+        console.error('[stripe-webhook] _createInvoice failed:', (err as any)?.message);
+        return null;
+    }
+}
 
 /**
  * Resolve our internal userId from a Stripe customer ID.
