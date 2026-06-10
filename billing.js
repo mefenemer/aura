@@ -2,8 +2,16 @@
 (function () {
 
     // ── Module state ──────────────────────────────────────────────
-    let _subscriptions = [];   // loaded from API
-    let _cancelTarget  = null; // { stripeSubscriptionId, planName, renewalDate }
+    let _subscriptions  = [];
+    let _cancelTarget   = null;
+
+    // Stripe Elements state
+    let _stripe         = null;
+    let _elements       = null;
+    let _cardNumber     = null;
+    let _cardExpiry     = null;
+    let _cardCvc        = null;
+    let _setupClientSecret = null;
 
     // ── Public entry point ────────────────────────────────────────
     window.initBilling = async function () {
@@ -26,23 +34,142 @@
         }
     };
 
-    // ── Change Card (Stripe Portal) ───────────────────────────────
-    window._billingChangeCard = async function () {
-        const btn = document.getElementById('btn-change-card');
-        const origText = btn ? btn.innerHTML : '';
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/></svg> Redirecting…`;
-        }
+    // ── Card Modal ────────────────────────────────────────────────
+    window._billingOpenCardModal = async function () {
+        // Reset modal state
+        _setupClientSecret = null;
+        _stripe = null;
+        _cardNumber = _cardExpiry = _cardCvc = null;
+
+        const modal      = document.getElementById('modal-card-form');
+        const loadingEl  = document.getElementById('card-form-loading');
+        const fieldsEl   = document.getElementById('card-form-fields');
+        const errorEl    = document.getElementById('card-form-error');
+        const saveBtn    = document.getElementById('btn-save-card');
+
+        // Show modal in loading state
+        modal.classList.remove('hidden');
+        loadingEl.classList.remove('hidden');
+        fieldsEl.classList.add('hidden');
+        errorEl.classList.add('hidden');
+        saveBtn.disabled = true;
+        document.getElementById('card-holder-name').value = '';
+
         try {
-            const res = await fetch('/.netlify/functions/billing-portal', { method: 'POST' });
+            // 1. Get SetupIntent client secret + publishable key from our backend
+            const res  = await fetch('/.netlify/functions/billing-setup-intent', { method: 'POST' });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-            window.location.href = data.url;
+
+            _setupClientSecret = data.clientSecret;
+            const publishableKey = data.publishableKey;
+            if (!publishableKey) throw new Error('Stripe is not configured on this account.');
+
+            // 2. Load Stripe.js lazily (avoid loading on every page)
+            if (!window.Stripe) {
+                await _loadStripeJs();
+            }
+            _stripe = window.Stripe(publishableKey);
+
+            // 3. Mount individual Elements for custom styling
+            const elementStyle = {
+                base: {
+                    fontSize: '14px',
+                    color: '#111827',
+                    fontFamily: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
+                    fontSmoothing: 'antialiased',
+                    '::placeholder': { color: '#9ca3af' },
+                },
+                invalid: { color: '#dc2626', iconColor: '#dc2626' },
+            };
+
+            _elements   = _stripe.elements();
+            _cardNumber = _elements.create('cardNumber', { style: elementStyle, showIcon: true });
+            _cardExpiry = _elements.create('cardExpiry', { style: elementStyle });
+            _cardCvc    = _elements.create('cardCvc',    { style: elementStyle });
+
+            _cardNumber.mount('#stripe-card-number');
+            _cardExpiry.mount('#stripe-card-expiry');
+            _cardCvc.mount('#stripe-card-cvc');
+
+            // Enable save once card number is valid
+            _cardNumber.on('change', e => {
+                saveBtn.disabled = !e.complete;
+                if (e.error) {
+                    errorEl.textContent = e.error.message;
+                    errorEl.classList.remove('hidden');
+                } else {
+                    errorEl.classList.add('hidden');
+                }
+            });
+
+            // Show fields
+            loadingEl.classList.add('hidden');
+            fieldsEl.classList.remove('hidden');
+
         } catch (e) {
-            console.error('[billing-portal]', e);
-            alert('Could not open payment portal: ' + (e.message || 'Unknown error'));
-            if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+            console.error('[billing-card-modal]', e);
+            loadingEl.innerHTML = `<p class="text-sm text-red-500">${e.message || 'Failed to load card form.'}</p>`;
+        }
+    };
+
+    window._billingCloseCardModal = function () {
+        document.getElementById('modal-card-form').classList.add('hidden');
+        // Unmount Elements to avoid double-mount errors if re-opened
+        if (_cardNumber) { try { _cardNumber.unmount(); } catch (_) {} _cardNumber = null; }
+        if (_cardExpiry) { try { _cardExpiry.unmount(); } catch (_) {} _cardExpiry = null; }
+        if (_cardCvc)    { try { _cardCvc.unmount();    } catch (_) {} _cardCvc    = null; }
+        _stripe = null;
+        _elements = null;
+        _setupClientSecret = null;
+    };
+
+    window._billingSaveCard = async function () {
+        if (!_stripe || !_setupClientSecret || !_cardNumber) return;
+
+        const saveBtn  = document.getElementById('btn-save-card');
+        const errorEl  = document.getElementById('card-form-error');
+        const nameEl   = document.getElementById('card-holder-name');
+
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/></svg> Saving…`;
+        errorEl.classList.add('hidden');
+
+        try {
+            // Confirm the SetupIntent — Stripe tokenises the card in its iframe,
+            // no raw card data touches our servers
+            const { setupIntent, error } = await _stripe.confirmCardSetup(_setupClientSecret, {
+                payment_method: {
+                    card: _cardNumber,
+                    billing_details: { name: nameEl.value.trim() || undefined },
+                },
+            });
+
+            if (error) throw new Error(error.message);
+            if (!setupIntent?.payment_method) throw new Error('Card setup did not complete.');
+
+            // Attach the PaymentMethod to the customer + set as default
+            const res  = await fetch('/.netlify/functions/billing-attach-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paymentMethodId: setupIntent.payment_method }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+            // Update the payment method section in the UI immediately (no full reload)
+            if (data.paymentMethod) {
+                _updatePaymentMethodUI(data.paymentMethod);
+            }
+
+            window._billingCloseCardModal();
+
+        } catch (e) {
+            console.error('[billing-save-card]', e);
+            errorEl.textContent = e.message || 'Failed to save card. Please try again.';
+            errorEl.classList.remove('hidden');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg> Save Card`;
         }
     };
 
@@ -50,7 +177,7 @@
     window._billingOpenCancelModal = function (stripeSubscriptionId, planName, renewalDate) {
         _cancelTarget = { stripeSubscriptionId, planName, renewalDate };
 
-        const msg = document.getElementById('cancel-sub-msg');
+        const msg     = document.getElementById('cancel-sub-msg');
         const endDate = renewalDate ? _fmtDate(renewalDate) : 'the end of the billing period';
         if (msg) {
             msg.textContent = `"${planName}" will remain active until ${endDate}, then it will not renew. You will lose access to this assistant at that point.`;
@@ -72,7 +199,7 @@
 
     window._billingConfirmCancel = async function () {
         if (!_cancelTarget) return;
-        const { stripeSubscriptionId, planName } = _cancelTarget;
+        const { stripeSubscriptionId } = _cancelTarget;
 
         const confirmBtn = document.getElementById('btn-confirm-cancel');
         const errEl      = document.getElementById('cancel-sub-error');
@@ -88,17 +215,13 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-            // Close modal and reload billing data
             document.getElementById('modal-cancel-sub').classList.add('hidden');
             _cancelTarget = null;
             await window.initBilling();
 
         } catch (e) {
             console.error('[billing-cancel]', e);
-            if (errEl) {
-                errEl.textContent = e.message || 'Failed to cancel. Please try again.';
-                errEl.classList.remove('hidden');
-            }
+            if (errEl) { errEl.textContent = e.message || 'Failed to cancel. Please try again.'; errEl.classList.remove('hidden'); }
             if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Yes, Cancel'; }
         }
     };
@@ -131,11 +254,7 @@
             ['active', 'trialing'].includes(s.stripeStatus || '') || s.status === 'active'
         );
 
-        if (active.length === 0) {
-            list.innerHTML = '';
-            empty.classList.remove('hidden');
-            return;
-        }
+        if (active.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
         empty.classList.add('hidden');
         list.innerHTML = active.map(_subscriptionCard).join('');
     }
@@ -149,9 +268,8 @@
         };
         const sm     = statusMeta[sub.stripeStatus || sub.status] || statusMeta['active'];
         const cycle  = sub.billingCycle === 'year' ? 'Annually' : 'Monthly';
-        const amount = sub.amountGbp
-            ? `£${parseFloat(sub.amountGbp).toFixed(2)}`
-            : sub.currency ? `${sub.currency.toUpperCase()} —` : '—';
+        const amount = sub.amountGbp ? `£${parseFloat(sub.amountGbp).toFixed(2)}`
+                     : sub.currency  ? `${sub.currency.toUpperCase()} —` : '—';
 
         const renewalLine = sub.cancelAtPeriodEnd
             ? `<span class="text-amber-600 font-semibold">Cancels on ${_fmtDate(sub.renewalDate)}</span>`
@@ -159,7 +277,6 @@
                 ? `Renews <span class="font-semibold text-gray-800">${_fmtDate(sub.renewalDate)}</span>`
                 : `Started <span class="font-semibold text-gray-800">${_fmtDate(sub.startedAt)}</span>`;
 
-        // Cancel button — only for non-cancelled, Stripe-backed subs
         const canCancel = sub.stripeSubscriptionId && !sub.cancelAtPeriodEnd &&
                           !['cancelled', 'canceled'].includes(sub.stripeStatus || sub.status);
         const cancelBtn = canCancel
@@ -195,47 +312,46 @@
     function _renderPaymentMethod(subs) {
         const cardEl  = document.getElementById('payment-method-card');
         const emptyEl = document.getElementById('payment-method-empty');
+        const pm      = subs.find(s => s.paymentMethod)?.paymentMethod || null;
 
-        // Pull payment method from the first active subscription that has one
-        const pm = subs.find(s => s.paymentMethod)?.paymentMethod || null;
-
-        if (!pm) {
-            cardEl.classList.add('hidden');
-            emptyEl.classList.remove('hidden');
-            return;
-        }
-
+        if (!pm) { cardEl.classList.add('hidden'); emptyEl.classList.remove('hidden'); return; }
         emptyEl.classList.add('hidden');
         cardEl.classList.remove('hidden');
+        _applyPaymentMethodToUI(pm);
+    }
 
-        // Brand badge
+    function _applyPaymentMethodToUI(pm) {
         const brandBadge = document.getElementById('pm-brand-badge');
         if (brandBadge) brandBadge.innerHTML = _brandBadgeHtml(pm.brand);
 
-        // Brand + last4
         const brandLabel = document.getElementById('pm-brand-label');
         if (brandLabel) brandLabel.textContent = pm.brand || 'Card';
 
         const last4El = document.getElementById('pm-last4');
         if (last4El) last4El.textContent = pm.last4 || '';
 
-        // Expiry
         const expiryEl = document.getElementById('pm-expiry');
-        if (expiryEl) expiryEl.textContent = `${String(pm.expMonth).padStart(2,'0')} / ${pm.expYear}`;
+        if (expiryEl) expiryEl.textContent = `${String(pm.expMonth).padStart(2, '0')} / ${pm.expYear}`;
 
-        // Warn if expiring within 60 days
         const warnEl = document.getElementById('pm-expiry-warn');
         if (warnEl && pm.expMonth && pm.expYear) {
-            const expiryDate  = new Date(pm.expYear, pm.expMonth - 1, 1); // first of expiry month
-            const sixtyDays   = new Date();
-            sixtyDays.setDate(sixtyDays.getDate() + 60);
-            warnEl.classList.toggle('hidden', expiryDate > sixtyDays);
+            const expiryDate = new Date(pm.expYear, pm.expMonth - 1, 1);
+            const soon       = new Date(); soon.setDate(soon.getDate() + 60);
+            warnEl.classList.toggle('hidden', expiryDate > soon);
         }
+    }
+
+    // Called after a card is saved — updates the UI without a full reload
+    function _updatePaymentMethodUI(pm) {
+        const cardEl  = document.getElementById('payment-method-card');
+        const emptyEl = document.getElementById('payment-method-empty');
+        emptyEl.classList.add('hidden');
+        cardEl.classList.remove('hidden');
+        _applyPaymentMethodToUI(pm);
     }
 
     function _brandBadgeHtml(brand) {
         const b = (brand || '').toLowerCase();
-        // Simple styled text badges for each major brand
         const badges = {
             visa:       `<span class="text-blue-800 font-extrabold text-sm tracking-widest">VISA</span>`,
             mastercard: `<span class="text-red-600 font-extrabold text-sm">MC</span>`,
@@ -251,11 +367,7 @@
         const empty = document.getElementById('history-empty');
         const tbody = document.getElementById('history-tbody');
 
-        if (payments.length === 0) {
-            wrap.classList.add('hidden');
-            empty.classList.remove('hidden');
-            return;
-        }
+        if (payments.length === 0) { wrap.classList.add('hidden'); empty.classList.remove('hidden'); return; }
         empty.classList.add('hidden');
         wrap.classList.remove('hidden');
 
@@ -275,20 +387,14 @@
 
             let pmCell = '—';
             if (p.paymentMethod && typeof p.paymentMethod === 'object') {
-                pmCell = `<div class="flex items-center gap-1.5">
-                    ${_cardIconSvg(p.paymentMethod.brand)}
-                    <span class="capitalize">${_esc(p.paymentMethod.brand)}</span>
-                    ···· ${_esc(p.paymentMethod.last4)}
-                  </div>`;
+                pmCell = `<div class="flex items-center gap-1.5">${_cardIconSvg(p.paymentMethod.brand)}<span class="capitalize">${_esc(p.paymentMethod.brand)}</span> ···· ${_esc(p.paymentMethod.last4)}</div>`;
             } else if (typeof p.paymentMethod === 'string' && p.paymentMethod) {
                 pmCell = _esc(p.paymentMethod);
             }
 
             const receiptCell = p.receiptUrl
-                ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener"
-                      class="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 font-bold text-sm transition">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                      Invoice
+                ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 font-bold text-sm transition">
+                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Invoice
                    </a>`
                 : `<span class="text-gray-300 text-xs">—</span>`;
 
@@ -298,15 +404,25 @@
               <td class="px-5 py-4 font-medium text-gray-900">${_esc(p.description || '—')}</td>
               <td class="px-5 py-4 font-bold text-gray-900 whitespace-nowrap">${amount}</td>
               <td class="px-5 py-4 text-gray-600 whitespace-nowrap">${pmCell}</td>
-              <td class="px-5 py-4">
-                <span class="text-xs font-bold px-2.5 py-1 rounded-full ${sm.cls}">${sm.label}</span>
-              </td>
+              <td class="px-5 py-4"><span class="text-xs font-bold px-2.5 py-1 rounded-full ${sm.cls}">${sm.label}</span></td>
               <td class="px-5 py-4 text-right">${receiptCell}</td>
             </tr>`;
         }).join('');
     }
 
     // ── Helpers ───────────────────────────────────────────────────
+    function _loadStripeJs() {
+        return new Promise((resolve, reject) => {
+            if (document.getElementById('stripe-js')) { resolve(); return; }
+            const s    = document.createElement('script');
+            s.id       = 'stripe-js';
+            s.src      = 'https://js.stripe.com/v3/';
+            s.onload   = resolve;
+            s.onerror  = () => reject(new Error('Failed to load Stripe.js'));
+            document.head.appendChild(s);
+        });
+    }
+
     function _fmtDate(iso) {
         if (!iso) return '—';
         return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -317,14 +433,9 @@
     }
 
     function _cardIconSvg(brand) {
-        const colors = {
-            visa: 'text-blue-700', mastercard: 'text-red-600', amex: 'text-blue-500', discover: 'text-orange-600',
-        };
+        const colors = { visa: 'text-blue-700', mastercard: 'text-red-600', amex: 'text-blue-500', discover: 'text-orange-600' };
         const cls = colors[(brand || '').toLowerCase()] || 'text-gray-500';
-        return `<svg class="w-5 h-5 shrink-0 ${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-        </svg>`;
+        return `<svg class="w-5 h-5 shrink-0 ${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>`;
     }
 
 })();
