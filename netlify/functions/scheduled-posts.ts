@@ -8,9 +8,10 @@
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, and, gte, lte, or } from 'drizzle-orm';
+import { eq, and, gte, lte } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, scheduledPosts, contentAssets } from '../../db/schema';
+import { propagateAssetStatuses } from './content-assets';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -90,6 +91,7 @@ export const handler: Handler = async (event) => {
                 return { statusCode: 400, body: JSON.stringify({ error: 'platform, postFormat, and publishDate are required.' }) };
             }
 
+            const finalStatus = status || 'draft';
             const [created] = await db.insert(scheduledPosts).values({
                 assistantId: assistantId || null,
                 userId,
@@ -104,13 +106,21 @@ export const handler: Handler = async (event) => {
                 hashtags: hashtags || null,
                 mentions: mentions || null,
                 utmParams: utmParams || null,
-                status: status || 'draft',
+                status: finalStatus,
                 ownerId: userId,
                 ownerLabel: ownerLabel || null,
                 isAutonomous: isAutonomous || false,
                 campaign: campaign || null,
                 pillar: pillar || null,
             }).returning();
+
+            // ── Scenario 1: Propagate asset status on post creation ────────
+            // If the post is created in a scheduled/approved state, move attached
+            // pending assets to 'scheduled' so they appear in the right group.
+            const createdAssetIds: number[] = Array.isArray(contentAssetIds) ? contentAssetIds : [];
+            if (['scheduled', 'approved'].includes(finalStatus) && createdAssetIds.length > 0) {
+                await propagateAssetStatuses(db, createdAssetIds, 'pending', 'scheduled');
+            }
 
             return { statusCode: 201, body: JSON.stringify({ post: created }) };
         }
@@ -217,6 +227,35 @@ export const handler: Handler = async (event) => {
 
             const [updated] = await db.update(scheduledPosts).set(updates)
                 .where(eq(scheduledPosts.id, postId)).returning();
+
+            // ── Scenarios 1 & 2: Propagate asset lifecycle on status change ─
+            const linkedIds: number[] = Array.isArray(updated.contentAssetIds)
+                ? (updated.contentAssetIds as number[])
+                : [];
+            const newStatus = updates.status as string | undefined;
+
+            if (newStatus && linkedIds.length > 0) {
+                if (['scheduled', 'approved'].includes(newStatus)) {
+                    // Scenario 1: post queued → assets pending → scheduled
+                    await propagateAssetStatuses(db, linkedIds, 'pending', 'scheduled');
+                } else if (newStatus === 'published') {
+                    // Scenario 2: post published → assets scheduled → posted
+                    await propagateAssetStatuses(db, linkedIds, 'scheduled', 'posted');
+                } else if (['cancelled', 'rejected'].includes(newStatus)) {
+                    // Post abandoned → return scheduled assets to pending pool
+                    await propagateAssetStatuses(db, linkedIds, 'scheduled', 'pending');
+                }
+            }
+
+            // If contentAssetIds was patched (new assets added) and post is already scheduled,
+            // promote any newly-added pending assets too.
+            if (!newStatus && body.contentAssetIds && ['scheduled', 'approved'].includes(existing.status)) {
+                const newIds: number[] = Array.isArray(body.contentAssetIds) ? body.contentAssetIds : [];
+                const addedIds = newIds.filter(id => !(Array.isArray(existing.contentAssetIds) ? existing.contentAssetIds as number[] : []).includes(id));
+                if (addedIds.length > 0) {
+                    await propagateAssetStatuses(db, addedIds, 'pending', 'scheduled');
+                }
+            }
 
             return { statusCode: 200, body: JSON.stringify({ post: updated }) };
         }

@@ -49,6 +49,8 @@ let _activeTab = 'file';
 let _assetToDelete = null;
 let _assetToDetach = null;
 let _orgId = null;
+let _pollTimer = null;         // auto-refresh timer for pending-asset transitions
+let _scanningAssetId = null;   // ID of asset currently being scanned (shown with indicator)
 
 // ── Init ──────────────────────────────────────────────────────────
 window.initMyContent = async function () {
@@ -56,6 +58,7 @@ window.initMyContent = async function () {
     document.getElementById('btn-confirm-delete')?.addEventListener('click', _doDelete);
     document.getElementById('btn-confirm-detach')?.addEventListener('click', _doDetach);
     await _loadAssets();
+    _startPollingIfNeeded();
 };
 
 // ── Load & render ─────────────────────────────────────────────────
@@ -76,6 +79,26 @@ async function _loadAssets() {
         console.warn('Could not load assets:', e);
     }
     _renderSections();
+    _startPollingIfNeeded();
+}
+
+// ── Smart polling ─────────────────────────────────────────────────
+// While there are recently-uploaded pending assets, poll every 12s so the UI
+// picks up any status transitions (pending → scheduled, scheduled → posted, etc.)
+// driven by the calendar/assistant layer without requiring a manual refresh.
+function _startPollingIfNeeded() {
+    clearTimeout(_pollTimer);
+    const recentPending = (_assets.pending || []).filter(a => {
+        const age = Date.now() - new Date(a.createdAt).getTime();
+        return age < 10 * 60 * 1000; // younger than 10 minutes
+    });
+    const scheduledCount = (_assets.scheduled || []).length;
+    // Poll while there are young pending assets or any scheduled ones (could publish soon)
+    if (recentPending.length > 0 || scheduledCount > 0) {
+        _pollTimer = setTimeout(async () => {
+            await _loadAssets();
+        }, 12_000);
+    }
 }
 
 function _renderSections() {
@@ -140,13 +163,22 @@ function _assetRow(asset, sec) {
           </button>`;
     } else if (asset.status === 'posted') {
         actions = `<span class="text-xs text-gray-400">Auto-removed in ~${_daysUntilPurge(asset.retentionDeleteAfter)}</span>`;
+    } else if (asset.status === 'rejected') {
+        // Rejected assets: no actions (reason is read-only, per spec)
+        actions = '';
     }
 
+    // Rejection reason — uneditable, per Scenario 3 spec
     const rejectionBadge = asset.status === 'rejected' && asset.rejectionReason
-        ? `<p class="text-xs text-red-600 mt-1 flex items-center gap-1">
-             <svg class="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-             ${_escHtml(asset.rejectionReason)}
-           </p>`
+        ? `<div class="flex items-start gap-1.5 mt-1.5 px-2.5 py-1.5 bg-red-50 border border-red-200 rounded-lg">
+             <svg class="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+             <span class="text-xs text-red-700 font-medium leading-snug select-none">${_escHtml(asset.rejectionReason)}</span>
+           </div>`
+        : '';
+
+    // Scheduled post context badge
+    const scheduledBadge = asset.status === 'scheduled' && asset.scheduledPostId
+        ? `<span class="text-[10px] text-blue-600 font-bold bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">Post #${asset.scheduledPostId}</span>`
         : '';
 
     const previewThumb = (asset.assetType === 'image' && asset.storageUrl && !asset.purgedAt)
@@ -159,7 +191,10 @@ function _assetRow(asset, sec) {
         ${previewThumb}
       </div>
       <div class="flex-1 min-w-0">
-        <p class="text-sm font-bold text-gray-900 truncate">${_escHtml(asset.name)}</p>
+        <div class="flex items-center gap-2 flex-wrap">
+          <p class="text-sm font-bold text-gray-900 truncate">${_escHtml(asset.name)}</p>
+          ${scheduledBadge}
+        </div>
         <p class="text-xs text-gray-400 mt-0.5">${_typeLabel(asset.assetType)}${fileSize ? ' · ' + fileSize : ''} · ${date}</p>
         ${rejectionBadge}
       </div>
@@ -284,8 +319,15 @@ window._mcSubmitUpload = async function () {
                 }),
             });
             if (!res.ok) throw new Error((await res.json()).error || 'Save failed');
+            const linkData = await res.json();
             document.getElementById('modal-upload').classList.add('hidden');
             await _loadAssets();
+            // Scroll to rejected if flagged
+            if (linkData.rejected) {
+                const body = document.getElementById('section-body-rejected');
+                if (body?.classList.contains('hidden')) window._mcToggleSection('rejected');
+                setTimeout(() => document.querySelector('[data-section="rejected"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+            }
         } catch (e) {
             errorEl.textContent = e.message;
             errorEl.classList.remove('hidden');
@@ -353,7 +395,7 @@ window._mcSubmitUpload = async function () {
             }
         }
 
-        // 3. Create DB record
+        // 3. Create DB record (server also runs safety scan synchronously)
         const assetType = _pendingFile.type.startsWith('video/') ? 'video' : 'image';
         const createRes = await fetch('/.netlify/functions/content-assets', {
             method: 'POST',
@@ -369,8 +411,20 @@ window._mcSubmitUpload = async function () {
         });
         if (!createRes.ok) throw new Error('File uploaded but record save failed. Please contact support.');
 
+        const createData = await createRes.json();
         document.getElementById('modal-upload').classList.add('hidden');
         await _loadAssets();
+
+        // If the safety scan flagged this asset, scroll the rejected section into view
+        if (createData.rejected) {
+            const rejectedSection = document.querySelector('[data-section="rejected"]');
+            if (rejectedSection) {
+                // Expand the section if collapsed
+                const body = document.getElementById('section-body-rejected');
+                if (body?.classList.contains('hidden')) window._mcToggleSection('rejected');
+                setTimeout(() => rejectedSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+            }
+        }
 
     } catch (e) {
         errorEl.textContent = e.message;

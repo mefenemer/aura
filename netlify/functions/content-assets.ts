@@ -1,16 +1,118 @@
 // content-assets.ts — My Content Media Hub CRUD
 // GET    → list all assets for user's org, grouped by status
-// POST   → create a new asset record (file metadata or link)
+// POST   → create a new asset record (file metadata or link) + run safety scan
 // PATCH  → update asset status (e.g., pending → scheduled, detach from post)
 // DELETE → remove an asset record (and physical file if applicable)
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, contentAssets } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
+
+// ── Aura Safe Content Benchmark ───────────────────────────────────────────────
+// Runs a safety check on a newly uploaded asset.
+// Primary path: OpenAI Moderation API (https://platform.openai.com/docs/guides/moderation)
+// Fallback:     rule-based keyword scan on name/mimeType when no API key is set.
+//
+// Returns: { safe: boolean, reason?: string }
+async function runSafetyCheck(asset: {
+    name: string;
+    assetType: string;
+    mimeType?: string | null;
+    storageUrl?: string | null;
+    externalUrl?: string | null;
+}): Promise<{ safe: boolean; reason?: string }> {
+    try {
+        const openaiKey = process.env.OPENAI_API_KEY;
+
+        if (openaiKey) {
+            // ── OpenAI text moderation on the asset name / URL ────────────
+            const inputText = [asset.name, asset.externalUrl].filter(Boolean).join(' ');
+            const modRes = await fetch('https://api.openai.com/v1/moderations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiKey}`,
+                },
+                body: JSON.stringify({ input: inputText }),
+            });
+
+            if (modRes.ok) {
+                const modData = await modRes.json();
+                const result = modData.results?.[0];
+                if (result?.flagged) {
+                    // Find the most-violated category for the rejection reason
+                    const cats: Record<string, boolean> = result.categories || {};
+                    const violated = Object.entries(cats)
+                        .filter(([, v]) => v)
+                        .map(([k]) => k.replace(/\//g, ' ').replace(/-/g, ' '))
+                        .join(', ');
+                    return {
+                        safe: false,
+                        reason: `Violates Safety Guidelines: ${violated || 'Content policy violation'}.`,
+                    };
+                }
+            }
+        }
+
+        // ── Rule-based fallback (applies even when OpenAI is configured) ──
+        // Catches obviously flagged file names regardless of API availability.
+        const VIOLATION_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
+            { pattern: /\bnudity\b|\bnude\b|\bporn\b|\bxxx\b/i,       reason: 'Violates Safety Guidelines: Contains nudity.' },
+            { pattern: /\bviolenc[e]?\b|\bgorgor[e]?\b|\bblood\b/i,   reason: 'Violates Safety Guidelines: Contains graphic violence.' },
+            { pattern: /\bhate[_\s]?speech\b|\bracist\b|\bslur\b/i,   reason: 'Violates Safety Guidelines: Contains hate speech.' },
+            { pattern: /\bweapon[s]?\b|\bbomb\b|\bexplosiv[e]?\b/i,   reason: 'Violates Safety Guidelines: References dangerous weapons.' },
+        ];
+        const textToCheck = [asset.name, asset.externalUrl].filter(Boolean).join(' ');
+        for (const { pattern, reason } of VIOLATION_PATTERNS) {
+            if (pattern.test(textToCheck)) {
+                return { safe: false, reason };
+            }
+        }
+
+        return { safe: true };
+    } catch (err) {
+        // Safety scan errors must never block uploads — log and pass through.
+        console.error('[content-moderate] Safety scan error (asset passed through):', err);
+        return { safe: true };
+    }
+}
+
+// ── Bulk asset status propagation (called from scheduled-posts.ts logic) ─────
+// Exported so scheduled-posts.ts can import it, avoiding a second HTTP round-trip.
+export async function propagateAssetStatuses(
+    db: any,
+    assetIds: number[],
+    fromStatus: string,
+    toStatus: string,
+    extra: Record<string, any> = {},
+): Promise<void> {
+    if (assetIds.length === 0) return;
+    const POSTED_RETENTION_MS  = 30 * 24 * 60 * 60 * 1000;
+    const REJECTED_RETENTION_MS =  7 * 24 * 60 * 60 * 1000;
+
+    const payload: Record<string, any> = { status: toStatus, updatedAt: new Date(), ...extra };
+    if (toStatus === 'posted')  {
+        payload.postedAt = new Date();
+        payload.retentionDeleteAfter = new Date(Date.now() + POSTED_RETENTION_MS);
+    }
+    if (toStatus === 'rejected') {
+        payload.rejectedAt = new Date();
+        payload.retentionDeleteAfter = new Date(Date.now() + REJECTED_RETENTION_MS);
+    }
+
+    await db.update(contentAssets)
+        .set(payload)
+        .where(
+            and(
+                inArray(contentAssets.id, assetIds),
+                eq(contentAssets.status, fromStatus),
+            )
+        );
+}
 
 // Retention windows (milliseconds)
 const POSTED_RETENTION_MS  = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -90,6 +192,29 @@ export const handler: Handler = async (event) => {
                 externalUrl: externalUrl || null,
                 status: 'pending',
             }).returning();
+
+            // ── Scenario 3: Safety Benchmark Enforcement ──────────────────
+            // Run synchronously so the client receives the final status in one round-trip.
+            const { safe, reason } = await runSafetyCheck({
+                name,
+                assetType,
+                mimeType: mimeType || null,
+                storageUrl: storageUrl || null,
+                externalUrl: externalUrl || null,
+            });
+
+            if (!safe) {
+                const REJECTED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+                const [rejected] = await db.update(contentAssets).set({
+                    status: 'rejected',
+                    rejectedAt: new Date(),
+                    rejectionReason: reason || 'Violates Safety Guidelines.',
+                    retentionDeleteAfter: new Date(Date.now() + REJECTED_RETENTION_MS),
+                    updatedAt: new Date(),
+                }).where(eq(contentAssets.id, created.id)).returning();
+
+                return { statusCode: 201, body: JSON.stringify({ asset: rejected, rejected: true }) };
+            }
 
             return { statusCode: 201, body: JSON.stringify({ asset: created }) };
         }
