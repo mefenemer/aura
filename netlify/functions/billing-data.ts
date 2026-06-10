@@ -87,7 +87,7 @@ export const handler: Handler = async (event) => {
         let stripeCustomerId: string | null = null;
         let stripeSubscriptions: any[] = [];
         let stripePaymentMethods: Record<string, any> = {};
-        let stripeInvoiceUrls: Record<string, string> = {};
+        let stripeInvoiceUrls: Record<string, { hostedUrl: string; pdfUrl: string | null }> = {};
 
         if (stripeSecret) {
             try {
@@ -158,7 +158,10 @@ export const handler: Handler = async (event) => {
                     });
                     invoices.data.forEach(inv => {
                         if (inv.payment_intent && inv.hosted_invoice_url) {
-                            stripeInvoiceUrls[inv.payment_intent as string] = inv.hosted_invoice_url;
+                            stripeInvoiceUrls[inv.payment_intent as string] = {
+                                hostedUrl: inv.hosted_invoice_url,
+                                pdfUrl: (inv as any).invoice_pdf || null,
+                            };
                         }
                     });
 
@@ -220,8 +223,10 @@ export const handler: Handler = async (event) => {
         const paymentHistory = userPayments.map(p => {
             // Card details: DB columns are primary source of truth (stored at payment time).
             // Stripe live enrichment used as fallback for older records that pre-date the columns.
-            const stripeCard = p.externalPaymentId ? stripePaymentMethods[p.externalPaymentId] : null;
-            const receiptUrl = p.externalPaymentId ? stripeInvoiceUrls[p.externalPaymentId] : null;
+            const stripeCard   = p.externalPaymentId ? stripePaymentMethods[p.externalPaymentId] : null;
+            const invoiceEntry = p.externalPaymentId ? stripeInvoiceUrls[p.externalPaymentId] : null;
+            const receiptUrl   = invoiceEntry?.hostedUrl || null;
+            const receiptPdf   = invoiceEntry?.pdfUrl    || null;
 
             let cardDetails: { brand: string; last4: string; expMonth: number; expYear: number } | null = null;
             if (p.cardBrand && p.cardLast4) {
@@ -252,6 +257,7 @@ export const handler: Handler = async (event) => {
                 status: p.status,
                 paymentMethod: cardDetails ?? (p.paymentMethod || null),
                 receiptUrl,
+                receiptPdf,
             };
         });
 
