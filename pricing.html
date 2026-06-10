@@ -31,6 +31,10 @@
         .pk-divider    { border-color: #fce7f3; }
         .pk-ent-label  { color: #f9a8d4; }
         .pk-ent-check  { color: #f9a8d4; }
+        /* Force 4-column grid at 1024px — overrides any compiled Tailwind cascade issues */
+        @media (min-width: 1024px) {
+            .pricing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+        }
     </style>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
@@ -64,7 +68,7 @@
 
     <!-- ══ PRICING CARDS — 4 column grid ════════════════════════════ -->
     <section class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+        <div class="pricing-grid grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
 
             <!-- ── Tier 1: The Busywork Buster ──────────────────── -->
             <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
