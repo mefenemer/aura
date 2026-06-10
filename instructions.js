@@ -1,4 +1,12 @@
 // instructions.js
+
+// Auto-resize a textarea to fit its content.
+// Must be called AFTER the element is attached to the DOM.
+function _autoResize(textarea) {
+    textarea.style.height = '';
+    textarea.style.height = textarea.scrollHeight + 'px';
+}
+
 window.initInstructions = function() {
 
     const container = document.getElementById('rules-container');
@@ -127,8 +135,7 @@ window.initInstructions = function() {
         // Input Typing Logic -> Auto-resize & Trigger Save
         const input = tr.querySelector('.rule-input');
         input.addEventListener('input', () => {
-            input.style.height = '';
-            input.style.height = input.scrollHeight + 'px';
+            _autoResize(input);
             triggerAutoSave();
         });
 
@@ -188,8 +195,6 @@ window.initInstructions = function() {
                         const toggleDot = toggleBtn.querySelector('span');
 
                         input.value = rule.value;
-                        input.style.height = '';
-                        input.style.height = input.scrollHeight + 'px';
 
                         // Apply toggle state
                         const isActive = rule.isActive !== false;
@@ -199,6 +204,8 @@ window.initInstructions = function() {
                         if (!isActive) input.classList.add('text-gray-400', 'line-through');
 
                         tbody.appendChild(tr);
+                        // Resize AFTER element is in the DOM so scrollHeight is accurate
+                        _autoResize(input);
                     });
                 } else {
                     // No saved rules — show one empty row as a prompt
