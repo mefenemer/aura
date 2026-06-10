@@ -57,20 +57,71 @@
       </div>
     </div>
 
+    <!-- US-AUD-1.1.1 SC6: "First task" skip banner — shown until milestone complete -->
+    <div id="first-task-banner" class="hidden mb-6 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="text-emerald-600 text-xl">🚀</span>
+        <div>
+          <p class="text-sm font-semibold text-emerald-900">Complete your first task to unlock the full library</p>
+          <p id="first-task-banner-desc" class="text-xs text-emerald-700"></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="window._showFirstTaskScreen()"
+          class="px-4 py-2 bg-emerald-700 text-white text-xs font-bold rounded-lg hover:bg-emerald-800 transition cursor-pointer">
+          Start task
+        </button>
+        <button onclick="window._dismissFirstTaskBanner()"
+          class="text-gray-400 hover:text-gray-600 transition cursor-pointer" title="Dismiss">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- US-AUD-1.1.1 SC1: First-task focused screen (shown post-payment, before milestone) -->
+    <div id="first-task-screen" class="hidden mb-8 bg-white rounded-2xl border border-emerald-200 shadow-md p-8 text-center max-w-xl mx-auto">
+      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
+      <h2 class="text-2xl font-extrabold text-gray-900 mb-1">Let's complete your first task</h2>
+      <p id="ft-task-title" class="text-base font-semibold text-emerald-700 mb-2"></p>
+      <p id="ft-task-desc" class="text-sm text-gray-500 mb-5"></p>
+      <textarea id="ft-task-input" rows="4"
+        class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none mb-4"
+        placeholder="Describe what you need…"></textarea>
+      <button onclick="window._submitFirstTask()"
+        class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition cursor-pointer mb-2">
+        Run Task →
+      </button>
+      <button onclick="window._skipFirstTask()"
+        class="w-full text-sm text-gray-400 hover:text-gray-600 transition cursor-pointer py-1">
+        Skip for now
+      </button>
+    </div>
+
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
       <div>
         <h1 class="text-3xl font-extrabold text-gray-900">Welcome back.</h1>
         <p class="text-gray-500 mt-1">Here is what your digital team has been up to while you were away.</p>
       </div>
 
-      <div class="bg-white px-6 py-4 rounded-xl border border-emerald-100 shadow-sm flex items-center gap-4">
-        <div class="bg-emerald-100 p-3 rounded-full text-emerald-600">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      <!-- US-AUD-1.2.1: Full ROI widget with £ value, break-even, and period toggle -->
+      <div class="bg-white px-5 py-4 rounded-xl border border-emerald-100 shadow-sm min-w-[220px]">
+        <div class="flex items-center justify-between mb-1 gap-3">
+          <p class="text-sm text-gray-500 font-medium">Savings</p>
+          <!-- SC4: month/week toggle -->
+          <div class="flex bg-gray-100 rounded-lg p-0.5 text-xs">
+            <button id="roi-btn-month" onclick="window._roiSetPeriod('month')"
+              class="px-2 py-1 rounded-md font-semibold transition bg-white shadow text-gray-800">Month</button>
+            <button id="roi-btn-week" onclick="window._roiSetPeriod('week')"
+              class="px-2 py-1 rounded-md font-semibold transition text-gray-500">Week</button>
+          </div>
         </div>
-        <div>
-          <p class="text-sm text-gray-500 font-medium">Time Saved This Month</p>
-          <p class="text-2xl font-extrabold text-gray-900">14 <span class="text-base font-normal text-gray-500">hours</span></p>
-        </div>
+        <p id="roi-value" class="text-2xl font-extrabold text-gray-900">—</p>
+        <p id="roi-subtext" class="text-xs text-gray-500 mt-0.5"></p>
+        <p id="roi-hint" class="hidden text-xs text-emerald-600 mt-1 cursor-pointer hover:underline"></p>
       </div>
     </div>
   </header>
@@ -108,5 +159,139 @@
       const cleanUrl = window.location.pathname;
       history.replaceState(null, '', cleanUrl);
     }
+
+    // US-AUD-1.2.1: Full ROI widget — £ value, break-even messaging, period toggle
+    let _roiPeriod = 'month';
+    window._roiSetPeriod = async function (period) {
+      _roiPeriod = period;
+      document.getElementById('roi-btn-month')?.classList.toggle('bg-white', period === 'month');
+      document.getElementById('roi-btn-month')?.classList.toggle('shadow', period === 'month');
+      document.getElementById('roi-btn-month')?.classList.toggle('text-gray-800', period === 'month');
+      document.getElementById('roi-btn-month')?.classList.toggle('text-gray-500', period !== 'month');
+      document.getElementById('roi-btn-week')?.classList.toggle('bg-white', period === 'week');
+      document.getElementById('roi-btn-week')?.classList.toggle('shadow', period === 'week');
+      document.getElementById('roi-btn-week')?.classList.toggle('text-gray-800', period === 'week');
+      document.getElementById('roi-btn-week')?.classList.toggle('text-gray-500', period !== 'week');
+      await window._roiRender();
+    };
+
+    window._roiRender = async function () {
+      const roiValue = document.getElementById('roi-value');
+      const roiSubtext = document.getElementById('roi-subtext');
+      const roiHint = document.getElementById('roi-hint');
+      if (!roiValue) return;
+      try {
+        const res = await fetch(`/.netlify/functions/roi-stats?period=${_roiPeriod}`);
+        if (!res.ok) return;
+        const d = await res.json();
+
+        if (d.gbpSaved !== null) {
+          // SC1: Show £ value
+          const fmt = v => v.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
+          roiValue.innerHTML = `${fmt(d.gbpSaved)} <span class="text-base font-normal text-gray-500">saved</span>`;
+
+          if (_roiPeriod === 'month') {
+            if (d.multiplier !== null && d.multiplier >= 1) {
+              // SC2: Paid for itself
+              roiSubtext.textContent = `Your subscription has paid for itself ${d.multiplier}× this month`;
+            } else if (d.tasksToBreakEven !== null && d.tasksToBreakEven > 0) {
+              // SC3: Below break-even
+              roiSubtext.textContent = `${d.tasksToBreakEven} more task${d.tasksToBreakEven === 1 ? '' : 's'} and it's paid for itself`;
+            } else {
+              roiSubtext.textContent = `${d.hoursSaved} hrs saved from ${d.taskCount} tasks`;
+            }
+          } else {
+            roiSubtext.textContent = `${d.hoursSaved} hrs saved from ${d.taskCount} tasks this week`;
+          }
+          roiHint?.classList.add('hidden');
+        } else {
+          // SC5 (from US-AUD-1.1.2): hours fallback + rate CTA
+          roiValue.innerHTML = `${d.hoursSaved} <span class="text-base font-normal text-gray-500">hrs saved</span>`;
+          roiSubtext.textContent = `from ${d.taskCount} completed task${d.taskCount === 1 ? '' : 's'}`;
+          if (roiHint) {
+            roiHint.textContent = '£ value: Set your hourly rate →';
+            roiHint.classList.remove('hidden');
+            roiHint.onclick = () => { if (window.loadView) window.loadView('settings'); };
+          }
+        }
+      } catch (_) { /* fail silently */ }
+    };
+
+    window._roiRender();
+
+    // US-AUD-1.1.1: First-task onboarding milestone
+    (async function initFirstTask() {
+      try {
+        const res = await fetch('/.netlify/functions/first-task');
+        if (!res.ok) return;
+        const d = await res.json();
+
+        if (d.milestoneComplete) return; // SC7: never show again once done
+
+        // SC1: Post-payment focused screen (only if within first 24h of plan activation)
+        const planAge = d.planActivatedAt
+          ? (Date.now() - new Date(d.planActivatedAt).getTime()) / (1000 * 60 * 60)
+          : 999;
+        const isNewUser = planAge < 24;
+
+        // Populate task details
+        const ftTaskTitle = document.getElementById('ft-task-title');
+        const ftTaskDesc = document.getElementById('ft-task-desc');
+        const ftInput = document.getElementById('ft-task-input');
+        if (ftTaskTitle) ftTaskTitle.textContent = d.starterTask.title;
+        if (ftTaskDesc) ftTaskDesc.textContent = d.starterTask.description;
+        if (ftInput) ftInput.placeholder = d.starterTask.placeholder;
+
+        if (isNewUser && !d.milestoneSkipped) {
+          // Show the focused first-task screen
+          document.getElementById('first-task-screen')?.classList.remove('hidden');
+        } else if (!d.milestoneSkipped) {
+          // SC6: Show the banner (previously skipped users already saw it; re-check sessionStorage)
+          const dismissed = sessionStorage.getItem('first_task_banner_dismissed');
+          if (!dismissed) {
+            const banner = document.getElementById('first-task-banner');
+            const bannerDesc = document.getElementById('first-task-banner-desc');
+            if (banner) banner.classList.remove('hidden');
+            if (bannerDesc) bannerDesc.textContent = d.starterTask.description;
+          }
+        }
+      } catch { /* fail silently */ }
+    })();
+
+    window._showFirstTaskScreen = function () {
+      document.getElementById('first-task-banner')?.classList.add('hidden');
+      document.getElementById('first-task-screen')?.classList.remove('hidden');
+    };
+
+    window._dismissFirstTaskBanner = function () {
+      document.getElementById('first-task-banner')?.classList.add('hidden');
+      sessionStorage.setItem('first_task_banner_dismissed', '1');
+    };
+
+    window._skipFirstTask = async function () {
+      document.getElementById('first-task-screen')?.classList.add('hidden');
+      // SC6: Show banner instead
+      const banner = document.getElementById('first-task-banner');
+      if (banner) banner.classList.remove('hidden');
+      await fetch('/.netlify/functions/first-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'skip' }),
+      }).catch(() => {});
+    };
+
+    window._submitFirstTask = async function () {
+      const input = document.getElementById('ft-task-input')?.value?.trim();
+      if (!input) return;
+      // Mark milestone as complete and redirect to the appropriate assistant view
+      await fetch('/.netlify/functions/first-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'complete' }),
+      }).catch(() => {});
+      document.getElementById('first-task-screen')?.classList.add('hidden');
+      // Navigate to the task runner / active assistant view
+      if (window.loadView) window.loadView('tasks');
+    };
   })();
 </script>

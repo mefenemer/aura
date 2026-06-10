@@ -11,6 +11,19 @@
     <div class="col-span-full flex items-center justify-center py-16 text-gray-400 text-sm">Loading platforms…</div>
   </div>
 
+  <!-- US-AUD-4.2.1 SC4: Emergency Revocation — Revoke All Connections -->
+  <div class="mt-10 bg-red-50 rounded-2xl border border-red-100 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div>
+      <h3 class="text-base font-bold text-red-900">Emergency: Revoke All Connections</h3>
+      <p class="text-sm text-red-700 mt-1">Immediately deletes all stored credentials and revokes every connected platform for your entire workspace. Use if you suspect a security incident.</p>
+    </div>
+    <button onclick="window._revokeAllConnections()"
+      class="shrink-0 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl shadow transition cursor-pointer">
+      Revoke All
+    </button>
+  </div>
+  <p id="revoke-all-feedback" class="hidden mt-3 text-sm font-semibold text-red-700"></p>
+
 </div>
 
 <!-- ── Connect modal ─────────────────────────────────────────────── -->
@@ -107,3 +120,74 @@
     </div>
   </div>
 </div>
+
+<!-- US-AUD-4.2.1: Revoke All confirmation modal (SC4) -->
+<div id="modal-revoke-all" class="fixed inset-0 bg-gray-900/70 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-red-600 text-2xl mb-4">🔒</div>
+    <h3 class="text-xl font-bold text-gray-900 mb-2">Revoke all connections?</h3>
+    <p class="text-gray-600 text-sm mb-6">This will <strong>permanently delete all stored credentials</strong> for every member of your workspace and pause all connected assistants. This cannot be undone.</p>
+    <div class="flex gap-3 justify-end">
+      <button onclick="document.getElementById('modal-revoke-all').classList.add('hidden')"
+        class="px-4 py-2 font-bold text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer" type="button">Cancel</button>
+      <button id="btn-confirm-revoke-all"
+        class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 cursor-pointer" type="button">
+        Yes, Revoke All
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// US-AUD-4.2.1 SC4: Revoke all connections for the org
+window._revokeAllConnections = function () {
+  document.getElementById('modal-revoke-all').classList.remove('hidden');
+};
+
+document.getElementById('btn-confirm-revoke-all')?.addEventListener('click', async function () {
+  const btn = document.getElementById('btn-confirm-revoke-all');
+  btn.textContent = 'Revoking…';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/.netlify/functions/revoke-connections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope: 'org' }),
+    });
+    const data = await res.json();
+    document.getElementById('modal-revoke-all').classList.add('hidden');
+    const fb = document.getElementById('revoke-all-feedback');
+    if (res.ok) {
+      fb.textContent = `✓ All connections revoked (${data.revoked} total). All assistant integrations have been paused.`;
+      fb.classList.remove('hidden');
+      // Reload grid if the grid-init function is available
+      if (typeof window._intLoadConnections === 'function') window._intLoadConnections();
+    } else {
+      fb.textContent = data.error || 'Failed to revoke connections.';
+      fb.classList.remove('hidden');
+    }
+  } catch {
+    document.getElementById('modal-revoke-all').classList.add('hidden');
+    alert('Network error. Please try again.');
+  } finally {
+    btn.textContent = 'Yes, Revoke All';
+    btn.disabled = false;
+  }
+});
+
+// SC5: Single-connection revocation — called from the platform card's "Disconnect" button
+// The integrations.js should call window._revokeConnection(connectionId) rather than
+// deleting via system-connections directly.
+window._revokeConnection = async function (connectionId, onSuccess) {
+  try {
+    const res = await fetch('/.netlify/functions/revoke-connections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope: 'single', connectionId }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Failed to disconnect.'); return; }
+    if (typeof onSuccess === 'function') onSuccess();
+  } catch { alert('Network error. Please try again.'); }
+};
+</script>

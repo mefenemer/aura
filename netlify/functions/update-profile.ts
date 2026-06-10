@@ -48,13 +48,17 @@ export const handler = async (event: HandlerEvent) => {
             const [user] = await db.select().from(users).where(eq(users.id, userId));
             const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
 
+            const prefs = (profile?.preferences as Record<string, any>) || {};
             return {
                 statusCode: 200,
                 body: JSON.stringify({
                     firstName: user?.firstName || '',
                     lastName: user?.lastName || '',
                     email: user?.email || '',
-                    timezone: profile?.timezone || 'Europe/London'
+                    timezone: profile?.timezone || 'Europe/London',
+                    hourlyRateGbp: prefs.hourlyRateGbp ?? '',
+                    // US-AUD-5.2.1 SC4: A/B test variant
+                    upgradeExperimentVariant: prefs.upgradeExperimentVariant ?? 'break_even',
                 })
             };
         } catch (error) {
@@ -101,6 +105,18 @@ export const handler = async (event: HandlerEvent) => {
 
                 await db.update(userProfiles)
                     .set({ [fieldKey]: value, updatedAt: new Date() })
+                    .where(eq(userProfiles.userId, userId));
+
+            } else if (fieldKey === 'hourlyRateGbp') {
+                // US-AUD-1.1.2 SC2/SC3: stored in userProfiles.preferences.hourlyRateGbp
+                targetTable = 'user_profiles';
+                const currentPrefs = (currentProfile?.preferences as Record<string, any>) || {};
+                oldState = { hourlyRateGbp: currentPrefs.hourlyRateGbp ?? null };
+                const rateVal = value === '' || value === null ? null : Number(value);
+                newState = { hourlyRateGbp: rateVal };
+
+                await db.update(userProfiles)
+                    .set({ preferences: { ...currentPrefs, hourlyRateGbp: rateVal }, updatedAt: new Date() })
                     .where(eq(userProfiles.userId, userId));
 
             } else {

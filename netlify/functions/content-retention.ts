@@ -7,9 +7,9 @@
 // Database: strips storageUrl/storageKey and marks purgedAt.
 
 import { Handler, schedule } from '@netlify/functions';
-import { lte, and, isNull, isNotNull, inArray } from 'drizzle-orm';
+import { lte, and, isNull, isNotNull, inArray, lt } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { contentAssets } from '../../db/schema';
+import { contentAssets, integrationApiCalls } from '../../db/schema';
 
 const S3_BUCKET  = process.env.S3_BUCKET_NAME;
 const S3_REGION  = process.env.S3_REGION || 'us-east-1';
@@ -69,7 +69,18 @@ const retentionHandler: Handler = async () => {
         }).where(inArray(contentAssets.id, ids));
 
         console.log(`[Retention] Purged ${ids.length} assets. IDs: ${ids.join(', ')}`);
-        return { statusCode: 200, body: `Purged ${ids.length} assets.` };
+
+        // US-AUD-4.2.1 SC6: Purge integration_api_calls older than 90 days
+        const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        const deletedCalls = await db
+            .delete(integrationApiCalls)
+            .where(lt(integrationApiCalls.calledAt, ninetyDaysAgo))
+            .returning({ id: integrationApiCalls.id });
+        if (deletedCalls.length > 0) {
+            console.log(`[Retention] Purged ${deletedCalls.length} integration API call log rows older than 90 days.`);
+        }
+
+        return { statusCode: 200, body: `Purged ${ids.length} assets; ${deletedCalls.length} API call log rows.` };
 
     } catch (err) {
         console.error('[Retention] Error:', err);

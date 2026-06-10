@@ -791,6 +791,14 @@
         await loadComponent('nav-placeholder', './components/nav.html');
         loadComponent('footer-placeholder', './components/footer.html');
         setupMobileMenu();
+
+        // US-AUD-3.1.1 SC5: Track pricing page view for churn Signal 4 detection.
+        fetch('/.netlify/functions/page-events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pagePath: '/pricing.html' }),
+        }).catch(() => { /* non-critical */ });
+
         if (new URLSearchParams(window.location.search).get('verified') === 'true') {
             const banner = document.createElement('div');
             banner.className = 'fixed top-0 left-0 right-0 z-50 bg-emerald-700 text-white text-center py-3 px-4 text-sm font-semibold shadow-md';

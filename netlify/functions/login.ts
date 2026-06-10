@@ -5,12 +5,25 @@ import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
 import { users } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
+import { checkRateLimit, getClientIp } from '../../src/utils/rate-limit';
 
 export const handler: Handler = async (event) => {
     const db = getDb();
 
     if (event.httpMethod === 'POST') {
         try {
+            // SC2 — US-GAP-7.1.1: IP-level rate limit: 5 requests per IP per 60 seconds
+            // (Email-level rate limiting is already handled atomically via lastMagicLinkSentAt.)
+            const ip = getClientIp(event.headers as Record<string, string | undefined>);
+            const rl = await checkRateLimit(db, 'login', ip, { maxAttempts: 5, windowSecs: 60 });
+            if (!rl.allowed) {
+                return {
+                    statusCode: 429,
+                    headers: { 'Retry-After': String(rl.retryAfterSecs) },
+                    body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+                };
+            }
+
             const body = JSON.parse(event.body || '{}');
             const email = body.email?.trim().toLowerCase();
 

@@ -12,6 +12,58 @@
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
 
+<!-- US-AUD-5.2.1: Success-Triggered Upgrade Moment Modal -->
+<div id="upgrade-moment-modal" class="hidden fixed inset-0 z-[55] items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+    <div class="text-center mb-5">
+      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+        <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+        </svg>
+      </div>
+      <p id="um-savings-line" class="text-2xl font-extrabold text-gray-900 mb-1"></p>
+      <p class="text-sm text-emerald-700 font-semibold" id="um-roi-line"></p>
+    </div>
+    <div id="um-next-tier-info" class="hidden mb-5 rounded-xl bg-gray-50 border border-gray-200 p-4">
+      <p class="text-sm font-bold text-gray-900 mb-2" id="um-next-tier-name"></p>
+      <ul id="um-feature-bullets" class="space-y-1 text-sm text-gray-700 list-none"></ul>
+      <p class="mt-3 text-base font-bold text-emerald-700" id="um-next-tier-price"></p>
+    </div>
+    <a id="um-cta-btn" href="#"
+      class="block w-full text-center py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition mb-3">
+    </a>
+    <button onclick="window._dismissUpgradeMoment()"
+      class="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition cursor-pointer py-1">
+      I'm happy where I am
+    </button>
+  </div>
+</div>
+
+<!-- US-AUD-4.3.1 SC5: AI Disclaimer first-time acknowledgement modal -->
+<div id="ai-disclaimer-modal" class="hidden fixed inset-0 z-[60] items-center justify-center p-4 bg-gray-900/70 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+    <div class="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <h2 class="text-xl font-extrabold text-gray-900 mb-2">A quick note before you dive in</h2>
+    <p class="text-sm text-gray-600 mb-5 leading-relaxed">
+      Aura-Assist uses AI to generate content on your behalf. AI outputs may be inaccurate, incomplete, or misleading.
+      <strong>Always review outputs before use</strong> — especially anything touching legal, medical, or financial topics.
+    </p>
+    <p class="text-xs text-gray-400 mb-5">
+      By continuing, you agree to our
+      <a href="/terms.html" class="text-emerald-600 hover:underline" target="_blank">Terms of Service</a>.
+      Aura-Assist Ltd is not liable for reliance on AI-generated content.
+    </p>
+    <button id="btn-acknowledge-disclaimer"
+      class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition cursor-pointer">
+      I understand — continue
+    </button>
+  </div>
+</div>
+
 <!-- Post-payment welcome modal -->
 <div id="payment-welcome-modal" class="hidden fixed inset-0 z-50 items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
   <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 text-center">
@@ -56,6 +108,15 @@
     <div class="px-8 py-6">
       <p id="upgrade-modal-body" class="text-gray-600 text-sm mb-4">Upgrade your plan to unlock this feature and continue scaling your automation.</p>
 
+      <!-- Next plan preview card (SC2b) -->
+      <div id="upgrade-modal-next-plan" class="hidden mb-4 rounded-xl border-2 border-emerald-600 bg-emerald-50 p-4">
+        <div class="flex items-center justify-between mb-1">
+          <p id="upgrade-next-plan-name" class="text-sm font-bold text-emerald-900"></p>
+          <p id="upgrade-next-plan-price" class="text-sm font-semibold text-emerald-700"></p>
+        </div>
+        <p id="upgrade-next-plan-assistants" class="text-xs text-emerald-700"></p>
+      </div>
+
       <!-- Delta: what you get on the next tier -->
       <div id="upgrade-modal-delta" class="hidden mb-5 rounded-xl bg-emerald-50 border border-emerald-100 p-4">
         <p class="text-xs font-bold text-emerald-700 uppercase tracking-wide mb-2">What you unlock by upgrading</p>
@@ -73,7 +134,7 @@
         </div>
       </div>
 
-      <div class="flex gap-3">
+      <div class="flex gap-3 mb-3">
         <button onclick="document.getElementById('modal-upgrade').classList.replace('flex','hidden');"
                 class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
           Maybe Later
@@ -83,6 +144,11 @@
           View Plans →
         </a>
       </div>
+      <!-- SC2d / SC4: secondary links -->
+      <p class="text-center text-xs text-gray-400">
+        <a id="upgrade-modal-view-all" href="/pricing.html" class="underline hover:text-gray-600">View all plans</a>
+        <span id="upgrade-modal-enterprise-link" class="hidden"> · <a href="mailto:hello@aura-assist.com?subject=Enterprise%20Plan%20Enquiry" class="underline hover:text-gray-600">Contact us about Enterprise</a></span>
+      </p>
     </div>
   </div>
 </div>
@@ -118,6 +184,10 @@
 
 <div class="md:ml-64 flex flex-col min-h-screen bg-gray-50">
   <div class="h-16 w-full shrink-0"></div>
+
+  <!-- US-GAP-9.2.1: Task Volume Warning Banner (SC1–SC5) -->
+  <!-- Rendered by renderTaskVolumeBanner() after check-capacity resolves. -->
+  <div id="task-volume-banner" class="hidden w-full px-4 pt-3"></div>
 
   <main id="workspace-content" class="flex-1 w-full"></main>
 </div>
@@ -258,6 +328,7 @@
       'instructions': { file: 'instructions.html', title: '| Assistant Instructions' },
       'notifications': { file: 'notifications.html', title: '| Notifications' },
       'settings': { file: 'user-settings.html', title: '| Account Settings' },
+      'team':     { file: 'team-management-content.html', title: '| Team Members' },
       'billing': { file: 'billing.html', title: '| Subscription & Billing' },
       'help': { file: 'help-content.html', title: '| Help & Support' },
       'my-content': { file: 'my-content.html', title: '| My Content' },
@@ -276,7 +347,8 @@
       'settings': document.getElementById('nav-settings'),
       'help': document.getElementById('nav-help'),
       'my-content': document.getElementById('nav-my-content'),
-      'calendar': document.getElementById('nav-calendar')
+      'calendar': document.getElementById('nav-calendar'),
+      'team': document.getElementById('nav-team')
     };
 
     async function loadView(routeKey, param = null) {
@@ -311,11 +383,12 @@
         const activeNavKey = routeKey === 'assistant-detail' ? 'assistants' : routeKey;
         updateActiveNav(activeNavKey);
 
-        // ── SC2: Capacity gate — block catalog if assistant limit reached ──
+        // ── US-GAP-9.1.1: Capacity gate — block catalog if assistant limit reached ──
+        // SC1: Detect limit. SC2: Show next-tier info. SC3: Never show raw error. SC4: Enterprise path. SC5: Direct checkout CTA.
         if (routeKey === 'catalog') {
           const cap = await window.checkCapacity(true);
           if (cap && cap.assistantLimit !== null && cap.assistantCount >= cap.assistantLimit) {
-            // Build delta: what the next tier unlocks relative to current
+            // Build delta: what the NEXT tier unlocks (keyed by current tierKey)
             const TIER_DELTA = {
               buster:   ['Up to 3 active assistants', 'Multi-step workflow support', 'Connect up to 3 apps'],
               saver:    ['Up to 5 active assistants', 'Full process automation (up to 5 steps)', 'Connect all standard apps', '24/7 monitoring'],
@@ -323,21 +396,28 @@
             };
             const delta = TIER_DELTA[cap.tierKey] || ['More active assistants', 'Higher monthly task volume'];
 
+            // SC4: null nextPlan means already on highest plan — show enterprise contact path
+            const isHighestPlan = !cap.nextPlan;
+
             window.openUpgradeModal(
               'Assistant Limit Reached',
-              `Your ${cap.tierName || 'current'} plan allows up to ${cap.assistantLimit} active assistant${cap.assistantLimit === 1 ? '' : 's'}.`,
-              `You're using all ${cap.assistantLimit} assistant slot${cap.assistantLimit === 1 ? '' : 's'}. To hire a new assistant, upgrade your plan or delete one you no longer need.`,
+              `You've reached your ${cap.tierName || 'current'} plan limit of ${cap.assistantLimit} assistant${cap.assistantLimit === 1 ? '' : 's'}.`,
+              isHighestPlan
+                ? `You're on our highest plan. Contact us to discuss a custom Enterprise arrangement with unlimited capacity.`
+                : `To hire a new assistant, upgrade to ${cap.nextPlan.name} or remove one you no longer need.`,
               {
-                delta,
+                nextPlan:   cap.nextPlan ?? undefined,           // SC2b: next tier card
+                delta:      isHighestPlan ? [] : delta,          // SC2: feature delta
                 usage: {
-                  label: 'Active assistants',
+                  label:   'Active assistants',
                   current: cap.assistantCount,
-                  limit: cap.assistantLimit,
+                  limit:   cap.assistantLimit,
                 },
-                ctaHref: '/pricing.html',
+                ctaHref:    isHighestPlan ? undefined : `/checkout.html?tier=${cap.nextPlan.tierKey}`,   // SC5: direct to checkout
+                enterprise: isHighestPlan,                       // SC4
               }
             );
-            return; // Do not render the catalog — show the upgrade modal instead
+            return; // SC3: never render the catalog or expose an error — modal is always shown
           }
         }
 
@@ -355,6 +435,8 @@
         // =======================================================
         if (routeKey === 'dashboard') {
           await initDashboard();
+          // US-AUD-5.2.1: Check if upgrade moment should fire (non-blocking)
+          setTimeout(() => window._maybeShowUpgradeMoment?.(), 3000);
         }
         if (routeKey === 'settings') {
           await initProfileSettingsCenter();
@@ -362,6 +444,10 @@
 
         if (routeKey === 'help') {
           await initHelpCenter();
+        }
+
+        if (routeKey === 'team') {
+          await initTeamManagement();
         }
 
         if (routeKey === 'notifications' && typeof window.initNotifications === 'function') {
@@ -423,13 +509,30 @@
     };
 
     // Open the upgrade modal with context-specific copy.
-    // opts.delta   = string[] — bullet points of what the next plan unlocks
-    // opts.usage   = { label, current, limit } — shows a usage bar
-    // opts.ctaHref = string — override the "View Plans" link
+    // opts.delta      = string[] — bullet points of what the next plan unlocks
+    // opts.usage      = { label, current, limit } — shows a usage bar
+    // opts.ctaHref    = string — override the primary CTA link
+    // opts.ctaText    = string — override the primary CTA button label
+    // opts.nextPlan   = { name, monthlyPriceGbp, assistantLimit, tierKey } — show next-tier preview card (SC2b)
+    // opts.enterprise = true — show enterprise contact path instead of upgrade CTA (SC4)
     window.openUpgradeModal = function (title, subtitle, body, opts = {}) {
       document.getElementById('upgrade-modal-title').textContent    = title    || 'Upgrade Required';
       document.getElementById('upgrade-modal-subtitle').textContent = subtitle || 'This feature isn\'t included in your current plan.';
       document.getElementById('upgrade-modal-body').textContent     = body     || 'Upgrade your plan to unlock this feature.';
+
+      // Next plan preview card (SC2b)
+      const nextPlanBlock = document.getElementById('upgrade-modal-next-plan');
+      if (opts.nextPlan) {
+        const np = opts.nextPlan;
+        const price = np.monthlyPriceGbp ? `£${parseFloat(np.monthlyPriceGbp).toFixed(0)}/mo` : '';
+        const slots = np.assistantLimit != null ? `${np.assistantLimit} active assistant${np.assistantLimit === 1 ? '' : 's'}` : 'Unlimited assistants';
+        document.getElementById('upgrade-next-plan-name').textContent       = np.name || '';
+        document.getElementById('upgrade-next-plan-price').textContent      = price;
+        document.getElementById('upgrade-next-plan-assistants').textContent = slots;
+        nextPlanBlock.classList.remove('hidden');
+      } else {
+        nextPlanBlock.classList.add('hidden');
+      }
 
       // Delta block
       const deltaBlock = document.getElementById('upgrade-modal-delta');
@@ -458,9 +561,19 @@
         usageBlock.classList.add('hidden');
       }
 
-      // CTA link
+      // Primary CTA (SC2c / SC4 / SC5)
       const cta = document.getElementById('upgrade-modal-cta');
-      cta.href = opts.ctaHref || '/pricing.html';
+      const enterpriseLink = document.getElementById('upgrade-modal-enterprise-link');
+      if (opts.enterprise) {
+        // SC4: already on highest plan — CTA becomes enterprise contact
+        cta.href        = 'mailto:hello@aura-assist.com?subject=Enterprise%20Plan%20Enquiry';
+        cta.textContent = 'Contact us about Enterprise →';
+        enterpriseLink.classList.add('hidden');
+      } else {
+        cta.href        = opts.ctaHref || '/pricing.html';
+        cta.textContent = opts.ctaText || (opts.nextPlan ? `Upgrade to ${opts.nextPlan.name} →` : 'View Plans →');
+        enterpriseLink.classList.remove('hidden');
+      }
 
       const m = document.getElementById('modal-upgrade');
       m.classList.remove('hidden');
@@ -546,7 +659,275 @@
     }
 
     // Pre-fetch capacity once on workspace boot (non-blocking)
-    window.checkCapacity();
+    // After loading, render the task-volume banner if applicable (US-GAP-9.2.1).
+    window.checkCapacity().then(renderTaskVolumeBanner);
+
+    // US-AUD-4.3.1 SC5: Check if user has acknowledged AI disclaimer; show modal if not.
+    (async function checkAiDisclaimerConsent() {
+      try {
+        const res = await fetch('/.netlify/functions/legal-consent');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.aiDisclaimerAccepted) {
+          const modal = document.getElementById('ai-disclaimer-modal');
+          if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+        }
+      } catch { /* fail silently — don't block the workspace */ }
+    })();
+
+    // US-AUD-5.2.1: Success-Triggered Upgrade Moment
+    // SC4: A/B test variant feature bullets
+    const UPGRADE_FEATURES_BY_VARIANT = {
+      break_even: [
+        '🤖 Hire up to 5× more AI assistants',
+        '📊 Full analytics & ROI dashboard',
+        '🎨 Brand voice deep-alignment on every output',
+      ],
+      double_value: [
+        '💰 Users at 2× ROI unlock advanced automation',
+        '⚡ Priority task processing',
+        '🔗 Unlimited integrations',
+      ],
+      triple_value: [
+        '🚀 Top performers get dedicated AI roles',
+        '🧠 Long-term memory for your assistants',
+        '👥 Invite your whole team',
+      ],
+    };
+
+    window._dismissUpgradeMoment = function () {
+      const modal = document.getElementById('upgrade-moment-modal');
+      if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+      // SC5: record dismissal timestamp so we don't show again for 30 days
+      localStorage.setItem('upgrade_moment_dismissed_at', new Date().toISOString());
+    };
+
+    window._maybeShowUpgradeMoment = async function () {
+      // SC5: Frequency cap — 30 days
+      const dismissedAt = localStorage.getItem('upgrade_moment_dismissed_at');
+      if (dismissedAt) {
+        const daysSince = (Date.now() - new Date(dismissedAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSince < 30) return;
+      }
+      // SC1: billing month shown cap
+      const monthKey = `upgrade_moment_shown_${new Date().getFullYear()}_${new Date().getMonth()}`;
+      if (localStorage.getItem(monthKey)) return;
+
+      try {
+        const [roiRes, capRes] = await Promise.all([
+          fetch('/.netlify/functions/roi-stats?period=month'),
+          fetch('/.netlify/functions/check-capacity'),
+        ]);
+        if (!roiRes.ok || !capRes.ok) return;
+        const roi = await roiRes.json();
+        const cap = await capRes.json();
+
+        // SC6: Don't show if on highest plan
+        if (!cap.nextPlan) return;
+
+        // SC4: Determine threshold from variant
+        const profileRes = await fetch('/.netlify/functions/update-profile');
+        const profileData = profileRes.ok ? await profileRes.json() : {};
+        const variant = profileData.upgradeExperimentVariant || 'break_even';
+        const thresholdMultiplier = variant === 'triple_value' ? 3 : variant === 'double_value' ? 2 : 1;
+
+        if (roi.gbpSaved === null || roi.planCostGbp === null) return;
+        const multiplier = roi.gbpSaved / roi.planCostGbp;
+        if (multiplier < thresholdMultiplier) return;
+
+        // SC1: Threshold met — show modal
+        localStorage.setItem(monthKey, '1');
+        const modal = document.getElementById('upgrade-moment-modal');
+        if (!modal) return;
+
+        document.getElementById('um-savings-line').textContent =
+          `£${roi.gbpSaved.toLocaleString('en-GB', { maximumFractionDigits: 0 })} saved this month`;
+        document.getElementById('um-roi-line').textContent =
+          `Your subscription has paid for itself ${Math.floor(multiplier)}× over — see what's possible next.`;
+
+        if (cap.nextPlan) {
+          document.getElementById('um-next-tier-info').classList.remove('hidden');
+          document.getElementById('um-next-tier-name').textContent = cap.nextPlan.name;
+          document.getElementById('um-next-tier-price').textContent =
+            `£${cap.nextPlan.monthlyPriceGbp}/month`;
+          const bullets = UPGRADE_FEATURES_BY_VARIANT[variant] || UPGRADE_FEATURES_BY_VARIANT.break_even;
+          document.getElementById('um-feature-bullets').innerHTML =
+            bullets.map(b => `<li class="flex items-center gap-2">${b}</li>`).join('');
+          const ctaBtn = document.getElementById('um-cta-btn');
+          ctaBtn.textContent = `Upgrade to ${cap.nextPlan.name} — £${cap.nextPlan.monthlyPriceGbp}/month`;
+          ctaBtn.href = `/checkout.html?tier=${cap.nextPlan.tierKey}`;
+        }
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      } catch { /* fail silently */ }
+    };
+
+    document.getElementById('btn-acknowledge-disclaimer')?.addEventListener('click', async () => {
+      const modal = document.getElementById('ai-disclaimer-modal');
+      if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+      try {
+        await fetch('/.netlify/functions/legal-consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'acknowledge_ai_disclaimer' }),
+        });
+      } catch { /* best-effort */ }
+    });
+
+    // US-AUD-4.3.1 SC1/SC2/SC3: Global AI output disclaimer helper.
+    // Call window.renderAiDisclaimer(containerEl, outputText) after injecting any AI output.
+    const HIGH_RISK_PATTERN = /\b(legal\s+advice|solicitor|attorney|lawsuit|litigation|contract\s+clause|compliance|gdpr|libel|defamation|trademark|patent|copyright\s+infringement|indemnity|liability|negligence|jurisdiction|statute|regulation|medical\s+advice|diagnosis|prognosis|prescription|medication|dosage|treatment|symptom|clinical|doctor|physician|therapist|mental\s+health|healthcare|surgery|chronic|disease|disorder|syndrome|financial\s+advice|investment\s+advice|buy|sell|stock|shares|portfolio|returns|yield|interest\s+rate|mortgage|pension|retirement|tax\s+advice|accountant|forex|cryptocurrency|trading\s+strategy)\b/i;
+    window.renderAiDisclaimer = function (container, outputText) {
+      if (!container) return;
+      // Remove any existing disclaimer first
+      container.querySelectorAll('[data-ai-disclaimer]').forEach(el => el.remove());
+      const isHighRisk = HIGH_RISK_PATTERN.test(outputText || '');
+      const el = document.createElement('div');
+      el.setAttribute('data-ai-disclaimer', '1');
+      if (isHighRisk) {
+        el.className = 'mt-3 flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2';
+        el.innerHTML = `<span class="shrink-0 text-amber-500 text-sm">⚠️</span>
+          <p class="text-xs text-amber-800 leading-relaxed">This output may contain legal, financial, or medical information. Always consult a qualified professional before acting on this content.</p>`;
+      } else {
+        el.innerHTML = `<p class="mt-3 text-xs text-gray-400 italic">🤖 AI-generated content. Not verified. Do not act on legal, medical, or financial content without professional review.</p>`;
+      }
+      container.appendChild(el);
+    };
+
+    // US-AUD-3.1.1 SC5: Page event tracker — fire-and-forget for churn Signal 4.
+    window._trackPageEvent = function (pagePath, metadata) {
+      fetch('/.netlify/functions/page-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pagePath: pagePath || window.location.pathname, metadata: metadata || {} }),
+      }).catch(() => { /* non-critical */ });
+    };
+
+    // US-AUD-2.2.1: Quality Review (Quick Review / Full Review)
+    // Call window.renderQualityReview(containerEl, outputText, assistantId) after injecting AI output.
+    // SC1: Quick Review button on every paid plan output.
+    // SC2/SC3: Secondary LLM pass — factual, tone, hallucination. Max 3 checks, inline.
+    // SC4: Tier 3/4 gets Full Review + brand voice, competitor & compliance checks.
+    // SC5: Tier 1/2 sees upgrade callout if premium checks unavailable.
+    window.renderQualityReview = function (container, outputText, assistantId) {
+      if (!container) return;
+      // Remove any existing quality review panel first
+      container.querySelectorAll('[data-quality-review]').forEach(el => el.remove());
+
+      const panel = document.createElement('div');
+      panel.setAttribute('data-quality-review', '1');
+      panel.className = 'mt-3';
+
+      // Determine button label — will be updated after API call reveals tier
+      panel.innerHTML = `
+        <button data-qr-btn class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs font-medium text-gray-600 transition-colors shadow-sm">
+          <span>🔍</span> Quick Review
+        </button>
+        <div data-qr-results class="hidden mt-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-xs space-y-1"></div>`;
+      container.appendChild(panel);
+
+      panel.querySelector('[data-qr-btn]').addEventListener('click', async function () {
+        const btn = this;
+        const resultsEl = panel.querySelector('[data-qr-results]');
+        btn.disabled = true;
+        btn.textContent = 'Reviewing…';
+        resultsEl.classList.add('hidden');
+        resultsEl.innerHTML = '';
+
+        try {
+          const res = await fetch('/.netlify/functions/quality-review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: outputText, assistantId: assistantId || null }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Review failed');
+
+          // SC3: render each check as a line
+          (data.checks || []).forEach(check => {
+            const row = document.createElement('p');
+            row.className = check.status === 'warn'
+              ? 'text-amber-700 font-medium'
+              : 'text-emerald-700';
+            row.textContent = check.label;
+            resultsEl.appendChild(row);
+          });
+
+          // SC5: upgrade hint for Tier 1/2
+          if (data.upgradeHint) {
+            const hint = document.createElement('p');
+            hint.className = 'mt-2 pt-2 border-t border-gray-200 text-gray-500';
+            hint.innerHTML = `${data.upgradeHint} <a href="/pricing.html" class="underline text-emerald-700 font-medium">View plans →</a>`;
+            resultsEl.appendChild(hint);
+          }
+
+          resultsEl.classList.remove('hidden');
+
+          // Update button label based on tier
+          btn.disabled = false;
+          btn.innerHTML = data.tier === 'premium'
+            ? '<span>✅</span> Full Review complete'
+            : '<span>✅</span> Quick Review complete';
+        } catch (err) {
+          const row = document.createElement('p');
+          row.className = 'text-red-600';
+          row.textContent = '⚠️ Review unavailable — please try again.';
+          resultsEl.appendChild(row);
+          resultsEl.classList.remove('hidden');
+          btn.disabled = false;
+          btn.innerHTML = '<span>🔍</span> Retry Review';
+        }
+      });
+    };
+
+    // US-GAP-9.2.1: Task Volume Warning Banner
+    // SC1: ≥80% → yellow dismissable; SC2: 100% → red non-dismissable; SC5: unlimited → hidden.
+    function renderTaskVolumeBanner(cap) {
+      const banner = document.getElementById('task-volume-banner');
+      if (!banner || !cap) return;
+
+      const taskPct = cap.taskPct ?? 0;
+      const taskLimit = cap.taskLimit;
+
+      // SC5: no limit set → never show
+      if (!taskLimit) { banner.classList.add('hidden'); return; }
+      // No warning needed below 80%
+      if (taskPct < 80) { banner.classList.add('hidden'); return; }
+
+      const isAt100 = taskPct >= 100;
+      const dismissKey = 'task-vol-banner-dismissed-' + (new Date().toISOString().slice(0, 7)); // monthly key
+
+      // SC3: if 80% banner was already dismissed this session, hide it (100% is never dismissable)
+      if (!isAt100 && sessionStorage.getItem(dismissKey) === '1') {
+        banner.classList.add('hidden');
+        return;
+      }
+
+      const bgClass    = isAt100 ? 'bg-red-50 border border-red-300 text-red-900' : 'bg-amber-50 border border-amber-300 text-amber-900';
+      const iconClass  = isAt100 ? '🔴' : '⚠️';
+      const usedLabel  = `${taskPct}%`;
+      const message    = isAt100
+        ? `Monthly task limit reached. New tasks are paused until your next billing cycle or you upgrade.`
+        : `You've used ${usedLabel} of your monthly tasks. Upgrade to avoid interruptions.`;
+
+      // SC4: 100% banner has no dismiss button
+      const dismissBtn = isAt100
+        ? ''
+        : `<button onclick="sessionStorage.setItem('${dismissKey}','1');document.getElementById('task-volume-banner').classList.add('hidden');"
+                   class="ml-auto shrink-0 text-amber-600 hover:text-amber-800 font-semibold text-xs underline whitespace-nowrap">
+             Dismiss
+           </button>`;
+
+      banner.innerHTML = `
+        <div class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm ${bgClass}">
+          <span class="shrink-0 text-base">${iconClass}</span>
+          <span class="flex-1">${message}</span>
+          <a href="/pricing.html" class="shrink-0 font-semibold underline hover:opacity-80 whitespace-nowrap">Upgrade Now →</a>
+          ${dismissBtn}
+        </div>`;
+      banner.classList.remove('hidden');
+    }
 
     // Expose a global routing helper for the HTML onclick handlers in the assistants grid
     window.routeToAssistantDetail = function(assistantId) {
@@ -627,6 +1008,13 @@
   });
 
     // ==========================================================================
+  // US-GAP-5.2.1: Team Management — init called when the 'team' route loads.
+  // The actual logic is embedded in team-management-content.html (auto-executes on load).
+  async function initTeamManagement() {
+    // The team-management-content.html script self-initialises via an IIFE.
+    // No additional setup needed here — kept as a named hook for future extension.
+  }
+
   // MODERN BACKGROUND CONFIGURATION DISPATCH HUB (AUTO-SAVE & OPTIMISTIC UI)
   // ==========================================================================
   async function initProfileSettingsCenter() {
@@ -680,6 +1068,71 @@
       console.warn("Hydration incomplete. Defaults loaded.");
     }
 
+    // --- US-AUD-5.3.1: Agency Attribution toggle ---
+    (async function initAgencyAttribution() {
+      try {
+        const res = await fetch('/.netlify/functions/agency-attribution');
+        if (!res.ok) return;
+        const data = await res.json();
+        const section   = document.getElementById('agency-attribution-section');
+        const locked    = document.getElementById('agency-attribution-locked');
+        const toggleBtn = document.getElementById('toggle-agency-attribution');
+        const badgeUrl  = document.getElementById('agency-badge-url');
+        const feedback  = document.getElementById('agency-save-feedback');
+
+        if (!section || !toggleBtn) return;
+
+        if (!data.eligible) {
+          // SC7: Tier 1 — show locked placeholder
+          locked?.classList.remove('hidden');
+          return;
+        }
+
+        // SC1: Eligible — show toggle
+        section.classList.remove('hidden');
+
+        // Hydrate current state
+        let enabled = Boolean(data.agencyAttributionEnabled);
+
+        function applyToggleState(on) {
+          toggleBtn.setAttribute('aria-checked', String(on));
+          toggleBtn.classList.toggle('bg-emerald-500', on);
+          toggleBtn.classList.toggle('bg-gray-300', !on);
+          const knob = toggleBtn.querySelector('span');
+          if (knob) { knob.classList.toggle('translate-x-5', on); knob.classList.toggle('translate-x-0', !on); }
+          if (badgeUrl) {
+            const slug = data.slug || '';
+            if (on && slug) {
+              badgeUrl.textContent = `Your badge URL: ${window.location.origin}/powered-by/${slug}`;
+              badgeUrl.classList.remove('hidden');
+            } else {
+              badgeUrl.classList.add('hidden');
+            }
+          }
+        }
+        applyToggleState(enabled);
+
+        toggleBtn.addEventListener('click', async () => {
+          const newState = !enabled;
+          applyToggleState(newState); // optimistic
+          try {
+            const r = await fetch('/.netlify/functions/agency-attribution', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled: newState }),
+            });
+            if (r.ok) {
+              enabled = newState;
+              if (feedback) { feedback.classList.remove('hidden'); setTimeout(() => feedback.classList.add('hidden'), 2000); }
+            } else {
+              applyToggleState(enabled); // revert on error
+            }
+          } catch {
+            applyToggleState(enabled); // revert on network failure
+          }
+        });
+      } catch { /* fail silently */ }
+    })();
 
     // --- STEP 2: PROFILE AUTO-SAVE INTERACTION RULES ---
     fields.forEach(field => {

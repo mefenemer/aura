@@ -18,6 +18,7 @@ import {
   onboardingDrafts,
 } from '../../db/schema';
 import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
+import { checkRateLimit } from '../../src/utils/rate-limit';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
 if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
@@ -117,6 +118,16 @@ export const handler: Handler = async (event) => {
       currentUserId = decoded.userId;
     } catch {
       return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized: Invalid session.' }) };
+    }
+
+    // SC3 — US-GAP-7.1.1: 3 onboarding submissions per userId per 60 seconds
+    const rlOnboarding = await checkRateLimit(db, 'onboarding', `user:${currentUserId}`, { maxAttempts: 3, windowSecs: 60 });
+    if (!rlOnboarding.allowed) {
+      return {
+        statusCode: 429,
+        headers: { 'Retry-After': String(rlOnboarding.retryAfterSecs) },
+        body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+      };
     }
 
     const [existingUser] = await db.select().from(users).where(eq(users.id, currentUserId)).limit(1);

@@ -16,6 +16,8 @@ export const organisations = pgTable('organisations', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
+  // US-AUD-5.3.1 SC1: opt-in agency attribution badge on exported deliverables
+  agencyAttributionEnabled: boolean('agency_attribution_enabled').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -205,6 +207,19 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ── Vault Secrets — US-AUD-4.2.1 SC1/SC2 ────────────────────────────────────
+// Stores AES-256-GCM encrypted credential payloads. DB never holds plaintext.
+// refKey format: 'aura/user-<id>/<service>-<type>' e.g. 'aura/user-42/google-oauth-access'
+export const vaultSecrets = pgTable("vault_secrets", {
+  id: serial().primaryKey(),
+  refKey: text("ref_key").notNull().unique(), // logical path — stored in systemConnections.vaultRefKey
+  encryptedPayload: text("encrypted_payload").notNull(), // AES-256-GCM ciphertext (base64)
+  iv: text("iv").notNull(),                              // GCM nonce (base64, 12 bytes)
+  authTag: text("auth_tag").notNull(),                   // GCM auth tag (base64, 16 bytes)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // System connections table — OAuth tokens and credentials for third-party service integrations
 export const systemConnections = pgTable("system_connections", {
   id: serial().primaryKey(),
@@ -212,23 +227,40 @@ export const systemConnections = pgTable("system_connections", {
   serviceName: text("service_name").notNull(),
   connectionType: text("connection_type").notNull().default("oauth"), // 'oauth', 'api_key', 'legacy'
 
-  // Encrypted at rest: Holds API Key, OAuth Token, or Legacy Password
+  // US-AUD-4.2.1 SC1: vault reference key replaces plaintext tokens
+  // Format: 'aura/user-<id>/<serviceName>-<connectionType>'
+  vaultRefKey: text("vault_ref_key"),
+
+  // DEPRECATED (SC1): kept nullable for zero-downtime migration; cleared after vault migration
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   tokenExpiresAt: timestamp("token_expires_at"),
 
+  // SC3: documented minimum scopes per integration (comma-separated)
   scopes: text("scopes"),
 
   // Public identifier (e.g., Legacy Username or connected email)
   externalUserId: text("external_user_id"),
 
   // Connection Health Status
-  status: text("status").notNull().default("active"), // 'active', 'expired', 'failed'
+  status: text("status").notNull().default("active"), // 'active', 'expired', 'failed', 'revoked'
   isActive: boolean("is_active").notNull().default(true),
 
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ── Integration API Call Audit Log — US-AUD-4.2.1 SC6 ───────────────────────
+// Records every API call made on behalf of a user using a stored credential.
+// Retained 90 days (enforced by a scheduled cleanup job).
+export const integrationApiCalls = pgTable("integration_api_calls", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  integrationId: integer("integration_id").references(() => systemConnections.id, { onDelete: "set null" }),
+  endpoint: text("endpoint").notNull(), // redacted URL — path only, no query params (SC6)
+  httpStatus: integer("http_status"),
+  calledAt: timestamp("called_at").defaultNow().notNull(),
 });
 
 // ── Webhook idempotency log — prevents double-processing Stripe events ────────
@@ -265,6 +297,11 @@ export const taskRuns = pgTable("task_runs", {
   taskType: text("task_type").notNull().default("automated"),  // 'automated' | 'manual' | 'scheduled'
   status: text("status").notNull().default("completed"),       // 'completed' | 'failed' | 'skipped'
   tokensUsed: integer("tokens_used").default(0),               // LLM tokens consumed by this run
+  // metadata JSONB shape (US-AUD-2.1.1):
+  //   { confidenceLevel: 'green' | 'amber' | 'red',   // AI self-assessed confidence (SC5)
+  //     verifyHint: string | null,                      // AMBER/RED: what to verify
+  //     model: string,                                  // model used for this run
+  //     promptTokens: number, completionTokens: number }
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -278,6 +315,8 @@ export const masterAssistants = pgTable("master_assistants", {
   iconKey: text("icon_key").notNull().default("document"),
   iconColor: text("icon_color").notNull().default("blue"),
   comingSoon: boolean("coming_soon").notNull().default(false),
+  // US-AUD-2.3.1 SC2: task completions required to unlock early access (null = no milestone gate)
+  milestoneTasksRequired: integer("milestone_tasks_required").default(25),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -290,10 +329,27 @@ export const waitlist = pgTable("waitlist", {
   masterAssistantId: integer("master_assistant_id").notNull().references(() => masterAssistants.id, { onDelete: "cascade" }),
   source: text("source").notNull().default("public"), // 'public' | 'registered'
   notified: boolean("notified").notNull().default(false),
+  // US-AUD-5.1.1 SC1/SC2: referral programme fields
+  referralCode: text("referral_code").unique(),           // 8-char alphanumeric, generated on signup
+  queuePositionBonus: integer("queue_position_bonus").notNull().default(0), // negative = moves forward; deducted from raw position
+  day1AccessGranted: boolean("day1_access_granted").notNull().default(false), // SC3: 3 referrals
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => ({
   emailRoleUnique: unique("waitlist_email_role_unique").on(t.email, t.masterAssistantId),
 }));
+
+// ── Waitlist Referrals — US-AUD-5.1.1 SC2/SC5 ────────────────────────────────
+// Tracks each referral event: who referred whom for which assistant.
+export const waitlistReferrals = pgTable("waitlist_referrals", {
+  id: serial().primaryKey(),
+  referralCode: text("referral_code").notNull(),           // code that was used
+  referrerId: integer("referrer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  referredEmail: text("referred_email").notNull(),          // email of the person who used the link
+  masterAssistantId: integer("master_assistant_id").notNull().references(() => masterAssistants.id, { onDelete: "cascade" }),
+  convertedAt: timestamp("converted_at"),                   // null = pending; set when referred user joins
+  referrerIpHash: text("referrer_ip_hash"),                 // SC5: hashed IP for self-referral detection
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 // Add this to your existing db/schema.ts file
 
@@ -539,3 +595,80 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// ── DPA Requests — US-AUD-4.1.1 SC3 ──────────────────────────────────────────
+// Stores Data Processing Agreement request submissions from the /trust.html page.
+// On insert: (a) email sent to platform legal contact, (b) auto-acknowledgement sent to requester.
+export const dpaRequests = pgTable("dpa_requests", {
+  id: serial().primaryKey(),
+  name: text("name").notNull(),
+  company: text("company").notNull(),
+  email: text("email").notNull(),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+});
+
+// ── Rate Limit Attempts — US-GAP-7.1.1 ───────────────────────────────────────
+// Tracks request attempts per key (IP address or userId) and endpoint.
+// Old rows are pruned automatically by the rate-limit utility (keep last 24h).
+// key: IP address (for public endpoints) or `user:<userId>` (for auth'd endpoints)
+export const rateLimitAttempts = pgTable("rate_limit_attempts", {
+  id: serial().primaryKey(),
+  key: text("key").notNull(),          // IP or 'user:<id>'
+  endpoint: text("endpoint").notNull(), // e.g. 'register', 'login', 'onboarding', 'support'
+  attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
+});
+
+// ── GDPR Erasure Log — US-GAP-2.1.2 SC3 ──────────────────────────────────────
+// Anonymised record retained after any user account deletion.
+// Stores only a hashed email (SHA-256), not the plaintext address.
+export const gdprErasureLog = pgTable("gdpr_erasure_log", {
+  id: serial().primaryKey(),
+  emailHash: text("email_hash").notNull(),   // SHA-256 of the deleted user's email
+  requesterType: text("requester_type").notNull(), // 'user' | 'admin'
+  requesterAdminId: integer("requester_admin_id"), // admin userId if requesterType='admin'
+  erasedAt: timestamp("erased_at").defaultNow().notNull(),
+});
+
+// ── Referral Attribution — US-AUD-5.3.1 SC5 ──────────────────────────────────
+// Records new signups that originated from an agency attribution badge link.
+export const referralAttribution = pgTable("referral_attribution", {
+  id: serial().primaryKey(),
+  referrerOrgId: integer("referrer_org_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  newUserId: integer("new_user_id").references(() => users.id, { onDelete: "set null" }),
+  sourceType: text("source_type").notNull().default("agency_badge"), // 'agency_badge'
+  convertedAt: timestamp("converted_at").defaultNow().notNull(),
+});
+
+// ── User Churn Signals — US-AUD-3.1.1 SC1 ────────────────────────────────────
+// One row per unique signal event per user. interventionSentAt null = not yet sent.
+export const userChurnSignals = pgTable("user_churn_signals", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // SC2–SC6 signal types
+  signalType: text("signal_type").notNull(), // 'no_tasks_7d' | 'repeated_task_failure' | 'integration_disconnected_48h' | 'upgrade_intent_not_converted' | 'early_support_ticket'
+  detectedAt: timestamp("detected_at").defaultNow().notNull(),
+  interventionSentAt: timestamp("intervention_sent_at"),
+  metadata: jsonb("metadata"),
+});
+
+// ── Page Events — US-AUD-3.1.1 SC5 ──────────────────────────────────────────
+// Tracks significant page views for churn signal detection (Signal 4: pricing page view).
+export const pageEvents = pgTable("page_events", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  pagePath: text("page_path").notNull(), // e.g. '/pricing.html'
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── User Milestones — US-AUD-1.1.1 SC4 ───────────────────────────────────────
+// Records one-time achievement events per user (e.g. first task complete).
+export const userMilestones = pgTable("user_milestones", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  milestone: text("milestone").notNull(), // e.g. 'first_task_complete'
+  completedAt: timestamp("completed_at").defaultNow().notNull(),
+  metadata: jsonb("metadata"),
+}, (t) => ({
+  userMilestoneUnique: unique("user_milestone_unique").on(t.userId, t.milestone),
+}));

@@ -6,6 +6,8 @@ import { Resend } from 'resend';
 import { getDb } from '../../db/client';
 import { users, supportTickets, notifications } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
+import { checkRateLimit } from '../../src/utils/rate-limit';
+import { checkEarlySupportTicket } from '../../src/utils/churn';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || 'support@aura-assist.com';
@@ -54,6 +56,18 @@ export const handler = async (event: HandlerEvent) => {
         // POST: Create New Ticket
         // -------------------------------------------------------------
         if (event.httpMethod === 'POST') {
+            // SC4 — US-GAP-7.1.1: 10 ticket submissions per userId per 24 hours
+            const rlSupport = await checkRateLimit(db, 'support', `user:${userId}`, { maxAttempts: 10, windowSecs: 24 * 60 * 60 });
+            if (!rlSupport.allowed) {
+                return {
+                    statusCode: 429,
+                    headers: { 'Retry-After': String(rlSupport.retryAfterSecs) },
+                    body: JSON.stringify({
+                        error: 'Daily ticket limit reached. Please contact hello@aura-assist.com directly.',
+                    }),
+                };
+            }
+
             const [user] = await db.select().from(users).where(eq(users.id, userId));
             if (!user) return { statusCode: 403, body: JSON.stringify({ error: 'User not found.' }) };
 
@@ -148,6 +162,9 @@ export const handler = async (event: HandlerEvent) => {
             } catch (emailErr) {
                 console.warn('[support-tickets] Confirmation email failed (non-blocking):', emailErr);
             }
+
+            // US-AUD-3.1.1 SC6: Signal 5 — flag early support tickets from new users
+            checkEarlySupportTicket(db, userId, newTicket.id); // fire-and-forget
 
             return { statusCode: 200, body: JSON.stringify({ success: true, ticket: newTicket }) };
         }

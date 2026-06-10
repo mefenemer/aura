@@ -28,6 +28,7 @@ import {
     users, userProfiles, plans, aiAssistants,
     supportTickets, masterAssistants, waitlist,
     leads, auditLogs, notifications, aiModelConfig,
+    gdprErasureLog,
 } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 
@@ -210,14 +211,47 @@ export const handler: Handler = async (event) => {
             };
         }
 
-        // ── DELETE: remove user ───────────────────────────────────────────────
+        // ── DELETE: remove user (US-GAP-2.1.2: Admin Hard-Delete with Audit Trail) ──
         if (event.httpMethod === 'DELETE' && resource === 'user') {
             const uid = parseInt(qs.id || '');
             if (!uid) return { statusCode: 400, body: JSON.stringify({ error: 'id required.' }) };
+            // SC2: Self-delete guard (already implemented — reaffirmed here)
             if (uid === adminId) return { statusCode: 400, body: JSON.stringify({ error: 'Cannot delete your own account via admin API.' }) };
 
+            // Fetch user details before deletion (needed for email + GDPR log)
+            const [targetUser] = await db.select({ email: users.email, name: users.name })
+                .from(users).where(eq(users.id, uid)).limit(1);
+
+            // Hard delete — cascades to all related records via FK onDelete: 'cascade'
             await db.delete(users).where(eq(users.id, uid));
-            await audit(db, adminId, 'DELETE', 'users', uid);
+
+            // SC1a: Audit log with actionType='DELETE_USER' and the admin's userId
+            await audit(db, adminId, 'DELETE_USER', 'users', uid);
+
+            // SC3: GDPR Erasure Log — anonymised record (email hash only, no plaintext)
+            if (targetUser?.email) {
+                const emailHash = crypto.createHash('sha256').update(targetUser.email.toLowerCase()).digest('hex');
+                await db.insert(gdprErasureLog).values({
+                    emailHash,
+                    requesterType: 'admin',
+                    requesterAdminId: adminId,
+                }).catch(err => console.warn('[admin-api] GDPR erasure log insert failed (non-blocking):', err));
+
+                // SC1b: Confirmation email to the deleted user
+                await sendMagicLinkEmail({
+                    to: targetUser.email,
+                    subject: 'Your Aura-Assist account has been removed',
+                    html: `
+                        <div style="font-family:sans-serif;padding:24px;max-width:500px">
+                            <h2>Account Removed</h2>
+                            <p>Hi ${targetUser.name || 'there'},</p>
+                            <p>Your Aura-Assist account has been permanently removed by a platform administrator.</p>
+                            <p>All your data has been deleted in accordance with our <a href="https://aura-assist.com/privacy.html">Privacy Policy</a>.</p>
+                            <p>If you believe this was a mistake, please contact us at <a href="mailto:hello@aura-assist.com">hello@aura-assist.com</a>.</p>
+                        </div>
+                    `,
+                }).catch(err => console.warn('[admin-api] Delete notification email failed (non-blocking):', err));
+            }
 
             return {
                 statusCode: 200,

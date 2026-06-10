@@ -1,0 +1,177 @@
+<!-- team-management-content.html — US-GAP-5.2.1: Seat Management and Member Removal -->
+<div class="p-6 max-w-4xl mx-auto" id="team-management-root">
+
+  <!-- Header with seat usage badge (SC1) -->
+  <div class="flex items-start justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-extrabold text-gray-900">Team Members</h1>
+      <p class="text-gray-500 text-sm mt-1">Manage who has access to your Aura-Assist workspace.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <!-- SC1: Seat usage pill -->
+      <span id="seat-usage-pill" class="hidden text-xs font-semibold px-3 py-1.5 rounded-full border"></span>
+      <button onclick="window._openInviteModal()"
+              class="px-4 py-2 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition">
+        + Invite Member
+      </button>
+    </div>
+  </div>
+
+  <!-- Member table (SC2) -->
+  <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Member</th>
+          <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Role</th>
+          <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Joined</th>
+          <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="member-list-body" class="divide-y divide-gray-100">
+        <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400 text-sm">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Error / empty state -->
+  <div id="team-error" class="hidden mt-4 text-sm text-red-600 font-medium"></div>
+</div>
+
+<script>
+(function initTeamManagementUI() {
+
+  const ROLE_LABELS = { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer', invited: 'Invited' };
+  const ROLE_BADGE = {
+    owner:   'bg-purple-100 text-purple-700',
+    admin:   'bg-emerald-100 text-emerald-700',
+    member:  'bg-blue-100 text-blue-700',
+    viewer:  'bg-gray-100 text-gray-600',
+    invited: 'bg-amber-100 text-amber-700',
+  };
+
+  let _members = [];
+  let _seatLimit = null;
+
+  async function load() {
+    try {
+      const res = await fetch('/.netlify/functions/manage-members');
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      _members = data.members || [];
+      _seatLimit = data.seatLimit;
+      render(data);
+    } catch (e) {
+      document.getElementById('team-error').textContent = 'Failed to load team data. ' + (e.message || '');
+      document.getElementById('team-error').classList.remove('hidden');
+    }
+  }
+
+  function render(data) {
+    // SC1: Seat usage pill
+    const pill = document.getElementById('seat-usage-pill');
+    const seatCount = data.seatCount || 0;
+    const seatLimit = data.seatLimit;
+    if (seatLimit != null) {
+      const pct = Math.round((seatCount / seatLimit) * 100);
+      pill.textContent = `${seatCount} / ${seatLimit} seats used`;
+      pill.className = `text-xs font-semibold px-3 py-1.5 rounded-full border ${
+        pct >= 100 ? 'bg-red-50 border-red-200 text-red-700' :
+        pct >= 80  ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                    'bg-gray-50 border-gray-200 text-gray-700'
+      }`;
+      pill.classList.remove('hidden');
+    } else if (seatLimit === null) {
+      pill.textContent = `${seatCount} seat${seatCount === 1 ? '' : 's'} used`;
+      pill.className = 'text-xs font-semibold px-3 py-1.5 rounded-full border bg-gray-50 border-gray-200 text-gray-700';
+      pill.classList.remove('hidden');
+    }
+
+    // SC2: Member list
+    const tbody = document.getElementById('member-list-body');
+    if (!data.members || data.members.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400 text-sm">No members yet.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.members.map(m => {
+      const role = m.role || 'member';
+      const joined = m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+      const isOwner = role === 'owner';
+      const actionMenu = isOwner ? '' : `
+        <div class="flex items-center justify-end gap-2">
+          <button onclick="window._openRoleModal(${m.userId}, '${m.name || m.email}', '${role}')"
+                  class="text-xs text-gray-500 hover:text-emerald-700 font-medium underline">Change Role</button>
+          <span class="text-gray-300">·</span>
+          <button onclick="window._removeMember(${m.userId}, '${m.name || m.email}')"
+                  class="text-xs text-red-500 hover:text-red-700 font-medium underline">Remove</button>
+        </div>`;
+      return `
+        <tr class="hover:bg-gray-50 transition">
+          <td class="px-4 py-3">
+            <p class="font-semibold text-gray-900">${m.name || '—'}</p>
+            <p class="text-gray-500 text-xs">${m.email || '—'}</p>
+          </td>
+          <td class="px-4 py-3">
+            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${ROLE_BADGE[role] || ROLE_BADGE.member}">
+              ${ROLE_LABELS[role] || role}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-gray-500 text-xs">${joined}</td>
+          <td class="px-4 py-3">${actionMenu}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  // SC4: Remove Member
+  window._removeMember = async function (userId, name) {
+    if (!confirm(`Remove ${name} from this workspace? They will be notified by email.`)) return;
+    try {
+      const res = await fetch(`/.netlify/functions/manage-members?id=${userId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to remove member.');
+        return;
+      }
+      await load();
+    } catch { alert('Network error. Please try again.'); }
+  };
+
+  // SC3: Change Role
+  window._openRoleModal = function (userId, name, currentRole) {
+    const newRole = prompt(
+      `Change role for ${name}.\n\nCurrent role: ${currentRole}\n\nEnter new role (admin, member, viewer):`,
+      currentRole
+    )?.trim().toLowerCase();
+    if (!newRole || newRole === currentRole) return;
+    if (!['admin', 'member', 'viewer'].includes(newRole)) {
+      alert('Invalid role. Choose from: admin, member, viewer');
+      return;
+    }
+    fetch(`/.netlify/functions/manage-members?id=${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: newRole }),
+    }).then(r => r.json()).then(data => {
+      if (data.error) { alert(data.error); return; }
+      load();
+    }).catch(() => alert('Network error. Please try again.'));
+  };
+
+  window._openInviteModal = function () {
+    const email = prompt('Enter the email address to invite:')?.trim();
+    if (!email) return;
+    fetch('/.netlify/functions/invite-member', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).then(r => r.json()).then(data => {
+      if (data.error) { alert(data.error); return; }
+      alert(`Invitation sent to ${email}.`);
+      load();
+    }).catch(() => alert('Network error. Please try again.'));
+  };
+
+  load();
+})();
+</script>

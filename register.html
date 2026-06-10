@@ -130,7 +130,7 @@
       const response = await fetch('/.netlify/functions/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName, lastName, email, businessName, priceId })
+        body: JSON.stringify({ firstName, lastName, email, businessName, priceId, attributionRef: sessionStorage.getItem('attribution_ref') || undefined })
       });
 
       const data = await response.json();

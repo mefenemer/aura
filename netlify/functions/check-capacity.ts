@@ -18,11 +18,12 @@
 //   tierKey: string|null,
 //   tierName: string|null,
 //   gracePeriodEndsAt: string|null,  // ISO string if plan is past_due with grace period active
+//   nextPlan: { tierKey, name, monthlyPriceGbp, assistantLimit } | null,  // null = already on highest plan
 // }
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, and, gte, count, sum } from 'drizzle-orm';
+import { eq, and, gte, gt, count, sum, asc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { plans, masterPlans, aiAssistants, taskRuns, userOrganisations, users } from '../../db/schema';
 
@@ -54,6 +55,7 @@ export const handler: Handler = async (event) => {
                 masterPlanId: plans.masterPlanId,
                 tierKey: masterPlans.tierKey,
                 tierName: masterPlans.name,
+                monthlyPriceGbp: masterPlans.monthlyPriceGbp,
                 assistantLimit: masterPlans.assistantLimit,
                 monthlyTaskLimit: masterPlans.monthlyTaskLimit,
                 monthlyTokenLimit: masterPlans.monthlyTokenLimit,
@@ -76,6 +78,7 @@ export const handler: Handler = async (event) => {
                     masterPlanId: plans.masterPlanId,
                     tierKey: masterPlans.tierKey,
                     tierName: masterPlans.name,
+                    monthlyPriceGbp: masterPlans.monthlyPriceGbp,
                     assistantLimit: masterPlans.assistantLimit,
                     monthlyTaskLimit: masterPlans.monthlyTaskLimit,
                     monthlyTokenLimit: masterPlans.monthlyTokenLimit,
@@ -144,7 +147,29 @@ export const handler: Handler = async (event) => {
             ? Math.min(100, Math.round((tokenUsage / monthlyTokenLimit) * 100))
             : 0;
 
-        // ── 5. Grace period — expose expiry for UI warning banner ───
+        // ── 5. Resolve next plan tier (for upgrade modal SC2 / SC5) ──────────
+        // Find the cheapest plan that costs more than the current plan — that's the next tier up.
+        // Returns null if the user is already on the highest-paid plan (enterprise contact path).
+        let nextPlan: { tierKey: string; name: string; monthlyPriceGbp: string; assistantLimit: number | null } | null = null;
+        if (plan?.monthlyPriceGbp != null) {
+            const [nextTierRow] = await db
+                .select({
+                    tierKey: masterPlans.tierKey,
+                    name: masterPlans.name,
+                    monthlyPriceGbp: masterPlans.monthlyPriceGbp,
+                    assistantLimit: masterPlans.assistantLimit,
+                })
+                .from(masterPlans)
+                .where(and(
+                    eq(masterPlans.isActive, true),
+                    gt(masterPlans.monthlyPriceGbp, plan.monthlyPriceGbp as any),
+                ))
+                .orderBy(asc(masterPlans.monthlyPriceGbp))
+                .limit(1);
+            nextPlan = nextTierRow ?? null;
+        }
+
+        // ── 6. Grace period — expose expiry for UI warning banner ───
         const gracePeriodEndsAt = plan?.gracePeriodEndsAt
             ? (plan.gracePeriodEndsAt as Date).toISOString()
             : null;
@@ -176,6 +201,7 @@ export const handler: Handler = async (event) => {
                 planStatus: plan?.planStatus ?? null,
                 gracePeriodEndsAt,
                 graceExpired,    // true if grace period has passed and access should be blocked
+                nextPlan,        // next tier up — null if already on highest plan
             }),
         };
 

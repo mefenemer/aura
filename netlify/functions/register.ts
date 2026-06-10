@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
 import { users, organisations, userOrganisations, userProfiles } from '../../db/schema'; // <-- Added userProfiles
 import { sendMagicLinkEmail } from '../../src/utils/email';
+import { checkRateLimit, getClientIp } from '../../src/utils/rate-limit';
 
 const slugify = (str: string) =>
     str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -15,6 +16,18 @@ export const handler: Handler = async (event) => {
     }
 
     try {
+        // SC1 — US-GAP-7.1.1: IP-level rate limit: 5 requests per IP per 60 seconds
+        const db = getDb();
+        const ip = getClientIp(event.headers as Record<string, string | undefined>);
+        const rl = await checkRateLimit(db, 'register', ip, { maxAttempts: 5, windowSecs: 60 });
+        if (!rl.allowed) {
+            return {
+                statusCode: 429,
+                headers: { 'Retry-After': String(rl.retryAfterSecs) },
+                body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+            };
+        }
+
         const body = JSON.parse(event.body || '{}');
 
         const rawEmail = body.email || '';
@@ -23,12 +36,11 @@ export const handler: Handler = async (event) => {
         const lastName = body.lastName?.trim();
         const businessName = body.businessName?.trim() || `${firstName}'s Workspace`;
         const priceId = body.priceId?.trim() || null;
+        const attributionRef = body.attributionRef?.trim() || null; // US-AUD-5.3.1 SC5
 
         if (!email || !firstName || !lastName) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields.' }) };
         }
-
-        const db = getDb();
 
         // --- SCENARIO 5: ENUMERATION PROTECTION ---
         // Check if user already exists BEFORE doing anything else
@@ -121,6 +133,28 @@ export const handler: Handler = async (event) => {
                 </div>
             `
         });
+
+        // US-AUD-5.3.1 SC5: Record referral attribution if signup came from agency badge link
+        if (attributionRef && resultUser) {
+            try {
+                const { organisations: orgsTable, referralAttribution } = await import('../../db/schema');
+                const { and: andOp } = await import('drizzle-orm');
+                const [referrerOrg] = await db
+                    .select({ id: orgsTable.id })
+                    .from(orgsTable)
+                    .where(andOp(eq(orgsTable.slug, attributionRef), eq(orgsTable.agencyAttributionEnabled, true)))
+                    .limit(1);
+                if (referrerOrg) {
+                    await db.insert(referralAttribution).values({
+                        referrerOrgId: referrerOrg.id,
+                        newUserId: resultUser.id,
+                        sourceType: 'agency_badge',
+                    });
+                }
+            } catch (refErr) {
+                console.warn('[attribution] Failed to record referral:', refErr);
+            }
+        }
 
         return {
             statusCode: 200,
