@@ -62,26 +62,25 @@
 
 <main class="flex-grow w-full">
 
-    <!-- ══ PRICING CARDS ══════════════════════════════════════════ -->
-    <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+    <!-- ══ PRICING CARDS — 4 column grid ════════════════════════════ -->
+    <section class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
 
             <!-- ── Tier 1: The Busywork Buster ──────────────────── -->
             <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
-                <!-- HEADER: tier label + name + price only → ensures divider aligns across all 3 cards -->
-                <div class="p-8 pb-6 border-b border-gray-100">
+                <div class="p-6 pb-5 border-b border-gray-100">
                     <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 1</p>
-                    <h2 class="text-xl font-extrabold text-gray-900 mb-4">The Busywork Buster</h2>
+                    <h2 class="text-lg font-extrabold text-gray-900 mb-3">The Busywork Buster</h2>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-4 italic">Hand off your single most time-consuming task to a dedicated digital helper.</p>
                     <div class="flex items-end gap-1 mb-1">
-                        <span class="text-5xl font-extrabold text-gray-900 leading-none">£29</span>
+                        <span class="text-4xl font-extrabold text-gray-900 leading-none">£29</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
                     <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
-                <div class="p-8 flex-grow flex flex-col">
-                    <p class="text-sm text-gray-500 leading-relaxed mb-5 italic">"Hand off your single most time consuming or annoying task to a dedicated digital helper."</p>
+                <div class="p-6 flex-grow flex flex-col">
                     <!-- Capacity stat boxes — pink -->
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-3 gap-2 mb-6">
                         <div class="text-center pk-stat-box rounded-xl py-3 px-1">
                             <div class="text-xl font-extrabold pk-stat-num">1</div>
                             <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Assistant</div>
@@ -96,19 +95,18 @@
                         </div>
                     </div>
                     <!-- Divider after stat boxes -->
-                    <hr class="my-5 pk-divider border-t">
+                    <hr class="pk-divider border-t mb-5">
                     <ul class="space-y-2.5 text-sm text-gray-600 flex-grow">
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Basic Reporting</strong> — a clear summary of what your assistant completed each month</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Brand Memory</strong> — your assistant learns your voice, values, and history from day one</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Around-the-Clock Workflows</strong> — scheduled tasks run automatically, even while you're offline</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Draft Approvals</strong> — every output lands in your inbox for sign-off before it's published</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Content Calendar</strong> — plan, schedule, and review upcoming work in one view</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>"My Content" Hub</strong> — drop in photos, videos, and links as source material</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Brand Protection Guarantee</strong> — built-in safety rules keeping every output on-brand and compliant</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Continuous Evolution</strong> — your assistant automatically improves as we release new capabilities</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Basic Reporting</strong> — monthly summary of completed tasks</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Brand Memory</strong> — learns your voice from day one</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Around-the-Clock Workflows</strong> — tasks run while you sleep</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Draft Approvals</strong> — you approve before anything publishes</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Content Calendar</strong> — plan and review upcoming work</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>My Content Hub</strong> — upload photos, videos, and links as source material</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Brand Protection Guarantee</strong> — safe content on every plan</span></li>
                     </ul>
                 </div>
-                <div class="px-8 pb-8">
+                <div class="px-6 pb-6">
                     <a href="#" onclick="event.preventDefault(); choosePlan('starter');"
                        class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
                         Get Started
@@ -121,18 +119,18 @@
                 <div class="absolute top-4 right-4">
                     <span class="pk-pill text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full">Most Popular</span>
                 </div>
-                <div class="p-8 pb-6 border-b border-gray-100">
+                <div class="p-6 pb-5 border-b border-gray-100">
                     <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 2</p>
-                    <h2 class="text-xl font-extrabold text-gray-900 mb-4">The Workflow Saver</h2>
+                    <h2 class="text-lg font-extrabold text-gray-900 mb-3">The Workflow Saver</h2>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-4 italic">Scale your operations by building a multi-role digital department.</p>
                     <div class="flex items-end gap-1 mb-1">
-                        <span class="text-5xl font-extrabold text-gray-900 leading-none">£99</span>
+                        <span class="text-4xl font-extrabold text-gray-900 leading-none">£99</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
                     <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
-                <div class="p-8 flex-grow flex flex-col">
-                    <p class="text-sm text-gray-500 leading-relaxed mb-5 italic">"Scale your operations by building a multi-role digital department."</p>
-                    <div class="grid grid-cols-3 gap-2">
+                <div class="p-6 flex-grow flex flex-col">
+                    <div class="grid grid-cols-3 gap-2 mb-6">
                         <div class="text-center pk-stat-box rounded-xl py-3 px-1">
                             <div class="text-xl font-extrabold pk-stat-num">3</div>
                             <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Assistants</div>
@@ -146,18 +144,18 @@
                             <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Apps</div>
                         </div>
                     </div>
-                    <hr class="my-5 pk-divider border-t">
+                    <hr class="pk-divider border-t mb-5">
                     <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Everything in Tier 1, plus:</p>
                     <ul class="space-y-2.5 text-sm text-gray-600 flex-grow">
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>3 Digital Assistants</strong> — deploy multiple distinct roles across your business</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Unlimited app connections</strong> — connect every tool in your workflow, no restrictions</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Advanced Reporting</strong> — detailed performance breakdowns and time-saved metrics</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>The Quality Reviewer</strong> — a dedicated assistant that checks and critiques the others' work</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Early Access</strong> — new assistant roles available to you before public release</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Priority email &amp; chat support</strong> — faster response times from our customer success team</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>3 Digital Assistants</strong> — deploy multiple roles across your business</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Unlimited app connections</strong> — no restrictions on your workflow tools</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Advanced Reporting</strong> — detailed performance and time-saved metrics</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>The Quality Reviewer</strong> — an assistant that critiques the others' work</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Early Access</strong> — new roles before public release</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Priority email &amp; chat support</strong></span></li>
                     </ul>
                 </div>
-                <div class="px-8 pb-8">
+                <div class="px-6 pb-6">
                     <a href="#" onclick="event.preventDefault(); choosePlan('pro_team');"
                        class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
                         Automate My Workflow
@@ -167,18 +165,18 @@
 
             <!-- ── Tier 3: The Business Automator ────────────────── -->
             <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
-                <div class="p-8 pb-6 border-b border-gray-100">
+                <div class="p-6 pb-5 border-b border-gray-100">
                     <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 3</p>
-                    <h2 class="text-xl font-extrabold text-gray-900 mb-4">The Business Automator</h2>
+                    <h2 class="text-lg font-extrabold text-gray-900 mb-3">The Business Automator</h2>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-4 italic">A complete digital workforce for scaling businesses and collaborative teams.</p>
                     <div class="flex items-end gap-1 mb-1">
-                        <span class="text-5xl font-extrabold text-gray-900 leading-none">£349</span>
+                        <span class="text-4xl font-extrabold text-gray-900 leading-none">£349</span>
                         <span class="text-gray-400 text-base font-medium mb-1">/month</span>
                     </div>
                     <p class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
-                <div class="p-8 flex-grow flex flex-col">
-                    <p class="text-sm text-gray-500 leading-relaxed mb-5 italic">"A complete digital workforce for scaling businesses and collaborative teams."</p>
-                    <div class="grid grid-cols-3 gap-2">
+                <div class="p-6 flex-grow flex flex-col">
+                    <div class="grid grid-cols-3 gap-2 mb-6">
                         <div class="text-center pk-stat-box rounded-xl py-3 px-1">
                             <div class="text-xl font-extrabold pk-stat-num">10</div>
                             <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Assistants</div>
@@ -192,17 +190,17 @@
                             <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Apps</div>
                         </div>
                     </div>
-                    <hr class="my-5 pk-divider border-t">
+                    <hr class="pk-divider border-t mb-5">
                     <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Everything in Tier 2, plus:</p>
                     <ul class="space-y-2.5 text-sm text-gray-600 flex-grow">
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Custom Reporting</strong> — tailored dashboards built around the metrics that matter most to your business</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Workspace Collaboration</strong> — invite team members, managers, or clients to view and approve outputs</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Advanced Tool Vault</strong> — access to premium and specialist third-party integrations beyond the standard set</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>1-on-1 Strategy &amp; Onboarding Call</strong> — a dedicated session with an Aura-Assist expert to set up and optimise your workspace</span></li>
-                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Roadmap Influence</strong> — vote on which features and assistant types we prioritise building next</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Custom Reporting</strong> — dashboards built around your own metrics</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Workspace Collaboration</strong> — invite your team to view and approve outputs</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Advanced Tool Vault</strong> — premium third-party integrations</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>1-on-1 Strategy &amp; Onboarding Call</strong></span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Roadmap Influence</strong> — vote on what we build next</span></li>
                     </ul>
                 </div>
-                <div class="px-8 pb-8">
+                <div class="px-6 pb-6">
                     <a href="#" onclick="event.preventDefault(); choosePlan('business');"
                        class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
                         Scale My Business
@@ -210,45 +208,54 @@
                 </div>
             </div>
 
-        </div><!-- /grid -->
-
-        <!-- ── Tier 4: Custom Enterprise band ────────────────────── -->
-        <div class="mt-8 rounded-2xl bg-gray-900 overflow-hidden">
-            <div class="flex flex-col lg:flex-row items-start lg:items-center gap-6 p-7 lg:p-8">
-                <!-- Price block -->
-                <div class="lg:w-52 shrink-0">
-                    <span class="inline-block text-xs font-bold uppercase tracking-widest pk-ent-label mb-2">Tier 4 · Enterprise</span>
-                    <h2 class="text-lg font-extrabold text-white mb-1">Custom Enterprise</h2>
-                    <p class="text-xs text-gray-400 leading-relaxed mb-3">"Bespoke digital architecture for complex corporate environments."</p>
-                    <div class="text-2xl font-extrabold text-white leading-none">£1,199<span class="text-lg text-gray-400">+</span></div>
-                    <div class="text-xs text-gray-500 mt-1">Scoped to your requirements</div>
-                </div>
-                <!-- Divider -->
-                <div class="hidden lg:block w-px self-stretch bg-white/10 shrink-0"></div>
-                <!-- Features grid -->
-                <div class="flex-1 min-w-0">
-                    <p class="text-xs font-bold pk-ent-label uppercase tracking-wider mb-3">Everything in Tier 3, plus:</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
-                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Tailored assistant &amp; task volume limits</span></div>
-                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Dedicated account manager</span></div>
-                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SSO integration for corporate-wide access</span></div>
-                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SMS &amp; WhatsApp alerts for critical approvals</span></div>
-                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Internal systems access — private databases &amp; legacy software</span></div>
-                        <div class="flex gap-2.5 text-sm text-gray-300"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>➕ Premium Add-On: VIP Engineering Co-Creation — bespoke Digital Assistants built exclusively for your organisation <span class="text-gray-500">(scoped &amp; billed per project)</span></span></div>
+            <!-- ── Tier 4: Custom Enterprise ─────────────────────── -->
+            <div class="flex flex-col bg-gray-900 rounded-2xl border border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                <div class="p-6 pb-5 border-b border-white/10">
+                    <p class="text-xs font-bold uppercase tracking-widest pk-ent-label mb-2">Tier 4 · Enterprise</p>
+                    <h2 class="text-lg font-extrabold text-white mb-3">Custom Enterprise</h2>
+                    <p class="text-sm text-gray-400 leading-relaxed mb-4 italic">Bespoke digital architecture for complex corporate environments.</p>
+                    <div class="flex items-end gap-1 mb-1">
+                        <span class="text-4xl font-extrabold text-white leading-none">£1,199</span>
+                        <span class="text-gray-400 text-base font-medium mb-1">+/mo</span>
                     </div>
+                    <p class="text-xs text-gray-500 mt-1">Scoped to your requirements</p>
                 </div>
-                <!-- CTA -->
-                <div class="shrink-0 lg:pl-2">
+                <div class="p-6 flex-grow flex flex-col">
+                    <div class="grid grid-cols-3 gap-2 mb-6">
+                        <div class="text-center rounded-xl py-3 px-1" style="background-color:#1f2937">
+                            <div class="text-xl font-extrabold pk-ent-label">∞</div>
+                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Assistants</div>
+                        </div>
+                        <div class="text-center rounded-xl py-3 px-1" style="background-color:#1f2937">
+                            <div class="text-xl font-extrabold pk-ent-label">∞</div>
+                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Tasks/mo</div>
+                        </div>
+                        <div class="text-center rounded-xl py-3 px-1" style="background-color:#1f2937">
+                            <div class="text-xl font-extrabold pk-ent-label">∞</div>
+                            <div class="text-xs text-gray-500 mt-0.5 leading-tight">Apps</div>
+                        </div>
+                    </div>
+                    <hr class="border-t border-white/10 mb-5">
+                    <p class="text-xs font-bold pk-ent-label uppercase tracking-wider mb-3">Everything in Tier 3, plus:</p>
+                    <ul class="space-y-2.5 text-sm text-gray-300 flex-grow">
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Tailored assistant &amp; task volume limits</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Dedicated account manager</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SSO integration for corporate-wide access</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SMS &amp; WhatsApp alerts for critical approvals</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Internal systems &amp; legacy software access</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-ent-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>➕ VIP Engineering Co-Creation add-on available</span></li>
+                    </ul>
+                </div>
+                <div class="px-6 pb-6">
                     <button onclick="openEnterpriseModal()"
-                            class="pk-btn inline-flex items-center gap-2 px-6 py-3 font-bold rounded-xl shadow-lg transition whitespace-nowrap text-sm">
+                            class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
                         Book a Discovery Call
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                     </button>
-                    <p class="text-xs text-gray-500 mt-2 text-center lg:text-right">We'll quote within 24 hours</p>
+                    <p class="text-xs text-gray-600 mt-2 text-center">We'll quote within 24 hours</p>
                 </div>
             </div>
-        </div>
 
+        </div><!-- /grid -->
     </section>
 
     <!-- ══ FEATURE COMPARISON TABLE ══════════════════════════════ -->
@@ -504,19 +511,19 @@
                             <td class="px-6 py-5"></td>
                             <td class="px-4 py-5 text-center">
                                 <a href="#" onclick="event.preventDefault(); choosePlan('starter');"
-                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Get Started</a>
+                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Choose</a>
                             </td>
                             <td class="px-4 py-5 text-center pk-col-tint">
                                 <a href="#" onclick="event.preventDefault(); choosePlan('pro_team');"
-                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Choose Tier 2</a>
+                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Choose</a>
                             </td>
                             <td class="px-4 py-5 text-center">
                                 <a href="#" onclick="event.preventDefault(); choosePlan('business');"
-                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Choose Tier 3</a>
+                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Choose</a>
                             </td>
                             <td class="px-4 py-5 text-center">
                                 <button onclick="openEnterpriseModal()"
-                                        class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-gray-900 hover:bg-gray-700 transition">Contact Us</button>
+                                        class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-gray-900 hover:bg-gray-700 transition">Choose</button>
                             </td>
                         </tr>
                     </tbody>
@@ -525,66 +532,9 @@
         </div>
     </section>
 
-    <!-- ══ FAQ ════════════════════════════════════════════════════ -->
-    <section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h2 class="text-3xl font-extrabold text-center text-gray-900 mb-2">Frequently asked questions</h2>
-        <p class="text-gray-500 text-center text-sm mb-10">Still have questions? <a href="mailto:support@aura-assist.com" class="text-emerald-600 hover:underline font-medium">Drop us a line</a></p>
-        <div class="space-y-3">
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
-                    <span>What counts as a completed task?</span>
-                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">Each time your assistant completes an action — drafts a post, files a document, sends a report, or completes a workflow step — that counts as one task. Browsing your dashboard, scheduling, or updating instructions does <strong class="text-gray-700">not</strong> count.</div>
-            </details>
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
-                    <span>What happens when I reach my task limit?</span>
-                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">You'll receive an in-app notification at <strong class="text-gray-700">80%</strong> of your monthly allowance. At 100%, automated tasks are paused and you'll be prompted to upgrade or wait for the next billing period. Manual on-command tasks are never blocked.</div>
-            </details>
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
-                    <span>Is there a risk of a surprise bill?</span>
-                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">No. Every plan is a fixed flat fee — there are no per-task or per-compute charges. Your bill is <strong class="text-gray-700">exactly the same amount every month</strong>.</div>
-            </details>
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
-                    <span>What apps can my assistant connect to?</span>
-                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">Almost anything — Gmail, WordPress, LinkedIn, Slack, Google Sheets, HubSpot, Salesforce, Notion, and hundreds more. Our team verifies compatibility during onboarding before you ever pay a penny.</div>
-            </details>
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
-                    <span>What is the Brand Protection Guarantee?</span>
-                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">Every assistant is governed by the <strong class="text-gray-700">Aura Safe Content Benchmark</strong> — a built-in set of safety guidelines that ensures your assistant never publishes anything harmful, off-brand, or legally problematic. This is included on every plan. Combined with Draft Approvals, you stay in full control.</div>
-            </details>
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
-                    <span>Do I need to know anything about coding?</span>
-                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">Absolutely not. You describe what you want in plain English on a short form. Our human team handles everything from there.</div>
-            </details>
-            <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
-                    <span>Am I locked into a long-term contract?</span>
-                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                </summary>
-                <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">No. All plans are rolling monthly subscriptions. Cancel or upgrade at any time — no notice period, no penalties.</div>
-            </details>
-        </div>
-    </section>
-
     <!-- ══ FINAL CTA ═══════════════════════════════════════════════ -->
     <section class="bg-emerald-700">
-        <div class="max-w-3xl mx-auto px-4 py-14 text-center">
+        <div class="max-w-3xl mx-auto px-4 py-28 text-center">
             <h2 class="text-3xl font-extrabold text-white mb-3">Ready to reclaim your time?</h2>
             <p class="text-emerald-100 mb-8 text-lg">Join teams already saving hours every week with their Aura-Assist digital assistants.</p>
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
