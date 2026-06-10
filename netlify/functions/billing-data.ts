@@ -75,6 +75,7 @@ export const handler: Handler = async (event) => {
                 cardLast4: payments.cardLast4,
                 cardExpMonth: payments.cardExpMonth,
                 cardExpYear: payments.cardExpYear,
+                cardPostalCode: payments.cardPostalCode,
                 createdAt: payments.createdAt,
                 paidAt: payments.paidAt,
             })
@@ -226,10 +227,11 @@ export const handler: Handler = async (event) => {
             if (p.cardBrand && p.cardLast4) {
                 // DB-stored card details (authoritative)
                 cardDetails = {
-                    brand:    p.cardBrand,
-                    last4:    p.cardLast4,
-                    expMonth: p.cardExpMonth!,
-                    expYear:  p.cardExpYear!,
+                    brand:      p.cardBrand,
+                    last4:      p.cardLast4,
+                    expMonth:   p.cardExpMonth!,
+                    expYear:    p.cardExpYear!,
+                    postalCode: p.cardPostalCode || undefined,
                 };
             } else if (stripeCard) {
                 // Stripe live enrichment fallback

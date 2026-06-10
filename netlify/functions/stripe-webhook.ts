@@ -38,20 +38,23 @@ export const handler: Handler = async (event) => {
 
         // ── Expand PaymentMethod to capture card details at checkout ──
         // PAN and CVC are never stored — only brand, last4, and expiry.
-        let cardBrand: string | null    = null;
-        let cardLast4: string | null    = null;
-        let cardExpMonth: number | null = null;
-        let cardExpYear: number | null  = null;
+        let cardBrand: string | null      = null;
+        let cardLast4: string | null      = null;
+        let cardExpMonth: number | null   = null;
+        let cardExpYear: number | null    = null;
+        let cardPostalCode: string | null = null;
 
         if (pi.payment_method) {
             try {
                 const pm = await stripe.paymentMethods.retrieve(pi.payment_method as string);
                 if (pm.card) {
-                    cardBrand    = pm.card.brand    || null;
-                    cardLast4    = pm.card.last4    || null;
-                    cardExpMonth = pm.card.exp_month || null;
-                    cardExpYear  = pm.card.exp_year  || null;
+                    cardBrand      = pm.card.brand     || null;
+                    cardLast4      = pm.card.last4      || null;
+                    cardExpMonth   = pm.card.exp_month  || null;
+                    cardExpYear    = pm.card.exp_year   || null;
                 }
+                // Billing address postal code stored at checkout
+                cardPostalCode = pm.billing_details?.address?.postal_code || null;
             } catch (pmErr) {
                 console.warn('[stripe-webhook] Could not retrieve payment method for card details:', (pmErr as any)?.message);
             }
@@ -101,6 +104,7 @@ export const handler: Handler = async (event) => {
             cardLast4,
             cardExpMonth,
             cardExpYear,
+            cardPostalCode,
             paymentMethod: cardBrand && cardLast4 ? `${cardBrand} ending ${cardLast4}` : null,
         });
 
@@ -178,24 +182,26 @@ export const handler: Handler = async (event) => {
                 : null;
 
             // Resolve card details from the invoice's charge
-            let renewCardBrand: string | null    = null;
-            let renewCardLast4: string | null    = null;
-            let renewCardExpMonth: number | null = null;
-            let renewCardExpYear: number | null  = null;
+            let renewCardBrand: string | null      = null;
+            let renewCardLast4: string | null      = null;
+            let renewCardExpMonth: number | null   = null;
+            let renewCardExpYear: number | null    = null;
+            let renewCardPostalCode: string | null = null;
 
             try {
-                // invoice.payment_intent → expand charge → payment_method → card
+                // invoice.payment_intent → expand payment_method → card + billing address
                 if (invoice.payment_intent) {
                     const pi = await stripe.paymentIntents.retrieve(invoice.payment_intent as string, {
                         expand: ['payment_method'],
                     });
                     const pm = pi.payment_method as Stripe.PaymentMethod | null;
                     if (pm?.card) {
-                        renewCardBrand    = pm.card.brand    || null;
-                        renewCardLast4    = pm.card.last4    || null;
-                        renewCardExpMonth = pm.card.exp_month || null;
-                        renewCardExpYear  = pm.card.exp_year  || null;
+                        renewCardBrand      = pm.card.brand     || null;
+                        renewCardLast4      = pm.card.last4      || null;
+                        renewCardExpMonth   = pm.card.exp_month  || null;
+                        renewCardExpYear    = pm.card.exp_year   || null;
                     }
+                    renewCardPostalCode = pm?.billing_details?.address?.postal_code || null;
                 }
             } catch (cardErr) {
                 console.warn('[stripe-webhook] Could not retrieve card for renewal:', (cardErr as any)?.message);
@@ -217,11 +223,12 @@ export const handler: Handler = async (event) => {
                     status: 'completed',
                     externalPaymentId: invoice.payment_intent as string || invoice.id,
                     description: `${plan.planName} — renewal`,
-                    cardBrand:    renewCardBrand,
-                    cardLast4:    renewCardLast4,
-                    cardExpMonth: renewCardExpMonth,
-                    cardExpYear:  renewCardExpYear,
-                    paymentMethod: renewCardBrand && renewCardLast4 ? `${renewCardBrand} ending ${renewCardLast4}` : null,
+                    cardBrand:      renewCardBrand,
+                    cardLast4:      renewCardLast4,
+                    cardExpMonth:   renewCardExpMonth,
+                    cardExpYear:    renewCardExpYear,
+                    cardPostalCode: renewCardPostalCode,
+                    paymentMethod:  renewCardBrand && renewCardLast4 ? `${renewCardBrand} ending ${renewCardLast4}` : null,
                 }).catch(err => console.warn('[stripe-webhook] Duplicate payment insert skipped:', err.message));
             }
 

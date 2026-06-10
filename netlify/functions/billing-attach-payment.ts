@@ -30,7 +30,7 @@ export const handler: Handler = async (event) => {
     }
 
     const body = JSON.parse(event.body || '{}');
-    const { paymentMethodId } = body;
+    const { paymentMethodId, postalCode } = body;
     if (!paymentMethodId) {
         return { statusCode: 400, body: JSON.stringify({ error: 'paymentMethodId is required.' }) };
     }
@@ -95,11 +95,12 @@ export const handler: Handler = async (event) => {
         if (card) {
             await db.update(payments)
                 .set({
-                    cardBrand:    card.brand    || null,
-                    cardLast4:    card.last4    || null,
-                    cardExpMonth: card.exp_month || null,
-                    cardExpYear:  card.exp_year  || null,
-                    paymentMethod: `${card.brand} ending ${card.last4}`,
+                    cardBrand:      card.brand      || null,
+                    cardLast4:      card.last4      || null,
+                    cardExpMonth:   card.exp_month  || null,
+                    cardExpYear:    card.exp_year   || null,
+                    cardPostalCode: postalCode      || null,
+                    paymentMethod:  `${card.brand} ending ${card.last4}`,
                 })
                 .where(eq(payments.userId, userId));
         }

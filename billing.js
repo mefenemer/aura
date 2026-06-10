@@ -54,6 +54,7 @@
         errorEl.classList.add('hidden');
         saveBtn.disabled = true;
         document.getElementById('card-holder-name').value = '';
+        document.getElementById('card-postal-code').value = '';
 
         try {
             // 1. Get SetupIntent client secret + publishable key from our backend
@@ -127,9 +128,11 @@
     window._billingSaveCard = async function () {
         if (!_stripe || !_setupClientSecret || !_cardNumber) return;
 
-        const saveBtn  = document.getElementById('btn-save-card');
-        const errorEl  = document.getElementById('card-form-error');
-        const nameEl   = document.getElementById('card-holder-name');
+        const saveBtn    = document.getElementById('btn-save-card');
+        const errorEl    = document.getElementById('card-form-error');
+        const nameEl     = document.getElementById('card-holder-name');
+        const postalEl   = document.getElementById('card-postal-code');
+        const postalCode = postalEl ? postalEl.value.trim().toUpperCase() : '';
 
         saveBtn.disabled = true;
         saveBtn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/></svg> Saving…`;
@@ -141,7 +144,10 @@
             const { setupIntent, error } = await _stripe.confirmCardSetup(_setupClientSecret, {
                 payment_method: {
                     card: _cardNumber,
-                    billing_details: { name: nameEl.value.trim() || undefined },
+                    billing_details: {
+                        name: nameEl.value.trim() || undefined,
+                        address: postalCode ? { postal_code: postalCode } : undefined,
+                    },
                 },
             });
 
@@ -152,7 +158,7 @@
             const res  = await fetch('/.netlify/functions/billing-attach-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ paymentMethodId: setupIntent.payment_method }),
+                body: JSON.stringify({ paymentMethodId: setupIntent.payment_method, postalCode }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
