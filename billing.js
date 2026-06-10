@@ -85,7 +85,7 @@
             };
 
             _elements   = _stripe.elements();
-            _cardNumber = _elements.create('cardNumber', { style: elementStyle, showIcon: true });
+            _cardNumber = _elements.create('cardNumber', { style: elementStyle, showIcon: true, disableLink: true });
             _cardExpiry = _elements.create('cardExpiry', { style: elementStyle });
             _cardCvc    = _elements.create('cardCvc',    { style: elementStyle });
 
