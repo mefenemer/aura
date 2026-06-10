@@ -236,6 +236,15 @@
 
         contentContainer.innerHTML = await response.text();
 
+        // Re-execute any inline <script> blocks injected via innerHTML
+        // (browsers do not run scripts set through innerHTML — we must re-create them)
+        Array.from(contentContainer.querySelectorAll('script')).forEach(oldScript => {
+          const newScript = document.createElement('script');
+          Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+          newScript.textContent = oldScript.textContent;
+          oldScript.replaceWith(newScript);
+        });
+
         // Native window view scroll reposition cleaner
         window.scrollTo(0, 0);
         closeMobileMenu();

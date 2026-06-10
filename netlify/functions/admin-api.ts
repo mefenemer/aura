@@ -39,21 +39,32 @@ const PAGE_SIZE = 25;
 
 // ── Auth helper — returns userId or null; enforces admin role ─────────────────
 async function requireAdmin(event: any): Promise<number | null> {
-    if (!jwtSecret) return null;
+    if (!jwtSecret) { console.log('[admin-api] FAIL: JWT_SECRET not set'); return null; }
     const match = (event.headers.cookie || '').match(/aura_session=([^;]+)/);
-    if (!match) return null;
+    if (!match) { console.log('[admin-api] FAIL: no aura_session cookie. Cookies present:', event.headers.cookie || '(none)'); return null; }
     let userId: number;
     try { userId = (jwt.verify(match[1], jwtSecret) as { userId: number }).userId; }
-    catch { return null; }
+    catch (e) { console.log('[admin-api] FAIL: JWT verify error:', e.message); return null; }
+
+    console.log('[admin-api] JWT valid, userId:', userId);
 
     const db = getDb();
-    const [row] = await db
-        .select({ role: users.role })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
+    let row: { role: string } | undefined;
+    try {
+        const rows = await db
+            .select({ role: users.role })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1);
+        row = rows[0];
+    } catch (e: any) {
+        console.log('[admin-api] FAIL: DB query error:', e.message);
+        return null;
+    }
 
-    if (!row || !['admin', 'super_admin'].includes(row.role)) return null;
+    if (!row) { console.log('[admin-api] FAIL: user not found in DB for userId:', userId); return null; }
+    console.log('[admin-api] user role:', row.role);
+    if (!['admin', 'super_admin'].includes(row.role)) { console.log('[admin-api] FAIL: role not admin. Got:', row.role); return null; }
     return userId;
 }
 

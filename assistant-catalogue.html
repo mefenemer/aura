@@ -65,7 +65,66 @@
       <h3 class="text-xl font-bold text-emerald-900 mb-2">Need a role that isn't listed here?</h3>
       <p class="text-emerald-700 max-w-2xl">We are constantly training new assistants. Let our engineering team know what chore you want to automate next, and we will prioritize it.</p>
     </div>
-    <a href="mailto:hello@aura-assist.com?subject=Custom%20Role%20Request" class="flex-shrink-0 bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold shadow-sm hover:bg-emerald-800 transition">Request a Role</a>
+    <button onclick="document.getElementById('cat-role-request-modal').classList.remove('hidden')" class="flex-shrink-0 bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold shadow-sm hover:bg-emerald-800 transition">Request a New Role</button>
+  </div>
+</div>
+
+<!-- Request a New Role Modal -->
+<div id="cat-role-request-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" style="background:rgba(0,0,0,0.4)">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8 relative">
+    <button onclick="document.getElementById('cat-role-request-modal').classList.add('hidden')"
+            class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <!-- Form state -->
+    <div id="cat-rr-form">
+      <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-4">
+        <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      </div>
+      <h2 class="text-xl font-extrabold text-gray-900 mb-1">Request a New Role</h2>
+      <p class="text-sm text-gray-500 mb-5">Tell us what you need automated. We'll prioritize it on our engineering roadmap.</p>
+      <p id="cat-rr-error" class="hidden text-sm text-red-600 mb-3"></p>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Role / Job Title *</label>
+          <input id="cat-rr-role" type="text" placeholder="e.g. Inventory Manager, Legal Researcher…"
+            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">What tasks should it handle? *</label>
+          <textarea id="cat-rr-tasks" rows="3" placeholder="Describe the repetitive work you want automated…"
+            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Your industry (optional)</label>
+          <input id="cat-rr-industry" type="text" placeholder="e.g. E-commerce, Healthcare, Finance…"
+            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">How urgent is this for you?</label>
+          <select id="cat-rr-urgency" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+            <option value="nice_to_have">Nice to have</option>
+            <option value="important">Important — within a few months</option>
+            <option value="urgent">Urgent — I need it ASAP</option>
+          </select>
+        </div>
+      </div>
+      <button id="cat-rr-submit" onclick="window._catSubmitRoleRequest()"
+        class="mt-6 w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition flex items-center justify-center gap-2">
+        <span id="cat-rr-btn-text">Submit Request</span>
+        <div id="cat-rr-spinner" class="hidden w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
+      </button>
+    </div>
+    <!-- Success state -->
+    <div id="cat-rr-success" class="hidden text-center py-6">
+      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <h3 class="text-lg font-extrabold text-gray-900 mb-1">Request received!</h3>
+      <p class="text-sm text-gray-500">Our engineering team will review your submission and prioritize it on the roadmap. We'll notify you when it's ready.</p>
+      <button onclick="document.getElementById('cat-role-request-modal').classList.add('hidden')"
+        class="mt-5 px-6 py-2 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-black transition">Close</button>
+    </div>
   </div>
 </div>
 
@@ -312,6 +371,59 @@
       document.getElementById('cat-wl-spinner').classList.add('hidden');
       document.getElementById('cat-wl-btn-text').textContent = 'Notify Me';
     }
+  });
+
+  // ── Request a New Role submit ──────────────────────────────────────────────
+  window._catSubmitRoleRequest = async function () {
+    const role     = document.getElementById('cat-rr-role')?.value?.trim();
+    const tasks    = document.getElementById('cat-rr-tasks')?.value?.trim();
+    const industry = document.getElementById('cat-rr-industry')?.value?.trim();
+    const urgency  = document.getElementById('cat-rr-urgency')?.value;
+    const errEl    = document.getElementById('cat-rr-error');
+    errEl.classList.add('hidden');
+
+    if (!role || !tasks) {
+      errEl.textContent = 'Please fill in the Role and Tasks fields.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    const btn = document.getElementById('cat-rr-submit');
+    btn.disabled = true;
+    document.getElementById('cat-rr-spinner').classList.remove('hidden');
+    document.getElementById('cat-rr-btn-text').textContent = 'Sending…';
+
+    try {
+      // Submit as a support ticket with category "Role Request"
+      const res = await fetch('/.netlify/functions/support-tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: `New Role Request: ${role}`,
+          description: `Role: ${role}\n\nTasks to automate:\n${tasks}${industry ? '\n\nIndustry: ' + industry : ''}\n\nUrgency: ${urgency}`,
+          category: 'Role Request',
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || 'Submission failed. Please try again.');
+      }
+      document.getElementById('cat-rr-form').classList.add('hidden');
+      document.getElementById('cat-rr-success').classList.remove('hidden');
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      document.getElementById('cat-rr-spinner').classList.add('hidden');
+      document.getElementById('cat-rr-btn-text').textContent = 'Submit Request';
+    }
+  };
+
+  // Close modal when clicking the backdrop
+  document.getElementById('cat-role-request-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('cat-role-request-modal'))
+      document.getElementById('cat-role-request-modal').classList.add('hidden');
   });
 
   // ── Boot ───────────────────────────────────────────────────────────────────
