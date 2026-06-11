@@ -3,7 +3,7 @@ import { Handler } from '@netlify/functions';
 import { eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
-import { users, organisations, userOrganisations, userProfiles, plans, masterPlans } from '../../db/schema';
+import { users, organisations, userOrganisations, userProfiles, plans, masterPlans, userReferrals } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { checkRateLimit, getClientIp } from '../../src/utils/rate-limit';
 
@@ -38,6 +38,7 @@ export const handler: Handler = async (event) => {
         const priceId = body.priceId?.trim() || null;
         const isTrial = body.trial === true || body.trial === 'true'; // US-GAP-8.1.1 SC1
         const attributionRef = body.attributionRef?.trim() || null; // US-AUD-5.3.1 SC5
+        const referralRef = body.referralRef?.trim() || null;        // US-GAP-8.2: workspace referral code
 
         if (!email || !firstName || !lastName) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields.' }) };
@@ -174,6 +175,29 @@ export const handler: Handler = async (event) => {
                 </div>
             `
         });
+
+        // US-GAP-8.2: Record workspace referral if signup came from a referral link
+        if (referralRef && resultUser) {
+            try {
+                // SC5: Prevent self-referral — look up owner of this code
+                const [referrer] = await db.select({ id: users.id })
+                    .from(users)
+                    .where(eq(users.referralCode, referralRef))
+                    .limit(1);
+
+                if (referrer && referrer.id !== resultUser.id) {
+                    // SC6: Only create one referral row per referred user (unique constraint on referredUserId)
+                    await db.insert(userReferrals).values({
+                        referrerId: referrer.id,
+                        referredUserId: resultUser.id,
+                        referralCode: referralRef,
+                        status: 'pending',
+                    }).onConflictDoNothing();
+                }
+            } catch (refErr) {
+                console.warn('[referral] Failed to record referral:', refErr);
+            }
+        }
 
         // US-AUD-5.3.1 SC5: Record referral attribution if signup came from agency badge link
         if (attributionRef && resultUser) {

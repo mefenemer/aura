@@ -364,7 +364,8 @@
       'billing': { file: 'billing.html', title: '| Subscription & Billing' },
       'help': { file: 'help-content.html', title: '| Help & Support' },
       'my-content': { file: 'my-content.html', title: '| My Content' },
-      'calendar': { file: 'calendar.html', title: '| Content Calendar' }
+      'calendar': { file: 'calendar.html', title: '| Content Calendar' },
+      'referral': { file: 'referral-content.html', title: '| Refer a Friend' }
     };
 
     // Consolidated DOM element hooks
@@ -380,7 +381,8 @@
       'help': document.getElementById('nav-help'),
       'my-content': document.getElementById('nav-my-content'),
       'calendar': document.getElementById('nav-calendar'),
-      'team': document.getElementById('nav-team')
+      'team': document.getElementById('nav-team'),
+      'referral': document.getElementById('nav-referral')
     };
 
     async function loadView(routeKey, param = null) {

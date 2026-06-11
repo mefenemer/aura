@@ -41,6 +41,9 @@ export const users = pgTable('users', {
   // Platform role — 'user' (default) | 'admin' | 'super_admin'
   role: text('role').notNull().default('user'),
 
+  // US-GAP-8.2: Referral programme — unique share code
+  referralCode: text('referral_code').unique(),
+
   // US-GAP-2.1.1: Account deletion cooling-off period (24h)
   pendingDeletion: boolean('pending_deletion').default(false),
   pendingDeletionAt: timestamp('pending_deletion_at'),          // when deletion was requested
@@ -359,6 +362,22 @@ export const waitlistReferrals = pgTable("waitlist_referrals", {
   referrerIpHash: text("referrer_ip_hash"),                 // SC5: hashed IP for self-referral detection
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ── User Referrals — US-GAP-8.2 ──────────────────────────────────────────────
+// Tracks referral relationships: who referred whom, status, and reward.
+export const userReferrals = pgTable("user_referrals", {
+  id: serial().primaryKey(),
+  referrerId: integer("referrer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  referredUserId: integer("referred_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  referralCode: text("referral_code").notNull(),          // the code that was used
+  status: text("status").notNull().default("pending"),    // 'pending' | 'qualified' | 'rewarded'
+  qualifiedAt: timestamp("qualified_at"),                 // when referred user made first paid invoice
+  rewardedAt: timestamp("rewarded_at"),                   // when £10 credit was applied
+  stripeBalanceTxId: text("stripe_balance_tx_id"),        // Stripe customer balance transaction id
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  uniqueReferred: unique("user_referrals_referred_unique").on(t.referredUserId),
+}));
 
 // Add this to your existing db/schema.ts file
 

@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 import { eq, and, inArray, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices, processedWebhookEvents } from '../../db/schema';
+import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices, processedWebhookEvents, userReferrals } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
@@ -201,6 +201,54 @@ export const handler: Handler = async (event) => {
             message: 'Your subscription is active. Click "Resume Setup" on your dashboard to build your Digital Assistant now.',
             isRead: false,
         });
+
+        // ── US-GAP-8.2: Referral qualification + £10 reward ──────────
+        // If this new paying user was referred, mark the referral 'qualified' and
+        // apply a £10 Stripe customer balance credit to the referrer.
+        try {
+            const [pendingReferral] = await db
+                .select({ id: userReferrals.id, referrerId: userReferrals.referrerId })
+                .from(userReferrals)
+                .where(and(eq(userReferrals.referredUserId, userIdInt), eq(userReferrals.status, 'pending')))
+                .limit(1);
+
+            if (pendingReferral) {
+                // Look up referrer's Stripe customer id from their active plan
+                const [referrerPlan] = await db
+                    .select({ stripeCustomerId: plans.stripeCustomerId })
+                    .from(plans)
+                    .where(and(eq(plans.userId, pendingReferral.referrerId), eq(plans.status, 'active')))
+                    .limit(1);
+
+                let balanceTxId: string | null = null;
+
+                if (referrerPlan?.stripeCustomerId) {
+                    // Apply £10 credit (negative amount = credit in Stripe)
+                    const balanceTx = await stripe.customers.createBalanceTransaction(
+                        referrerPlan.stripeCustomerId,
+                        { amount: -1000, currency: 'gbp', description: 'Referral reward — friend made their first payment' },
+                    );
+                    balanceTxId = balanceTx.id;
+                }
+
+                // Update referral row
+                await db.update(userReferrals)
+                    .set({ status: 'rewarded', qualifiedAt: new Date(), rewardedAt: new Date(), stripeBalanceTxId: balanceTxId })
+                    .where(eq(userReferrals.id, pendingReferral.id));
+
+                // Notify referrer
+                await db.insert(notifications).values({
+                    userId: pendingReferral.referrerId,
+                    type: 'referral_reward',
+                    title: '🎉 Referral Reward Earned — £10 Credit Applied',
+                    message: 'A friend you referred has signed up and made their first payment. We\'ve added a £10 credit to your account — it will be applied to your next invoice.',
+                    isRead: false,
+                    metadata: { referralId: pendingReferral.id, rewardGbp: 10 },
+                });
+            }
+        } catch (refErr) {
+            console.warn('[stripe-webhook] Referral reward failed (non-blocking):', refErr);
+        }
     }
 
     // ── invoice.upcoming — renewal due in ~3 days ─────────────────

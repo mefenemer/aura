@@ -103,6 +103,10 @@
   document.addEventListener("DOMContentLoaded", () => {
     loadComponent("nav-placeholder", "./components/nav.html");
     loadComponent("footer-placeholder", "./components/footer.html");
+
+    // US-GAP-8.2: capture referral code from URL ?ref=
+    const refParam = new URLSearchParams(window.location.search).get('ref');
+    if (refParam) sessionStorage.setItem('referral_ref', refParam.toUpperCase());
   });
 
   async function handleRegistration(event) {
@@ -130,7 +134,7 @@
       const response = await fetch('/.netlify/functions/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName, lastName, email, businessName, priceId, attributionRef: sessionStorage.getItem('attribution_ref') || undefined })
+        body: JSON.stringify({ firstName, lastName, email, businessName, priceId, attributionRef: sessionStorage.getItem('attribution_ref') || undefined, referralRef: sessionStorage.getItem('referral_ref') || undefined })
       });
 
       const data = await response.json();
