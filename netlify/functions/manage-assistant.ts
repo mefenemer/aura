@@ -52,6 +52,17 @@ export const handler: Handler = async (event) => {
             const existing = await findAssistant();
             if (!existing) return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
 
+            // US-GOV-3.1.1: Block resume if disclosure is missing (EU AI Act Art. 52)
+            if (action === 'resume' && !existing.disclosureText?.trim()) {
+                return {
+                    statusCode: 422,
+                    body: JSON.stringify({
+                        error: 'AI disclosure text is required before this assistant can be activated (EU AI Act Art. 52).',
+                        code: 'DISCLOSURE_MISSING',
+                    }),
+                };
+            }
+
             const [updated] = await db
                 .update(aiAssistants)
                 .set({ isActive: action === 'resume', updatedAt: new Date() })

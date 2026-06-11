@@ -31,10 +31,12 @@ import {
     gdprErasureLog, adminAuditLog, aiUsageLog, aiModelPricing,
     organisations, billingReconciliationLog, masterPlans, platformConfig, featureFlags,
     billingOverrides, payments, assistantVersions,
+    agentAnomalies, agentAnomalyThresholds, taskRuns,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { isAdminRole, hasPermission, requirePermission } from '../../src/utils/rbac';
+import { SPECIAL_CATEGORY_CLAUSE } from './get-dpa-content';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || 'hello@aura-assist.com';
@@ -1001,19 +1003,21 @@ export const handler: Handler = async (event) => {
             const permErr = requirePermission(adminRole, 'view_audit_log');
             if (permErr) return permErr;
 
-            const page        = Math.max(0, parseInt(qs.page || '0'));
-            const filterAdmin = qs.adminId ? parseInt(qs.adminId) : null;
+            const page         = Math.max(0, parseInt(qs.page || '0'));
+            const filterAdmin  = qs.adminId ? parseInt(qs.adminId) : null;
             const filterAction = qs.action || null;
             const filterTarget = qs.targetType || null;
-            const fromDate    = qs.from ? new Date(qs.from) : null;
-            const toDate      = qs.to   ? new Date(qs.to)   : null;
+            const fromDate     = qs.from ? new Date(qs.from) : null;
+            const toDate       = qs.to   ? new Date(qs.to)   : null;
+            const filterReason = qs.reason ? qs.reason.trim() : null;
 
             const conditions: any[] = [];
             if (filterAdmin)  conditions.push(eq(adminAuditLog.adminId, filterAdmin));
-            if (filterAction)  conditions.push(eq(adminAuditLog.action, filterAction));
-            if (filterTarget)  conditions.push(eq(adminAuditLog.targetType, filterTarget));
-            if (fromDate)      conditions.push(gte(adminAuditLog.createdAt, fromDate));
-            if (toDate)        conditions.push(lte(adminAuditLog.createdAt, toDate));
+            if (filterAction) conditions.push(eq(adminAuditLog.action, filterAction));
+            if (filterTarget) conditions.push(eq(adminAuditLog.targetType, filterTarget));
+            if (fromDate)     conditions.push(gte(adminAuditLog.createdAt, fromDate));
+            if (toDate)       conditions.push(lte(adminAuditLog.createdAt, toDate));
+            if (filterReason) conditions.push(ilike(adminAuditLog.reason, `%${filterReason}%`));
 
             const where = conditions.length ? and(...conditions) : undefined;
 
@@ -1534,17 +1538,28 @@ export const handler: Handler = async (event) => {
                 .where(eq(assistantVersions.assistantId, uid2));
             const nextVersion = (latest?.max ?? 0) + 1;
 
+            // US-GDPR-1.2.1 SC3: Auto-append special-category refusal clause to every
+            // master assistant system prompt so it is always present regardless of what
+            // the admin writes above it.
+            const clauseMarker = '<!-- special-category-clause -->';
+            let finalPrompt: string | null = systemPrompt ?? null;
+            if (finalPrompt && !finalPrompt.includes(clauseMarker)) {
+                finalPrompt = `${finalPrompt}\n\n${clauseMarker}\n${SPECIAL_CATEGORY_CLAUSE}`;
+            } else if (!finalPrompt) {
+                finalPrompt = `${clauseMarker}\n${SPECIAL_CATEGORY_CLAUSE}`;
+            }
+
             const [newVersion] = await db.insert(assistantVersions).values({
                 assistantId: uid2,
                 versionNumber: nextVersion,
-                systemPrompt: systemPrompt ?? null,
+                systemPrompt: finalPrompt,
                 config: vConfig ?? null,
                 createdBy: adminId,
                 changeNote,
             }).returning({ id: assistantVersions.id });
 
             await db.update(masterAssistants)
-                .set({ currentVersionId: newVersion.id, updatedAt: new Date() })
+                .set({ currentVersionId: newVersion.id, specialCategoryClauseEnabled: true, updatedAt: new Date() })
                 .where(eq(masterAssistants.id, uid2));
 
             return {
@@ -1608,6 +1623,114 @@ export const handler: Handler = async (event) => {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ success: true, newVersionId: rollbackVersion.id, versionNumber: nextVersion }),
+            };
+        }
+
+        // US-GOV-3.1.1: Compliance dashboard — assistants missing or with non-compliant disclosure
+        // GET /admin-api?resource=disclosure-compliance[&missing=true]
+        if (event.httpMethod === 'GET' && resource === 'disclosure-compliance') {
+            const missingOnly = qs.missing === 'true';
+            const rows = await db
+                .select({
+                    id: aiAssistants.id,
+                    name: aiAssistants.name,
+                    userId: aiAssistants.userId,
+                    isActive: aiAssistants.isActive,
+                    provisioningStatus: aiAssistants.provisioningStatus,
+                    disclosureText: aiAssistants.disclosureText,
+                    createdAt: aiAssistants.createdAt,
+                })
+                .from(aiAssistants)
+                .orderBy(aiAssistants.createdAt);
+
+            const results = missingOnly
+                ? rows.filter(r => !r.disclosureText?.trim())
+                : rows.map(r => ({ ...r, disclosureConfigured: !!r.disclosureText?.trim() }));
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    total: rows.length,
+                    missing: rows.filter(r => !r.disclosureText?.trim()).length,
+                    results,
+                }),
+            };
+        }
+
+        // ── US-GOV-4.2.1: Agent anomalies — cross-workspace view ──────────────────
+        if (event.httpMethod === 'GET' && resource === 'agent-anomalies') {
+            const permErr = requirePermission(adminRole, 'view_audit_log');
+            if (permErr) return permErr;
+
+            const page = Math.max(0, parseInt(qs.page || '0'));
+            const anomalyRows = await db
+                .select({
+                    id:                  agentAnomalies.id,
+                    taskRunId:           agentAnomalies.taskRunId,
+                    assistantId:         agentAnomalies.assistantId,
+                    organisationId:      agentAnomalies.organisationId,
+                    anomalyType:         agentAnomalies.anomalyType,
+                    status:              agentAnomalies.status,
+                    toolCallExcerpt:     agentAnomalies.toolCallExcerpt,
+                    detectedAt:          agentAnomalies.detectedAt,
+                    resumedAt:           agentAnomalies.resumedAt,
+                    resumedBy:           agentAnomalies.resumedBy,
+                    terminatedAt:        agentAnomalies.terminatedAt,
+                    workspaceName:       organisations.name,
+                })
+                .from(agentAnomalies)
+                .leftJoin(organisations, eq(organisations.id, agentAnomalies.organisationId))
+                .orderBy(desc(agentAnomalies.detectedAt))
+                .limit(50)
+                .offset(page * 50);
+
+            const [{ c: total }] = await db.select({ c: count() }).from(agentAnomalies);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ anomalies: anomalyRows, total, page, pageSize: 50 }),
+            };
+        }
+
+        // ── US-GOV-4.2.1: Configure anomaly thresholds (GET + POST) ──────────────
+        if (event.httpMethod === 'GET' && resource === 'anomaly-thresholds') {
+            const rows = await db.select().from(agentAnomalyThresholds).orderBy(agentAnomalyThresholds.organisationId);
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ thresholds: rows }),
+            };
+        }
+
+        if (event.httpMethod === 'POST' && resource === 'anomaly-thresholds') {
+            const permErr = requirePermission(adminRole, 'platform_config');
+            if (permErr) return permErr;
+
+            const body = JSON.parse(event.body || '{}');
+            const { organisationId, loopDetectionLimit, toolRateMultiplier, errorRatePercent, consecutiveRateLimitHits, justification } = body;
+
+            if (organisationId && !justification?.trim()) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'justification is required for workspace overrides.' }) };
+            }
+
+            const [row] = await db.insert(agentAnomalyThresholds).values({
+                organisationId: organisationId ?? null,
+                loopDetectionLimit: loopDetectionLimit ?? 5,
+                toolRateMultiplier: toolRateMultiplier ?? 2,
+                errorRatePercent: errorRatePercent ?? 20,
+                consecutiveRateLimitHits: consecutiveRateLimitHits ?? 3,
+                justification: justification?.trim() ?? null,
+                createdBy: adminId,
+            }).returning();
+
+            await audit(db, adminId, 'UPDATE', 'agent_anomaly_thresholds', row.id, { organisationId, loopDetectionLimit, errorRatePercent });
+
+            return {
+                statusCode: 201,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ threshold: row }),
             };
         }
 

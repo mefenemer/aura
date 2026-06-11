@@ -75,6 +75,32 @@ export default async (request: Request, context: Context) => {
             console.log(`[auth-guard] Blocked unauthorized access to ${url.pathname}`);
             return Response.redirect(new URL('/login.html', request.url));
         }
+
+        // US-ADM-1.3.2: Check JWT blocklist — reject erased/revoked user sessions immediately
+        try {
+            const parts = sessionCookie.split('.');
+            if (parts.length === 3) {
+                const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                if (payload.userId) {
+                    const revokeCheckUrl = `${url.origin}/.netlify/functions/check-token-revoked?userId=${payload.userId}`;
+                    const revokeRes = await fetch(revokeCheckUrl, { signal: AbortSignal.timeout(1500) });
+                    if (revokeRes.ok) {
+                        const { revoked } = await revokeRes.json() as { revoked: boolean };
+                        if (revoked) {
+                            console.log(`[auth-guard] Blocked revoked session for userId=${payload.userId}`);
+                            const logoutUrl = new URL('/login.html', request.url);
+                            logoutUrl.searchParams.set('error', 'session_revoked');
+                            const response = Response.redirect(logoutUrl.toString(), 302);
+                            // Clear the stale cookie
+                            response.headers.append('Set-Cookie', 'aura_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax');
+                            return response;
+                        }
+                    }
+                }
+            }
+        } catch {
+            // Blocklist check failed — fail open so a DB outage doesn't lock out all users
+        }
     }
 
     return context.next();

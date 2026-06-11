@@ -70,30 +70,42 @@ async function runReconciliation(): Promise<void> {
 
         totalChecked = dbActivePlans.length;
 
-        // Map subscriptionId → DB plan for fast lookup
-        const subIdToDbPlan = new Map<string, typeof dbActivePlans[0]>();
-        const plansWithoutSub: typeof dbActivePlans = [];
-        for (const p of dbActivePlans) {
-            if (p.stripeSubscriptionId) {
-                subIdToDbPlan.set(p.stripeSubscriptionId, p);
-            } else {
-                // Plans with no stripe subscription ID (trials, manual plans) — skip
-            }
-        }
-
-        // Load org names for mismatches display
+        // Load org names and master plan tiers before building the mismatch map
         const orgIds = [...new Set(dbActivePlans.map(p => p.organisationId).filter(Boolean))] as number[];
         const orgRows = orgIds.length
             ? await db.select({ id: organisations.id, name: organisations.name }).from(organisations).where(inArray(organisations.id, orgIds))
             : [];
         const orgNameMap = new Map(orgRows.map(o => [o.id, o.name]));
 
-        // Load tierKey for master plans
         const masterPlanIds = [...new Set(dbActivePlans.map(p => p.masterPlanId).filter(Boolean))] as number[];
         const masterPlanRows = masterPlanIds.length
             ? await db.select({ id: masterPlans.id, tierKey: masterPlans.tierKey }).from(masterPlans).where(inArray(masterPlans.id, masterPlanIds))
             : [];
         const masterPlanTierMap = new Map(masterPlanRows.map(mp => [mp.id, mp.tierKey]));
+
+        // Map subscriptionId → DB plan for fast lookup
+        const subIdToDbPlan = new Map<string, typeof dbActivePlans[0]>();
+        for (const p of dbActivePlans) {
+            if (p.stripeSubscriptionId) {
+                subIdToDbPlan.set(p.stripeSubscriptionId, p);
+            } else {
+                // Fix (US-ADM-2.3.1): Active DB plan with no stripeSubscriptionId —
+                // flag as missing_stripe_sub so admins can investigate.
+                const dbTierKey = p.masterPlanId ? (masterPlanTierMap.get(p.masterPlanId) || null) : null;
+                mismatches.push({
+                    type: 'missing_stripe_sub',
+                    workspaceId:          p.organisationId,
+                    workspaceName:        p.organisationId ? (orgNameMap.get(p.organisationId) || null) : null,
+                    dbPlanId:             p.planId,
+                    dbTierKey,
+                    stripeSubscriptionId: null,
+                    stripePriceId:        null,
+                    stripeTierKey:        null,
+                    stripeStatus:         'no_subscription_id',
+                    lastWebhookDate:      p.updatedAt ? new Date(p.updatedAt).toISOString() : null,
+                });
+            }
+        }
 
         // ── 2. Paginate all active Stripe subscriptions ───────────────────────────
         const stripeSubIds = new Set<string>();
@@ -147,6 +159,26 @@ async function runReconciliation(): Promise<void> {
                 stripeStatus:         stripeSub.status,
                 lastWebhookDate:      new Date(stripeSub.canceled_at! * 1000).toISOString(),
             });
+        }
+
+        // ── 3b. Flag DB plans whose stripeSubscriptionId was not found in Stripe's
+        //        active OR cancelled lists — e.g. past_due, incomplete, deleted ────
+        for (const [subId, dbPlan] of subIdToDbPlan) {
+            if (!stripeSubIds.has(subId)) {
+                const dbTierKey = dbPlan.masterPlanId ? (masterPlanTierMap.get(dbPlan.masterPlanId) || null) : null;
+                mismatches.push({
+                    type: 'missing_stripe_sub',
+                    workspaceId:          dbPlan.organisationId,
+                    workspaceName:        dbPlan.organisationId ? (orgNameMap.get(dbPlan.organisationId) || null) : null,
+                    dbPlanId:             dbPlan.planId,
+                    dbTierKey,
+                    stripeSubscriptionId: subId,
+                    stripePriceId:        null,
+                    stripeTierKey:        null,
+                    stripeStatus:         'not_found_in_stripe',
+                    lastWebhookDate:      dbPlan.updatedAt ? new Date(dbPlan.updatedAt).toISOString() : null,
+                });
+            }
         }
 
         // ── 4. Write reconciliation log ────────────────────────────────────────────

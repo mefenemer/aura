@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { aiAssistants, masterAssistants } from '../../db/schema';
+import { aiAssistants, dpaAcceptances, masterAssistants } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -38,6 +38,8 @@ export const handler: Handler = async (event) => {
         onboardingContext: aiAssistants.onboardingContext,
         configuration: aiAssistants.configuration,
         masterAssistantId: aiAssistants.masterAssistantId,
+        disclosureText: aiAssistants.disclosureText,
+        organisationId: aiAssistants.organisationId,
         lifecycleState: masterAssistants.lifecycleState,
         replacementAssistantId: masterAssistants.replacementAssistantId,
         replacementName: masterAssistants.name,
@@ -48,6 +50,17 @@ export const handler: Handler = async (event) => {
 
     if (!row) return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
 
+    // US-GDPR-1.1.1: Surface DPA status so UI can prompt acceptance
+    let dpaAccepted = true;
+    if (row.organisationId) {
+        const [dpa] = await db
+            .select({ id: dpaAcceptances.id })
+            .from(dpaAcceptances)
+            .where(eq(dpaAcceptances.organisationId, row.organisationId))
+            .limit(1);
+        dpaAccepted = !!dpa;
+    }
+
     return { statusCode: 200, body: JSON.stringify({
             context: row.onboardingContext,
             configuration: row.configuration,
@@ -55,6 +68,8 @@ export const handler: Handler = async (event) => {
             role: row.role || 'Digital Assistant',
             status: row.status || 'pending',
             isActive: row.isActive,
+            disclosureText: row.disclosureText ?? null,
+            dpaAccepted,
             lifecycleState: row.lifecycleState ?? 'live',
             replacementAssistantId: row.replacementAssistantId ?? null,
         }) };

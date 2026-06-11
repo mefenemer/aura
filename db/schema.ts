@@ -176,6 +176,8 @@ export const aiAssistants = pgTable("ai_assistants", {
   aiAssistantJobRole: text("ai_assistant_job_role"),
   model: text("model").notNull(),
   systemPrompt: text("system_prompt"),
+  // US-GOV-3.1.1: EU AI Act Art. 52 disclosure — required before activation
+  disclosureText: text("disclosure_text"),
   isActive: boolean("is_active").notNull().default(true),
   configuration: jsonb("configuration"),
 
@@ -335,7 +337,8 @@ export const taskRuns = pgTable("task_runs", {
   organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "set null" }),
   assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
   taskType: text("task_type").notNull().default("automated"),  // 'automated' | 'manual' | 'scheduled'
-  status: text("status").notNull().default("completed"),       // 'completed' | 'failed' | 'skipped'
+  status: text("status").notNull().default("completed"),       // 'completed' | 'failed' | 'skipped' | 'suspended' | 'terminated'
+  anomalyCount: integer("anomaly_count").notNull().default(0), // US-GOV-4.2.1: incremented on each kill-switch trigger; ≥2 → permanent termination
   tokensUsed: integer("tokens_used").default(0),               // LLM tokens consumed by this run
   // metadata JSONB shape (US-AUD-2.1.1):
   //   { confidenceLevel: 'green' | 'amber' | 'red',   // AI self-assessed confidence (SC5)
@@ -364,6 +367,9 @@ export const masterAssistants = pgTable("master_assistants", {
   currentVersionId: integer("current_version_id"),
   // For deprecated assistants — ID of the recommended replacement
   replacementAssistantId: integer("replacement_assistant_id"),
+  // US-GDPR-1.2.1: Confirms the Article 52 special-category refusal clause is present
+  // in this assistant's current system prompt version. Set true by admin on version create.
+  specialCategoryClauseEnabled: boolean("special_category_clause_enabled").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -674,6 +680,21 @@ export const scheduledPosts = pgTable("scheduled_posts", {
 // ── DPA Requests — US-AUD-4.1.1 SC3 ──────────────────────────────────────────
 // Stores Data Processing Agreement request submissions from the /trust.html page.
 // On insert: (a) email sent to platform legal contact, (b) auto-acknowledgement sent to requester.
+// ── DPA Acceptances — US-GDPR-1.1.1 ─────────────────────────────────────────
+// Append-only evidence of Article 28 DPA consent per organisation.
+// Each row is legally admissible proof per Article 28(9).
+// No application-level DELETE or UPDATE should ever touch this table.
+export const dpaAcceptances = pgTable("dpa_acceptances", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  acceptedAt: timestamp("accepted_at").defaultNow().notNull(),
+  version: text("version").notNull(),          // DPA version string, e.g. '1.0'
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  email: text("email").notNull(),              // email of accepting user (captured before any anonymisation)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const dpaRequests = pgTable("dpa_requests", {
   id: serial().primaryKey(),
   name: text("name").notNull(),
@@ -741,6 +762,21 @@ export const gdprErasureLog = pgTable("gdpr_erasure_log", {
   requesterType: text("requester_type").notNull(),              // 'user' | 'admin'
   requestedBy: integer("requested_by"),                         // admin userId if requester='admin'
   erasedAt: timestamp("erased_at").defaultNow().notNull(),
+  metadata: jsonb("metadata"),                                  // US-GDPR-2.2.1: asset purge counts, partial failures
+});
+
+// ── Vector Embeddings Deletion Map — US-GDPR-2.2.2 ─────────────────────────
+// Tracks every chunk embedded into a vector store so erasure can delete them.
+// Populated by RAG pipeline work; the erasure paths already query this table.
+// Any future RAG work MUST insert a row here before writing to the vector store.
+export const vectorEmbeddings = pgTable("vector_embeddings", {
+  id: serial().primaryKey(),
+  sourceType: text("source_type").notNull(), // 'workspace_asset' | 'conversation'
+  sourceId: integer("source_id").notNull(),  // FK to workspace_assets.id or task_runs.id
+  vectorStoreId: text("vector_store_id").notNull(), // external record ID (pgvector rowid or Pinecone ID)
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // ── Data Export Requests — US-GAP-2.2.1 SC5 ─────────────────────────────────
@@ -863,6 +899,81 @@ export const leadAnalysisRuns = pgTable("lead_analysis_runs", {
   patternCounts: jsonb("pattern_counts"),  // { trial_expiry, never_onboarded, cancellation_approaching, upgrade_candidates }
   status: text("status").notNull().default("success"), // 'success' | 'failed'
   errorMessage: text("error_message"),
+});
+
+// ── Agent Anomaly Thresholds — US-GOV-4.2.1: Platform-wide and workspace-level kill-switch config ──
+export const agentAnomalyThresholds = pgTable("agent_anomaly_thresholds", {
+  id: serial().primaryKey(),
+  // null organisationId = platform-wide default; non-null = workspace override
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
+  loopDetectionLimit: integer("loop_detection_limit").notNull().default(5),   // consecutive identical calls
+  toolRateMultiplier: integer("tool_rate_multiplier").notNull().default(2),   // 2x 7-day rolling average
+  errorRatePercent: integer("error_rate_percent").notNull().default(20),      // % within 5-min window
+  consecutiveRateLimitHits: integer("consecutive_rate_limit_hits").notNull().default(3),
+  justification: text("justification"),  // required for workspace overrides
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── Agent Anomaly Events — US-GOV-4.2.1: Full audit trail of kill-switch activations ──
+export const agentAnomalies = pgTable("agent_anomalies", {
+  id: serial().primaryKey(),
+  taskRunId: integer("task_run_id").references(() => taskRuns.id, { onDelete: "cascade" }),
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "set null" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  // Anomaly type: 'loop' | 'rate_spike' | 'error_rate' | 'consecutive_429'
+  anomalyType: text("anomaly_type").notNull(),
+  // Snapshot of tool call sequence that triggered the anomaly
+  toolCallExcerpt: jsonb("tool_call_excerpt"),
+  detectedAt: timestamp("detected_at").defaultNow().notNull(),
+  // Manual resume tracking
+  resumedAt: timestamp("resumed_at"),
+  resumedBy: integer("resumed_by").references(() => users.id, { onDelete: "set null" }),
+  resumeAcknowledgement: text("resume_acknowledgement"),
+  // If same anomaly fires again in same run → permanently terminated
+  terminatedAt: timestamp("terminated_at"),
+  status: text("status").notNull().default("suspended"), // 'suspended' | 'resumed' | 'terminated'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── Security Incidents — US-GDPR-3.2.1: Article 33/34 breach response state machine ──
+// States: detected → contained → notified_controller → notified_regulator → closed
+export const securityIncidents = pgTable("security_incidents", {
+  id: serial().primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  severity: text("severity").notNull(), // 'low' | 'medium' | 'high' | 'critical'
+  status: text("status").notNull().default("detected"), // 'detected' | 'contained' | 'notified_controller' | 'notified_regulator' | 'closed'
+  dataTypesAffected: jsonb("data_types_affected"), // string[] e.g. ['oauth_tokens','email']
+  affectedUserCount: integer("affected_user_count"),
+  affectedUserIds: jsonb("affected_user_ids"), // number[] — for targeted revocation/notification
+  discoveredAt: timestamp("discovered_at").defaultNow().notNull(),
+  containedAt: timestamp("contained_at"),
+  controllerNotifiedAt: timestamp("controller_notified_at"),
+  regulatorNotifiedAt: timestamp("regulator_notified_at"),
+  closedAt: timestamp("closed_at"),
+  // ICO notification form fields (pre-populated by admin, logged on submission)
+  regulatorNotificationBody: jsonb("regulator_notification_body"),
+  reportedBy: integer("reported_by").references(() => users.id, { onDelete: "set null" }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ── JWT Blocklist — US-ADM-1.3.2: immediately invalidate tokens on GDPR erasure ──
+// Stores the JTI (or userId+iat pair) of revoked tokens so auth-guard and all
+// functions can reject them before natural expiry.
+export const jwtBlocklist = pgTable("jwt_blocklist", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull(),
+  // 'jti' when JWT has an explicit ID; 'userId' when we block all tokens for a user
+  blockType: text("block_type").notNull().default("userId"), // 'userId' | 'jti'
+  jti: text("jti"),
+  reason: text("reason").notNull(), // 'gdpr_erasure' | 'account_delete' | 'admin_revoke'
+  expiresAt: timestamp("expires_at"),  // can be NULL meaning indefinite
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // ── Billing Overrides — US-ADM-2.1.1 ─────────────────────────────────────────

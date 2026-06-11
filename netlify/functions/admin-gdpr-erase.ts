@@ -22,10 +22,11 @@ import Stripe from 'stripe';
 import { getDb } from '../../db/client';
 import {
     users, plans, gdprErasureLog, onboardingDrafts,
-    userProfiles, userNotifications, notifications,
+    userProfiles, userNotifications, notifications, jwtBlocklist,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendEmail } from '../../src/utils/email';
+import { purgeUserAssets } from '../../src/utils/gdpr-asset-purge';
 
 const jwtSecret    = process.env.JWT_SECRET;
 const stripe       = process.env.STRIPE_SECRET_KEY
@@ -129,50 +130,69 @@ export const handler: Handler = async (event) => {
     const anonymisedEmail = `deleted_${erasureUuid}@deleted.invalid`;
 
     try {
-        // ── 5. Anonymise the user record ──────────────────────────────────────
-        await db.update(users)
-            .set({
-                email:             anonymisedEmail,
-                firstName:         'Deleted',
-                lastName:          'User',
-                verificationToken: null,
-                deletionToken:     null,
-                referralCode:      null,
-                updatedAt:         new Date(),
-            })
-            .where(eq(users.id, targetUserId));
+        // ── 5-9. Atomically anonymise PII and revoke session tokens ───────────
+        // Wrapped in a transaction so a partial failure rolls back all PII changes
+        // rather than leaving the account in a half-erased state.
+        await db.transaction(async (tx) => {
+            // 5. Anonymise the user record
+            await tx.update(users)
+                .set({
+                    email:             anonymisedEmail,
+                    firstName:         'Deleted',
+                    lastName:          'User',
+                    verificationToken: null,
+                    deletionToken:     null,
+                    referralCode:      null,
+                    updatedAt:         new Date(),
+                })
+                .where(eq(users.id, targetUserId));
 
-        // ── 6. Wipe user profile personal data ───────────────────────────────
-        await db.update(userProfiles)
-            .set({
-                displayName:       null,
-                avatarUrl:         null,
-                bio:               null,
-                emailPreferences:  null,
-                legalConsents:     null,
-                preferences:       null,
-                updatedAt:         new Date(),
-            })
-            .where(eq(userProfiles.userId, targetUserId))
-            .catch(() => { /* profile may not exist — ignore */ });
+            // 6. Wipe user profile personal data
+            await tx.update(userProfiles)
+                .set({
+                    displayName:       null,
+                    avatarUrl:         null,
+                    bio:               null,
+                    emailPreferences:  null,
+                    legalConsents:     null,
+                    preferences:       null,
+                    updatedAt:         new Date(),
+                })
+                .where(eq(userProfiles.userId, targetUserId))
+                .catch(() => {});
 
-        // ── 7. Clear onboarding drafts (personal content) ─────────────────────
-        await db.delete(onboardingDrafts)
-            .where(eq(onboardingDrafts.userId, targetUserId))
-            .catch(() => {});
+            // 7. Clear onboarding drafts
+            await tx.delete(onboardingDrafts)
+                .where(eq(onboardingDrafts.userId, targetUserId))
+                .catch(() => {});
 
-        // ── 8. Clear in-app notifications ─────────────────────────────────────
-        await db.delete(notifications)
-            .where(eq(notifications.userId, targetUserId))
-            .catch(() => {});
-        await db.delete(userNotifications)
-            .where(eq(userNotifications.userId, targetUserId))
-            .catch(() => {});
+            // 8. Clear in-app notifications
+            await tx.delete(notifications)
+                .where(eq(notifications.userId, targetUserId))
+                .catch(() => {});
+            await tx.delete(userNotifications)
+                .where(eq(userNotifications.userId, targetUserId))
+                .catch(() => {});
 
-        // ── 9. Cancel Stripe subscription ─────────────────────────────────────
+            // 9. Cancel Stripe subscriptions (DB-side status update inside tx;
+            //    Stripe API call happens outside where a failure won't rollback PII erasure)
+            await tx.update(plans)
+                .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
+                .where(eq(plans.userId, targetUserId));
+
+            // 9b. Add to JWT blocklist — immediately invalidates all active sessions
+            //     for this user so they cannot use a cached token after erasure.
+            await tx.insert(jwtBlocklist).values({
+                userId:    targetUserId,
+                blockType: 'userId',
+                reason:    'gdpr_erasure',
+            });
+        });
+
+        // Cancel Stripe subscriptions at API level (outside tx — failure here is non-fatal)
         if (stripe) {
             const activePlans = await db
-                .select({ stripeSubscriptionId: plans.stripeSubscriptionId, id: plans.id })
+                .select({ stripeSubscriptionId: plans.stripeSubscriptionId })
                 .from(plans)
                 .where(eq(plans.userId, targetUserId));
 
@@ -180,21 +200,31 @@ export const handler: Handler = async (event) => {
                 if (plan.stripeSubscriptionId) {
                     await stripe.subscriptions.cancel(plan.stripeSubscriptionId).catch(() => {});
                 }
-                await db.update(plans)
-                    .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
-                    .where(eq(plans.id, plan.id));
             }
         }
 
-        // ── 10. Write gdpr_erasure_log ────────────────────────────────────────
+        // ── 10. Purge workspace assets (US-GDPR-2.2.1) ───────────────────────
+        const purgeResult = await purgeUserAssets(db, targetUserId).catch(() => ({
+            assetsPurged: 0, storageBytesFreed: 0, partialFailures: ['purge_threw'],
+        }));
+
+        // ── 11. Write gdpr_erasure_log ────────────────────────────────────────
         const emailHash = crypto.createHash('sha256').update(originalEmail.toLowerCase()).digest('hex');
         await db.insert(gdprErasureLog).values({
             emailHash,
             requesterType: 'admin',
             requestedBy:   adminId,
+            metadata: {
+                assetsPurged:      purgeResult.assetsPurged,
+                embeddingsDeleted: purgeResult.embeddingsDeleted,
+                storageBytesFreed: purgeResult.storageBytesFreed,
+                ...(purgeResult.partialFailures.length > 0
+                    ? { partialFailures: purgeResult.partialFailures, erasureStatus: 'PARTIAL' }
+                    : {}),
+            },
         });
 
-        // ── 11. Write admin audit log ─────────────────────────────────────────
+        // ── 12. Write admin audit log ─────────────────────────────────────────
         await insertAdminAuditLog({
             adminId,
             action:    'gdpr_erasure',
@@ -216,7 +246,7 @@ export const handler: Handler = async (event) => {
             metadata: { erasureUuid },
         });
 
-        // ── 12. Send confirmation email to original address ───────────────────
+        // ── 13. Send confirmation email to original address ───────────────────
         await sendEmail({
             to:      originalEmail,
             subject: 'Your Aura-Assist account data has been erased',

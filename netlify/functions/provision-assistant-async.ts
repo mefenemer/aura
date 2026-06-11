@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { aiAssistants, notifications, users, supportTickets } from '../../db/schema';
+import { aiAssistants, dpaAcceptances, notifications, users, supportTickets } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 
 export const handler: Handler = async (event) => {
@@ -11,6 +11,32 @@ export const handler: Handler = async (event) => {
     try {
         // Perform complex API integrations (Meta/LinkedIn) here
         // ... (API calls) ...
+
+        // US-GOV-3.1.1 / US-GDPR-1.1.1: Pre-activation checks
+        const [preCheck] = await db
+            .select({ disclosureText: aiAssistants.disclosureText, organisationId: aiAssistants.organisationId })
+            .from(aiAssistants)
+            .where(eq(aiAssistants.id, assistantId))
+            .limit(1);
+
+        if (!preCheck?.disclosureText?.trim()) {
+            console.warn(`[provision-assistant-async] Blocked activation for assistant ${assistantId}: disclosureText missing (EU AI Act Art. 52)`);
+            return { statusCode: 422, body: JSON.stringify({ error: 'AI disclosure text is required before this assistant can be activated (EU AI Act Art. 52).' }) };
+        }
+
+        // US-GDPR-1.1.1: Block activation if organisation has not accepted the DPA
+        if (preCheck?.organisationId) {
+            const [dpa] = await db
+                .select({ id: dpaAcceptances.id })
+                .from(dpaAcceptances)
+                .where(eq(dpaAcceptances.organisationId, preCheck.organisationId))
+                .limit(1);
+
+            if (!dpa) {
+                console.warn(`[provision-assistant-async] Blocked activation for assistant ${assistantId}: DPA not accepted for org ${preCheck.organisationId}`);
+                return { statusCode: 403, body: JSON.stringify({ error: 'Your organisation must accept the Data Processing Agreement before activating an assistant.', code: 'DPA_REQUIRED' }) };
+            }
+        }
 
         // Guard: only update if still 'pending' — prevents race condition where
         // two parallel invocations both try to complete the same assistant.

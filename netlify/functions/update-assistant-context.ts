@@ -29,7 +29,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 2. Payload Extraction
-    const { assistantId, newContext, newConfiguration, newName, appliedDefaults } = JSON.parse(event.body || '{}');
+    const { assistantId, newContext, newConfiguration, newName, appliedDefaults, disclosureText } = JSON.parse(event.body || '{}');
 
     if (!assistantId || !newContext) return { statusCode: 400, body: JSON.stringify({ error: 'Missing parameters.' }) };
 
@@ -45,10 +45,16 @@ export const handler: Handler = async (event) => {
 
             if (!existingAssistant) throw new Error("Assistant not found.");
 
+            // US-GOV-3.1.1: Reject save if trying to clear disclosure on an active assistant
+            if (disclosureText !== undefined && !disclosureText?.trim() && existingAssistant.isActive) {
+                throw new Error('DISCLOSURE_REQUIRED: AI disclosure text cannot be removed from an active assistant (EU AI Act Art. 52).');
+            }
+
             // Perform the Update
             const updatePayload: any = { onboardingContext: newContext, updatedAt: new Date() };
             if (newConfiguration) updatePayload.configuration = newConfiguration;
             if (newName) updatePayload.name = newName;
+            if (disclosureText !== undefined) updatePayload.disclosureText = disclosureText;
             if (appliedDefaults !== undefined) {
                 // Merge appliedDefaults into existing configuration rather than overwrite
                 const existingConfig = existingAssistant.configuration as any || {};
@@ -78,7 +84,10 @@ export const handler: Handler = async (event) => {
         });
 
         return { statusCode: 200, body: JSON.stringify({ success: true }) };
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith('DISCLOSURE_REQUIRED')) {
+            return { statusCode: 422, body: JSON.stringify({ error: 'AI disclosure text is required before this assistant can be activated (EU AI Act Art. 52).', code: 'DISCLOSURE_MISSING' }) };
+        }
         console.error('Update Context Error:', error);
         return { statusCode: 500, body: JSON.stringify({ error: 'Failed to update context.' }) };
     }

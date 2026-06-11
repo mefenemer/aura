@@ -23,6 +23,7 @@ import {
     masterPlans,
 } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
+import { tombstoneOrgMemberAssets } from '../../src/utils/gdpr-asset-purge';
 
 const jwtSecret  = process.env.JWT_SECRET;
 const VALID_ROLES = ['admin', 'member', 'viewer'] as const;
@@ -196,6 +197,37 @@ export const handler: Handler = async (event) => {
             await db.update(users)
                 .set({ tokenExpiresAt: new Date(0) })
                 .where(eq(users.id, targetUserId));
+
+            // US-GDPR-2.2.1: Tombstone departing member's assets so remaining members
+            // can't access their files, but org-level rows remain intact (isActive=false).
+            const tombstonedCount = await tombstoneOrgMemberAssets(db, targetUserId, orgId).catch(() => 0);
+            if (tombstonedCount > 0) {
+                // Notify org owner(s) that files need review
+                const owners = await db
+                    .select({ email: users.email, firstName: users.firstName })
+                    .from(userOrganisations)
+                    .innerJoin(users, eq(userOrganisations.userId, users.id))
+                    .where(and(
+                        eq(userOrganisations.organisationId, orgId),
+                        eq(userOrganisations.role, 'owner'),
+                        ne(userOrganisations.userId, targetUserId),
+                    ));
+                for (const owner of owners) {
+                    const memberName = [targetUser?.firstName, targetUser?.lastName].filter(Boolean).join(' ') || 'A member';
+                    await sendMagicLinkEmail({
+                        to: owner.email,
+                        subject: `${tombstonedCount} file(s) from a removed member need review — ${org?.name || 'your workspace'}`,
+                        html: `<div style="font-family:sans-serif;padding:24px;max-width:500px">
+                            <h2>Workspace Files Need Attention</h2>
+                            <p>Hi ${owner.firstName || 'there'},</p>
+                            <p><strong>${memberName}</strong> has been removed from <strong>${org?.name || 'your workspace'}</strong>. They had <strong>${tombstonedCount} file(s)</strong> uploaded that are now inactive.</p>
+                            <p>You have <strong>30 days</strong> to reassign ownership of these files to keep them active. After 30 days, their content will be automatically purged to comply with data privacy requirements.</p>
+                            <p>Visit your workspace <a href="${process.env.BASE_URL || 'https://aura-assist.com'}/workspace.html">Connections &amp; Assets</a> section to review and reassign files.</p>
+                            <p style="color:#999;font-size:12px;margin-top:24px">Aura-Assist Data Privacy</p>
+                        </div>`,
+                    }).catch(err => console.warn('[manage-members] Owner asset-notice email failed:', err));
+                }
+            }
 
             // SC4c: Send email notification to removed member
             if (targetUser?.email) {

@@ -9,8 +9,9 @@ import * as crypto from 'crypto';
 import Stripe from 'stripe';
 import { eq, and, lt, isNotNull, count } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, plans, organisations, userOrganisations, gdprErasureLog } from '../../db/schema';
+import { users, plans, organisations, userOrganisations, gdprErasureLog, jwtBlocklist } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
+import { purgeUserAssets } from '../../src/utils/gdpr-asset-purge';
 
 const stripe    = process.env.STRIPE_SECRET_KEY
     ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' })
@@ -51,13 +52,33 @@ async function executeDeleteions() {
             }
         }
 
-        // GDPR erasure log (SC3 / US-GAP-2.1.2 SC3)
+        // US-GDPR-2.2.1: Purge workspace assets (extractedText + storageUrl nulled, isActive=false)
+        const purgeResult = await purgeUserAssets(db, user.id).catch(() => ({
+            assetsPurged: 0, storageBytesFreed: 0, partialFailures: ['purge_threw'],
+        }));
+
+        // US-ADM-1.3.2: Blocklist all active tokens so any cached session is invalidated
+        await db.insert(jwtBlocklist).values({
+            userId:    user.id,
+            blockType: 'userId',
+            reason:    'account_delete',
+        }).catch(() => {});
+
+        // GDPR erasure log (SC3 / US-GAP-2.1.2 SC3) — include asset purge metadata
         const emailHash = crypto.createHash('sha256').update(user.email.toLowerCase()).digest('hex');
         await db.insert(gdprErasureLog).values({
             emailHash,
             requesterType: 'user',
             requestedBy:   null,
             erasedAt:      now,
+            metadata: {
+                assetsPurged:      purgeResult.assetsPurged,
+                embeddingsDeleted: purgeResult.embeddingsDeleted,
+                storageBytesFreed: purgeResult.storageBytesFreed,
+                ...(purgeResult.partialFailures.length > 0
+                    ? { partialFailures: purgeResult.partialFailures, erasureStatus: 'PARTIAL' }
+                    : {}),
+            },
         }).catch(() => {});
 
         // Check if the user is the sole org member — if so, delete the org too
