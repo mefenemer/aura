@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   numeric,
+  decimal,
   jsonb,
   unique,
   varchar,
