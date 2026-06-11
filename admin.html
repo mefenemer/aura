@@ -1938,6 +1938,9 @@ async function loadAnalytics() {
   let url = '/.netlify/functions/admin-api?resource=analytics';
   if (from) url += '&from=' + encodeURIComponent(from);
   if (to)   url += '&to='   + encodeURIComponent(to);
+  try {
+    const res = await fetch(url);
+    const d = await res.json();
     const bar = (rows, labelKey, countKey) => {
       if (!rows?.length) return '<p class="text-gray-400 text-sm">No data yet.</p>';
       const max = Math.max(...rows.map(r => Number(r[countKey]) || 0));
