@@ -2,7 +2,7 @@
 <div class="p-6 max-w-4xl mx-auto" id="team-management-root">
 
   <!-- Header with seat usage badge (SC1) -->
-  <div class="flex items-start justify-between mb-6">
+  <div class="flex items-start justify-between mb-4">
     <div>
       <h1 class="text-2xl font-extrabold text-gray-900">Team Members</h1>
       <p class="text-gray-500 text-sm mt-1">Manage who has access to your Aura-Assist workspace.</p>
@@ -10,11 +10,23 @@
     <div class="flex items-center gap-3">
       <!-- SC1: Seat usage pill -->
       <span id="seat-usage-pill" class="hidden text-xs font-semibold px-3 py-1.5 rounded-full border"></span>
-      <button onclick="window._openInviteModal()"
+      <button id="invite-member-btn" onclick="window._openInviteModal()"
               class="px-4 py-2 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition">
         + Invite Member
       </button>
     </div>
+  </div>
+
+  <!-- Seat limit upgrade callout — shown when plan doesn't support team members -->
+  <div id="seat-limit-callout" class="hidden mb-5 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+    <span class="text-amber-500 text-lg mt-0.5">⚠️</span>
+    <div class="flex-1">
+      <p class="text-sm font-semibold text-amber-900">Team members not available on your current plan</p>
+      <p id="seat-limit-callout-msg" class="text-xs text-amber-700 mt-0.5">Upgrade your plan to invite colleagues and collaborate in your workspace.</p>
+    </div>
+    <a href="#" onclick="window.loadView && window.loadView('billing')" class="shrink-0 px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition">
+      Upgrade Plan
+    </a>
   </div>
 
   <!-- Member table (SC2) -->
@@ -140,11 +152,21 @@
 
   // ── Render ──────────────────────────────────────────────────────────
   function render(data) {
-    // SC1: Seat usage pill
     const pill      = document.getElementById('seat-usage-pill');
+    const inviteBtn = document.getElementById('invite-member-btn');
+    const callout   = document.getElementById('seat-limit-callout');
+    const calloutMsg = document.getElementById('seat-limit-callout-msg');
     const seatCount = data.seatCount || 0;
-    const seatLimit = data.seatLimit;
-    if (seatLimit != null && seatLimit > 0) {
+    const seatLimit = data.seatLimit; // null = solo plan (no teams), 0 = unlimited, N = max N
+
+    // Determine whether inviting is allowed
+    // seatLimit null means the plan is solo-only (1 seat, no team feature)
+    const isSoloPlan  = seatLimit === null || seatLimit === 1;
+    const isAtLimit   = seatLimit > 1 && seatCount >= seatLimit;
+    const canInvite   = !isSoloPlan && !isAtLimit;
+
+    // SC1: Seat usage pill
+    if (seatLimit != null && seatLimit > 1) {
       const pct = Math.round((seatCount / seatLimit) * 100);
       pill.textContent = `${seatCount} / ${seatLimit} seats used`;
       pill.className = `text-xs font-semibold px-3 py-1.5 rounded-full border ${
@@ -153,10 +175,34 @@
                     'bg-gray-50 border-gray-200 text-gray-700'
       }`;
       pill.classList.remove('hidden');
-    } else {
+    } else if (seatLimit === 0) {
       pill.textContent = `${seatCount} seat${seatCount === 1 ? '' : 's'}`;
       pill.className = 'text-xs font-semibold px-3 py-1.5 rounded-full border bg-gray-50 border-gray-200 text-gray-700';
       pill.classList.remove('hidden');
+    } else {
+      pill.classList.add('hidden');
+    }
+
+    // Disable Invite button and show upgrade callout when plan doesn't support teams
+    if (inviteBtn) {
+      if (!canInvite) {
+        inviteBtn.disabled = true;
+        inviteBtn.className = 'px-4 py-2 bg-gray-200 text-gray-400 rounded-xl text-sm font-semibold cursor-not-allowed transition';
+      } else {
+        inviteBtn.disabled = false;
+        inviteBtn.className = 'px-4 py-2 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition';
+      }
+    }
+    if (callout) {
+      if (isSoloPlan) {
+        calloutMsg.textContent = 'Team collaboration is available on higher plans. Upgrade to invite colleagues to your workspace.';
+        callout.classList.remove('hidden');
+      } else if (isAtLimit) {
+        calloutMsg.textContent = `You've used all ${seatLimit} seats on your plan. Upgrade to add more team members.`;
+        callout.classList.remove('hidden');
+      } else {
+        callout.classList.add('hidden');
+      }
     }
 
     // SC2: Member list
@@ -167,12 +213,14 @@
     }
 
     tbody.innerHTML = data.members.map(m => {
-      const role   = m.role || 'member';
-      const joined = m.joinedAt
+      const role     = m.role || 'member';
+      const fullName = [m.firstName, m.lastName].filter(Boolean).join(' ');
+      const joined   = m.joinedAt
         ? new Date(m.joinedAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
         : '—';
       const isOwner   = role === 'owner';
       const isInvited = role === 'invited';
+      const displayName = fullName || m.email || '—';
       let actions = '';
       if (!isOwner) {
         actions = `<div class="flex items-center justify-end gap-2">`;
@@ -182,18 +230,18 @@
                                class="text-xs text-amber-600 hover:text-amber-800 font-medium underline">Resend</button>
                       <span class="text-gray-300">·</span>`;
         } else {
-          actions += `<button onclick="window._openRoleModal(${m.userId}, '${(m.name || m.email || '').replace(/'/g,"\\'")}', '${role}')"
+          actions += `<button onclick="window._openRoleModal(${m.userId}, '${displayName.replace(/'/g,"\\'")}', '${role}')"
                                class="text-xs text-gray-500 hover:text-emerald-700 font-medium underline">Change Role</button>
                       <span class="text-gray-300">·</span>`;
         }
-        actions += `<button onclick="window._removeMember(${m.userId}, '${(m.name || m.email || '').replace(/'/g,"\\'")}')"
+        actions += `<button onclick="window._removeMember(${m.userId}, '${displayName.replace(/'/g,"\\'")}')"
                              class="text-xs text-red-500 hover:text-red-700 font-medium underline">Remove</button>
                     </div>`;
       }
       return `
         <tr class="hover:bg-gray-50 transition">
           <td class="px-4 py-3">
-            <p class="font-semibold text-gray-900">${m.name || (isInvited ? '<span class="text-gray-400 italic">Invite pending</span>' : '—')}</p>
+            <p class="font-semibold text-gray-900">${fullName || (isInvited ? '<span class="text-gray-400 italic">Invite pending</span>' : '—')}</p>
             <p class="text-gray-500 text-xs">${m.email || '—'}</p>
           </td>
           <td class="px-4 py-3">

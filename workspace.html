@@ -1100,7 +1100,8 @@
       document.getElementById('input-first-name'),
       document.getElementById('input-last-name'),
       document.getElementById('input-email'),
-      document.getElementById('input-timezone')
+      document.getElementById('input-timezone'),
+      document.getElementById('input-hourly-rate'),
     ];
 
     const toggles = [
@@ -1125,7 +1126,14 @@
         fields.forEach(f => {
           if (!f) return;
           const key = f.getAttribute('data-field');
-          if (key && key in pData) f.value = pData[key] || '';
+          if (!key) return;
+          // Top-level fields (firstName, lastName, email, timezone)
+          if (key in pData) {
+            f.value = pData[key] || '';
+          // hourlyRateGbp is nested inside preferences object
+          } else if (key === 'hourlyRateGbp' && pData.preferences?.hourlyRateGbp != null) {
+            f.value = pData.preferences.hourlyRateGbp;
+          }
         });
       }
 

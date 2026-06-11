@@ -91,6 +91,7 @@
       <textarea id="ft-task-input" rows="4"
         class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none mb-4"
         placeholder="Describe what you need…"></textarea>
+      <p id="ft-task-error" class="hidden text-xs text-red-600 font-medium mb-2"></p>
       <button onclick="window._submitFirstTask()"
         class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition cursor-pointer mb-2">
         Run Task →
@@ -281,17 +282,60 @@
     };
 
     window._submitFirstTask = async function () {
-      const input = document.getElementById('ft-task-input')?.value?.trim();
-      if (!input) return;
-      // Mark milestone as complete and redirect to the appropriate assistant view
-      await fetch('/.netlify/functions/first-task', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'complete' }),
-      }).catch(() => {});
-      document.getElementById('first-task-screen')?.classList.add('hidden');
-      // Navigate to the task runner / active assistant view
-      if (window.loadView) window.loadView('tasks');
+      const input    = document.getElementById('ft-task-input')?.value?.trim();
+      const submitBtn = document.querySelector('#first-task-screen button[onclick*="_submitFirstTask"]');
+      const errorEl  = document.getElementById('ft-task-error');
+
+      if (!input) {
+        if (errorEl) { errorEl.textContent = 'Please describe what you need first.'; errorEl.classList.remove('hidden'); }
+        return;
+      }
+      if (errorEl) errorEl.classList.add('hidden');
+
+      // Disable button + show spinner
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Running task…'; }
+
+      try {
+        // Run the task via quality-review
+        const res = await fetch('/.netlify/functions/quality-review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: input }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Task failed. Please try again.');
+        }
+
+        // Mark milestone complete (fire-and-forget)
+        fetch('/.netlify/functions/first-task', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'complete' }),
+        }).catch(() => {});
+
+        // Hide the task screen and show the result inline
+        const screen = document.getElementById('first-task-screen');
+        if (screen) {
+          screen.innerHTML = `
+            <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <h2 class="text-xl font-extrabold text-gray-900 mb-3">Your assistant delivered ✨</h2>
+            <div class="text-left bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap mb-5 max-h-64 overflow-y-auto">${(data.result || data.output || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            <button onclick="if(window.loadView) window.loadView('assistants')"
+              class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition cursor-pointer">
+              See My Assistants →
+            </button>`;
+        }
+
+      } catch (err) {
+        if (errorEl) { errorEl.textContent = err.message || 'Something went wrong. Please try again.'; errorEl.classList.remove('hidden'); }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Run Task →'; }
+      }
     };
   })();
 </script>

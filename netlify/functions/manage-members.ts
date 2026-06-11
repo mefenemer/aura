@@ -69,7 +69,8 @@ export const handler: Handler = async (event) => {
                     userId: userOrganisations.userId,
                     role: userOrganisations.role,
                     joinedAt: userOrganisations.createdAt,
-                    name: users.name,
+                    firstName: users.firstName,
+                    lastName: users.lastName,
                     email: users.email,
                 })
                 .from(userOrganisations)
@@ -175,7 +176,7 @@ export const handler: Handler = async (event) => {
 
             // Fetch the member's email before deleting (for notification)
             const [targetUser] = await db
-                .select({ email: users.email, name: users.name })
+                .select({ email: users.email, firstName: users.firstName, lastName: users.lastName })
                 .from(users).where(eq(users.id, targetUserId)).limit(1);
 
             const [org] = await db
@@ -204,7 +205,7 @@ export const handler: Handler = async (event) => {
                     html: `
                         <div style="font-family:sans-serif;padding:24px;max-width:500px">
                             <h2>Workspace Access Removed</h2>
-                            <p>Hi ${targetUser.name || 'there'},</p>
+                            <p>Hi ${[targetUser.firstName, targetUser.lastName].filter(Boolean).join(' ') || 'there'},</p>
                             <p>You have been removed from <strong>${org?.name || 'a workspace'}</strong> on Aura-Assist.</p>
                             <p>If you believe this was a mistake, please contact the workspace owner directly.</p>
                             <p style="color:#999;font-size:12px;margin-top:24px">Aura-Assist</p>
