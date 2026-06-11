@@ -14,6 +14,28 @@ interface SendEmailParams {
     html: string;
 }
 
+// sendEmail is an alias for sendMagicLinkEmail used by most Netlify functions
+export const sendEmail = async ({ to, subject, html }: SendEmailParams) => {
+    if (!resendApiKey) {
+        console.warn(`[DEV MODE] RESEND_API_KEY missing. Simulated email to ${to}`);
+        return null;
+    }
+
+    try {
+        const data = await resend.emails.send({
+            from: 'Aura Assist <noreply@aura-assist.com>',
+            to,
+            subject,
+            html,
+        });
+
+        return data;
+    } catch (error) {
+        console.error('Resend API Error:', error);
+        throw new Error('Failed to send email.');
+    }
+};
+
 export const sendMagicLinkEmail = async ({ to, subject, html }: SendEmailParams) => {
     if (!resendApiKey) {
         console.warn(`[DEV MODE] RESEND_API_KEY missing. Simulated email to ${to}`);

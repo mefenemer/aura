@@ -23,9 +23,14 @@
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
+import Stripe from 'stripe';
 import { eq, and, gte, gt, count, sum, asc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { plans, masterPlans, aiAssistants, taskRuns, userOrganisations, users } from '../../db/schema';
+
+const stripe = process.env.STRIPE_SECRET_KEY
+    ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' })
+    : null;
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -51,6 +56,8 @@ export const handler: Handler = async (event) => {
             .select({
                 planId: plans.id,
                 planStatus: plans.status,
+                planType: plans.planType,
+                expiresAt: plans.expiresAt,
                 gracePeriodEndsAt: plans.gracePeriodEndsAt,
                 masterPlanId: plans.masterPlanId,
                 tierKey: masterPlans.tierKey,
@@ -74,8 +81,11 @@ export const handler: Handler = async (event) => {
                 .select({
                     planId: plans.id,
                     planStatus: plans.status,
+                    planType: plans.planType,
+                    expiresAt: plans.expiresAt,
                     gracePeriodEndsAt: plans.gracePeriodEndsAt,
                     masterPlanId: plans.masterPlanId,
+                    stripeCustomerId: plans.stripeCustomerId,
                     tierKey: masterPlans.tierKey,
                     tierName: masterPlans.name,
                     monthlyPriceGbp: masterPlans.monthlyPriceGbp,
@@ -175,6 +185,31 @@ export const handler: Handler = async (event) => {
             : null;
         const graceExpired = gracePeriodEndsAt ? new Date() > new Date(gracePeriodEndsAt) : false;
 
+        // ── 7. US-GAP-3.1.1 SC1/SC2: past_due invoice details for Payment Required banner ─
+        let pastDueAmountGbp: string | null = null;
+        let pastDueAttemptCount: number | null = null;
+        let stripePortalUrl: string | null = null;
+        if (plan?.planStatus === 'past_due' && (plan as any).stripeCustomerId && stripe) {
+            try {
+                const openInvoices = await stripe.invoices.list({
+                    customer: (plan as any).stripeCustomerId,
+                    status: 'open',
+                    limit: 1,
+                });
+                const inv = openInvoices.data[0];
+                if (inv) {
+                    pastDueAmountGbp  = ((inv.amount_due || 0) / 100).toFixed(2);
+                    pastDueAttemptCount = (inv as any).attempt_count ?? null;
+                }
+                // Generate Stripe billing portal URL
+                const portal = await stripe.billingPortal.sessions.create({
+                    customer: (plan as any).stripeCustomerId,
+                    return_url: (process.env.BASE_URL || '') + '/billing.html',
+                });
+                stripePortalUrl = portal.url;
+            } catch { /* non-critical — banner will still show without amount */ }
+        }
+
         const seatPct = seatLimit
             ? Math.min(100, Math.round((seatCount / seatLimit) * 100))
             : 0;
@@ -199,8 +234,20 @@ export const handler: Handler = async (event) => {
                 tierKey: plan?.tierKey ?? null,
                 tierName: plan?.tierName ?? null,
                 planStatus: plan?.planStatus ?? null,
+                planType: plan?.planType ?? null,
                 gracePeriodEndsAt,
                 graceExpired,    // true if grace period has passed and access should be blocked
+                // US-GAP-8.1.1 SC3: trial countdown badge data
+                isTrial: plan?.planType === 'trial',
+                trialExpiresAt: plan?.planType === 'trial' && plan?.expiresAt
+                    ? (plan.expiresAt instanceof Date ? plan.expiresAt : new Date(plan.expiresAt as string)).toISOString()
+                    : null,
+                trialDaysRemaining: plan?.planType === 'trial' && plan?.expiresAt
+                    ? Math.max(0, Math.ceil((new Date(plan.expiresAt instanceof Date ? plan.expiresAt : plan.expiresAt as string).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+                    : null,
+                pastDueAmountGbp,    // amount owed on open Stripe invoice (SC2)
+                pastDueAttemptCount, // number of charge attempts (SC2)
+                stripePortalUrl,     // Stripe billing portal URL for payment update CTA (SC2)
                 nextPlan,        // next tier up — null if already on highest plan
             }),
         };

@@ -1,7 +1,8 @@
 import { Handler } from '@netlify/functions';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { aiAssistants, notifications } from '../../db/schema';
+import { aiAssistants, notifications, users, supportTickets } from '../../db/schema';
+import { sendEmail } from '../../src/utils/email';
 
 export const handler: Handler = async (event) => {
     const { assistantId } = JSON.parse(event.body!);
@@ -30,11 +31,89 @@ export const handler: Handler = async (event) => {
             } catch (notifErr) {
                 console.warn('[provision-assistant-async] Notification insert failed (non-blocking):', notifErr);
             }
+
+            // US-GAP-6.2.1 SC1/SC2: Assistant ready confirmation email
+            try {
+                const [userRecord] = await db
+                    .select({ email: users.email, firstName: users.firstName })
+                    .from(users)
+                    .where(eq(users.id, updated.userId))
+                    .limit(1);
+
+                if (userRecord) {
+                    const baseUrl   = process.env.BASE_URL || '';
+                    const dashUrl   = `${baseUrl}/workspace.html`;
+                    const intUrl    = `${baseUrl}/workspace.html#integrations`;
+                    const role      = (updated as any).assistantRole || (updated as any).role || 'AI Assistant';
+                    const firstName = userRecord.firstName || 'there';
+
+                    sendEmail({
+                        to: userRecord.email,
+                        subject: `${updated.name} is ready!`,
+                        html: `<p>Hi ${firstName},</p>
+                               <p>Great news — <strong>${updated.name}</strong> is fully set up and ready to work for you.</p>
+                               <p><strong>Role:</strong> ${role}</p>
+                               <p>Your assistant is already briefed on your business and ready to start generating content, scheduling posts, and handling the tasks you've assigned.</p>
+                               <p style="margin-top:24px;">
+                                 <a href="${dashUrl}" style="background:#059669;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+                                   Go to My Dashboard →
+                                 </a>
+                               </p>
+                               <p style="margin-top:12px;font-size:0.875rem;">
+                                 Want to get more from ${updated.name}? <a href="${intUrl}">Connect your tools</a> to enable automations.
+                               </p>
+                               <p>The Aura Team</p>`,
+                    }).catch(() => {});
+                }
+            } catch (emailErr) {
+                console.warn('[provision-assistant-async] Ready email failed (non-blocking):', emailErr);
+            }
         }
 
         return { statusCode: 200, body: 'Done' };
     } catch (e) {
-        await db.update(aiAssistants).set({ provisioningStatus: 'failed' }).where(eq(aiAssistants.id, assistantId));
+        // US-GAP-6.2.1 SC4: Provisioning failure — send failure email + create support ticket
+        const failedAssistant = await db
+            .update(aiAssistants)
+            .set({ provisioningStatus: 'failed' })
+            .where(eq(aiAssistants.id, assistantId))
+            .returning()
+            .catch(() => []);
+
+        const failed = failedAssistant[0];
+        if (failed?.userId) {
+            const [userRecord] = await db
+                .select({ email: users.email, firstName: users.firstName })
+                .from(users)
+                .where(eq(users.id, failed.userId))
+                .limit(1)
+                .catch(() => []);
+
+            if (userRecord) {
+                const baseUrl = process.env.BASE_URL || '';
+                // SC4a: failure email
+                sendEmail({
+                    to: userRecord.email,
+                    subject: `There was an issue setting up your assistant`,
+                    html: `<p>Hi ${userRecord.firstName || 'there'},</p>
+                           <p>Unfortunately, we encountered an issue while setting up <strong>${failed.name || 'your assistant'}</strong>. Our team has been automatically notified and will investigate.</p>
+                           <p>We'll be in touch shortly to resolve this. In the meantime, if you have any questions please reply to this email or visit <a href="${baseUrl}/billing.html">your billing page</a>.</p>
+                           <p>We're sorry for the inconvenience.</p>
+                           <p>The Aura Team</p>`,
+                }).catch(() => {});
+
+                // SC4b: auto-create support ticket
+                db.insert(supportTickets).values({
+                    userId: failed.userId,
+                    subject: `Provisioning failure — ${failed.name || 'assistant'} (ID: ${assistantId})`,
+                    category: 'provisioning_failure',
+                    description: `Automated report: assistant provisioning failed for assistant ID ${assistantId} (name: ${failed.name}). User: ${userRecord.email}. Error: ${(e as any)?.message || 'unknown'}`,
+                    status: 'open',
+                    priority: 'high',
+                }).catch(() => {});
+            }
+        }
+
         return { statusCode: 500, body: 'Failed' };
     }
 };

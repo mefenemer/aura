@@ -11,6 +11,7 @@
     --color-red-100: oklch(93.6% 0.032 17.717);
     --color-red-200: oklch(88.5% 0.062 18.334);
     --color-red-300: oklch(80.8% 0.114 19.571);
+    --color-red-400: oklch(70.4% 0.191 22.216);
     --color-red-500: oklch(63.7% 0.237 25.331);
     --color-red-600: oklch(57.7% 0.245 27.325);
     --color-red-700: oklch(50.5% 0.213 27.518);
@@ -433,6 +434,9 @@
   .z-\[60\] {
     z-index: 60;
   }
+  .z-\[9999\] {
+    z-index: 9999;
+  }
   .col-span-2 {
     grid-column: span 2 / span 2;
   }
@@ -456,6 +460,9 @@
     @media (width >= 96rem) {
       max-width: 96rem;
     }
+  }
+  .mx-4 {
+    margin-inline: calc(var(--spacing) * 4);
   }
   .mx-5 {
     margin-inline: calc(var(--spacing) * 5);
@@ -600,6 +607,9 @@
   }
   .block {
     display: block;
+  }
+  .contents {
+    display: contents;
   }
   .flex {
     display: flex;
@@ -1362,6 +1372,9 @@
   .border-t-emerald-700 {
     border-top-color: var(--color-emerald-700);
   }
+  .border-t-transparent {
+    border-top-color: transparent;
+  }
   .border-t-white {
     border-top-color: var(--color-white);
   }
@@ -1508,6 +1521,12 @@
   }
   .bg-gray-950 {
     background-color: var(--color-gray-950);
+  }
+  .bg-gray-950\/95 {
+    background-color: color-mix(in srgb, oklch(13% 0.028 261.692) 95%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-gray-950) 95%, transparent);
+    }
   }
   .bg-green-50 {
     background-color: var(--color-green-50);
@@ -1701,6 +1720,9 @@
   }
   .p-3 {
     padding: calc(var(--spacing) * 3);
+  }
+  .p-3\.5 {
+    padding: calc(var(--spacing) * 3.5);
   }
   .p-4 {
     padding: calc(var(--spacing) * 4);
@@ -2223,6 +2245,9 @@
       color: var(--color-gray-400);
     }
   }
+  .accent-red-600 {
+    accent-color: var(--color-red-600);
+  }
   .opacity-0 {
     opacity: 0%;
   }
@@ -2592,6 +2617,13 @@
       --tw-ring-color: var(--color-emerald-500);
     }
   }
+  .hover\:border-amber-400 {
+    &:hover {
+      @media (hover: hover) {
+        border-color: var(--color-amber-400);
+      }
+    }
+  }
   .hover\:border-emerald-300 {
     &:hover {
       @media (hover: hover) {
@@ -2648,6 +2680,13 @@
         @supports (color: color-mix(in lab, red, red)) {
           border-color: color-mix(in oklab, var(--color-white) 60%, transparent);
         }
+      }
+    }
+  }
+  .hover\:bg-amber-50 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-amber-50);
       }
     }
   }
@@ -3168,6 +3207,11 @@
       --tw-ring-color: var(--color-indigo-500);
     }
   }
+  .focus\:ring-red-300 {
+    &:focus {
+      --tw-ring-color: var(--color-red-300);
+    }
+  }
   .focus\:ring-offset-2 {
     &:focus {
       --tw-ring-offset-width: 2px;
@@ -3210,8 +3254,28 @@
       border-color: var(--color-emerald-500);
     }
   }
+  .has-\[\:checked\]\:border-red-400 {
+    &:has(*:is(:checked)) {
+      border-color: var(--color-red-400);
+    }
+  }
   .has-\[\:checked\]\:bg-emerald-50 {
     &:has(*:is(:checked)) {
+      background-color: var(--color-emerald-50);
+    }
+  }
+  .has-\[\:checked\]\:bg-red-50 {
+    &:has(*:is(:checked)) {
+      background-color: var(--color-red-50);
+    }
+  }
+  .has-\[input\:checked\]\:border-emerald-600 {
+    &:has(*:is(input:checked)) {
+      border-color: var(--color-emerald-600);
+    }
+  }
+  .has-\[input\:checked\]\:bg-emerald-50 {
+    &:has(*:is(input:checked)) {
       background-color: var(--color-emerald-50);
     }
   }

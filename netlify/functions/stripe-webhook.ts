@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { eq, and, inArray, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices, processedWebhookEvents } from '../../db/schema';
+import { sendEmail } from '../../src/utils/email';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -84,42 +85,48 @@ export const handler: Handler = async (event) => {
 
         // Create Stripe subscription with the saved payment method for recurring billing.
         // For annual subscriptions use inline price_data (interval: year); monthly uses the fixed price ID.
+        // We capture the subscription ID to store on the plan record for future upgrade/downgrade.
+        let createdStripeSubscriptionId: string | null = null;
         if (pi.payment_method) {
             const isAnnual  = billingCycle === 'annual';
             const subMeta   = { userId, organisationId, tier: tier || '', masterPlanId: masterPlanId || '', billingCycle: billingCycle || 'monthly' };
 
-            if (isAnnual && masterPlan) {
-                // Build annual price inline so no pre-created yearly price ID is required.
-                // Amount is 12 × monthly × 0.8 (20% discount), same as what the PaymentIntent charged.
-                const annualAmount = Math.round(Number(masterPlan.monthlyPriceGbp) * 12 * 0.80 * 100);
-                await stripe.subscriptions.create({
-                    customer: stripeCustomerId,
-                    items: [{
-                        price_data: {
-                            currency: 'gbp',
-                            product_data: { name: masterPlan.name },
-                            unit_amount: annualAmount,
-                            recurring: { interval: 'year' },
-                        },
-                    }],
-                    default_payment_method: pi.payment_method as string,
-                    billing_cycle_anchor: 'now',
-                    proration_behavior: 'none',
-                    metadata: subMeta,
-                }).catch(err => console.error('[stripe-webhook] Annual subscription creation failed:', err));
-            } else if (stripePriceId) {
-                await stripe.subscriptions.create({
-                    customer: stripeCustomerId,
-                    items: [{ price: stripePriceId }],
-                    default_payment_method: pi.payment_method as string,
-                    billing_cycle_anchor: 'now',
-                    proration_behavior: 'none',
-                    metadata: subMeta,
-                }).catch(err => console.error('[stripe-webhook] Monthly subscription creation failed:', err));
+            try {
+                let createdSub: Stripe.Subscription | null = null;
+                if (isAnnual && masterPlan) {
+                    const annualAmount = Math.round(Number(masterPlan.monthlyPriceGbp) * 12 * 0.80 * 100);
+                    createdSub = await stripe.subscriptions.create({
+                        customer: stripeCustomerId,
+                        items: [{
+                            price_data: {
+                                currency: 'gbp',
+                                product_data: { name: masterPlan.name },
+                                unit_amount: annualAmount,
+                                recurring: { interval: 'year' },
+                            },
+                        }],
+                        default_payment_method: pi.payment_method as string,
+                        billing_cycle_anchor: 'now',
+                        proration_behavior: 'none',
+                        metadata: subMeta,
+                    });
+                } else if (stripePriceId) {
+                    createdSub = await stripe.subscriptions.create({
+                        customer: stripeCustomerId,
+                        items: [{ price: stripePriceId }],
+                        default_payment_method: pi.payment_method as string,
+                        billing_cycle_anchor: 'now',
+                        proration_behavior: 'none',
+                        metadata: subMeta,
+                    });
+                }
+                if (createdSub) createdStripeSubscriptionId = createdSub.id;
+            } catch (err) {
+                console.error('[stripe-webhook] Subscription creation failed:', err);
             }
         }
 
-        // Create plan record
+        // Create plan record — include Stripe references for future upgrade/downgrade/cancel
         const [newPlan] = await db.insert(plans).values({
             userId: userIdInt,
             organisationId: orgIdInt,
@@ -127,7 +134,15 @@ export const handler: Handler = async (event) => {
             planName,
             planType: 'subscription',
             status: 'active',
+            stripeCustomerId,
+            stripeSubscriptionId: createdStripeSubscriptionId,
         }).returning();
+
+        // US-GAP-8.1.1 SC7: Trial-to-paid conversion — expire any active trial plan for this user
+        // so check-capacity returns the new paid plan rather than the trial
+        await db.update(plans)
+            .set({ status: 'expired', updatedAt: new Date() })
+            .where(and(eq(plans.userId, userIdInt), eq(plans.planType, 'trial'), eq(plans.status, 'active')));
 
         // Create payment record — include card details
         await db.insert(payments).values({
@@ -450,6 +465,68 @@ export const handler: Handler = async (event) => {
                     nextPaymentAttempt: nextAttempt ? new Date(nextAttempt * 1000).toISOString() : null,
                 },
             });
+
+            // US-GAP-3.2.1 SC1/SC2: Day 0 dunning email — mandatory transactional (always sent, SC4)
+            // SC3: Idempotency — skip if already sent for this invoice+attempt combination
+            // We use processedWebhookEvents keyed on "dunning:{invoiceId}:{attemptCount}"
+            const dunningDedupeKey = `dunning:${invoice.id}:attempt${attemptCount}`;
+            const [alreadySent] = await db
+                .select({ id: processedWebhookEvents.id })
+                .from(processedWebhookEvents)
+                .where(eq(processedWebhookEvents.stripeEventId, dunningDedupeKey))
+                .limit(1);
+
+            if (!alreadySent) {
+                // Mark as sent before actually sending to prevent duplicate sends on concurrent retries
+                await db.insert(processedWebhookEvents)
+                    .values({ stripeEventId: dunningDedupeKey, eventType: 'dunning_email_sent' })
+                    .onConflictDoNothing();
+
+                // Fetch user email
+                const [userRecord] = await db
+                    .select({ email: users.email, firstName: users.firstName })
+                    .from(users)
+                    .where(eq(users.id, userId))
+                    .limit(1);
+
+                if (userRecord) {
+                    // Generate Stripe billing portal URL for payment update CTA (SC2d)
+                    let portalUrl = (process.env.BASE_URL || '') + '/billing.html';
+                    try {
+                        const portal = await stripe.billingPortal.sessions.create({
+                            customer: invoice.customer as string,
+                            return_url: (process.env.BASE_URL || '') + '/billing.html',
+                        });
+                        portalUrl = portal.url;
+                    } catch { /* fall back to billing.html */ }
+
+                    const nextRetryLine = nextTry
+                        ? `<p>💳 <strong>Next automatic retry:</strong> ${nextTry}</p>`
+                        : '';
+                    const assistantWarning = attemptCount >= 3
+                        ? `<p style="color:#dc2626;font-weight:bold;">⚠️ Your assistants have been paused due to repeated payment failures. Restore access by updating your payment details immediately.</p>`
+                        : `<p>✅ Your data and assistants are safe — no changes have been made yet. We'll automatically retry the payment.</p>`;
+
+                    await sendEmail({
+                        to: userRecord.email,
+                        subject: `Payment failed — action required`,
+                        html: `<p>Hi ${userRecord.firstName || 'there'},</p>
+                               <p>We were unable to process your subscription payment.</p>
+                               <p>💰 <strong>Amount:</strong> ${amount || 'see your billing page'}</p>
+                               ${nextRetryLine}
+                               ${assistantWarning}
+                               <p style="margin-top:24px;">
+                                 <a href="${portalUrl}" style="background:#dc2626;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+                                   Update Payment Details →
+                                 </a>
+                               </p>
+                               <p style="margin-top:16px;font-size:0.875rem;color:#6b7280;">
+                                 Questions? <a href="mailto:hello@aura-assist.com">Contact our support team</a>.
+                               </p>
+                               <p>The Aura Team</p>`,
+                    }).catch(err => console.warn('[stripe-webhook] Day 0 dunning email failed:', err));
+                }
+            }
         }
     }
 
@@ -507,9 +584,10 @@ export const handler: Handler = async (event) => {
         const sub    = stripeEvent.data.object as Stripe.Subscription;
         const userId = await _resolveUserIdFromSub(sub);
         if (userId) {
-            // Mark plans as cancelled
+            // Mark plans as cancelled — capture cancelledAt for win-back email scheduling (US-GAP-4.2.1)
+            const cancelledNow = new Date();
             await db.update(plans)
-                .set({ status: 'cancelled', updatedAt: new Date() })
+                .set({ status: 'cancelled', cancelledAt: cancelledNow, updatedAt: cancelledNow })
                 .where(and(eq(plans.userId, userId), inArray(plans.status, ['active', 'cancelling', 'past_due'])));
 
             // Pause ALL active assistants — no active subscription

@@ -71,10 +71,37 @@
 
           <div id="summary-features" class="space-y-2 mb-5"></div>
 
+          <!-- SC1: Promo code input (collapsible) -->
+          <div class="border-t border-gray-100 pt-4 pb-1">
+            <button id="promo-toggle" type="button"
+                    onclick="document.getElementById('promo-section').classList.toggle('hidden')"
+                    class="text-xs text-emerald-700 font-semibold hover:underline focus:outline-none">
+              Have a promo code?
+            </button>
+            <div id="promo-section" class="hidden mt-3 space-y-2">
+              <div class="flex gap-2">
+                <input id="promo-input" type="text" placeholder="Enter code"
+                       class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase tracking-widest"
+                       oninput="this.value=this.value.toUpperCase()" />
+                <button id="promo-apply-btn" type="button" onclick="window._applyPromo()"
+                        class="px-4 py-2 bg-emerald-700 text-white text-xs font-bold rounded-lg hover:bg-emerald-800 transition whitespace-nowrap">
+                  Apply
+                </button>
+              </div>
+              <p id="promo-feedback" class="text-xs font-medium hidden"></p>
+            </div>
+          </div>
+
           <div class="border-t border-gray-100 pt-5 space-y-2">
             <div class="flex justify-between items-center text-sm text-gray-500">
-              <span>Monthly subscription</span>
-              <span id="summary-price" class="font-bold text-gray-900">—</span>
+              <span id="subscription-cycle-label">Monthly subscription</span>
+              <span id="summary-price" class="font-bold text-gray-900 line-through hidden"></span>
+              <span id="summary-price-original" class="font-bold text-gray-900">—</span>
+            </div>
+            <!-- SC4: Discount row — hidden until promo applied -->
+            <div id="discount-row" class="hidden justify-between items-center text-sm text-emerald-600">
+              <span id="discount-label">Promo discount</span>
+              <span id="discount-amount" class="font-bold">—</span>
             </div>
             <div class="flex justify-between items-center text-sm text-gray-500">
               <span>Computing costs (at-cost)</span>
@@ -153,6 +180,152 @@
 </main>
 
 <script>
+  // Promo code state (SC5: one code per checkout — applying replaces previous)
+  let _promoState = null; // { promotionCodeId, codeName, discountDisplay, discountAmountDisplay, discountedAmountGbp, originalAmountGbp }
+  let _currentTier = 'saver';
+  let _currentCycle = 'monthly';
+  let _stripeElements = null;
+  let _stripeInstance = null;
+
+  // SC2: Validate promo code via backend
+  window._applyPromo = async function () {
+    const code    = document.getElementById('promo-input').value.trim();
+    const feedEl  = document.getElementById('promo-feedback');
+    const btn     = document.getElementById('promo-apply-btn');
+    feedEl.classList.add('hidden');
+
+    if (!code) {
+      feedEl.textContent = 'Please enter a promo code.';
+      feedEl.className   = 'text-xs font-medium text-red-600';
+      feedEl.classList.remove('hidden');
+      return;
+    }
+
+    btn.disabled     = true;
+    btn.textContent  = 'Checking…';
+    try {
+      const res  = await fetch('/.netlify/functions/validate-promo', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ code, tier: _currentTier, billingCycle: _currentCycle }),
+      });
+      const data = await res.json();
+
+      if (!data.valid) {
+        feedEl.textContent = data.error || 'This code is not valid or has expired.';
+        feedEl.className   = 'text-xs font-medium text-red-600';
+        feedEl.classList.remove('hidden');
+        _promoState = null;
+        _updateSummaryPricing(null);
+        return;
+      }
+
+      // SC5: Replace previous code
+      _promoState = data;
+      feedEl.textContent = `✓ Code "${data.codeName}" applied — ${data.discountDisplay} off!`;
+      feedEl.className   = 'text-xs font-medium text-emerald-700';
+      feedEl.classList.remove('hidden');
+
+      // SC4: Update summary to show discount
+      _updateSummaryPricing(data);
+
+      // Re-initialise checkout with the new (discounted) amount
+      await _reinitialisePaymentIntent();
+
+    } catch {
+      feedEl.textContent = 'Network error. Please try again.';
+      feedEl.className   = 'text-xs font-medium text-red-600';
+      feedEl.classList.remove('hidden');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Apply';
+    }
+  };
+
+  // SC4: Update the pricing rows in the order summary
+  function _updateSummaryPricing(promo) {
+    const discountRow    = document.getElementById('discount-row');
+    const discountAmount = document.getElementById('discount-amount');
+    const discountLabel  = document.getElementById('discount-label');
+    const summaryTotal   = document.getElementById('summary-total');
+    const summaryPrice   = document.getElementById('summary-price');
+    const summaryPriceOg = document.getElementById('summary-price-original');
+
+    if (promo) {
+      const origFormatted      = '£' + parseFloat(promo.originalAmountGbp).toFixed(2).replace(/\.00$/, '');
+      const discountedFormatted = '£' + parseFloat(promo.discountedAmountGbp).toFixed(2).replace(/\.00$/, '');
+
+      summaryPrice.textContent  = origFormatted;
+      summaryPrice.classList.remove('hidden');
+      summaryPrice.classList.add('line-through', 'text-gray-400');
+      summaryPriceOg.textContent = discountedFormatted;
+      summaryPriceOg.classList.add('text-emerald-700', 'font-extrabold');
+
+      discountLabel.textContent  = `Promo (${promo.codeName}) ${promo.discountDisplay}`;
+      discountAmount.textContent = promo.discountAmountDisplay;
+      discountRow.classList.remove('hidden');
+      discountRow.classList.add('flex');
+
+      summaryTotal.textContent = discountedFormatted;
+    } else {
+      summaryPrice.classList.add('hidden');
+      discountRow.classList.add('hidden');
+      discountRow.classList.remove('flex');
+    }
+  }
+
+  // Re-create the PaymentIntent with updated amount (after promo applied)
+  async function _reinitialisePaymentIntent() {
+    if (!_stripeInstance) return;
+    const params      = new URLSearchParams(window.location.search);
+    const tier        = params.get('tier') || 'saver';
+    const billingCycle = params.get('cycle') || sessionStorage.getItem('billing_cycle') || 'monthly';
+
+    try {
+      const res = await fetch('/.netlify/functions/create-subscription', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          tier,
+          billingCycle,
+          promotionCodeId: _promoState?.promotionCodeId || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.data?.clientSecret) return;
+
+      // Reinitialise Stripe Elements with new clientSecret
+      _stripeElements = _stripeInstance.elements({
+        clientSecret: json.data.clientSecret,
+        appearance:   _stripeAppearance,
+      });
+      _stripeElements.create('payment', {
+        layout: { type: 'tabs', defaultCollapsed: false },
+        fields: { billingDetails: { address: 'auto' } },
+      }).mount('#payment-element');
+    } catch (err) {
+      console.warn('[checkout] Failed to reinitialise PaymentIntent after promo:', err);
+    }
+  }
+
+  const _stripeAppearance = {
+    theme: 'stripe',
+    variables: {
+      colorPrimary:     '#059669',
+      colorBackground:  '#ffffff',
+      colorText:        '#1f2937',
+      colorDanger:      '#ef4444',
+      fontFamily:       'ui-sans-serif, system-ui, sans-serif',
+      fontSizeBase:     '15px',
+      borderRadius:     '8px',
+    },
+    rules: {
+      '.Input':       { border: '1px solid #e5e7eb', boxShadow: 'none', padding: '12px' },
+      '.Input:focus': { border: '1px solid #059669', boxShadow: '0 0 0 3px rgba(5,150,105,0.15)' },
+      '.Label':       { fontWeight: '600', color: '#374151', marginBottom: '6px' },
+    },
+  };
+
   const PLAN_INFO = {
     buster: {
       label: 'The Busywork Buster',
@@ -175,11 +348,14 @@
   }
 
   async function initCheckout() {
-    const params      = new URLSearchParams(window.location.search);
-    const tier        = params.get('tier') || 'saver';
+    const params       = new URLSearchParams(window.location.search);
+    const tier         = params.get('tier') || 'saver';
     // Billing cycle: URL param takes priority, fall back to sessionStorage, then default 'monthly'
     const billingCycle = params.get('cycle') || sessionStorage.getItem('billing_cycle') || 'monthly';
-    const planInfo    = PLAN_INFO[tier] || PLAN_INFO.saver;
+    const planInfo     = PLAN_INFO[tier] || PLAN_INFO.saver;
+
+    _currentTier  = tier;
+    _currentCycle = billingCycle;
 
     let checkoutData;
     try {
@@ -203,12 +379,10 @@
     const priceNum  = parseFloat(amountGbp || '0');
     const formatted = '£' + priceNum.toFixed(2).replace(/\.00$/, '');
     const cycleLabel = billingCycleLabel || (billingCycle === 'annual' ? 'Annual subscription' : 'Monthly subscription');
-    document.getElementById('summary-plan-name').textContent = planName || planInfo.label;
-    document.getElementById('summary-price').textContent = formatted + (billingCycle === 'annual' ? '/yr' : '/mo');
-    document.getElementById('summary-total').textContent = formatted;
-    // Update the "Monthly subscription" row label
-    const subsLabel = document.querySelector('#checkout-content .text-gray-500 span');
-    if (subsLabel) subsLabel.textContent = cycleLabel;
+    document.getElementById('summary-plan-name').textContent      = planName || planInfo.label;
+    document.getElementById('summary-price-original').textContent = formatted + (billingCycle === 'annual' ? '/yr' : '/mo');
+    document.getElementById('summary-total').textContent          = formatted;
+    document.getElementById('subscription-cycle-label').textContent = cycleLabel;
     document.getElementById('summary-features').innerHTML = planInfo.features.map(f => `
       <div class="flex items-center gap-2.5 text-sm text-gray-600">
         <span class="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
@@ -221,30 +395,11 @@
     `).join('');
 
     // Mount Stripe Elements
-    const stripe = Stripe(publishableKey);
-    const elements = stripe.elements({
-      clientSecret,
-      appearance: {
-        theme: 'stripe',
-        variables: {
-          colorPrimary: '#059669',
-          colorBackground: '#ffffff',
-          colorText: '#1f2937',
-          colorDanger: '#ef4444',
-          fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-          fontSizeBase: '15px',
-          borderRadius: '8px',
-        },
-        rules: {
-          '.Input': { border: '1px solid #e5e7eb', boxShadow: 'none', padding: '12px' },
-          '.Input:focus': { border: '1px solid #059669', boxShadow: '0 0 0 3px rgba(5,150,105,0.15)' },
-          '.Label': { fontWeight: '600', color: '#374151', marginBottom: '6px' },
-        },
-      },
-    });
+    _stripeInstance = Stripe(publishableKey);
+    _stripeElements = _stripeInstance.elements({ clientSecret, appearance: _stripeAppearance });
 
     // Request billing address so Stripe Tax can determine VAT liability (P3)
-    elements.create('payment', {
+    _stripeElements.create('payment', {
       layout: { type: 'tabs', defaultCollapsed: false },
       fields: { billingDetails: { address: 'auto' } },
     }).mount('#payment-element');
@@ -284,8 +439,8 @@
       submitSpinner.classList.remove('hidden');
       errorDiv.classList.add('hidden');
 
-      const { error } = await stripe.confirmPayment({
-        elements,
+      const { error } = await _stripeInstance.confirmPayment({
+        elements: _stripeElements,
         confirmParams: {
           return_url: `${window.location.origin}/workspace.html?payment=success`,
         },

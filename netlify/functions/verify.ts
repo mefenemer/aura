@@ -4,6 +4,7 @@ import { eq, and, gt } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
 import { users, plans, aiAssistants, onboardingDrafts, notifications } from '../../db/schema';
+import { sendEmail } from '../../src/utils/email';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 
@@ -95,6 +96,32 @@ export const handler: Handler = async (event) => {
             } catch (notifErr) {
                 console.warn('[verify] Welcome notification insert failed (non-blocking):', notifErr);
             }
+
+            // US-GAP-6.1.1 SC1/SC2: Welcome email — sent exactly once (SC3: gated by isFirstLogin)
+            // SC4: arrives before the 24h onboarding reminder (onboarding-reminder.ts fires at 24h)
+            const onboardingUrl = `${(event.headers['x-forwarded-proto'] || 'https')}://${event.headers.host}/onboarding.html`;
+            const helpUrl       = `${(event.headers['x-forwarded-proto'] || 'https')}://${event.headers.host}/help.html`;
+            sendEmail({
+                to: user.email,
+                subject: `Welcome to Aura Assist, ${user.firstName || 'there'}! 🎉`,
+                html: `<p>Hi ${user.firstName || 'there'},</p>
+                       <p>Your email is verified — welcome to Aura Assist! You're moments away from having your own AI team member handling the work you don't have time for.</p>
+                       <h3 style="margin-top:24px;">Here's how to get started in 3 steps:</h3>
+                       <ol style="padding-left:1.2rem;line-height:2">
+                         <li><strong>Complete your profile</strong> — tell us about your business so your assistant understands your brand</li>
+                         <li><strong>Choose your assistant</strong> — pick the role that matches the work you want automated</li>
+                         <li><strong>Connect your tools</strong> — link your social accounts, calendar, or CRM to let your assistant get to work</li>
+                       </ol>
+                       <p style="margin-top:24px;">
+                         <a href="${onboardingUrl}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+                           Set Up My First Assistant →
+                         </a>
+                       </p>
+                       <p style="margin-top:16px;font-size:0.875rem;color:#6b7280;">
+                         Need help? Visit our <a href="${helpUrl}">Help Centre</a> or reply to this email.
+                       </p>
+                       <p>The Aura Team</p>`,
+            }).catch(err => console.warn('[verify] Welcome email failed (non-blocking):', err));
         }
 
         const tokenPayload = { userId: user.id, email: user.email };

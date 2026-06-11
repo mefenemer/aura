@@ -59,7 +59,7 @@ export const handler: Handler = async (event) => {
       return { statusCode: 403, body: JSON.stringify({ error: 'Account not active.' }) };
     }
 
-    const { tier, billingCycle: rawCycle } = JSON.parse(event.body || '{}');
+    const { tier, billingCycle: rawCycle, promotionCodeId } = JSON.parse(event.body || '{}');
     if (!tier) return { statusCode: 400, body: JSON.stringify({ error: 'Missing tier.' }) };
 
     const billingCycle: 'monthly' | 'annual' = rawCycle === 'annual' ? 'annual' : 'monthly';
@@ -80,10 +80,33 @@ export const handler: Handler = async (event) => {
     }
 
     // Compute charge amount based on billing cycle
-    const monthlyGbp  = Number(masterPlan.monthlyPriceGbp);
-    const chargeGbp   = billingCycle === 'annual'
+    const monthlyGbp    = Number(masterPlan.monthlyPriceGbp);
+    const baseChargeGbp = billingCycle === 'annual'
         ? parseFloat((monthlyGbp * 12 * ANNUAL_DISCOUNT).toFixed(2))  // annual lump-sum
         : monthlyGbp;                                                   // monthly
+
+    // SC3: Apply promotion code discount if provided (validated by validate-promo.ts)
+    let chargeGbp        = baseChargeGbp;
+    let discountAmountGbp: number | null = null;
+    if (promotionCodeId) {
+        try {
+            const promoCode = await stripe.promotionCodes.retrieve(promotionCodeId);
+            const coupon    = promoCode.coupon;
+            if (coupon.valid) {
+                if (coupon.percent_off) {
+                    discountAmountGbp = parseFloat((baseChargeGbp * coupon.percent_off / 100).toFixed(2));
+                } else if (coupon.amount_off) {
+                    discountAmountGbp = coupon.amount_off / 100;
+                }
+                if (discountAmountGbp !== null) {
+                    chargeGbp = Math.max(0, parseFloat((baseChargeGbp - discountAmountGbp).toFixed(2)));
+                }
+            }
+        } catch (promoErr: any) {
+            console.warn('[create-subscription] Could not retrieve promo code — ignoring:', promoErr.message);
+        }
+    }
+
     const chargePence = Math.round(chargeGbp * 100);
 
     const billingCycleLabel = billingCycle === 'annual'
@@ -129,6 +152,7 @@ export const handler: Handler = async (event) => {
         stripePriceId,
         stripeCustomerId: customer.id,
         billingCycle,
+        ...(promotionCodeId ? { promotionCodeId } : {}),
       },
     });
 
@@ -136,11 +160,13 @@ export const handler: Handler = async (event) => {
       statusCode: 200,
       body: JSON.stringify({
         data: {
-          clientSecret:      paymentIntent.client_secret,
-          publishableKey:    process.env.STRIPE_PUBLISHABLE_KEY,
-          planName:          masterPlan.name,
-          amountGbp:         chargeGbp.toString(),
-          tier:              tierKey,
+          clientSecret:        paymentIntent.client_secret,
+          publishableKey:      process.env.STRIPE_PUBLISHABLE_KEY,
+          planName:            masterPlan.name,
+          amountGbp:           chargeGbp.toString(),
+          originalAmountGbp:   baseChargeGbp.toString(),
+          discountAmountGbp:   discountAmountGbp !== null ? discountAmountGbp.toString() : null,
+          tier:                tierKey,
           billingCycle,
           billingCycleLabel,
         },

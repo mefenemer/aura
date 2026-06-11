@@ -41,6 +41,11 @@ export const users = pgTable('users', {
   // Platform role — 'user' (default) | 'admin' | 'super_admin'
   role: text('role').notNull().default('user'),
 
+  // US-GAP-2.1.1: Account deletion cooling-off period (24h)
+  pendingDeletion: boolean('pending_deletion').default(false),
+  pendingDeletionAt: timestamp('pending_deletion_at'),          // when deletion was requested
+  deletionToken: text('deletion_token'),                         // hashed cancellation token
+
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -81,7 +86,7 @@ export const plans = pgTable("plans", {
   masterPlanId: integer("master_plan_id").references(() => masterPlans.id),
   planName: text("plan_name").notNull(),
   planType: text("plan_type").notNull().default("subscription"),
-  // status: 'active' | 'past_due' | 'cancelling' | 'cancelled'
+  // status: 'active' | 'past_due' | 'cancelling' | 'cancelled' | 'downgrading' | 'expired'
   // past_due = payment failed; assistants still run during gracePeriodEndsAt window
   status: text("status").notNull().default("active"),
   maxSeats: integer("max_seats"),
@@ -89,6 +94,10 @@ export const plans = pgTable("plans", {
   expiresAt: timestamp("expires_at"),
   // Grace period end: set to NOW()+7d on first payment failure; assistants pause after this date
   gracePeriodEndsAt: timestamp("grace_period_ends_at"),
+  // Stripe references — stored at subscription creation; used for upgrade/downgrade/cancel
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  cancelledAt: timestamp("cancelled_at"),               // set when status transitions to 'cancelled' (US-GAP-4.2.1)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -618,17 +627,6 @@ export const rateLimitAttempts = pgTable("rate_limit_attempts", {
   attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
 });
 
-// ── GDPR Erasure Log — US-GAP-2.1.2 SC3 ──────────────────────────────────────
-// Anonymised record retained after any user account deletion.
-// Stores only a hashed email (SHA-256), not the plaintext address.
-export const gdprErasureLog = pgTable("gdpr_erasure_log", {
-  id: serial().primaryKey(),
-  emailHash: text("email_hash").notNull(),   // SHA-256 of the deleted user's email
-  requesterType: text("requester_type").notNull(), // 'user' | 'admin'
-  requesterAdminId: integer("requester_admin_id"), // admin userId if requesterType='admin'
-  erasedAt: timestamp("erased_at").defaultNow().notNull(),
-});
-
 // ── Referral Attribution — US-AUD-5.3.1 SC5 ──────────────────────────────────
 // Records new signups that originated from an agency attribution badge link.
 export const referralAttribution = pgTable("referral_attribution", {
@@ -658,6 +656,46 @@ export const pageEvents = pgTable("page_events", {
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   pagePath: text("page_path").notNull(), // e.g. '/pricing.html'
   metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── Win-Back Email Opt-Outs — US-GAP-4.2.1 SC5 ──────────────────────────────
+// Records users who have unsubscribed from win-back email sequences.
+export const winBackOptOuts = pgTable("win_back_opt_outs", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  optedOutAt: timestamp("opted_out_at").defaultNow().notNull(),
+});
+
+// ── GDPR Erasure Log — US-GAP-2.1.2 SC3 / US-GAP-2.1.1 SC5 ─────────────────
+// Anonymised record retained after account deletion for compliance audit.
+export const gdprErasureLog = pgTable("gdpr_erasure_log", {
+  id: serial().primaryKey(),
+  emailHash: text("email_hash").notNull(),                      // SHA-256 of the deleted email
+  requesterType: text("requester_type").notNull(),              // 'user' | 'admin'
+  requestedBy: integer("requested_by"),                         // admin userId if requester='admin'
+  erasedAt: timestamp("erased_at").defaultNow().notNull(),
+});
+
+// ── Data Export Requests — US-GAP-2.2.1 SC5 ─────────────────────────────────
+// Tracks data export requests to enforce 24-hour rate limit.
+export const dataExportRequests = pgTable("data_export_requests", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  downloadToken: text("download_token"),            // signed token for the download link
+  downloadUrl: text("download_url"),                // signed S3/storage URL (if generated)
+  expiresAt: timestamp("expires_at"),               // 24h from generation
+  status: text("status").notNull().default("pending"), // 'pending' | 'ready' | 'expired'
+});
+
+// ── Cancellation Reasons — US-GAP-4.1.1 SC2 ─────────────────────────────────
+// Stores exit survey responses for product analytics.
+export const cancellationReasons = pgTable("cancellation_reasons", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  reason: text("reason").notNull(), // 'too_expensive' | 'not_using' | 'missing_feature' | 'competitor' | 'technical' | 'business_closed' | 'other'
+  freeText: text("free_text"),      // optional additional context
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

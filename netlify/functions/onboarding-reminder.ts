@@ -9,7 +9,7 @@ import type { Config } from '@netlify/functions';
 import * as crypto from 'crypto';
 import { and, lt, or, isNull, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, onboardingDrafts, aiAssistants } from '../../db/schema';
+import { users, onboardingDrafts, aiAssistants, plans } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 
 // ── Onboarding path → HTML page map ──────────────────────────────────────────
@@ -52,10 +52,13 @@ function buildReminderEmail(firstName: string, resumeUrl: string): string {
             <td style="padding:36px 40px;">
               <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111827;">${name},</h2>
               <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#4b5563;">
-                Your Digital Assistant is almost ready — you just need to finish setting it up!
+                Your Digital Assistant is waiting for you — you just need to finish setting it up!
               </p>
-              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#6b7280;">
-                You started configuring your assistant but didn't quite reach the finish line. Your progress has been saved, so you can pick up exactly where you left off. It only takes a few more minutes.
+              <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#6b7280;">
+                You started configuring your assistant but didn't quite reach the finish line. Your progress has been saved, so you can pick up exactly where you left off.
+              </p>
+              <p style="margin:0 0 24px;font-size:15px;font-weight:700;color:#059669;">
+                ⏱️ Takes less than 5 minutes to complete.
               </p>
 
               <!-- CTA -->
@@ -191,9 +194,17 @@ export default async (req: Request): Promise<Response> => {
 
             // ── Send reminder email ───────────────────────────────────────────
             try {
+                // US-GAP-6.1.2 SC1: Only send if user has an active paid plan
+                const [activePlan] = await db
+                    .select({ id: plans.id })
+                    .from(plans)
+                    .where(and(eq(plans.userId, user.id), eq(plans.status, 'active')))
+                    .limit(1);
+                if (!activePlan) { skipped++; continue; }
+
                 await sendMagicLinkEmail({
                     to:      user.email,
-                    subject: 'Finish setting up your Assistant',
+                    subject: 'Your Digital Assistant is waiting for you',
                     html:    buildReminderEmail(user.firstName || '', resumeUrl),
                 });
 

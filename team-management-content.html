@@ -1,4 +1,4 @@
-<!-- team-management-content.html — US-GAP-5.2.1: Seat Management and Member Removal -->
+<!-- team-management-content.html — US-GAP-5.1.1 + US-GAP-5.2.1 -->
 <div class="p-6 max-w-4xl mx-auto" id="team-management-root">
 
   <!-- Header with seat usage badge (SC1) -->
@@ -38,11 +38,79 @@
   <div id="team-error" class="hidden mt-4 text-sm text-red-600 font-medium"></div>
 </div>
 
+<!-- ── Invite Member Modal (SC1/SC4) ───────────────────────────────── -->
+<div id="invite-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <h2 class="text-base font-bold text-gray-900">Invite Team Member</h2>
+      <button onclick="document.getElementById('invite-modal').classList.add('hidden')"
+              class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+    </div>
+    <div class="px-6 py-5 space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Email address</label>
+        <input id="invite-email" type="email" placeholder="colleague@example.com"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Role</label>
+        <select id="invite-role"
+                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <option value="member">Member — can use assistants and manage content</option>
+          <option value="viewer">Viewer — read-only access</option>
+          <option value="admin">Admin — full workspace management</option>
+        </select>
+      </div>
+      <div id="invite-error" class="hidden text-xs text-red-600 font-medium"></div>
+    </div>
+    <div class="px-6 pb-5 flex justify-end gap-3">
+      <button onclick="document.getElementById('invite-modal').classList.add('hidden')"
+              class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Cancel</button>
+      <button id="invite-submit-btn" onclick="window._submitInvite()"
+              class="px-5 py-2 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition disabled:opacity-50">
+        Send Invite
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Change Role Modal (SC3) ─────────────────────────────────────── -->
+<div id="role-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <h2 class="text-base font-bold text-gray-900">Change Role</h2>
+      <button onclick="document.getElementById('role-modal').classList.add('hidden')"
+              class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+    </div>
+    <div class="px-6 py-5 space-y-4">
+      <p id="role-modal-name" class="text-sm text-gray-700 font-medium"></p>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">New role</label>
+        <select id="role-modal-select"
+                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <option value="admin">Admin</option>
+          <option value="member">Member</option>
+          <option value="viewer">Viewer</option>
+        </select>
+      </div>
+      <div id="role-error" class="hidden text-xs text-red-600 font-medium"></div>
+    </div>
+    <div class="px-6 pb-5 flex justify-end gap-3">
+      <button onclick="document.getElementById('role-modal').classList.add('hidden')"
+              class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Cancel</button>
+      <button id="role-submit-btn" onclick="window._submitRoleChange()"
+              class="px-5 py-2 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition">
+        Save
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function initTeamManagementUI() {
 
-  const ROLE_LABELS = { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer', invited: 'Invited' };
-  const ROLE_BADGE = {
+  const ROLE_LABELS = { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer', invited: 'Pending Invite' };
+  const ROLE_BADGE  = {
     owner:   'bg-purple-100 text-purple-700',
     admin:   'bg-emerald-100 text-emerald-700',
     member:  'bg-blue-100 text-blue-700',
@@ -50,29 +118,33 @@
     invited: 'bg-amber-100 text-amber-700',
   };
 
-  let _members = [];
+  let _members   = [];
   let _seatLimit = null;
+  let _roleTarget = null;
 
+  // ── Load ────────────────────────────────────────────────────────────
   async function load() {
     try {
       const res = await fetch('/.netlify/functions/manage-members');
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      _members = data.members || [];
+      _members   = data.members || [];
       _seatLimit = data.seatLimit;
       render(data);
     } catch (e) {
-      document.getElementById('team-error').textContent = 'Failed to load team data. ' + (e.message || '');
-      document.getElementById('team-error').classList.remove('hidden');
+      const el = document.getElementById('team-error');
+      el.textContent = 'Failed to load team data. ' + (e.message || '');
+      el.classList.remove('hidden');
     }
   }
 
+  // ── Render ──────────────────────────────────────────────────────────
   function render(data) {
     // SC1: Seat usage pill
-    const pill = document.getElementById('seat-usage-pill');
+    const pill      = document.getElementById('seat-usage-pill');
     const seatCount = data.seatCount || 0;
     const seatLimit = data.seatLimit;
-    if (seatLimit != null) {
+    if (seatLimit != null && seatLimit > 0) {
       const pct = Math.round((seatCount / seatLimit) * 100);
       pill.textContent = `${seatCount} / ${seatLimit} seats used`;
       pill.className = `text-xs font-semibold px-3 py-1.5 rounded-full border ${
@@ -81,8 +153,8 @@
                     'bg-gray-50 border-gray-200 text-gray-700'
       }`;
       pill.classList.remove('hidden');
-    } else if (seatLimit === null) {
-      pill.textContent = `${seatCount} seat${seatCount === 1 ? '' : 's'} used`;
+    } else {
+      pill.textContent = `${seatCount} seat${seatCount === 1 ? '' : 's'}`;
       pill.className = 'text-xs font-semibold px-3 py-1.5 rounded-full border bg-gray-50 border-gray-200 text-gray-700';
       pill.classList.remove('hidden');
     }
@@ -90,26 +162,38 @@
     // SC2: Member list
     const tbody = document.getElementById('member-list-body');
     if (!data.members || data.members.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400 text-sm">No members yet.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400 text-sm">No members yet. Click "Invite Member" to get started.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = data.members.map(m => {
-      const role = m.role || 'member';
-      const joined = m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
-      const isOwner = role === 'owner';
-      const actionMenu = isOwner ? '' : `
-        <div class="flex items-center justify-end gap-2">
-          <button onclick="window._openRoleModal(${m.userId}, '${m.name || m.email}', '${role}')"
-                  class="text-xs text-gray-500 hover:text-emerald-700 font-medium underline">Change Role</button>
-          <span class="text-gray-300">·</span>
-          <button onclick="window._removeMember(${m.userId}, '${m.name || m.email}')"
-                  class="text-xs text-red-500 hover:text-red-700 font-medium underline">Remove</button>
-        </div>`;
+      const role   = m.role || 'member';
+      const joined = m.joinedAt
+        ? new Date(m.joinedAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
+        : '—';
+      const isOwner   = role === 'owner';
+      const isInvited = role === 'invited';
+      let actions = '';
+      if (!isOwner) {
+        actions = `<div class="flex items-center justify-end gap-2">`;
+        if (isInvited) {
+          // SC6: Resend invite
+          actions += `<button onclick="window._resendInvite('${m.email}')"
+                               class="text-xs text-amber-600 hover:text-amber-800 font-medium underline">Resend</button>
+                      <span class="text-gray-300">·</span>`;
+        } else {
+          actions += `<button onclick="window._openRoleModal(${m.userId}, '${(m.name || m.email || '').replace(/'/g,"\\'")}', '${role}')"
+                               class="text-xs text-gray-500 hover:text-emerald-700 font-medium underline">Change Role</button>
+                      <span class="text-gray-300">·</span>`;
+        }
+        actions += `<button onclick="window._removeMember(${m.userId}, '${(m.name || m.email || '').replace(/'/g,"\\'")}')"
+                             class="text-xs text-red-500 hover:text-red-700 font-medium underline">Remove</button>
+                    </div>`;
+      }
       return `
         <tr class="hover:bg-gray-50 transition">
           <td class="px-4 py-3">
-            <p class="font-semibold text-gray-900">${m.name || '—'}</p>
+            <p class="font-semibold text-gray-900">${m.name || (isInvited ? '<span class="text-gray-400 italic">Invite pending</span>' : '—')}</p>
             <p class="text-gray-500 text-xs">${m.email || '—'}</p>
           </td>
           <td class="px-4 py-3">
@@ -118,59 +202,129 @@
             </span>
           </td>
           <td class="px-4 py-3 text-gray-500 text-xs">${joined}</td>
-          <td class="px-4 py-3">${actionMenu}</td>
+          <td class="px-4 py-3">${actions}</td>
         </tr>`;
     }).join('');
   }
 
-  // SC4: Remove Member
-  window._removeMember = async function (userId, name) {
-    if (!confirm(`Remove ${name} from this workspace? They will be notified by email.`)) return;
+  // ── Invite Modal ────────────────────────────────────────────────────
+  window._openInviteModal = function () {
+    document.getElementById('invite-email').value  = '';
+    document.getElementById('invite-role').value   = 'member';
+    document.getElementById('invite-error').classList.add('hidden');
+    document.getElementById('invite-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('invite-email').focus(), 50);
+  };
+
+  window._submitInvite = async function () {
+    const email = document.getElementById('invite-email').value.trim();
+    const role  = document.getElementById('invite-role').value;
+    const errEl = document.getElementById('invite-error');
+    const btn   = document.getElementById('invite-submit-btn');
+
+    errEl.classList.add('hidden');
+    if (!email) { errEl.textContent = 'Please enter an email address.'; errEl.classList.remove('hidden'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
     try {
-      const res = await fetch(`/.netlify/functions/manage-members?id=${userId}`, { method: 'DELETE' });
+      const res  = await fetch('/.netlify/functions/invite-member', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, role }),
+      });
       const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'Failed to remove member.');
+      if (!res.ok || data.error) {
+        errEl.textContent = data.error || 'Failed to send invite.';
+        errEl.classList.remove('hidden');
         return;
       }
+      document.getElementById('invite-modal').classList.add('hidden');
+      await load();
+    } catch {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Send Invite';
+    }
+  };
+
+  // ── SC6: Resend invite ──────────────────────────────────────────────
+  window._resendInvite = async function (email) {
+    try {
+      const res  = await fetch('/.netlify/functions/invite-member', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, resend: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) { alert(data.error || 'Failed to resend invite.'); return; }
+      alert(`Invitation resent to ${email}.`);
+    } catch { alert('Network error. Please try again.'); }
+  };
+
+  // ── SC3: Change Role Modal ──────────────────────────────────────────
+  window._openRoleModal = function (userId, name, currentRole) {
+    _roleTarget = { userId, name, currentRole };
+    document.getElementById('role-modal-name').textContent = `Changing role for: ${name}`;
+    document.getElementById('role-modal-select').value = currentRole;
+    document.getElementById('role-error').classList.add('hidden');
+    document.getElementById('role-modal').classList.remove('hidden');
+  };
+
+  window._submitRoleChange = async function () {
+    if (!_roleTarget) return;
+    const newRole = document.getElementById('role-modal-select').value;
+    const errEl   = document.getElementById('role-error');
+    const btn     = document.getElementById('role-submit-btn');
+    errEl.classList.add('hidden');
+
+    if (newRole === _roleTarget.currentRole) {
+      document.getElementById('role-modal').classList.add('hidden');
+      return;
+    }
+
+    btn.disabled = true;
+    try {
+      const res  = await fetch(`/.netlify/functions/manage-members?id=${_roleTarget.userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        errEl.textContent = data.error || 'Failed to change role.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      document.getElementById('role-modal').classList.add('hidden');
+      await load();
+    } catch {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  // ── SC4 (SC4a–SC4d): Remove Member ─────────────────────────────────
+  window._removeMember = async function (userId, name) {
+    if (!confirm(`Remove ${name} from this workspace?\n\nThey will be notified by email and lose access immediately.`)) return;
+    try {
+      const res  = await fetch(`/.netlify/functions/manage-members?id=${userId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || data.error) { alert(data.error || 'Failed to remove member.'); return; }
       await load();
     } catch { alert('Network error. Please try again.'); }
   };
 
-  // SC3: Change Role
-  window._openRoleModal = function (userId, name, currentRole) {
-    const newRole = prompt(
-      `Change role for ${name}.\n\nCurrent role: ${currentRole}\n\nEnter new role (admin, member, viewer):`,
-      currentRole
-    )?.trim().toLowerCase();
-    if (!newRole || newRole === currentRole) return;
-    if (!['admin', 'member', 'viewer'].includes(newRole)) {
-      alert('Invalid role. Choose from: admin, member, viewer');
-      return;
-    }
-    fetch(`/.netlify/functions/manage-members?id=${userId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: newRole }),
-    }).then(r => r.json()).then(data => {
-      if (data.error) { alert(data.error); return; }
-      load();
-    }).catch(() => alert('Network error. Please try again.'));
-  };
-
-  window._openInviteModal = function () {
-    const email = prompt('Enter the email address to invite:')?.trim();
-    if (!email) return;
-    fetch('/.netlify/functions/invite-member', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    }).then(r => r.json()).then(data => {
-      if (data.error) { alert(data.error); return; }
-      alert(`Invitation sent to ${email}.`);
-      load();
-    }).catch(() => alert('Network error. Please try again.'));
-  };
+  // Close modals on backdrop click
+  ['invite-modal', 'role-modal'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function (e) {
+      if (e.target === this) this.classList.add('hidden');
+    });
+  });
 
   load();
 })();

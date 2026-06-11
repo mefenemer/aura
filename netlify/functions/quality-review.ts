@@ -8,7 +8,7 @@ import { HandlerEvent } from '@netlify/functions';
 import { eq, and } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
-import { users, userProfiles, aiAssistants, plans, masterPlans } from '../../db/schema';
+import { users, userProfiles, aiAssistants, plans, masterPlans, taskRuns } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -80,6 +80,33 @@ export const handler = async (event: HandlerEvent) => {
 
     if (!content || typeof content !== 'string' || content.trim().length < 10) {
         return { statusCode: 400, body: JSON.stringify({ error: 'content is required.' }) };
+    }
+
+    // US-GAP-3.1.1 SC3: Block task execution when plan is past_due.
+    // Insert a skipped task_run record and return 402.
+    const [activePlanCheck] = await db
+        .select({ status: plans.status })
+        .from(plans)
+        .where(eq(plans.userId, userId))
+        .orderBy(plans.startedAt)
+        .limit(1);
+
+    if (activePlanCheck?.status === 'past_due') {
+        // Record the skipped run for audit trail
+        await db.insert(taskRuns).values({
+            userId,
+            assistantId: assistantId ?? null,
+            status: 'skipped',
+            metadata: { reason: 'plan_past_due' },
+        }).catch(() => { /* non-critical — don't block the 402 response */ });
+
+        return {
+            statusCode: 402,
+            body: JSON.stringify({
+                error: 'Payment required. Please update your payment details to run tasks.',
+                reason: 'plan_past_due',
+            }),
+        };
     }
 
     // Get tier

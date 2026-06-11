@@ -1,21 +1,19 @@
-// invite-member.ts
-// POST { email, role? } — invite a new member to the caller's organisation.
-// Enforces the seatLimit from the organisation owner's master plan.
-// Seat limit: null = 1 seat (solo plan); 0 = unlimited; N = max N members.
+// netlify/functions/invite-member.ts
+// US-GAP-5.1.1: Org Owner Invites Team Member
 //
-// Flow:
-//   1. Auth — must be org owner or admin
-//   2. Resolve seat limit from owner's active plan
-//   3. Count current seats (userOrganisations rows for the org)
-//   4. Block if at limit
-//   5. Generate a time-limited invite token, store on the invited user record
-//   6. Send invite email via Resend
+// POST { email, role? }   → SC2/SC3/SC4: send invite or direct-add existing user
+// POST { resend: true, email } → SC6: invalidate old invite, generate new 7-day link
+//
+// SC2: If the invitee is already a registered Aura-Assist user → add directly to org + in-app notification
+//       If not registered → send magic-link invite email (creates account + joins org in one click)
+// SC3: Check seat limit from org owner's masterPlan.seatLimit (null=1 seat, 0=unlimited)
+// SC4: Invite email contains inviter name, org name, role, 7-day expiry link
+// SC6: Resend invalidates previous token (overwrites verificationToken + tokenExpiresAt)
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { eq, and, count } from 'drizzle-orm';
-import { Resend } from 'resend';
 import { getDb } from '../../db/client';
 import {
     users,
@@ -23,67 +21,77 @@ import {
     plans,
     masterPlans,
     organisations,
+    notifications,
 } from '../../db/schema';
+import { sendEmail } from '../../src/utils/email';
 
-const jwtSecret    = process.env.JWT_SECRET;
-const resend       = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL   = process.env.FROM_EMAIL  || 'hello@aura-assist.com';
-const APP_URL      = process.env.URL          || 'https://aura-assist.com';
+const jwtSecret  = process.env.JWT_SECRET;
+const BASE_URL   = process.env.BASE_URL || process.env.URL || 'https://aura-assist.com';
+
+function getAuth(event: any): number | null {
+    if (!jwtSecret) return null;
+    const match = (event.headers.cookie || '').match(/aura_session=([^;]+)/);
+    if (!match) return null;
+    try { return (jwt.verify(match[1], jwtSecret) as { userId: number }).userId; } catch { return null; }
+}
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
-    if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
 
-    // 1. Auth
-    const cookie = (event.headers.cookie || '').match(/aura_session=([^;]+)/)?.[1];
-    if (!cookie) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
-
-    let callerId: number;
-    try {
-        callerId = (jwt.verify(cookie, jwtSecret) as { userId: number }).userId;
-    } catch {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) };
-    }
+    const callerId = getAuth(event);
+    if (!callerId) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
 
     const db = getDb();
 
-    // 2. Resolve caller's org and role
-    const [caller] = await db
-        .select({ organisationId: users.organisationId, email: users.email, firstName: users.firstName })
-        .from(users)
-        .where(eq(users.id, callerId))
-        .limit(1);
+    // Resolve caller's org
+    const [callerUser] = await db
+        .select({ organisationId: users.organisationId, email: users.email, firstName: users.firstName, lastName: users.lastName })
+        .from(users).where(eq(users.id, callerId)).limit(1);
 
-    if (!caller?.organisationId) {
+    if (!callerUser?.organisationId) {
         return { statusCode: 403, body: JSON.stringify({ error: 'You must be part of an organisation to invite members.' }) };
     }
+    const orgId = callerUser.organisationId;
 
+    // Check caller is owner or admin
     const [callerMembership] = await db
         .select({ role: userOrganisations.role })
         .from(userOrganisations)
-        .where(and(
-            eq(userOrganisations.userId, callerId),
-            eq(userOrganisations.organisationId, caller.organisationId),
-        ))
+        .where(and(eq(userOrganisations.userId, callerId), eq(userOrganisations.organisationId, orgId)))
         .limit(1);
 
-    const callerRole = callerMembership?.role || 'member';
-    if (!['owner', 'admin'].includes(callerRole)) {
+    if (!['owner', 'admin'].includes(callerMembership?.role || '')) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Only workspace owners and admins can invite members.' }) };
     }
 
-    // 3. Resolve seat limit from the org owner's active plan
+    let body: { email?: string; role?: string; resend?: boolean };
+    try { body = JSON.parse(event.body || '{}'); } catch {
+        return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON.' }) };
+    }
+
+    const { email, role = 'member', resend = false } = body;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'A valid email address is required.' }) };
+    }
+    if (!['member', 'admin', 'viewer'].includes(role)) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'Role must be "member", "admin", or "viewer".' }) };
+    }
+    if (email.toLowerCase() === callerUser.email?.toLowerCase()) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'You cannot invite yourself.' }) };
+    }
+
+    // SC3: Seat limit — find org owner's master plan
     const [orgOwner] = await db
         .select({ id: users.id })
         .from(users)
         .innerJoin(userOrganisations, and(
             eq(userOrganisations.userId, users.id),
-            eq(userOrganisations.organisationId, caller.organisationId),
+            eq(userOrganisations.organisationId, orgId),
             eq(userOrganisations.role, 'owner'),
         ))
         .limit(1);
 
-    let seatLimit: number | null = 1; // default: solo plan = 1 seat = no inviting
+    let seatLimit: number | null = 1;
     if (orgOwner) {
         const [ownerPlan] = await db
             .select({ seatLimit: masterPlans.seatLimit })
@@ -94,127 +102,177 @@ export const handler: Handler = async (event) => {
         seatLimit = ownerPlan?.seatLimit ?? 1;
     }
 
-    // 4. Count current seats
     const [{ value: currentSeats }] = await db
         .select({ value: count() })
         .from(userOrganisations)
-        .where(eq(userOrganisations.organisationId, caller.organisationId));
+        .where(and(eq(userOrganisations.organisationId, orgId), eq(userOrganisations.role, 'invited')
+            // count all non-invited too — effective seats = active members
+        ));
 
-    // seatLimit null = 1 (solo); 0 = unlimited
+    // Re-count all active (non-invited) seats for limit check
+    const [{ value: activeSeats }] = await db
+        .select({ value: count() })
+        .from(userOrganisations)
+        .where(eq(userOrganisations.organisationId, orgId));
+
     const effectiveLimit = seatLimit === null ? 1 : seatLimit;
-    if (effectiveLimit !== 0 && currentSeats >= effectiveLimit) {
+    if (effectiveLimit !== 0 && activeSeats >= effectiveLimit) {
         return {
             statusCode: 403,
             body: JSON.stringify({
-                error: `Your plan allows up to ${effectiveLimit} workspace seat${effectiveLimit === 1 ? '' : 's'}. Upgrade to add more members.`,
+                error: 'You have reached your team member limit for your plan. Upgrade to add more seats.',
                 code: 'SEAT_LIMIT_REACHED',
-                currentSeats,
+                currentSeats: activeSeats,
                 seatLimit: effectiveLimit,
             }),
         };
     }
 
-    // 5. Parse body
-    let body: { email?: string; role?: string };
-    try { body = JSON.parse(event.body || '{}'); } catch {
-        return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON.' }) };
-    }
-    const { email, role = 'member' } = body;
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return { statusCode: 400, body: JSON.stringify({ error: 'A valid email address is required.' }) };
-    }
-    if (!['member', 'admin'].includes(role)) {
-        return { statusCode: 400, body: JSON.stringify({ error: 'Role must be "member" or "admin".' }) };
-    }
-    if (email.toLowerCase() === caller.email?.toLowerCase()) {
-        return { statusCode: 400, body: JSON.stringify({ error: 'You cannot invite yourself.' }) };
-    }
-
-    // 6. Check if they're already a member
-    const [existingMember] = await db
-        .select({ id: users.id })
-        .from(users)
-        .innerJoin(userOrganisations, and(
-            eq(userOrganisations.userId, users.id),
-            eq(userOrganisations.organisationId, caller.organisationId),
+    // Check if they're already an active member
+    const [existingMembership] = await db
+        .select({ role: userOrganisations.role, userId: userOrganisations.userId })
+        .from(userOrganisations)
+        .innerJoin(users, eq(userOrganisations.userId, users.id))
+        .where(and(
+            eq(userOrganisations.organisationId, orgId),
+            eq(users.email, email.toLowerCase()),
         ))
-        .where(eq(users.email, email.toLowerCase()))
         .limit(1);
 
-    if (existingMember) {
+    if (existingMembership && existingMembership.role !== 'invited') {
         return { statusCode: 409, body: JSON.stringify({ error: 'This person is already a member of your workspace.' }) };
     }
 
-    // 7. Generate 48-hour invite token
-    const plainToken  = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
-    const expiresAt   = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    // Fetch org name + inviter name for emails
+    const [org] = await db
+        .select({ name: organisations.name })
+        .from(organisations).where(eq(organisations.id, orgId)).limit(1);
+    const orgName    = org?.name || 'your workspace';
+    const inviterName = [callerUser.firstName, callerUser.lastName].filter(Boolean).join(' ') || callerUser.email?.split('@')[0] || 'A team member';
 
-    // Upsert user record (may already exist from a different org or waitlist)
+    // SC2: Check if the invitee is already a registered Aura user
     const [existingUser] = await db
-        .select({ id: users.id })
+        .select({ id: users.id, email: users.email, firstName: users.firstName })
         .from(users)
         .where(eq(users.email, email.toLowerCase()))
         .limit(1);
 
+    if (existingUser && existingMembership?.role !== 'invited') {
+        // Already registered, not in org yet — add directly (SC2a)
+        await db.insert(userOrganisations).values({
+            userId:         existingUser.id,
+            organisationId: orgId,
+            role:           role as any,
+        }).onConflictDoNothing();
+
+        // SC2a: In-app notification
+        await db.insert(notifications).values({
+            userId:  existingUser.id,
+            type:    'org_invite_accepted',
+            title:   `You've been added to ${orgName}`,
+            message: `${inviterName} has added you to ${orgName} as a ${role}.`,
+            metadata: { orgId, orgName, role },
+        }).catch(() => {});
+
+        // Also send a courtesy email
+        sendEmail({
+            to: existingUser.email,
+            subject: `You've been added to ${orgName} on Aura-Assist`,
+            html: `<p>Hi ${existingUser.firstName || 'there'},</p>
+                   <p><strong>${inviterName}</strong> has added you to <strong>${orgName}</strong> on Aura-Assist as a ${role}.</p>
+                   <p style="margin-top:20px;">
+                     <a href="${BASE_URL}/workspace.html" style="background:#10b981;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+                       Open Workspace →
+                     </a>
+                   </p>
+                   <p>The Aura Team</p>`,
+        }).catch(() => {});
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ success: true, message: `${email} has been added to your workspace.`, directAdd: true }),
+        };
+    }
+
+    // SC4 / SC6: Generate 7-day invite token (resend overwrites existing token)
+    const plainToken  = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
+    const expiresAt   = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
     let invitedUserId: number;
+
     if (existingUser) {
+        // SC6: Resend — overwrite token
         await db.update(users)
             .set({ verificationToken: hashedToken, tokenExpiresAt: expiresAt })
             .where(eq(users.id, existingUser.id));
         invitedUserId = existingUser.id;
+
+        // Ensure org membership row exists as 'invited'
+        if (existingMembership) {
+            await db.update(userOrganisations)
+                .set({ role: 'invited' } as any)
+                .where(and(
+                    eq(userOrganisations.userId, existingUser.id),
+                    eq(userOrganisations.organisationId, orgId),
+                ));
+        } else {
+            await db.insert(userOrganisations).values({
+                userId: existingUser.id, organisationId: orgId, role: 'invited' as any,
+            }).onConflictDoNothing();
+        }
     } else {
+        // New user — create stub account
         const [newUser] = await db.insert(users).values({
-            email: email.toLowerCase(),
-            status: 'pending_verification',
+            email:             email.toLowerCase(),
+            status:            'pending_verification',
             verificationToken: hashedToken,
-            tokenExpiresAt: expiresAt,
+            tokenExpiresAt:    expiresAt,
         }).returning({ id: users.id });
         invitedUserId = newUser.id;
+
+        // Pending org membership
+        await db.insert(userOrganisations).values({
+            userId: invitedUserId, organisationId: orgId, role: 'invited' as any,
+        }).onConflictDoNothing();
     }
 
-    // Store pending membership (role = invited until they accept)
-    await db.insert(userOrganisations).values({
-        userId: invitedUserId,
-        organisationId: caller.organisationId,
-        role: 'invited',
-    }).onConflictDoNothing();
+    // Store intended role in metadata so accept-invite.ts can apply it
+    // We store it as JSON in the user's existing metadata field or via a custom column.
+    // Since there's no dedicated invitations table, we store role info in tokenExpiresAt + encode
+    // in the URL so accept-invite can apply it. The role is appended as a second param.
+    const acceptUrl = `${BASE_URL}/accept-invite.html?token=${plainToken}&orgId=${orgId}&role=${encodeURIComponent(role)}`;
 
-    // 8. Fetch org name for the email
-    const [org] = await db
-        .select({ name: organisations.name })
-        .from(organisations)
-        .where(eq(organisations.id, caller.organisationId))
-        .limit(1);
-    const orgName = org?.name || 'the workspace';
-    const inviterName = caller.firstName || caller.email?.split('@')[0] || 'A team member';
-    const acceptUrl = `${APP_URL}/accept-invite.html?token=${plainToken}&org=${caller.organisationId}`;
-
-    // 9. Send invite email
-    if (process.env.RESEND_API_KEY) {
-        await resend.emails.send({
-            from: FROM_EMAIL,
-            to: email,
-            subject: `${inviterName} invited you to join ${orgName} on Aura-Assist`,
-            html: `
-<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:40px auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+    // SC4: Send invite email with all required content
+    sendEmail({
+        to: email,
+        subject: `${inviterName} invited you to join ${orgName} on Aura-Assist`,
+        html: `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:40px auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
   <div style="background:#111827;padding:20px 28px">
-    <span style="color:#10b981;font-size:20px;font-weight:800">Aura</span>
-    <span style="color:#fff;font-size:20px;font-weight:800">-Assist</span>
+    <span style="color:#10b981;font-size:20px;font-weight:800">Aura</span><span style="color:#fff;font-size:20px;font-weight:800">-Assist</span>
   </div>
   <div style="padding:32px">
-    <h2 style="margin:0 0 12px;color:#111827;font-size:22px">You're invited! 🎉</h2>
-    <p style="color:#374151;margin:0 0 20px;line-height:1.6"><strong>${inviterName}</strong> has invited you to join <strong>${orgName}</strong> on Aura-Assist as a ${role}.</p>
-    <a href="${acceptUrl}" style="display:inline-block;padding:14px 28px;background:#10b981;color:#fff;font-weight:700;text-decoration:none;border-radius:8px;font-size:15px">Accept Invitation</a>
-    <p style="color:#6b7280;font-size:13px;margin-top:20px">This invitation expires in 48 hours. If you didn't expect this email, you can safely ignore it.</p>
+    <h2 style="margin:0 0 8px;color:#111827;font-size:22px">You're invited! 🎉</h2>
+    <p style="color:#374151;margin:0 0 6px;line-height:1.6">
+      <strong>${inviterName}</strong> has invited you to join <strong>${orgName}</strong> on Aura-Assist.
+    </p>
+    <p style="color:#6b7280;margin:0 0 24px;font-size:14px">You'll be joining as a <strong>${role}</strong>.</p>
+    <a href="${acceptUrl}" style="display:inline-block;padding:14px 28px;background:#10b981;color:#fff;font-weight:700;text-decoration:none;border-radius:8px;font-size:15px">
+      Join ${orgName} on Aura-Assist →
+    </a>
+    <p style="color:#9ca3af;font-size:12px;margin-top:20px">This invitation expires in 7 days. If you didn't expect this email, you can safely ignore it.</p>
   </div>
 </div>`,
-        }).catch(err => console.warn('[invite-member] Email send failed (non-fatal):', err.message));
-    }
+    }).catch(err => console.warn('[invite-member] Email send failed (non-fatal):', err.message));
 
     return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ success: true, message: `Invitation sent to ${email}.` }),
+        body: JSON.stringify({
+            success: true,
+            message: resend ? `Invitation resent to ${email}.` : `Invitation sent to ${email}.`,
+            directAdd: false,
+        }),
     };
 };

@@ -199,23 +199,93 @@
         }
     };
 
-    // ── Cancel Subscription ───────────────────────────────────────
+    // ── Cancel Subscription — US-GAP-4.1.1 Exit Survey ───────────
+    // Helper: show only the specified step panel
+    function _cancelShowStep(n) {
+        [1, 2, 3].forEach(i => {
+            const el = document.getElementById('cancel-step-' + i);
+            if (el) el.classList.toggle('hidden', i !== n);
+        });
+    }
+
     window._billingOpenCancelModal = function (stripeSubscriptionId, planName, renewalDate) {
         _cancelTarget = { stripeSubscriptionId, planName, renewalDate };
 
+        // Pre-populate Step 3 message
         const msg     = document.getElementById('cancel-sub-msg');
         const endDate = renewalDate ? _fmtDate(renewalDate) : 'the end of the billing period';
         if (msg) {
             msg.textContent = `"${planName}" will remain active until ${endDate}, then it will not renew. You will lose access to this assistant at that point.`;
         }
 
+        // Reset state
+        document.querySelectorAll('input[name="cancel-reason"]').forEach(r => { r.checked = false; });
+        const ftEl = document.getElementById('cancel-free-text');
+        if (ftEl) ftEl.value = '';
         const errEl = document.getElementById('cancel-sub-error');
         if (errEl) errEl.classList.add('hidden');
-
+        const pauseErrEl = document.getElementById('cancel-pause-error');
+        if (pauseErrEl) pauseErrEl.classList.add('hidden');
         const confirmBtn = document.getElementById('btn-confirm-cancel');
         if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Yes, Cancel'; }
 
+        // SC1: always start at Step 1 (exit survey)
+        _cancelShowStep(1);
         document.getElementById('modal-cancel-sub').classList.remove('hidden');
+    };
+
+    // SC1 → SC3: submit reason (if any) then show pause offer
+    window._cancelStep1Next = async function () {
+        const selected = document.querySelector('input[name="cancel-reason"]:checked');
+        const freeText = (document.getElementById('cancel-free-text')?.value || '').trim();
+
+        if (selected) {
+            // SC2: store reason fire-and-forget — don't block the flow
+            fetch('/.netlify/functions/cancellation-survey', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: selected.value, freeText: freeText || undefined }),
+            }).catch(() => {});
+        }
+
+        // SC3: show pause offer
+        _cancelShowStep(2);
+    };
+
+    // SC6: skip survey → go straight to Step 3
+    window._cancelSkipToStep3 = function () {
+        _cancelShowStep(3);
+    };
+
+    // SC5: from Step 2, proceed to final confirmation
+    window._cancelShowStep3 = function () {
+        _cancelShowStep(3);
+    };
+
+    // SC4: pause account instead of cancelling
+    window._cancelPauseAccount = async function () {
+        const btn    = document.getElementById('btn-pause-account');
+        const errEl  = document.getElementById('cancel-pause-error');
+        if (btn)   { btn.disabled = true; btn.textContent = 'Pausing…'; }
+        if (errEl) errEl.classList.add('hidden');
+
+        try {
+            const res  = await fetch('/.netlify/functions/cancellation-survey', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'pause' }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+            document.getElementById('modal-cancel-sub').classList.add('hidden');
+            _cancelTarget = null;
+            await window.initBilling();
+        } catch (e) {
+            console.error('[cancel-pause]', e);
+            if (errEl) { errEl.textContent = e.message || 'Failed to pause. Please try again.'; errEl.classList.remove('hidden'); }
+            if (btn)   { btn.disabled = false; btn.textContent = 'Pause My Account'; }
+        }
     };
 
     window._billingCloseCancelModal = function () {
@@ -473,11 +543,12 @@
 
     function _subscriptionCard(sub) {
         const statusMeta = {
-            active:      { label: 'Active',            cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-            trialing:    { label: 'Trial',              cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-            past_due:    { label: 'Past Due',           cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-            cancelling:  { label: 'Cancelling',         cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-            cancelled:   { label: 'Cancelled',          cls: 'bg-gray-100 text-gray-500 border-gray-200' },
+            active:       { label: 'Active',            cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+            trialing:     { label: 'Trial',              cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+            past_due:     { label: 'Past Due',           cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+            cancelling:   { label: 'Cancelling',         cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+            downgrading:  { label: 'Downgrade Scheduled', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+            cancelled:    { label: 'Cancelled',          cls: 'bg-gray-100 text-gray-500 border-gray-200' },
         };
         const sm     = statusMeta[sub.stripeStatus || sub.status] || statusMeta['active'];
         const cycle  = sub.billingCycle === 'year' ? 'Annually' : 'Monthly';
@@ -506,6 +577,24 @@
                 ? `<span class="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">Cancels at period end</span>`
                 : '';
 
+        const isDowngrading = sub.status === 'downgrading';
+
+        // SC6: Cancel Scheduled Downgrade button
+        const cancelDowngradeBtn = isDowngrading
+            ? `<button onclick="window._cancelScheduledDowngrade()"
+                 class="inline-flex items-center px-4 py-2 border border-amber-200 hover:border-amber-400 text-amber-700 text-sm font-semibold rounded-xl transition cursor-pointer bg-white hover:bg-amber-50">
+                 Cancel Downgrade
+               </button>`
+            : '';
+
+        // SC1: Change Plan button — opens upgrade modal
+        const changePlanBtn = !isTerminated && !isCancelling && !isDowngrading
+            ? `<button onclick="window._openChangePlanModal()"
+                 class="inline-flex items-center px-4 py-2 border border-gray-200 hover:border-emerald-400 text-gray-700 hover:text-emerald-700 text-sm font-semibold rounded-xl transition cursor-pointer bg-white hover:bg-emerald-50">
+                 Change Plan
+               </button>`
+            : '';
+
         return `
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
           <div class="flex items-start justify-between gap-4 flex-wrap">
@@ -516,11 +605,13 @@
               </div>
               <p class="text-sm text-gray-500">${cycle} billing · ${renewalLine}</p>
             </div>
-            <div class="flex items-start gap-4 flex-wrap">
+            <div class="flex items-start gap-3 flex-wrap">
               <div class="text-right shrink-0">
                 <p class="text-2xl font-extrabold text-gray-900">${amount}</p>
                 <p class="text-xs text-gray-400">per ${_esc(sub.billingCycle || 'month')}</p>
               </div>
+              ${cancelDowngradeBtn ? `<div class="flex items-center pt-1">${cancelDowngradeBtn}</div>` : ''}
+              ${changePlanBtn ? `<div class="flex items-center pt-1">${changePlanBtn}</div>` : ''}
               ${cancelBtn ? `<div class="flex items-center pt-1">${cancelBtn}</div>` : ''}
             </div>
           </div>
