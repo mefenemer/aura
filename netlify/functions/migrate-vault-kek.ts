@@ -63,9 +63,9 @@ export const handler: Handler = async (event) => {
     let userId: number;
     let userRole: string;
     try {
-        const decoded = jwt.verify(match[1], jwtSecret) as { userId: number; role: string };
+        const decoded = jwt.verify(match[1], jwtSecret) as { userId: number; role?: string; adminRole?: string };
         userId = decoded.userId;
-        userRole = decoded.role;
+        userRole = decoded.adminRole ?? decoded.role ?? '';
     } catch {
         return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) };
     }
