@@ -227,20 +227,26 @@ let _waitlistPending = null; // { id, name }
 
 // ── Auth check ───────────────────────────────────────────────────────────────
 async function checkAuth() {
+  // assistants.html is a public marketing page — always keep the public nav links
+  // (How it Works / Assistant Library / Pricing / FAQs). When the user is logged in
+  // we only swap the "Log In" button to "Go to Dashboard →" so they have a quick
+  // route back to the app without changing any other nav items.
   try {
     const res = await fetch('/.netlify/functions/check-capacity');
     _isLoggedIn = res.ok;
   } catch { /* ignore */ }
-  // If logged in, swap the nav public/app link sets (same pattern as other public pages)
+
   if (_isLoggedIn) {
-    const pub = document.getElementById('nav-public-links');
-    const app = document.getElementById('nav-app-links');
-    const mobPub = document.getElementById('mobile-public-links');
-    const mobApp = document.getElementById('mobile-app-links');
-    if (pub) pub.classList.add('hidden');
-    if (app) app.classList.remove('hidden');
-    if (mobPub) mobPub.style.display = 'none';
-    if (mobApp) mobApp.style.display = 'flex';
+    const desktopBtn = document.getElementById('nav-login-btn');
+    const mobileBtn  = document.getElementById('nav-mobile-login-btn');
+    if (desktopBtn) {
+      desktopBtn.textContent = 'Go to Dashboard →';
+      desktopBtn.href        = 'workspace.html';
+    }
+    if (mobileBtn) {
+      mobileBtn.textContent = 'Go to Dashboard →';
+      mobileBtn.href        = 'workspace.html';
+    }
   }
 }
 

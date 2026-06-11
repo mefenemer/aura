@@ -154,6 +154,7 @@ export const handler: Handler = async (event) => {
 
         // If no priceId — this is a returning user logging in (not a new registration).
         // Priority order:
+        //   0. super_admin / admin role                    → admin portal
         //   1. active plan + incomplete onboarding draft   → resume onboarding step
         //   2. active plan + at least one assistant        → workspace (P3: re-discovery)
         //   3. active plan + no assistant                  → pricing / onboarding
@@ -161,6 +162,14 @@ export const handler: Handler = async (event) => {
         //   5. cancelled / no plan + existing assistants   → workspace (can view, not use)
         //   6. no plan + no assistants                     → pricing
         if (!priceId || !priceToTier[priceId]) {
+            // Case 0: Admin / superuser → redirect to admin portal
+            if (user.role === 'admin' || user.role === 'super_admin') {
+                return {
+                    statusCode: 200,
+                    headers: getHeaders(sessionCookie),
+                    body: JSON.stringify({ success: true, redirect: `${baseUrl}/admin.html` })
+                };
+            }
             // Check for any plan (active OR past_due — include grace-period plans)
             const [existingPlan] = await db
                 .select({ id: plans.id, status: plans.status })
