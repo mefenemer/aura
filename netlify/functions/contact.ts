@@ -5,6 +5,9 @@
 
 import { Handler } from '@netlify/functions';
 import { Resend } from 'resend';
+import { eq } from 'drizzle-orm';
+import { getDb } from '../../db/client';
+import { users, leads } from '../../db/schema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL  = process.env.FROM_EMAIL   || 'hello@aura-assist.com';
@@ -51,6 +54,29 @@ export const handler: Handler = async (event) => {
   </div>
 </div>`,
             });
+        }
+
+        // US-SALES-1.1 Part 2b: capture contact form as a lead row
+        try {
+            const db = getDb();
+            const resolvedEmail = email.trim().toLowerCase();
+            const [existingUser] = await db.select({ id: users.id })
+                .from(users).where(eq(users.email, resolvedEmail)).limit(1);
+            await db.insert(leads).values({
+                email: resolvedEmail,
+                opportunityReason: subject!,
+                action: 'contact_form_submission',
+                leadType: 'contact_form',
+                source: source || 'contact_form',
+                useCase: message,
+                priority: 'medium',
+                userId: existingUser?.id ?? null,
+            }).onConflictDoUpdate({
+                target: [leads.email, leads.opportunityReason],
+                set: { useCase: message, updatedAt: new Date() },
+            });
+        } catch (leadErr) {
+            console.error('[contact] lead capture failed (non-fatal):', leadErr);
         }
 
         return {

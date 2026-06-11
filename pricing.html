@@ -47,6 +47,7 @@
         }
         .billing-toggle-btn.active { background: #ffffff; color: #111827; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
     </style>
+    <script src="/src/i18n.js"></script>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
@@ -655,6 +656,55 @@
     // ── Billing cycle state ────────────────────────────────────────
     let _billingCycle = 'monthly'; // 'monthly' | 'annual'
 
+    // ── US-I18N-2.1: Multi-currency support ───────────────────────
+    const CURRENCY_CONFIG = {
+        GBP: { symbol: '£', locale: 'en-GB', monthly: [29,  99,  349],  annual: [23,  79,  279],  annualTotal: [276,  948,  3348] },
+        USD: { symbol: '$', locale: 'en-US', monthly: [35,  119, 419],  annual: [28,  95,  335],  annualTotal: [336,  1140, 4020] },
+        EUR: { symbol: '€', locale: 'de-DE', monthly: [29,  99,  349],  annual: [23,  79,  279],  annualTotal: [276,  948,  3348] },
+        AUD: { symbol: 'A$', locale: 'en-AU', monthly: [55,  179, 629],  annual: [44,  143, 503],  annualTotal: [528,  1716, 6036] },
+        CAD: { symbol: 'C$', locale: 'en-CA', monthly: [49,  159, 559],  annual: [39,  127, 447],  annualTotal: [468,  1524, 5364] },
+    };
+    const SUPPORTED_CURRENCIES = Object.keys(CURRENCY_CONFIG);
+    let _currency = localStorage.getItem('aura_currency') || 'GBP';
+    if (!SUPPORTED_CURRENCIES.includes(_currency)) _currency = 'GBP';
+
+    function fmtPrice(amount, currency) {
+        const cfg = CURRENCY_CONFIG[currency] || CURRENCY_CONFIG.GBP;
+        return cfg.symbol + amount.toLocaleString(cfg.locale);
+    }
+
+    window.setCurrency = function(c) {
+        if (!SUPPORTED_CURRENCIES.includes(c)) return;
+        _currency = c;
+        localStorage.setItem('aura_currency', c);
+        updatePriceDisplay();
+        // Update selector if present
+        const sel = document.getElementById('currency-selector');
+        if (sel) sel.value = c;
+    };
+
+    function updatePriceDisplay() {
+        const cfg = CURRENCY_CONFIG[_currency] || CURRENCY_CONFIG.GBP;
+        const isAnnual = _billingCycle === 'annual';
+        const prices = isAnnual ? cfg.annual : cfg.monthly;
+        const tiers = ['t1', 't2', 't3'];
+        tiers.forEach((t, i) => {
+            const priceEl = document.getElementById('card-price-' + t);
+            const noteEl  = document.getElementById('card-note-' + t);
+            const tblEl   = document.getElementById('tbl-price-' + t);
+            const priceStr = fmtPrice(prices[i], _currency);
+            if (priceEl) priceEl.textContent = priceStr;
+            if (tblEl)   tblEl.textContent   = priceStr;
+            if (noteEl) {
+                if (isAnnual) {
+                    noteEl.textContent = `Billed ${fmtPrice(cfg.annualTotal[i], _currency)} annually · cancel any time`;
+                } else {
+                    noteEl.textContent = 'Billed monthly · cancel any time';
+                }
+            }
+        });
+    }
+
     const BILLING_CONFIG = {
         monthly: {
             t1: { price: '£29',  note: 'Billed monthly · cancel any time' },
@@ -693,6 +743,7 @@
 
         // Persist for checkout handoff
         sessionStorage.setItem('billing_cycle', cycle);
+        updatePriceDisplay();
     };
 
     // Monthly price IDs (test env) — used when billing_cycle = 'monthly'
@@ -722,8 +773,9 @@
         if (tier === 'enterprise') { openEnterpriseModal(); return; }
         const cycle = _billingCycle || 'monthly';
         sessionStorage.setItem('billing_cycle', cycle);
+        sessionStorage.setItem('aura_currency', _currency); // US-I18N-2.1 SC3: pass currency to checkout
         if (isLoggedIn()) {
-            window.location.href = 'checkout.html?tier=' + tier + '&cycle=' + cycle;
+            window.location.href = 'checkout.html?tier=' + tier + '&cycle=' + cycle + '&currency=' + _currency;
         } else {
             sessionStorage.setItem('pending_price_id', PRICE_IDS[tier] || PRICE_IDS.pro_team);
             sessionStorage.setItem('pending_tier', tier);
@@ -769,6 +821,9 @@
                     teamSize:          document.getElementById('ent-team-size').value,
                     useCase:           document.getElementById('ent-use-case').value.trim(),
                     opportunityReason: 'Enterprise pricing enquiry',
+                    leadType:          'enterprise_enquiry',
+                    source:            'pricing_page',
+                    priority:          'high',
                 }),
             });
             const data = await res.json();
@@ -791,6 +846,35 @@
         await loadComponent('nav-placeholder', './components/nav.html');
         loadComponent('footer-placeholder', './components/footer.html');
         setupMobileMenu();
+        if (window.i18n) window.i18n.apply();
+
+        // US-I18N-2.1 SC2: Detect currency from geo-IP if not already stored
+        if (!localStorage.getItem('aura_currency')) {
+            fetch('/.netlify/functions/detect-currency')
+                .then(r => r.ok ? r.json() : null)
+                .then(d => { if (d?.currency) setCurrency(d.currency); })
+                .catch(() => {});
+        } else {
+            updatePriceDisplay();
+        }
+
+        // Inject currency selector near billing toggle
+        const toggleArea = document.getElementById('toggle-monthly')?.closest('div');
+        if (toggleArea && !document.getElementById('currency-selector')) {
+            const wrap = document.createElement('div');
+            wrap.className = 'flex items-center gap-2 mt-3';
+            wrap.innerHTML = `<label class="text-xs text-gray-500 font-medium">Currency:</label>
+              <select id="currency-selector" onchange="setCurrency(this.value)"
+                class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+                <option value="GBP">£ GBP</option>
+                <option value="USD">$ USD</option>
+                <option value="EUR">€ EUR</option>
+                <option value="AUD">A$ AUD</option>
+                <option value="CAD">C$ CAD</option>
+              </select>`;
+            toggleArea.parentElement.insertAdjacentElement('afterend', wrap);
+            document.getElementById('currency-selector').value = _currency;
+        }
 
         // US-AUD-3.1.1 SC5: Track pricing page view for churn Signal 4 detection.
         fetch('/.netlify/functions/page-events', {

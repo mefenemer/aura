@@ -22,15 +22,19 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { Resend } from 'resend';
-import { eq, ilike, desc, and, or, count, gte, lte } from 'drizzle-orm';
+import { eq, ilike, desc, and, or, count, gte, lte, sql, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     users, userProfiles, plans, aiAssistants,
     supportTickets, masterAssistants, waitlist,
     leads, auditLogs, notifications, aiModelConfig,
-    gdprErasureLog,
+    gdprErasureLog, adminAuditLog, aiUsageLog, aiModelPricing,
+    organisations, billingReconciliationLog, masterPlans, platformConfig, featureFlags,
+    billingOverrides, payments, assistantVersions,
 } from '../../db/schema';
+import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendMagicLinkEmail } from '../../src/utils/email';
+import { isAdminRole, hasPermission, requirePermission } from '../../src/utils/rbac';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || 'hello@aura-assist.com';
@@ -65,7 +69,7 @@ async function requireAdmin(event: any): Promise<number | null> {
 
     if (!row) { console.log('[admin-api] FAIL: user not found in DB for userId:', userId); return null; }
     console.log('[admin-api] user role:', row.role);
-    if (!['admin', 'super_admin'].includes(row.role)) { console.log('[admin-api] FAIL: role not admin. Got:', row.role); return null; }
+    if (!isAdminRole(row.role)) { console.log('[admin-api] FAIL: role not admin. Got:', row.role); return null; }
     return userId;
 }
 
@@ -91,6 +95,10 @@ export const handler: Handler = async (event) => {
     const qs = event.queryStringParameters || {};
     const resource = qs.resource || '';
     const db = getDb();
+
+    // Resolve admin role once for permission checks throughout this request
+    const [_adminRoleRow] = await db.select({ role: users.role }).from(users).where(eq(users.id, adminId)).limit(1);
+    const adminRole = _adminRoleRow?.role ?? null;
 
     try {
         // ── GET: dashboard KPIs (US6 Sc4) ────────────────────────────────────
@@ -385,11 +393,150 @@ export const handler: Handler = async (event) => {
             }
 
             await audit(db, adminId, 'SEND_LOGIN_LINK', 'users', uid);
+            // US-ADM-1.1.1: write structured audit log row
+            await insertAdminAuditLog({
+                adminId, action: 'password_reset',
+                targetType: 'user', targetId: uid,
+                newState: { magicLinkSent: true, email: targetUser.email },
+                ipAddress: getAdminIp(event.headers as any),
+            });
 
             return {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ success: true, expiresAt }),
+            };
+        }
+
+        // ── POST: Lock / Unlock account — US-ADM-1.1.1 ───────────────────────
+        if (event.httpMethod === 'POST' && resource === 'lock-account') {
+            const uid = parseInt(qs.id || '');
+            if (!uid) return { statusCode: 400, body: JSON.stringify({ error: 'id required.' }) };
+
+            const body = JSON.parse(event.body || '{}');
+            const { action: lockAction, reason: lockReason } = body; // action: 'lock' | 'unlock'
+            if (!['lock', 'unlock'].includes(lockAction)) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'action must be "lock" or "unlock".' }) };
+            }
+            if (!lockReason?.trim()) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'A reason is required.' }) };
+            }
+
+            const [targetUser] = await db
+                .select({ id: users.id, email: users.email, firstName: users.firstName, status: users.status })
+                .from(users).where(eq(users.id, uid)).limit(1);
+            if (!targetUser) return { statusCode: 404, body: JSON.stringify({ error: 'User not found.' }) };
+
+            const newStatus = lockAction === 'lock' ? 'locked' : 'active';
+            const prevStatus = targetUser.status;
+
+            await db.update(users)
+                .set({ status: newStatus, updatedAt: new Date() })
+                .where(eq(users.id, uid));
+
+            await insertAdminAuditLog({
+                adminId,
+                action: lockAction === 'lock' ? 'account_lock' : 'account_unlock',
+                targetType: 'user', targetId: uid,
+                previousState: { status: prevStatus },
+                newState: { status: newStatus },
+                reason: lockReason,
+                ipAddress: getAdminIp(event.headers as any),
+            });
+
+            // Notify the user by email
+            if (targetUser.email && resend && lockAction === 'lock') {
+                await resend.emails.send({
+                    from: FROM_EMAIL,
+                    to: targetUser.email,
+                    subject: 'Your Aura-Assist account has been temporarily locked',
+                    html: `<p>Hi ${targetUser.firstName || 'there'},</p>
+                           <p>Your account has been temporarily locked. Please contact support at <a href="mailto:support@aura-assist.com">support@aura-assist.com</a> for assistance.</p>`,
+                }).catch(() => {});
+            }
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ success: true, status: newStatus }),
+            };
+        }
+
+        // ── POST: Initiate email address change — US-ADM-1.1.1 ───────────────
+        // Requires billing_admin or above. Sends double-opt-in confirmation links.
+        if (event.httpMethod === 'POST' && resource === 'email-change') {
+            const permErr = requirePermission(adminRole, 'email_change');
+            if (permErr) return permErr;
+
+            const uid = parseInt(qs.id || '');
+            if (!uid) return { statusCode: 400, body: JSON.stringify({ error: 'id required.' }) };
+
+            const body = JSON.parse(event.body || '{}');
+            const { newEmail, reason: changeReason } = body;
+            if (!newEmail?.includes('@')) return { statusCode: 400, body: JSON.stringify({ error: 'Valid newEmail required.' }) };
+            if (!changeReason?.trim()) return { statusCode: 400, body: JSON.stringify({ error: 'A reason is required.' }) };
+
+            const [targetUser] = await db
+                .select({ id: users.id, email: users.email, firstName: users.firstName })
+                .from(users).where(eq(users.id, uid)).limit(1);
+            if (!targetUser) return { statusCode: 404, body: JSON.stringify({ error: 'User not found.' }) };
+
+            // Check new email not already in use
+            const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, newEmail.toLowerCase())).limit(1);
+            if (existing) return { statusCode: 409, body: JSON.stringify({ error: 'New email address is already in use.' }) };
+
+            // Generate a confirmation token (24h TTL), store in verificationToken along with new email encoded
+            // Format: "emailchange:{newEmail}:{adminId}"
+            const confirmToken = crypto.randomBytes(32).toString('hex');
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            const pendingPayload = Buffer.from(JSON.stringify({ newEmail: newEmail.toLowerCase(), adminId, reason: changeReason })).toString('base64');
+
+            await db.update(users)
+                .set({
+                    verificationToken: `emailchange:${pendingPayload}:${confirmToken}`,
+                    tokenExpiresAt: expiresAt,
+                    updatedAt: new Date(),
+                })
+                .where(eq(users.id, uid));
+
+            const SITE_URL = process.env.SITE_URL || 'https://aura-assist.com';
+            const confirmUrl = `${SITE_URL}/.netlify/functions/confirm-email-change?token=${confirmToken}&uid=${uid}`;
+
+            if (resend) {
+                // Email to new address (must click to confirm)
+                await resend.emails.send({
+                    from: FROM_EMAIL,
+                    to: newEmail,
+                    subject: 'Confirm your new Aura-Assist email address',
+                    html: `<p>An admin has requested your Aura-Assist account (${targetUser.email}) be updated to this address.</p>
+                           <p><a href="${confirmUrl}">Click here to confirm this change</a> (expires in 24 hours).</p>
+                           <p>If you did not expect this, ignore this email.</p>`,
+                }).catch(() => {});
+
+                // Notification to old address
+                await resend.emails.send({
+                    from: FROM_EMAIL,
+                    to: targetUser.email,
+                    subject: 'Email address change requested on your Aura-Assist account',
+                    html: `<p>Hi ${targetUser.firstName || 'there'},</p>
+                           <p>An administrator has requested your account email be changed to <strong>${newEmail}</strong>.</p>
+                           <p>This change will take effect once confirmed from the new address. If you did not authorise this, contact support immediately.</p>`,
+                }).catch(() => {});
+            }
+
+            await insertAdminAuditLog({
+                adminId, action: 'email_change',
+                targetType: 'user', targetId: uid,
+                previousState: { email: targetUser.email },
+                newState: { pendingEmail: newEmail.toLowerCase(), status: 'pending_confirmation' },
+                reason: changeReason,
+                ipAddress: getAdminIp(event.headers as any),
+            });
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ success: true, message: 'Confirmation emails sent. Change pending double-opt-in.' }),
             };
         }
 
@@ -533,6 +680,934 @@ export const handler: Handler = async (event) => {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ config: updated }),
+            };
+        }
+
+        // ── GET / POST / PATCH: Feature Flags — US-ADM-4.2.1 ────────────────────
+        if (resource === 'feature-flags') {
+            const permErr = requirePermission(adminRole, 'feature_flags');
+            if (permErr) return permErr;
+            if (event.httpMethod === 'GET') {
+                // List all flags with rollout impact for the currently-configured percentage
+                const flags = await db
+                    .select()
+                    .from(featureFlags)
+                    .orderBy(featureFlags.key);
+
+                // Count active workspaces for impact preview
+                const [{ total }] = await db
+                    .select({ total: count() })
+                    .from(plans)
+                    .where(eq(plans.status, 'active'));
+
+                return {
+                    statusCode: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ flags, totalActiveWorkspaces: total }),
+                };
+            }
+
+            if (event.httpMethod === 'POST') {
+                // Create a new feature flag
+                const body = JSON.parse(event.body || '{}');
+                const { key: flagKey, description, enabled = false, rolloutPercentage = 0,
+                        allowedWorkspaceIds = [], allowedTiers = [] } = body;
+
+                if (!flagKey) return { statusCode: 400, body: JSON.stringify({ error: 'key required.' }) };
+
+                await db.insert(featureFlags).values({
+                    key: flagKey,
+                    description: description || null,
+                    enabled,
+                    rolloutPercentage,
+                    allowedWorkspaceIds: allowedWorkspaceIds.length ? allowedWorkspaceIds : null,
+                    allowedTiers: allowedTiers.length ? allowedTiers : null,
+                    updatedBy: adminId,
+                });
+
+                await insertAdminAuditLog({
+                    adminId, action: 'feature_flag_toggle',
+                    targetType: 'feature_flag', targetId: flagKey,
+                    previousState: null as any,
+                    newState: { enabled, rolloutPercentage, allowedWorkspaceIds, allowedTiers },
+                    ipAddress: getAdminIp(event.headers as any),
+                });
+
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
+            }
+
+            if (event.httpMethod === 'PATCH') {
+                // Update an existing flag
+                const flagKey = qs.key;
+                if (!flagKey) return { statusCode: 400, body: JSON.stringify({ error: 'key query param required.' }) };
+
+                const body = JSON.parse(event.body || '{}');
+
+                // Read previous state for audit log
+                const [prev] = await db.select().from(featureFlags).where(eq(featureFlags.key, flagKey)).limit(1);
+                if (!prev) return { statusCode: 404, body: JSON.stringify({ error: 'Flag not found.' }) };
+
+                const patch: Partial<typeof prev> = {};
+                if (body.enabled           !== undefined) patch.enabled           = body.enabled;
+                if (body.rolloutPercentage !== undefined) patch.rolloutPercentage = body.rolloutPercentage;
+                if (body.allowedWorkspaceIds !== undefined) patch.allowedWorkspaceIds = body.allowedWorkspaceIds ?? null;
+                if (body.allowedTiers      !== undefined) patch.allowedTiers      = body.allowedTiers ?? null;
+                if (body.description       !== undefined) patch.description       = body.description;
+                patch.updatedBy = adminId;
+                patch.updatedAt = new Date();
+
+                await db.update(featureFlags).set(patch).where(eq(featureFlags.key, flagKey));
+
+                await insertAdminAuditLog({
+                    adminId, action: 'feature_flag_toggle',
+                    targetType: 'feature_flag', targetId: flagKey,
+                    previousState: { enabled: prev.enabled, rolloutPercentage: prev.rolloutPercentage,
+                                     allowedWorkspaceIds: prev.allowedWorkspaceIds, allowedTiers: prev.allowedTiers },
+                    newState: { ...patch },
+                    ipAddress: getAdminIp(event.headers as any),
+                });
+
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
+            }
+        }
+
+        // ── GET: rollout impact preview for a proposed percentage ─────────────────
+        if (event.httpMethod === 'GET' && resource === 'feature-flag-impact') {
+            const { flagKey, rolloutPercentage } = qs;
+            if (!flagKey || rolloutPercentage === undefined) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'flagKey and rolloutPercentage required.' }) };
+            }
+            const { estimateRolloutImpact } = await import('../../src/utils/feature-flags');
+            const impact = await estimateRolloutImpact(flagKey, parseInt(rolloutPercentage));
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(impact) };
+        }
+
+        // ── GET / POST: Platform Kill Switches — US-ADM-3.2.1 ───────────────────
+        if (resource === 'platform-config') {
+            const permErr = requirePermission(adminRole, 'platform_config');
+            if (permErr) return permErr;
+
+            if (event.httpMethod === 'GET') {
+                const rows = await db.select().from(platformConfig).orderBy(platformConfig.key);
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: rows }) };
+            }
+
+            if (event.httpMethod === 'POST') {
+                const body = JSON.parse(event.body || '{}');
+                const { key: cfgKey, value: cfgValue, reason: cfgReason } = body;
+                if (!cfgKey || cfgValue === undefined) {
+                    return { statusCode: 400, body: JSON.stringify({ error: 'key and value required.' }) };
+                }
+                if (!cfgReason?.trim()) {
+                    return { statusCode: 400, body: JSON.stringify({ error: 'A reason is mandatory for kill switch changes.' }) };
+                }
+
+                // Read previous value for audit log
+                const [prev] = await db.select({ value: platformConfig.value }).from(platformConfig).where(eq(platformConfig.key, cfgKey)).limit(1);
+
+                await db.insert(platformConfig)
+                    .values({ key: cfgKey, value: cfgValue, updatedBy: adminId, reason: cfgReason, updatedAt: new Date() })
+                    .onConflictDoUpdate({
+                        target: platformConfig.key,
+                        set: { value: cfgValue, updatedBy: adminId, reason: cfgReason, updatedAt: new Date() },
+                    });
+
+                await insertAdminAuditLog({
+                    adminId,
+                    action: 'kill_switch_toggle',
+                    targetType: 'platform_config',
+                    targetId: cfgKey,
+                    previousState: { value: prev?.value ?? null },
+                    newState: { value: cfgValue },
+                    reason: cfgReason,
+                    ipAddress: getAdminIp(event.headers as any),
+                });
+
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
+            }
+        }
+
+        // ── GET / POST: Billing Reconciliation — US-ADM-2.3.1 ───────────────────
+        if (resource === 'reconciliation') {
+            if (event.httpMethod === 'GET') {
+                // Latest reconciliation run + mismatch list
+                const [latestRun] = await db
+                    .select()
+                    .from(billingReconciliationLog)
+                    .orderBy(desc(billingReconciliationLog.runAt))
+                    .limit(1);
+
+                return {
+                    statusCode: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ run: latestRun || null }),
+                };
+            }
+
+            if (event.httpMethod === 'POST') {
+                // Sync DB plan to match Stripe tier — action: 'sync_to_stripe'
+                const body = JSON.parse(event.body || '{}');
+                const { planId, newTierKey, stripeSubscriptionId, reason } = body;
+
+                if (!planId || !newTierKey) {
+                    return { statusCode: 400, body: JSON.stringify({ error: 'planId and newTierKey required.' }) };
+                }
+
+                // Look up new masterPlanId for the tierKey
+                const [masterPlan] = await db
+                    .select({ id: masterPlans.id, name: masterPlans.name, monthlyPriceGbp: masterPlans.monthlyPriceGbp })
+                    .from(masterPlans)
+                    .where(eq(masterPlans.tierKey, newTierKey))
+                    .limit(1);
+
+                if (!masterPlan) {
+                    return { statusCode: 404, body: JSON.stringify({ error: `Master plan not found for tierKey: ${newTierKey}` }) };
+                }
+
+                // Read previous state for audit log
+                const [prevPlan] = await db
+                    .select({ masterPlanId: plans.masterPlanId, planName: plans.planName })
+                    .from(plans)
+                    .where(eq(plans.id, planId))
+                    .limit(1);
+
+                await db.update(plans)
+                    .set({ masterPlanId: masterPlan.id, planName: masterPlan.name, updatedAt: new Date() })
+                    .where(eq(plans.id, planId));
+
+                await insertAdminAuditLog({
+                    adminId,
+                    action: 'tier_change',
+                    targetType: 'subscription',
+                    targetId: planId,
+                    previousState: { masterPlanId: prevPlan?.masterPlanId, planName: prevPlan?.planName },
+                    newState: { masterPlanId: masterPlan.id, planName: masterPlan.name, tierKey: newTierKey },
+                    reason: reason || 'reconciliation_sync',
+                    ipAddress: getAdminIp(event.headers as any),
+                    metadata: { stripeSubscriptionId },
+                });
+
+                return {
+                    statusCode: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ success: true }),
+                };
+            }
+        }
+
+        // ── GET: COGS Dashboard — US-ADM-3.1.1 ──────────────────────────────────
+        // Returns: platform total cost (current month), top-20 workspaces by cost,
+        // per-workspace MRR vs cost for margin calculation, model distribution,
+        // and 30-day daily spend.
+        if (event.httpMethod === 'GET' && resource === 'cogs-dashboard') {
+            const now = new Date();
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+            // (1) Platform total COGS this month
+            const [totRow] = await db
+                .select({ total: sql<string>`COALESCE(SUM(cost_usd::numeric), 0)` })
+                .from(aiUsageLog)
+                .where(gte(aiUsageLog.createdAt, monthStart));
+            const platformTotalUsd = parseFloat(totRow?.total || '0');
+
+            // (2) Top 20 workspaces by spend this month
+            const topWorkspaces = await db
+                .select({
+                    workspaceId: aiUsageLog.workspaceId,
+                    totalCostUsd: sql<string>`COALESCE(SUM(cost_usd::numeric), 0)`,
+                    orgName: organisations.name,
+                })
+                .from(aiUsageLog)
+                .leftJoin(organisations, eq(organisations.id, aiUsageLog.workspaceId))
+                .where(gte(aiUsageLog.createdAt, monthStart))
+                .groupBy(aiUsageLog.workspaceId, organisations.name)
+                .orderBy(sql`SUM(cost_usd::numeric) DESC`)
+                .limit(20);
+
+            // US-I18N-2.1 SC7: load exchange rates from platform_config (manually set by superadmin)
+            const [fxRow] = await db.select({ value: platformConfig.value })
+                .from(platformConfig).where(eq(platformConfig.key, 'fx_rates_to_gbp')).limit(1);
+            const fxRates: Record<string, number> = (fxRow?.value as any) || { USD: 0.787, EUR: 0.853, AUD: 0.512, CAD: 0.574 };
+
+            // Attach active plan MRR for margin column, normalised to GBP
+            const workspaceIds = topWorkspaces.map(w => w.workspaceId).filter(Boolean) as number[];
+            let planMrrMap: Record<number, { amount: number; currency: string }> = {};
+            if (workspaceIds.length > 0) {
+                const planRows = await db
+                    .select({ orgId: plans.organisationId, amount: plans.amount, currency: plans.currency })
+                    .from(plans)
+                    .where(and(eq(plans.status, 'active'), sql`organisation_id = ANY(${workspaceIds})`));
+                planRows.forEach(p => {
+                    if (p.orgId) planMrrMap[p.orgId] = { amount: parseFloat(String(p.amount || '0')), currency: p.currency || 'GBP' };
+                });
+            }
+
+            const workspacesWithMargin = topWorkspaces.map(w => {
+                const costUsd = parseFloat(w.totalCostUsd);
+                const plan = w.workspaceId ? planMrrMap[w.workspaceId] : null;
+                const mrrRaw = plan?.amount || 0;
+                const planCurrency = plan?.currency || 'GBP';
+                // Normalise MRR to GBP for platform-level reporting
+                const mrrGbp = planCurrency === 'GBP' ? mrrRaw : mrrRaw * (fxRates[planCurrency] || 1);
+                const mrrUsd = mrrGbp / (fxRates.USD || 0.787); // convert GBP→USD for margin vs costUsd
+                const marginPct = mrrUsd > 0 ? Math.round(((mrrUsd - costUsd) / mrrUsd) * 100) : null;
+                const highlight = mrrUsd > 0 && costUsd >= mrrUsd ? 'red'
+                    : mrrUsd > 0 && costUsd >= mrrUsd * 0.8 ? 'amber' : null;
+                return { ...w, costUsd, mrrGbp, mrrRaw, planCurrency, marginPct, highlight };
+            });
+
+            // (3) Model distribution (all time, last 30 days)
+            const modelDist = await db
+                .select({
+                    model: aiUsageLog.model,
+                    callCount: count(),
+                    totalCostUsd: sql<string>`COALESCE(SUM(cost_usd::numeric), 0)`,
+                })
+                .from(aiUsageLog)
+                .where(gte(aiUsageLog.createdAt, thirtyDaysAgo))
+                .groupBy(aiUsageLog.model)
+                .orderBy(sql`SUM(cost_usd::numeric) DESC`);
+
+            // (4) 30-day daily spend sparkline
+            const dailySpend = await db
+                .select({
+                    day: sql<string>`DATE(created_at)`,
+                    totalCostUsd: sql<string>`COALESCE(SUM(cost_usd::numeric), 0)`,
+                })
+                .from(aiUsageLog)
+                .where(gte(aiUsageLog.createdAt, thirtyDaysAgo))
+                .groupBy(sql`DATE(created_at)`)
+                .orderBy(sql`DATE(created_at)`);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    platformTotalUsd,
+                    topWorkspaces: workspacesWithMargin,
+                    modelDist,
+                    dailySpend,
+                    monthStart: monthStart.toISOString(),
+                    fxRates, // US-I18N-2.1 SC7: exchange rates used for GBP normalisation
+                }),
+            };
+        }
+
+        // ── GET: admin action audit log — US-ADM-5.1.1 ──────────────────────────
+        // Paginated, filterable viewer of admin_audit_log rows.
+        // Superadmin-only (other roles see 403).
+        if (event.httpMethod === 'GET' && resource === 'admin-audit-log') {
+            const permErr = requirePermission(adminRole, 'view_audit_log');
+            if (permErr) return permErr;
+
+            const page        = Math.max(0, parseInt(qs.page || '0'));
+            const filterAdmin = qs.adminId ? parseInt(qs.adminId) : null;
+            const filterAction = qs.action || null;
+            const filterTarget = qs.targetType || null;
+            const fromDate    = qs.from ? new Date(qs.from) : null;
+            const toDate      = qs.to   ? new Date(qs.to)   : null;
+
+            const conditions: any[] = [];
+            if (filterAdmin)  conditions.push(eq(adminAuditLog.adminId, filterAdmin));
+            if (filterAction)  conditions.push(eq(adminAuditLog.action, filterAction));
+            if (filterTarget)  conditions.push(eq(adminAuditLog.targetType, filterTarget));
+            if (fromDate)      conditions.push(gte(adminAuditLog.createdAt, fromDate));
+            if (toDate)        conditions.push(lte(adminAuditLog.createdAt, toDate));
+
+            const where = conditions.length ? and(...conditions) : undefined;
+
+            const rows = await db
+                .select({
+                    id:            adminAuditLog.id,
+                    action:        adminAuditLog.action,
+                    targetType:    adminAuditLog.targetType,
+                    targetId:      adminAuditLog.targetId,
+                    previousState: adminAuditLog.previousState,
+                    newState:      adminAuditLog.newState,
+                    reason:        adminAuditLog.reason,
+                    metadata:      adminAuditLog.metadata,
+                    ipAddress:     adminAuditLog.ipAddress,
+                    createdAt:     adminAuditLog.createdAt,
+                    adminId:       adminAuditLog.adminId,
+                    adminEmail:    users.email,
+                    adminFirstName: users.firstName,
+                    adminLastName:  users.lastName,
+                })
+                .from(adminAuditLog)
+                .leftJoin(users, eq(users.id, adminAuditLog.adminId))
+                .where(where)
+                .orderBy(desc(adminAuditLog.createdAt))
+                .limit(50)
+                .offset(page * 50);
+
+            const [{ c: total }] = await db.select({ c: count() }).from(adminAuditLog).where(where);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ logs: rows, total, page, pageSize: 50 }),
+            };
+        }
+
+        // ── US-ADM-5.2.1: List admins ─────────────────────────────────────────────
+        if (event.httpMethod === 'GET' && resource === 'admins-list') {
+            const permErr = requirePermission(adminRole, 'manage_admin_roles');
+            if (permErr) return permErr;
+
+            const adminList = await db
+                .select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName, role: users.role, createdAt: users.createdAt, status: users.status })
+                .from(users)
+                .where(inArray(users.role, ['admin', 'super_admin', 'platform_admin', 'billing_admin', 'support_agent']))
+                .orderBy(users.createdAt);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ admins: adminList }),
+            };
+        }
+
+        // ── US-ADM-5.2.1: Request admin role change (initiator) ────────────────
+        // POST ?resource=request-role-change  { targetUserId, newRole, reason }
+        // For super_admin promotion: stored as a pending request requiring 4-eyes approval.
+        // For lesser promotions: applied immediately (still requires super_admin caller).
+        if (event.httpMethod === 'POST' && resource === 'request-role-change') {
+            const permErr = requirePermission(adminRole, 'manage_admin_roles');
+            if (permErr) return permErr;
+
+            const body = JSON.parse(event.body || '{}');
+            const { targetUserId, newRole, reason: roleReason } = body;
+            if (!targetUserId || !newRole || !roleReason?.trim()) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'targetUserId, newRole, and reason are required.' }) };
+            }
+
+            const VALID_ADMIN_ROLES = ['support_agent', 'billing_admin', 'platform_admin', 'super_admin', 'user'];
+            if (!VALID_ADMIN_ROLES.includes(newRole)) {
+                return { statusCode: 400, body: JSON.stringify({ error: `newRole must be one of: ${VALID_ADMIN_ROLES.join(', ')}` }) };
+            }
+
+            const [targetUser] = await db
+                .select({ id: users.id, email: users.email, role: users.role })
+                .from(users).where(eq(users.id, targetUserId)).limit(1);
+            if (!targetUser) return { statusCode: 404, body: JSON.stringify({ error: 'User not found.' }) };
+
+            // 4-eyes: super_admin promotion requires a second super_admin to approve
+            if (newRole === 'super_admin') {
+                const requestId = crypto.randomUUID();
+                const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                // Store as platform config entry (keyed by request ID)
+                await db.insert(platformConfig)
+                    .values({
+                        key:   `pending_role_change:${requestId}`,
+                        value: JSON.stringify({
+                            requestId,
+                            targetUserId,
+                            targetEmail: targetUser.email,
+                            newRole,
+                            previousRole: targetUser.role,
+                            reason: roleReason,
+                            initiatorId: adminId,
+                            expiresAt,
+                        }),
+                    })
+                    .onConflictDoUpdate({ target: platformConfig.key, set: { value: platformConfig.value, updatedAt: new Date() } });
+
+                // Notify all other super_admins to approve
+                const otherSuperAdmins = await db.select({ id: users.id }).from(users)
+                    .where(and(eq(users.role, 'super_admin'), sql`${users.id} != ${adminId}`));
+                for (const sa of otherSuperAdmins) {
+                    await db.insert(notifications).values({
+                        userId: sa.id,
+                        type: 'system',
+                        title: '🔐 Super Admin Promotion Requires Your Approval',
+                        message: `A request to promote ${targetUser.email} to super_admin has been initiated. Your approval is required within 24 hours. Request ID: ${requestId}`,
+                        metadata: { requestId, targetEmail: targetUser.email, initiatorId: adminId, expiresAt },
+                    }).catch(() => {});
+                }
+
+                await insertAdminAuditLog({
+                    adminId, action: 'admin_role_change',
+                    targetType: 'user', targetId: targetUserId,
+                    previousState: { role: targetUser.role },
+                    newState: { pendingRole: newRole, requestId, status: 'pending_approval' },
+                    reason: roleReason,
+                    ipAddress: getAdminIp(event.headers as any),
+                });
+
+                return {
+                    statusCode: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ success: true, pending: true, requestId, message: 'Promotion to super_admin requires approval from a second super_admin within 24 hours.' }),
+                };
+            }
+
+            // Non-super_admin role changes: apply immediately
+            await db.update(users).set({ role: newRole, updatedAt: new Date() }).where(eq(users.id, targetUserId));
+
+            await insertAdminAuditLog({
+                adminId, action: 'admin_role_change',
+                targetType: 'user', targetId: targetUserId,
+                previousState: { role: targetUser.role },
+                newState: { role: newRole },
+                reason: roleReason,
+                ipAddress: getAdminIp(event.headers as any),
+            });
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ success: true, pending: false, newRole }),
+            };
+        }
+
+        // ── US-ADM-5.2.1: Approve super_admin promotion (4-eyes) ──────────────
+        // POST ?resource=approve-role-change  { requestId }
+        if (event.httpMethod === 'POST' && resource === 'approve-role-change') {
+            // Only super_admin can approve
+            if (!hasPermission(adminRole, 'manage_admin_roles')) {
+                return { statusCode: 403, body: JSON.stringify({ error: 'Only super_admins can approve role promotions.' }) };
+            }
+
+            const body = JSON.parse(event.body || '{}');
+            const { requestId } = body;
+            if (!requestId) return { statusCode: 400, body: JSON.stringify({ error: 'requestId required.' }) };
+
+            const [configRow] = await db
+                .select({ value: platformConfig.value })
+                .from(platformConfig)
+                .where(eq(platformConfig.key, `pending_role_change:${requestId}`))
+                .limit(1);
+
+            if (!configRow) return { statusCode: 404, body: JSON.stringify({ error: 'Pending role change request not found.' }) };
+
+            let pendingReq: any;
+            try { pendingReq = JSON.parse(configRow.value as string); } catch {
+                return { statusCode: 500, body: JSON.stringify({ error: 'Could not parse pending request.' }) };
+            }
+
+            // Check expiry
+            if (new Date(pendingReq.expiresAt) < new Date()) {
+                await db.delete(platformConfig).where(eq(platformConfig.key, `pending_role_change:${requestId}`));
+                return { statusCode: 410, body: JSON.stringify({ error: 'This approval request has expired (24-hour window).' }) };
+            }
+
+            // Prevent the initiator from approving their own request
+            if (pendingReq.initiatorId === adminId) {
+                return { statusCode: 403, body: JSON.stringify({ error: 'The initiator cannot approve their own super_admin promotion request.' }) };
+            }
+
+            // Apply the role change
+            await db.update(users)
+                .set({ role: pendingReq.newRole, updatedAt: new Date() })
+                .where(eq(users.id, pendingReq.targetUserId));
+
+            // Remove the pending config entry
+            await db.delete(platformConfig).where(eq(platformConfig.key, `pending_role_change:${requestId}`));
+
+            await insertAdminAuditLog({
+                adminId, action: 'admin_role_change',
+                targetType: 'user', targetId: pendingReq.targetUserId,
+                previousState: { role: pendingReq.previousRole },
+                newState: { role: pendingReq.newRole, approvedBy: adminId, initiatedBy: pendingReq.initiatorId },
+                reason: `4-eyes approval of request ${requestId}: ${pendingReq.reason}`,
+                ipAddress: getAdminIp(event.headers as any),
+                metadata: { requestId, initiatorId: pendingReq.initiatorId, approverId: adminId },
+            });
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ success: true, targetEmail: pendingReq.targetEmail, newRole: pendingReq.newRole }),
+            };
+        }
+
+        // ── GET: Dunning Queue — workspaces with plan.status='past_due' ─────────
+        // US-ADM-2.2.1
+        if (event.httpMethod === 'GET' && resource === 'dunning-queue') {
+            const rows = await db
+                .select({
+                    planId:              plans.id,
+                    userId:              plans.userId,
+                    organisationId:      plans.organisationId,
+                    planName:            plans.planName,
+                    status:              plans.status,
+                    gracePeriodEndsAt:   plans.gracePeriodEndsAt,
+                    stripeCustomerId:    plans.stripeCustomerId,
+                    stripeSubscriptionId: plans.stripeSubscriptionId,
+                    updatedAt:           plans.updatedAt,
+                    userEmail:           users.email,
+                    userFirstName:       users.firstName,
+                    orgName:             organisations.name,
+                })
+                .from(plans)
+                .leftJoin(users, eq(plans.userId, users.id))
+                .leftJoin(organisations, eq(plans.organisationId, organisations.id))
+                .where(eq(plans.status, 'past_due'))
+                .orderBy(plans.updatedAt); // oldest first = most overdue
+
+            // Calculate days overdue from updatedAt (when status was last changed to past_due)
+            const now = Date.now();
+            const enriched = rows.map(r => ({
+                ...r,
+                daysOverdue: r.updatedAt
+                    ? Math.floor((now - new Date(r.updatedAt).getTime()) / (1000 * 60 * 60 * 24))
+                    : 0,
+            }));
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ queue: enriched }),
+            };
+        }
+
+        // ── POST: dunning-override — mark payment arranged offline ───────────
+        // US-ADM-2.2.1
+        if (event.httpMethod === 'POST' && resource === 'dunning-override') {
+            const body = JSON.parse(event.body || '{}');
+            const { planId, reason: dunningReason } = body;
+            if (!planId || !dunningReason?.trim()) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'planId and reason required.' }) };
+            }
+
+            const [plan] = await db.select({ id: plans.id, userId: plans.userId, status: plans.status })
+                .from(plans).where(eq(plans.id, planId)).limit(1);
+            if (!plan) return { statusCode: 404, body: JSON.stringify({ error: 'Plan not found.' }) };
+            if (plan.status !== 'past_due') {
+                return { statusCode: 400, body: JSON.stringify({ error: 'Plan is not in past_due status.' }) };
+            }
+
+            // Set grace period: suppress dunning for 14 days
+            const graceEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+            await db.update(plans)
+                .set({ gracePeriodEndsAt: graceEnd, updatedAt: new Date() })
+                .where(eq(plans.id, planId));
+
+            await db.insert(billingOverrides).values({
+                workspaceId: null,
+                adminId,
+                action: 'dunning_override',
+                reason: dunningReason,
+                metadata: { planId, graceEnd: graceEnd.toISOString() },
+            });
+
+            await insertAdminAuditLog({
+                adminId,
+                action: 'dunning_override',
+                targetType: 'user',
+                targetId: plan.userId!,
+                previousState: { status: 'past_due' },
+                newState: { gracePeriodEndsAt: graceEnd.toISOString(), dunningSupressed: true },
+                reason: dunningReason,
+                ipAddress: getAdminIp(event.headers as any),
+            });
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ success: true, graceEnd: graceEnd.toISOString() }),
+            };
+        }
+
+        // ── US-SALES-1.1 Part 5: Sales Pipeline ──────────────────────────────
+        if (event.httpMethod === 'GET' && resource === 'sales-pipeline') {
+            const denied = requirePermission(adminRole, 'view_billing_history');
+            if (denied) return denied;
+
+            const leadType = event.queryStringParameters?.leadType || '';
+            const priority = event.queryStringParameters?.priority || '';
+            const status   = event.queryStringParameters?.status || '';
+            const search   = event.queryStringParameters?.search || '';
+
+            const conditions: any[] = [];
+            if (leadType) conditions.push(eq(leads.leadType, leadType));
+            if (priority) conditions.push(eq(leads.priority, priority));
+            if (status)   conditions.push(eq(leads.status, status));
+            if (search)   conditions.push(
+                or(ilike(leads.email, `%${search}%`), ilike(leads.name, `%${search}%`))
+            );
+
+            const rows = await db.select({
+                id: leads.id,
+                email: leads.email,
+                name: leads.name,
+                leadType: leads.leadType,
+                source: leads.source,
+                opportunityReason: leads.opportunityReason,
+                priority: leads.priority,
+                status: leads.status,
+                salesNotes: leads.salesNotes,
+                company: leads.company,
+                useCase: leads.useCase,
+                createdAt: leads.createdAt,
+                lastContactedAt: leads.lastContactedAt,
+            })
+            .from(leads)
+            .where(conditions.length ? and(...conditions) : undefined)
+            .orderBy(desc(leads.createdAt))
+            .limit(200);
+
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leads: rows }) };
+        }
+
+        if (event.httpMethod === 'POST' && resource === 'lead-status') {
+            const denied = requirePermission(adminRole, 'view_billing_history');
+            if (denied) return denied;
+            const body = JSON.parse(event.body || '{}');
+            const { leadId, status: newStatus } = body;
+            if (!leadId || !newStatus) return { statusCode: 400, body: JSON.stringify({ error: 'leadId and status required.' }) };
+            const updates: Record<string, any> = { status: newStatus, updatedAt: new Date() };
+            if (newStatus === 'converted') updates.resolvedAt = new Date();
+            if (newStatus === 'contacted') updates.lastContactedAt = new Date();
+            await db.update(leads).set(updates).where(eq(leads.id, leadId));
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
+        }
+
+        if (event.httpMethod === 'POST' && resource === 'lead-notes') {
+            const denied = requirePermission(adminRole, 'view_billing_history');
+            if (denied) return denied;
+            const body = JSON.parse(event.body || '{}');
+            const { leadId, salesNotes } = body;
+            if (!leadId) return { statusCode: 400, body: JSON.stringify({ error: 'leadId required.' }) };
+            await db.update(leads).set({ salesNotes: salesNotes ?? null, updatedAt: new Date() }).where(eq(leads.id, leadId));
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
+        }
+
+        // ── US-ADM-4.1.1: Assistant lifecycle state transition ────────────────
+        // POST ?resource=assistant-lifecycle&id=N  { newState, changeNote }
+        if (event.httpMethod === 'POST' && resource === 'assistant-lifecycle') {
+            const uid2 = parseInt(qs.id || '');
+            if (!uid2) return { statusCode: 400, body: JSON.stringify({ error: 'id required.' }) };
+
+            const body = JSON.parse(event.body || '{}');
+            const { newState, changeNote } = body;
+
+            const VALID_TRANSITIONS: Record<string, string[]> = {
+                draft:       ['review'],
+                review:      ['beta', 'draft'],
+                beta:        ['live', 'review'],
+                live:        ['deprecated'],
+                deprecated:  ['archived', 'live'],
+                archived:    [],
+            };
+
+            const [assistant] = await db
+                .select({ id: masterAssistants.id, name: masterAssistants.name, lifecycleState: masterAssistants.lifecycleState })
+                .from(masterAssistants).where(eq(masterAssistants.id, uid2)).limit(1);
+            if (!assistant) return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
+
+            const allowed = VALID_TRANSITIONS[assistant.lifecycleState] ?? [];
+            if (!allowed.includes(newState)) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        error: `Invalid transition: ${assistant.lifecycleState} → ${newState}. Valid next states: [${allowed.join(', ') || 'none'}]`,
+                    }),
+                };
+            }
+            if (!changeNote?.trim()) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'A changelog note is required for all lifecycle transitions.' }) };
+            }
+
+            await db.update(masterAssistants)
+                .set({ lifecycleState: newState, updatedAt: new Date() })
+                .where(eq(masterAssistants.id, uid2));
+
+            await insertAdminAuditLog({
+                adminId, action: 'feature_flag_toggle' as any, // reusing closest type; real type would be 'assistant_state_change'
+                targetType: 'assistant', targetId: uid2,
+                previousState: { lifecycleState: assistant.lifecycleState },
+                newState: { lifecycleState: newState },
+                reason: changeNote,
+                ipAddress: getAdminIp(event.headers as any),
+                metadata: { assistantName: assistant.name },
+            });
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ success: true, previousState: assistant.lifecycleState, newState }),
+            };
+        }
+
+        // ── US-ADM-4.1.1: Bulk publish (beta → live) ─────────────────────────
+        // POST ?resource=assistant-bulk-publish  { assistants: [{id, changeNote}] }
+        if (event.httpMethod === 'POST' && resource === 'assistant-bulk-publish') {
+            const body = JSON.parse(event.body || '{}');
+            const items: { id: number; changeNote: string }[] = body.assistants || [];
+
+            if (!items.length) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'assistants array required.' }) };
+            }
+            for (const item of items) {
+                if (!item.changeNote?.trim()) {
+                    return { statusCode: 400, body: JSON.stringify({ error: `changeNote required for each assistant. Missing on id=${item.id}` }) };
+                }
+            }
+
+            const ids = items.map(i => i.id);
+            // Verify all are in 'beta' state
+            const rows = await db.select({ id: masterAssistants.id, lifecycleState: masterAssistants.lifecycleState, name: masterAssistants.name })
+                .from(masterAssistants).where(and(eq(masterAssistants.lifecycleState, 'beta'), inArray(masterAssistants.id, ids)));
+
+            if (rows.length !== ids.length) {
+                const foundIds = rows.map(r => r.id);
+                const notBeta  = ids.filter(i => !foundIds.includes(i));
+                return { statusCode: 400, body: JSON.stringify({ error: `These assistants are not in beta state: [${notBeta.join(', ')}]` }) };
+            }
+
+            // Transition all to live in one update
+            await db.update(masterAssistants)
+                .set({ lifecycleState: 'live', updatedAt: new Date() })
+                .where(inArray(masterAssistants.id, ids));
+
+            // Write audit log per assistant
+            for (const item of items) {
+                const assistant = rows.find(r => r.id === item.id)!;
+                await insertAdminAuditLog({
+                    adminId, action: 'feature_flag_toggle' as any,
+                    targetType: 'assistant', targetId: item.id,
+                    previousState: { lifecycleState: 'beta' },
+                    newState: { lifecycleState: 'live' },
+                    reason: item.changeNote,
+                    ipAddress: getAdminIp(event.headers as any),
+                    metadata: { bulkPublish: true, assistantName: assistant.name },
+                });
+            }
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ success: true, published: ids.length }),
+            };
+        }
+
+        // ── US-ADM-4.1.1: List assistant versions ────────────────────────────
+        // GET ?resource=assistant-versions&id=N
+        if (event.httpMethod === 'GET' && resource === 'assistant-versions') {
+            const uid2 = parseInt(qs.id || '');
+            if (!uid2) return { statusCode: 400, body: JSON.stringify({ error: 'id required.' }) };
+
+            const versions = await db
+                .select({
+                    id: assistantVersions.id,
+                    versionNumber: assistantVersions.versionNumber,
+                    systemPrompt: assistantVersions.systemPrompt,
+                    config: assistantVersions.config,
+                    changeNote: assistantVersions.changeNote,
+                    createdAt: assistantVersions.createdAt,
+                    createdByEmail: users.email,
+                })
+                .from(assistantVersions)
+                .leftJoin(users, eq(assistantVersions.createdBy, users.id))
+                .where(eq(assistantVersions.assistantId, uid2))
+                .orderBy(desc(assistantVersions.versionNumber));
+
+            const [assistant] = await db
+                .select({ currentVersionId: masterAssistants.currentVersionId, lifecycleState: masterAssistants.lifecycleState })
+                .from(masterAssistants).where(eq(masterAssistants.id, uid2)).limit(1);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ versions, currentVersionId: assistant?.currentVersionId }),
+            };
+        }
+
+        // ── US-ADM-4.1.1: Save new assistant version (edit prompt/config) ────
+        // POST ?resource=assistant-versions&id=N  { systemPrompt, config, changeNote }
+        if (event.httpMethod === 'POST' && resource === 'assistant-versions') {
+            const uid2 = parseInt(qs.id || '');
+            if (!uid2) return { statusCode: 400, body: JSON.stringify({ error: 'id required.' }) };
+
+            const body = JSON.parse(event.body || '{}');
+            const { systemPrompt, config: vConfig, changeNote } = body;
+            if (!changeNote?.trim()) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'changeNote required.' }) };
+            }
+
+            // Get next version number
+            const [latest] = await db
+                .select({ max: sql<number>`max(${assistantVersions.versionNumber})` })
+                .from(assistantVersions)
+                .where(eq(assistantVersions.assistantId, uid2));
+            const nextVersion = (latest?.max ?? 0) + 1;
+
+            const [newVersion] = await db.insert(assistantVersions).values({
+                assistantId: uid2,
+                versionNumber: nextVersion,
+                systemPrompt: systemPrompt ?? null,
+                config: vConfig ?? null,
+                createdBy: adminId,
+                changeNote,
+            }).returning({ id: assistantVersions.id });
+
+            await db.update(masterAssistants)
+                .set({ currentVersionId: newVersion.id, updatedAt: new Date() })
+                .where(eq(masterAssistants.id, uid2));
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ success: true, versionId: newVersion.id, versionNumber: nextVersion }),
+            };
+        }
+
+        // ── US-ADM-4.1.1: Rollback to a previous version ─────────────────────
+        // POST ?resource=assistant-rollback&id=N  { versionId, reason }
+        if (event.httpMethod === 'POST' && resource === 'assistant-rollback') {
+            const uid2 = parseInt(qs.id || '');
+            if (!uid2) return { statusCode: 400, body: JSON.stringify({ error: 'id required.' }) };
+
+            const body = JSON.parse(event.body || '{}');
+            const { versionId, reason: rollbackReason } = body;
+            if (!versionId || !rollbackReason?.trim()) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'versionId and reason required.' }) };
+            }
+
+            // Load the target version
+            const [targetVersion] = await db
+                .select()
+                .from(assistantVersions)
+                .where(and(eq(assistantVersions.id, versionId), eq(assistantVersions.assistantId, uid2)))
+                .limit(1);
+            if (!targetVersion) return { statusCode: 404, body: JSON.stringify({ error: 'Version not found for this assistant.' }) };
+
+            // Get next version number
+            const [latest] = await db
+                .select({ max: sql<number>`max(${assistantVersions.versionNumber})` })
+                .from(assistantVersions)
+                .where(eq(assistantVersions.assistantId, uid2));
+            const nextVersion = (latest?.max ?? 0) + 1;
+
+            // Insert new version row (copy of old) — rollbacks create a new row, never modify history
+            const [rollbackVersion] = await db.insert(assistantVersions).values({
+                assistantId: uid2,
+                versionNumber: nextVersion,
+                systemPrompt: targetVersion.systemPrompt,
+                config: targetVersion.config,
+                createdBy: adminId,
+                changeNote: `Rollback to v${targetVersion.versionNumber}: ${rollbackReason}`,
+            }).returning({ id: assistantVersions.id });
+
+            await db.update(masterAssistants)
+                .set({ currentVersionId: rollbackVersion.id, updatedAt: new Date() })
+                .where(eq(masterAssistants.id, uid2));
+
+            await insertAdminAuditLog({
+                adminId, action: 'feature_flag_toggle' as any,
+                targetType: 'assistant', targetId: uid2,
+                previousState: { versionId },
+                newState: { rolledBackToVersion: targetVersion.versionNumber, newVersionId: rollbackVersion.id },
+                reason: rollbackReason,
+                ipAddress: getAdminIp(event.headers as any),
+            });
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ success: true, newVersionId: rollbackVersion.id, versionNumber: nextVersion }),
             };
         }
 

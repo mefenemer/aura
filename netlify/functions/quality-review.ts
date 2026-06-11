@@ -9,6 +9,8 @@ import { eq, and } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
 import { users, userProfiles, aiAssistants, plans, masterPlans, taskRuns } from '../../db/schema';
+import { logAiUsage } from '../../src/utils/ai-usage';
+import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 
 const jwtSecret = process.env.JWT_SECRET;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -55,6 +57,11 @@ export const handler = async (event: HandlerEvent) => {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
     if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server configuration error.' }) };
     if (!OPENAI_API_KEY) return { statusCode: 500, body: JSON.stringify({ error: 'AI service not configured.' }) };
+
+    // US-ADM-3.2.1: Global AI kill switch
+    if (await isGlobalAiDisabled()) {
+        return { statusCode: 503, body: JSON.stringify({ error: 'AI services are temporarily unavailable. Please try again later.' }) };
+    }
 
     const rawCookies = event.headers.cookie || '';
     const cookies = Object.fromEntries(
@@ -176,6 +183,16 @@ Add to JSON:
         }
 
         const openaiData = await openaiRes.json();
+
+        // US-ADM-3.1.1: fire-and-forget token usage log
+        void logAiUsage({
+            userId:      userId,
+            model:       'gpt-4o-mini',
+            inputTokens:  openaiData.usage?.prompt_tokens     ?? 0,
+            outputTokens: openaiData.usage?.completion_tokens ?? 0,
+            assistantId:  assistantId ?? null,
+        });
+
         const rawText = openaiData.choices?.[0]?.message?.content || '{}';
 
         // Parse JSON from LLM response

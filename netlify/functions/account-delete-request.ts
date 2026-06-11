@@ -12,6 +12,7 @@ import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, plans } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
+import { checkImpersonationBlock } from '../../src/utils/impersonation-guard';
 
 const jwtSecret = process.env.JWT_SECRET!;
 const stripe    = process.env.STRIPE_SECRET_KEY
@@ -27,6 +28,10 @@ function parseSession(event: any): number | null {
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+
+    // US-ADM-1.2.1: Block account deletion during impersonation sessions
+    const impersonationBlock = checkImpersonationBlock(event);
+    if (impersonationBlock) return impersonationBlock;
 
     const userId = parseSession(event);
     if (!userId) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };

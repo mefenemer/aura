@@ -1,8 +1,8 @@
 import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
-import { eq, and, inArray, desc } from 'drizzle-orm';
+import { eq, and, inArray, desc, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices, processedWebhookEvents, userReferrals } from '../../db/schema';
+import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices, processedWebhookEvents, userReferrals, platformConfig } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
@@ -94,12 +94,14 @@ export const handler: Handler = async (event) => {
             try {
                 let createdSub: Stripe.Subscription | null = null;
                 if (isAnnual && masterPlan) {
+                    // US-I18N-2.1 SC6: use pi.currency from Stripe event, not hardcoded 'gbp'
+                    const piCurrency = (pi.currency || 'gbp').toLowerCase();
                     const annualAmount = Math.round(Number(masterPlan.monthlyPriceGbp) * 12 * 0.80 * 100);
                     createdSub = await stripe.subscriptions.create({
                         customer: stripeCustomerId,
                         items: [{
                             price_data: {
-                                currency: 'gbp',
+                                currency: piCurrency,
                                 product_data: { name: masterPlan.name },
                                 unit_amount: annualAmount,
                                 recurring: { interval: 'year' },
@@ -151,7 +153,7 @@ export const handler: Handler = async (event) => {
             planId: newPlan.id,
             masterPlanId: masterPlanIdInt,
             amount: amountGbp,
-            currency: 'GBP',
+            currency: (pi.currency || 'gbp').toUpperCase(), // US-I18N-2.1 SC6: from Stripe event
             status: 'completed',
             externalPaymentId: pi.id,
             description: `${planName} — first payment`,
@@ -226,7 +228,7 @@ export const handler: Handler = async (event) => {
                     // Apply £10 credit (negative amount = credit in Stripe)
                     const balanceTx = await stripe.customers.createBalanceTransaction(
                         referrerPlan.stripeCustomerId,
-                        { amount: -1000, currency: 'gbp', description: 'Referral reward — friend made their first payment' },
+                        { amount: -1000, currency: (pi.currency || 'gbp').toLowerCase(), description: 'Referral reward — friend made their first payment' },
                     );
                     balanceTxId = balanceTx.id;
                 }
@@ -575,6 +577,65 @@ export const handler: Handler = async (event) => {
                     }).catch(err => console.warn('[stripe-webhook] Day 0 dunning email failed:', err));
                 }
             }
+        }
+    }
+
+    // ── charge.dispute.created — chargeback opened ────────────────
+    // US-ADM-2.2.1: Record dispute, notify super_admins via in-app notification.
+    if (stripeEvent.type === 'charge.dispute.created') {
+        const dispute = stripeEvent.data.object as Stripe.Dispute;
+        const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+
+        try {
+            // Find the affected user via charge → payment_intent → metadata
+            let affectedUserId: number | null = null;
+            let chargeCustomerId: string | null = null;
+
+            if (chargeId) {
+                const charge = await stripe.charges.retrieve(chargeId) as Stripe.Charge;
+                chargeCustomerId = typeof charge.customer === 'string' ? charge.customer : null;
+                if (chargeCustomerId) {
+                    affectedUserId = await _resolveUserId(chargeCustomerId);
+                }
+            }
+
+            const amountGbp = dispute.amount ? `£${(dispute.amount / 100).toFixed(2)}` : 'unknown';
+            const deadline = dispute.evidence_details?.due_by
+                ? new Date(dispute.evidence_details.due_by * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                : 'check Stripe dashboard';
+
+            const db = getDb();
+
+            // Notify the affected user (if found)
+            if (affectedUserId) {
+                await db.insert(notifications).values({
+                    userId: affectedUserId,
+                    type:   'system',
+                    title:  '⚠️ Payment Dispute Opened',
+                    message: `A dispute of ${amountGbp} has been opened on your account. Our team will be in touch. Evidence deadline: ${deadline}.`,
+                    isRead: false,
+                    metadata: { disputeId: dispute.id, reason: dispute.reason, chargeId },
+                }).catch(() => {});
+            }
+
+            // Notify all super_admins
+            const superAdmins = await db
+                .select({ id: users.id })
+                .from(users)
+                .where(eq(users.role, 'super_admin'));
+
+            for (const admin of superAdmins) {
+                await db.insert(notifications).values({
+                    userId:  admin.id,
+                    type:    'system',
+                    title:   `🚨 Dispute Opened — ${amountGbp}`,
+                    message: `Dispute ID: ${dispute.id}. Reason: ${dispute.reason || 'unknown'}. Affected user ID: ${affectedUserId ?? 'unknown'}. Evidence deadline: ${deadline}.`,
+                    isRead: false,
+                    metadata: { disputeId: dispute.id, reason: dispute.reason, amountGbp, chargeId, affectedUserId, deadline },
+                }).catch(() => {});
+            }
+        } catch (dispErr) {
+            console.warn('[stripe-webhook] dispute.created handling error (non-blocking):', dispErr);
         }
     }
 

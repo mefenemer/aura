@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { aiAssistants } from '../../db/schema';
+import { aiAssistants, masterAssistants } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -29,7 +29,7 @@ export const handler: Handler = async (event) => {
 
     const db = getDb();
 
-    const [assistant] = await db.select({
+    const [row] = await db.select({
         id: aiAssistants.id,
         name: aiAssistants.name,
         role: aiAssistants.aiAssistantJobRole,
@@ -37,18 +37,25 @@ export const handler: Handler = async (event) => {
         isActive: aiAssistants.isActive,
         onboardingContext: aiAssistants.onboardingContext,
         configuration: aiAssistants.configuration,
+        masterAssistantId: aiAssistants.masterAssistantId,
+        lifecycleState: masterAssistants.lifecycleState,
+        replacementAssistantId: masterAssistants.replacementAssistantId,
+        replacementName: masterAssistants.name,
     }).from(aiAssistants)
+        .leftJoin(masterAssistants, eq(aiAssistants.masterAssistantId, masterAssistants.id))
         .where(and(eq(aiAssistants.id, parseInt(assistantId)), eq(aiAssistants.userId, currentUserId)))
         .limit(1);
 
-    if (!assistant) return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
+    if (!row) return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
 
     return { statusCode: 200, body: JSON.stringify({
-            context: assistant.onboardingContext,
-            configuration: assistant.configuration,
-            name: assistant.name,
-            role: assistant.role || 'Digital Assistant',
-            status: assistant.status || 'pending',
-            isActive: assistant.isActive,
+            context: row.onboardingContext,
+            configuration: row.configuration,
+            name: row.name,
+            role: row.role || 'Digital Assistant',
+            status: row.status || 'pending',
+            isActive: row.isActive,
+            lifecycleState: row.lifecycleState ?? 'live',
+            replacementAssistantId: row.replacementAssistantId ?? null,
         }) };
 };

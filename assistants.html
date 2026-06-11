@@ -23,6 +23,7 @@
     .icon-yellow { background: #fefce8; color: #ca8a04; }
     .icon-red    { background: #fef2f2; color: #dc2626; }
   </style>
+  <script src="/src/i18n.js"></script>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
@@ -103,42 +104,43 @@
       <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-4">
         <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
       </div>
-      <h2 class="text-xl font-extrabold text-gray-900 mb-1">Request a New Role</h2>
-      <p class="text-sm text-gray-500 mb-5">Tell us what you need automated. We'll prioritise it on our engineering roadmap.</p>
+      <h2 class="text-xl font-extrabold text-gray-900 mb-1" data-i18n="assistants.request_role">Request a New Role</h2>
+      <p class="text-sm text-gray-500 mb-5" data-i18n="assistants.request_role_subtitle">Tell us what you need automated. We'll prioritise it on our engineering roadmap.</p>
       <p id="rr-error" class="hidden text-sm text-red-600 mb-3"></p>
       <div class="space-y-4">
         <div>
-          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Your email address *</label>
+          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1" data-i18n="common.email">Your email address *</label>
           <input id="rr-email" type="email" placeholder="you@company.com"
+            data-i18n-placeholder="common.error_email_invalid"
             class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Role / Job Title *</label>
+          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1" data-i18n="assistants.role_label">Role / Job Title *</label>
           <input id="rr-role" type="text" placeholder="e.g. Inventory Manager, Legal Researcher…"
             class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">What tasks should it handle? *</label>
+          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1" data-i18n="assistants.tasks_label">What tasks should it handle? *</label>
           <textarea id="rr-tasks" rows="3" placeholder="Describe the repetitive work you want automated…"
             class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"></textarea>
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Your industry (optional)</label>
+          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1" data-i18n="assistants.industry_label">Your industry (optional)</label>
           <input id="rr-industry" type="text" placeholder="e.g. E-commerce, Healthcare, Finance…"
             class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">How urgent is this?</label>
+          <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1" data-i18n="assistants.urgency_label">How urgent is this?</label>
           <select id="rr-urgency" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
-            <option value="nice_to_have">Nice to have</option>
-            <option value="important">Important — within a few months</option>
-            <option value="urgent">Urgent — I need it ASAP</option>
+            <option value="This week" data-i18n="assistants.urgency_this_week">This week</option>
+            <option value="Next month" data-i18n="assistants.urgency_next_month">Next month</option>
+            <option value="Just exploring" data-i18n="assistants.urgency_exploring">Just exploring</option>
           </select>
         </div>
       </div>
       <button id="rr-submit-btn" onclick="submitRoleRequest()"
         class="mt-6 w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition flex items-center justify-center gap-2">
-        <span id="rr-btn-text">Submit Request</span>
+        <span id="rr-btn-text" data-i18n="assistants.submit_request">Submit Request</span>
         <div id="rr-spinner" class="hidden w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
       </button>
     </div>
@@ -453,6 +455,23 @@ document.getElementById('waitlist-submit').addEventListener('click', async () =>
 
     document.getElementById('waitlist-form-wrap').classList.add('hidden');
     document.getElementById('waitlist-success').classList.remove('hidden');
+
+    // US-SALES-1.1 Part 2c: mirror waitlist signup as a lead row
+    const leadEmail = _isLoggedIn ? undefined : email;
+    if (leadEmail || _isLoggedIn) {
+      fetch('/.netlify/functions/capture-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: leadEmail || '',
+          role: _waitlistPending.name,
+          leadType: 'waitlist_interest',
+          source: 'assistants_page',
+          opportunityReason: _waitlistPending.name,
+          priority: 'medium',
+        }),
+      }).catch(() => {});
+    }
   } catch {
     errEl.textContent = 'Connection failed. Please try again.';
     errEl.classList.remove('hidden');
@@ -510,8 +529,28 @@ async function submitRoleRequest() {
   document.getElementById('rr-btn-text').textContent = 'Sending…';
 
   try {
-    // Use the leads/contact endpoint — falls back to a plain email via Resend
-    const res = await fetch('/.netlify/functions/contact', {
+    // Save to leads table
+    const leadRes = await fetch('/.netlify/functions/capture-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        role,
+        leadType: 'role_request',
+        source: 'assistants_page',
+        opportunityReason: `New Role Request: ${role}`,
+        useCase: tasks,
+        company: industry || null,
+        urgency,
+      }),
+    });
+    if (!leadRes.ok) {
+      const d = await leadRes.json().catch(() => ({}));
+      throw new Error(d.error || 'Submission failed. Please try again.');
+    }
+
+    // Also fire internal email notification
+    fetch('/.netlify/functions/contact', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -520,12 +559,7 @@ async function submitRoleRequest() {
         message: `Role: ${role}\n\nTasks to automate:\n${tasks}${industry ? '\n\nIndustry: ' + industry : ''}\n\nUrgency: ${urgency}`,
         source: 'assistant-library-role-request',
       }),
-    });
-
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      throw new Error(d.error || 'Submission failed. Please try again.');
-    }
+    }).catch(() => {});
 
     document.getElementById('rr-form').classList.add('hidden');
     document.getElementById('rr-success').classList.remove('hidden');
@@ -544,6 +578,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadComponent('nav-placeholder', './components/nav.html');
   loadComponent('footer-placeholder', './components/footer.html');
   if (typeof setupMobileMenu === 'function') setupMobileMenu();
+  if (window.i18n) window.i18n.apply();
   await checkAuth();
   await loadCatalog();
 });

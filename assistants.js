@@ -322,6 +322,29 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
             }
         }
 
+        // US-ADM-4.1.1: Show deprecation banner if assistant's master role is deprecated
+        const existingBanner = document.getElementById('deprecated-assistant-banner');
+        if (existingBanner) existingBanner.remove();
+        if (currentData.lifecycleState === 'deprecated') {
+            const banner = document.createElement('div');
+            banner.id = 'deprecated-assistant-banner';
+            banner.className = 'mx-4 mt-4 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start gap-3';
+            banner.innerHTML = `
+                <span class="text-2xl flex-shrink-0">⚠️</span>
+                <div class="flex-1">
+                    <p class="text-sm font-bold text-orange-800">This assistant is being retired.</p>
+                    <p class="text-sm text-orange-700 mt-0.5">
+                        This assistant role will be archived soon and may lose functionality.
+                        ${currentData.replacementAssistantId
+                            ? `A recommended replacement is available — <a href="#" onclick="window.routeToAssistantDetail && window.routeToAssistantDetail(${currentData.replacementAssistantId}); return false;" class="underline font-semibold">switch now</a>.`
+                            : 'Contact support for guidance on migrating your workflows.'}
+                    </p>
+                </div>`;
+            // Insert before main content area or at top of detail container
+            const detailEl = document.getElementById('assistant-detail-view') || document.getElementById('content-container');
+            if (detailEl) detailEl.prepend(banner);
+        }
+
         // Set window.cachedContext so fetchAndRenderIntegrations can use it
         window.cachedContext = currentData.context || {};
 

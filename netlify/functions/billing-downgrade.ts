@@ -11,6 +11,7 @@ import jwt from 'jsonwebtoken';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, plans, masterPlans, aiAssistants, notifications } from '../../db/schema';
+import { checkImpersonationBlock } from '../../src/utils/impersonation-guard';
 
 const jwtSecret    = process.env.JWT_SECRET!;
 const stripeSecret = process.env.STRIPE_SECRET_KEY!;
@@ -41,6 +42,11 @@ function parseSession(event: any): number | null {
 export const handler: Handler = async (event) => {
     if (!['GET', 'POST', 'DELETE'].includes(event.httpMethod)) {
         return { statusCode: 405, body: 'Method Not Allowed' };
+    }
+    // US-ADM-1.2.1: Block Stripe billing changes during impersonation
+    if (event.httpMethod !== 'GET') {
+        const block = checkImpersonationBlock(event);
+        if (block) return block;
     }
 
     const userId = parseSession(event);

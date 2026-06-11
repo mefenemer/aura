@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <script src="./auth-check.js"></script>
+  <script src="/src/i18n.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Workspace | Aura-Assist</title>
@@ -11,6 +12,17 @@
   <link rel="manifest" href="/favicon/manifest.json">
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
+
+<!-- US-ADM-1.2.1: Admin Impersonation Banner — shown only during active impersonation sessions -->
+<div id="impersonation-banner" class="hidden fixed top-0 left-0 right-0 z-[100] bg-amber-400 text-amber-900 text-sm font-bold flex items-center justify-between px-4 py-2 shadow-md">
+  <div class="flex items-center gap-2">
+    <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+    <span id="impersonation-label">Impersonation active</span>
+  </div>
+  <button id="end-impersonation-btn" class="ml-4 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition cursor-pointer shrink-0">
+    End Session
+  </button>
+</div>
 
 <!-- US-AUD-5.2.1: Success-Triggered Upgrade Moment Modal -->
 <div id="upgrade-moment-modal" class="hidden fixed inset-0 z-[55] items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
@@ -84,6 +96,17 @@
       I'll do this later
     </button>
   </div>
+</div>
+
+<!-- OAuth / connection error toast -->
+<div id="oauth-error-toast"
+  class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 bg-red-600 text-white text-sm font-semibold rounded-xl shadow-2xl transition-opacity duration-500 opacity-0">
+  <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+  </svg>
+  <span id="oauth-error-toast-msg">The app connection failed. Please try again.</span>
+  <button onclick="this.closest('#oauth-error-toast').classList.add('hidden')"
+    class="ml-2 text-red-200 hover:text-white transition text-lg leading-none">&times;</button>
 </div>
 
 <!-- Draft saved toast -->
@@ -169,6 +192,7 @@
     <div class="block text-right">
       <p id="header-user-name" class="text-sm font-bold text-gray-900 truncate max-w-[160px]"></p>
       <p id="header-user-email" class="text-xs text-gray-500 truncate max-w-[160px]"></p>
+      <div id="header-role-badges" class="flex gap-1 justify-end mt-0.5 flex-wrap"></div>
     </div>
     <div id="header-user-initials" class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold shrink-0 text-sm">
     </div>
@@ -284,6 +308,86 @@
 
     // 1. Force the sidebar to inject before drawing main components
     await loadSidebar("sidebar-placeholder");
+    if (window.i18n) window.i18n.apply(document.getElementById('sidebar-placeholder'));
+
+    // US-ADM-1.2.1: Impersonation banner — detect scope='impersonate' in JWT
+    (function initImpersonationBanner() {
+      try {
+        const cookie = document.cookie.split('; ').find(r => r.startsWith('aura_session='));
+        if (!cookie) return;
+        const token = cookie.split('=')[1];
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.scope !== 'impersonate') return;
+
+        const banner = document.getElementById('impersonation-banner');
+        const label  = document.getElementById('impersonation-label');
+        const endBtn = document.getElementById('end-impersonation-btn');
+
+        const targetName  = payload.targetUserName  || payload.targetUserEmail || `User #${payload.userId}`;
+        const adminName   = payload.realAdminName   || `Admin #${payload.realUserId}`;
+        label.textContent = `⚠ Impersonating ${targetName} — ${adminName} | Session expires in 15 min`;
+        banner.classList.remove('hidden');
+        banner.classList.add('flex');
+
+        // Push body down so banner doesn't overlap content
+        document.body.style.paddingTop = '40px';
+
+        // Store the original token + session metadata in sessionStorage so end-session can restore it
+        const originalToken = sessionStorage.getItem('admin_original_token');
+        const sessionStartedAt = parseInt(sessionStorage.getItem('impersonation_started_at') || '0') || Date.now();
+
+        endBtn.addEventListener('click', async () => {
+          endBtn.disabled = true;
+          endBtn.textContent = 'Ending…';
+          try {
+            const res = await fetch('/.netlify/functions/admin-end-impersonation', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                originalToken,
+                sessionId: payload.sessionId,
+                startedAt: sessionStartedAt,
+              }),
+            });
+            const data = await res.json();
+            sessionStorage.removeItem('admin_original_token');
+            sessionStorage.removeItem('impersonation_started_at');
+            window.location.href = data.redirect || '/admin.html';
+          } catch (e) {
+            endBtn.disabled = false;
+            endBtn.textContent = 'End Session';
+            alert('Failed to end session. Please try again.');
+          }
+        });
+
+        // Auto-end on JWT expiry
+        const expiresIn = payload.exp ? (payload.exp * 1000 - Date.now()) : 900_000;
+        if (expiresIn > 0) {
+          setTimeout(() => {
+            label.textContent = '⚠ Impersonation session expired — click End Session to return';
+            banner.classList.remove('bg-amber-400', 'text-amber-900');
+            banner.classList.add('bg-red-500', 'text-white');
+          }, expiresIn);
+        }
+      } catch (e) { /* non-critical */ }
+    })();
+
+    // US-ADM-5.2.2: Reveal Admin Portal launcher for dual-role users.
+    // Read adminRole claim from the JWT stored in the aura_session cookie (client-side decode, no verify needed).
+    (function revealAdminPortalLink() {
+      try {
+        const cookie = document.cookie.split('; ').find(r => r.startsWith('aura_session='));
+        if (!cookie) return;
+        const token = cookie.split('=')[1];
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        const ADMIN_ROLES = ['admin', 'super_admin', 'platform_admin', 'billing_admin', 'support_agent'];
+        if (payload.adminRole && ADMIN_ROLES.includes(payload.adminRole)) {
+          const el = document.getElementById('nav-admin-portal');
+          if (el) el.classList.remove('hidden');
+        }
+      } catch (e) { /* non-critical */ }
+    })();
+
     // NEW: Check for unread notifications immediately upon layout initialization
     if (typeof window.updateNotificationBadge === 'function') {
       window.updateNotificationBadge();
@@ -306,6 +410,26 @@
           // Populate text fields
           if (nameEl) nameEl.textContent = fullName || 'Aura User';
           if (emailEl) emailEl.textContent = profileData.email || '';
+          window._currentUserEmail = profileData.email || '';
+
+          // US-I18N-1.2 SC1/SC2: apply user's saved language preference
+          if (profileData.language && window.i18n) {
+            window.i18n.setLang(profileData.language);
+          }
+
+          // US-UX-1.1 SC2/SC3: render role badges beneath email
+          const badgesEl = document.getElementById('header-role-badges');
+          if (badgesEl) {
+            const badges = [];
+            const pRole = profileData.platformRole || 'user';
+            const oRole = profileData.organisationRole || 'member';
+            if (pRole === 'super_admin') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">Super Admin</span>');
+            else if (pRole === 'admin') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">Admin</span>');
+            if (oRole === 'owner') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Owner</span>');
+            else if (oRole === 'admin') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">Org Admin</span>');
+            badgesEl.innerHTML = badges.join('');
+            window._profileRoles = { platformRole: pRole, organisationRole: oRole };
+          }
 
           // Generate initials dynamically for the avatar circle
           if (initialsEl && fName) {
@@ -404,6 +528,9 @@
           oldScript.replaceWith(newScript);
         });
 
+        // US-I18N-1.2 SC3: apply workspace translations after view injection
+        if (window.i18n) window.i18n.apply(contentContainer);
+
         // Native window view scroll reposition cleaner
         window.scrollTo(0, 0);
         closeMobileMenu();
@@ -432,6 +559,20 @@
 
             // SC4: null nextPlan means already on highest plan — show enterprise contact path
             const isHighestPlan = !cap.nextPlan;
+
+            // US-SALES-1.1 Part 3a: capture quota-hit as upgrade_intent lead
+            fetch('/.netlify/functions/capture-lead', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: window._currentUserEmail || '',
+                role: cap.tierName || 'current plan',
+                leadType: 'upgrade_intent',
+                source: 'workspace_quota',
+                opportunityReason: `Quota limit reached — ${cap.tierName || 'current plan'}`,
+                priority: 'high',
+              }),
+            }).catch(() => {});
 
             window.openUpgradeModal(
               'Assistant Limit Reached',
@@ -837,6 +978,20 @@
 
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+
+        // US-SALES-1.1 Part 3b: capture upgrade moment engagement as upgrade_intent lead
+        fetch('/.netlify/functions/capture-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: window._currentUserEmail || '',
+            role: cap.nextPlan?.name || 'upgrade',
+            leadType: 'upgrade_intent',
+            source: 'workspace_billing',
+            opportunityReason: `Upgrade moment shown — ${cap.nextPlan?.name || 'next tier'}`,
+            priority: 'high',
+          }),
+        }).catch(() => {});
       } catch { /* fail silently */ }
     };
 
@@ -1068,6 +1223,40 @@
       await loadView('catalog');
     }
 
+    // Handle OAuth error redirects (e.g. ?error=access_denied from a failed app connection)
+    (function handleOAuthError() {
+      const errorParam = qs.get('error');
+      if (!errorParam) return;
+      const url = new URL(window.location.href);
+      url.searchParams.delete('error');
+      history.replaceState(null, '', url.toString());
+
+      const MESSAGES = {
+        access_denied: 'Connection cancelled — you declined the permission request. Try connecting again if this was a mistake.',
+        temporarily_unavailable: 'The app is temporarily unavailable. Please try again in a few minutes.',
+      };
+      const msg = MESSAGES[errorParam] || 'The app connection failed. Please try again.';
+
+      const toast = document.getElementById('oauth-error-toast');
+      const msgEl = document.getElementById('oauth-error-toast-msg');
+      if (!toast || !msgEl) return;
+      msgEl.textContent = msg;
+      toast.classList.remove('hidden', 'opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+        setTimeout(() => toast.classList.add('hidden'), 500);
+      }, 6000);
+
+      // Log to server for monitoring
+      fetch('/.netlify/functions/client-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'oauth_error', error: errorParam, path: window.location.pathname }),
+      }).catch(() => {/* non-blocking */});
+    })();
+
     // Show saved-draft toast if returning from "Save & Continue Later"
     if (new URLSearchParams(window.location.search).get('draft') === 'saved') {
       history.replaceState(null, '', window.location.pathname);
@@ -1102,6 +1291,7 @@
       document.getElementById('input-first-name'),
       document.getElementById('input-last-name'),
       document.getElementById('input-email'),
+      document.getElementById('input-language'),
       document.getElementById('input-timezone'),
       document.getElementById('input-hourly-rate'),
     ];
@@ -1137,6 +1327,21 @@
             f.value = pData.preferences.hourlyRateGbp;
           }
         });
+      }
+
+      // US-UX-1.1 SC4: populate Your Roles section in settings
+      const roleListEl = document.getElementById('settings-role-list');
+      if (roleListEl && pRes.ok) {
+        const pData2 = window._profileRoles || {};
+        const pRole = pData2.platformRole || 'user';
+        const oRole = pData2.organisationRole || 'member';
+        const roleBadges = [];
+        if (pRole === 'super_admin') roleBadges.push('<span class="text-sm font-bold px-3 py-1 rounded-full bg-emerald-600 text-white">Super Admin</span>');
+        else if (pRole === 'admin')  roleBadges.push('<span class="text-sm font-bold px-3 py-1 rounded-full bg-indigo-100 text-indigo-800">Admin</span>');
+        else                          roleBadges.push('<span class="text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-600">Member</span>');
+        if (oRole === 'owner')       roleBadges.push('<span class="text-sm font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-800">Owner</span>');
+        else if (oRole === 'admin')  roleBadges.push('<span class="text-sm font-bold px-3 py-1 rounded-full bg-gray-100 text-gray-700">Org Admin</span>');
+        roleListEl.innerHTML = roleBadges.join('');
       }
 
       const nRes = await fetch('/.netlify/functions/update-notifications');
@@ -1241,6 +1446,9 @@
           if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));
             triggerError(`Failed to save ${fieldKey}: ${errorData.error || 'Server rejected query.'}`);
+          } else if (fieldKey === 'language' && window.i18n) {
+            // US-I18N-1.2 SC1: apply new language immediately after save
+            window.i18n.setLang(value);
           }
         } catch (err) {
           triggerError(`Network disconnected while saving ${fieldKey}.`);

@@ -1,9 +1,9 @@
 // netlify/functions/update-profile.ts
 import { HandlerEvent } from '@netlify/functions';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
-import { users, userProfiles } from '../../db/schema';
+import { users, userProfiles, userOrganisations } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -47,6 +47,8 @@ export const handler = async (event: HandlerEvent) => {
         try {
             const [user] = await db.select().from(users).where(eq(users.id, userId));
             const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
+            const [orgMembership] = await db.select({ role: userOrganisations.role })
+                .from(userOrganisations).where(eq(userOrganisations.userId, userId)).limit(1);
 
             const prefs = (profile?.preferences as Record<string, any>) || {};
             return {
@@ -57,8 +59,11 @@ export const handler = async (event: HandlerEvent) => {
                     email: user?.email || '',
                     timezone: profile?.timezone || 'Europe/London',
                     hourlyRateGbp: prefs.hourlyRateGbp ?? '',
-                    // US-AUD-5.2.1 SC4: A/B test variant
                     upgradeExperimentVariant: prefs.upgradeExperimentVariant ?? 'break_even',
+                    // US-UX-1.1 SC1: role fields for header badges and settings display
+                    platformRole: user?.role || 'user',
+                    organisationRole: orgMembership?.role || 'member',
+                    language: profile?.language || 'en',
                 })
             };
         } catch (error) {
@@ -76,6 +81,11 @@ export const handler = async (event: HandlerEvent) => {
 
             if (!fieldKey) {
                 return { statusCode: 400, body: JSON.stringify({ error: 'Field key is missing.' }) };
+            }
+
+            // US-UX-1.1 SC5: reject attempts to self-assign roles
+            if (['role', 'platformRole', 'organisationRole'].includes(fieldKey)) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'Role changes must be made by an admin.' }) };
             }
 
             // Fetch the current state for the Before/After Audit Log
@@ -105,6 +115,19 @@ export const handler = async (event: HandlerEvent) => {
 
                 await db.update(userProfiles)
                     .set({ [fieldKey]: value, updatedAt: new Date() })
+                    .where(eq(userProfiles.userId, userId));
+
+            } else if (fieldKey === 'language') {
+
+                const SUPPORTED_LANGS = ['en', 'fr', 'de', 'es', 'pt'];
+                if (!SUPPORTED_LANGS.includes(value)) {
+                    return { statusCode: 400, body: JSON.stringify({ error: 'Unsupported language.' }) };
+                }
+                targetTable = 'user_profiles';
+                oldState = { language: currentProfile?.language || 'en' };
+                newState = { language: value };
+                await db.update(userProfiles)
+                    .set({ language: value, updatedAt: new Date() })
                     .where(eq(userProfiles.userId, userId));
 
             } else if (fieldKey === 'hourlyRateGbp') {

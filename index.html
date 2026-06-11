@@ -9,6 +9,8 @@
     <link rel="icon" href="/favicon/favicon.ico" sizes="any">
     <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
     <link rel="manifest" href="/favicon/manifest.json">
+    <!-- US-I18N-1.1: i18n utility — loads locale JSON and applies translations -->
+    <script src="/src/i18n.js"></script>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 <div id="nav-placeholder"></div>
@@ -410,6 +412,9 @@
         // 1. Core payload inject
         await loadComponent("nav-placeholder", "./components/nav.html");
         loadComponent("footer-placeholder", "./components/footer.html");
+
+        // US-I18N-1.1: re-apply translations after components are injected
+        if (window.i18n) window.i18n.apply();
 
         // 2. Initialize the mobile menu now that the nav is in the DOM
         setupMobileMenu();

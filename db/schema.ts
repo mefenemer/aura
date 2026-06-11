@@ -72,12 +72,25 @@ export const leads = pgTable('leads', {
   email: text('email').notNull(),
   opportunityReason: text('opportunity_reason').notNull(),
   action: text('action').notNull().default('notify user of AI Assistant readiness'),
-  // Notification lifecycle: 'notification_pending' | 'notification_sent'
+  // Notification lifecycle: 'notification_pending' | 'notification_sent' | 'contacted' | 'converted' | 'lost'
   status: text('status').notNull().default('notification_pending'),
+  // Lead enrichment fields (US-SALES-1.1 / US-SALES-1.2)
+  leadType: text('lead_type'),            // 'role_request' | 'enterprise_inquiry' | 'waitlist' | 'referral'
+  source: text('source'),                 // 'assistants_page' | 'website' | 'workspace' | 'api'
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  organisationId: integer('organisation_id').references(() => organisations.id, { onDelete: 'set null' }),
+  name: text('name'),
+  company: text('company'),
+  teamSize: text('team_size'),
+  useCase: text('use_case'),
+  priority: text('priority'),             // 'high' | 'medium' | 'low'
+  assignedTo: integer('assigned_to').references(() => users.id, { onDelete: 'set null' }),
+  salesNotes: text('sales_notes'),
+  lastContactedAt: timestamp('last_contacted_at'),
+  resolvedAt: timestamp('resolved_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => ({
-  // Composite unique constraint ensures we don't duplicate interest for the same role
   emailRoleUnique: unique('email_role_unique').on(t.email, t.opportunityReason)
 }));
 
@@ -300,6 +313,20 @@ export const masterPlans = pgTable("master_plans", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Plan prices — per-currency pricing for each master plan (US-I18N-2.1 SC1)
+// Source of truth for multi-currency checkout; GBP row mirrors masterPlans.monthlyPriceGbp.
+export const planPrices = pgTable("plan_prices", {
+  id: serial("id").primaryKey(),
+  masterPlanId: integer("master_plan_id").notNull().references(() => masterPlans.id, { onDelete: "cascade" }),
+  currency: text("currency").notNull(),                     // ISO 4217: 'GBP' | 'USD' | 'EUR' | 'AUD' | 'CAD'
+  monthlyPriceMajorUnit: numeric("monthly_price_major_unit", { precision: 10, scale: 2 }).notNull(),
+  stripePriceId: text("stripe_price_id"),                  // Stripe Price object ID for this plan+currency combo
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  planCurrencyUnique: unique("plan_currency_unique").on(t.masterPlanId, t.currency),
+}));
+
 // Task runs — one row per automated task execution; used for monthly volume tracking (SC3)
 export const taskRuns = pgTable("task_runs", {
   id: serial().primaryKey(),
@@ -330,6 +357,25 @@ export const masterAssistants = pgTable("master_assistants", {
   // US-AUD-2.3.1 SC2: task completions required to unlock early access (null = no milestone gate)
   milestoneTasksRequired: integer("milestone_tasks_required").default(25),
   isActive: boolean("is_active").notNull().default(true),
+  // US-ADM-4.1.1: Lifecycle state machine — draft|review|beta|live|deprecated|archived
+  lifecycleState: text("lifecycle_state").notNull().default("draft"),
+  // Points to the current active assistant_versions row
+  currentVersionId: integer("current_version_id"),
+  // For deprecated assistants — ID of the recommended replacement
+  replacementAssistantId: integer("replacement_assistant_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// US-ADM-4.1.1: Immutable version history for master assistant prompts/config
+export const assistantVersions = pgTable("assistant_versions", {
+  id: serial().primaryKey(),
+  assistantId: integer("assistant_id").notNull().references(() => masterAssistants.id, { onDelete: "cascade" }),
+  versionNumber: integer("version_number").notNull(),
+  systemPrompt: text("system_prompt"),
+  config: jsonb("config"),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  changeNote: text("change_note").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -729,3 +775,104 @@ export const userMilestones = pgTable("user_milestones", {
 }, (t) => ({
   userMilestoneUnique: unique("user_milestone_unique").on(t.userId, t.milestone),
 }));
+
+// ── Admin Audit Log — US-ADM-5.1.1 ───────────────────────────────────────────
+// Append-only ledger of every privileged admin action.
+// Application layer enforces no UPDATE/DELETE on this table.
+export const adminAuditLog = pgTable("admin_audit_log", {
+  id: serial().primaryKey(),
+  adminId: integer("admin_id").references(() => users.id),    // who performed the action
+  action: text("action").notNull(),                             // one of the 13 defined action types
+  targetType: text("target_type"),                              // e.g. 'user', 'subscription', 'assistant'
+  targetId: text("target_id"),                                  // affected record id
+  previousState: jsonb("previous_state"),
+  newState: jsonb("new_state"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  reason: text("reason"),                                       // mandatory for destructive actions
+  metadata: jsonb("metadata"),                                  // extra context (sessionId, extensionDays, etc.)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── Platform Config — US-ADM-3.2.1 kill switches ─────────────────────────────
+export const platformConfig = pgTable("platform_config", {
+  key: varchar("key", { length: 255 }).primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  reason: text("reason"),
+});
+
+// ── Feature Flags — US-ADM-4.2.1 ─────────────────────────────────────────────
+export const featureFlags = pgTable("feature_flags", {
+  key: varchar("key", { length: 255 }).primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  rolloutPercentage: integer("rollout_percentage").notNull().default(0),
+  allowedWorkspaceIds: integer("allowed_workspace_ids").array(),
+  allowedTiers: text("allowed_tiers").array(),
+  description: text("description"),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ── AI Usage Log — US-ADM-3.1.1 COGS Dashboard ───────────────────────────────
+export const aiUsageLog = pgTable("ai_usage_log", {
+  id: serial().primaryKey(),
+  workspaceId: integer("workspace_id").references(() => organisations.id, { onDelete: "set null" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  assistantId: integer("assistant_id"),                        // aiAssistants.id (nullable)
+  model: text("model").notNull(),                              // e.g. 'gpt-4o-mini'
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  costUsd: decimal("cost_usd", { precision: 10, scale: 6 }).notNull().default("0"),
+  taskRunId: integer("task_run_id"),                           // nullable FK to task_runs
+  sessionId: text("session_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── AI Model Pricing — per-model token cost rates for COGS calculation (US-ADM-3.1.1) ──
+// Distinct from aiModelConfig (routing slots, US13). Uses a different DB table name.
+export const aiModelPricing = pgTable("ai_model_pricing", {
+  id: serial().primaryKey(),
+  modelKey: varchar("model_key", { length: 100 }).unique().notNull(),  // must match the 'model' string logged in aiUsageLog
+  displayName: text("display_name").notNull(),
+  inputCostPer1kTokens: decimal("input_cost_per_1k_tokens", { precision: 10, scale: 6 }).notNull(),
+  outputCostPer1kTokens: decimal("output_cost_per_1k_tokens", { precision: 10, scale: 6 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ── Billing Reconciliation Log — US-ADM-2.3.1 ────────────────────────────────
+export const billingReconciliationLog = pgTable("billing_reconciliation_log", {
+  id: serial().primaryKey(),
+  runAt: timestamp("run_at").defaultNow().notNull(),
+  totalChecked: integer("total_checked").notNull().default(0),
+  mismatchCount: integer("mismatch_count").notNull().default(0),
+  results: jsonb("results"),
+  status: text("status").notNull().default("success"), // 'success' | 'failed'
+  errorMessage: text("error_message"),
+});
+
+// ── Lead Analysis Runs — US-SALES-1.1 Part 4 ────────────────────────────────
+export const leadAnalysisRuns = pgTable("lead_analysis_runs", {
+  id: serial("id").primaryKey(),
+  runAt: timestamp("run_at").defaultNow().notNull(),
+  leadsCreated: integer("leads_created").notNull().default(0),
+  leadsUpdated: integer("leads_updated").notNull().default(0),
+  patternCounts: jsonb("pattern_counts"),  // { trial_expiry, never_onboarded, cancellation_approaching, upgrade_candidates }
+  status: text("status").notNull().default("success"), // 'success' | 'failed'
+  errorMessage: text("error_message"),
+});
+
+// ── Billing Overrides — US-ADM-2.1.1 ─────────────────────────────────────────
+export const billingOverrides = pgTable("billing_overrides", {
+  id: serial().primaryKey(),
+  workspaceId: integer("workspace_id").references(() => organisations.id, { onDelete: "cascade" }),
+  adminId: integer("admin_id").references(() => users.id),
+  action: text("action").notNull(), // 'comp_month' | 'upgrade_tier' | 'downgrade_tier' | 'extend_trial' | 'pause_subscription'
+  amount: decimal("amount", { precision: 10, scale: 2 }),
+  reason: text("reason").notNull(),
+  stripeRef: text("stripe_ref"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

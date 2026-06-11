@@ -6,9 +6,18 @@ import { getDb } from '../../db/client';
 import { users, organisations, userOrganisations, userProfiles, plans, masterPlans, userReferrals } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { checkRateLimit, getClientIp } from '../../src/utils/rate-limit';
+import { isRegistrationLocked } from '../../src/utils/platform-config';
 
 const slugify = (str: string) =>
     str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
+const SUPPORTED_LANGS = ['en', 'fr', 'de', 'es', 'pt'];
+
+function detectLangFromHeader(acceptLanguage: string | undefined): string {
+    if (!acceptLanguage) return 'en';
+    const preferred = acceptLanguage.split(',').map(s => s.split(';')[0].trim().slice(0, 2).toLowerCase());
+    return preferred.find(l => SUPPORTED_LANGS.includes(l)) || 'en';
+}
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -28,6 +37,11 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        // US-ADM-3.2.1: New registration lock
+        if (await isRegistrationLocked()) {
+            return { statusCode: 403, body: JSON.stringify({ error: 'New registrations are temporarily paused. Please check back soon.' }) };
+        }
+
         const body = JSON.parse(event.body || '{}');
 
         const rawEmail = body.email || '';
@@ -39,6 +53,7 @@ export const handler: Handler = async (event) => {
         const isTrial = body.trial === true || body.trial === 'true'; // US-GAP-8.1.1 SC1
         const attributionRef = body.attributionRef?.trim() || null; // US-AUD-5.3.1 SC5
         const referralRef = body.referralRef?.trim() || null;        // US-GAP-8.2: workspace referral code
+        const preferredLang = detectLangFromHeader(event.headers['accept-language']);
 
         if (!email || !firstName || !lastName) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields.' }) };
@@ -98,7 +113,8 @@ export const handler: Handler = async (event) => {
             // 5. Create default User Profile (Crucial for Account Settings hydration)
             await tx.insert(userProfiles).values({
                 userId: newUser.id,
-                timezone: 'Europe/London', // Baseline timezone
+                timezone: 'Europe/London',
+                language: preferredLang,
                 notifyWins: true,
                 notifyBilling: true,
                 notifyAvailability: false,

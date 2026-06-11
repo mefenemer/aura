@@ -3,9 +3,10 @@ import { Handler } from '@netlify/functions';
 import { eq, and, or, isNull, lt, sql } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
-import { users } from '../../db/schema';
+import { users, userProfiles } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { checkRateLimit, getClientIp } from '../../src/utils/rate-limit';
+import { getEmailStrings } from '../../src/utils/email-i18n';
 
 export const handler: Handler = async (event) => {
     const db = getDb();
@@ -75,13 +76,19 @@ export const handler: Handler = async (event) => {
                 const baseUrl = `${protocol}://${host}`;
                 const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}`;
 
+                // US-I18N-1.2 SC4: use user's preferred language for email subject/greeting
+                const [profile] = await db.select({ language: userProfiles.language })
+                    .from(userProfiles).where(eq(userProfiles.userId, user.id)).limit(1);
+                const emailStr = getEmailStrings(profile?.language);
+                const greeting = emailStr.magic_link_greeting(user.firstName || 'there');
+
                 await sendMagicLinkEmail({
                     to: email,
-                    subject: 'Log In to Aura Assist',
+                    subject: emailStr.magic_link_subject,
                     html: `
                         <div style="font-family: sans-serif; text-align: center; padding: 40px 20px; background-color: #fdfcf9;">
                             <div style="max-width: 500px; margin: 0 auto; background-color: white; padding: 40px; border-radius: 16px; border: 1px solid #eae4d7; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                                <h2 style="color: #1f1e1b; margin-top: 0;">Welcome Back</h2>
+                                <h2 style="color: #1f1e1b; margin-top: 0;">${greeting}</h2>
                                 <p style="color: #5c564b; font-size: 16px; line-height: 1.5;">Click the button below to securely log into your Aura Assist dashboard.</p>
                                 <a href="${magicLink}" style="background-color: #00e55c; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; margin: 24px 0; font-weight: bold; font-size: 16px;">
                                     Log In

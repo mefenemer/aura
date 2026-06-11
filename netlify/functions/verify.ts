@@ -3,8 +3,9 @@ import { Handler, HandlerResponse } from '@netlify/functions';
 import { eq, and, gt } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
-import { users, plans, aiAssistants, onboardingDrafts, notifications } from '../../db/schema';
+import { users, plans, aiAssistants, onboardingDrafts, notifications, userProfiles } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
+import { getEmailStrings } from '../../src/utils/email-i18n';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 
@@ -69,6 +70,15 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        // US-ADM-1.1.1: Block locked accounts from logging in
+        if (user.status === 'locked') {
+            return {
+                statusCode: 403,
+                headers: getHeaders(),
+                body: JSON.stringify({ error: 'Your account has been locked. Please contact support@aura-assist.com for assistance.' })
+            };
+        }
+
         // Detect first-ever login (was 'pending_verification' → now 'active')
         const isFirstLogin = user.status === 'pending_verification';
 
@@ -101,9 +111,12 @@ export const handler: Handler = async (event) => {
             // SC4: arrives before the 24h onboarding reminder (onboarding-reminder.ts fires at 24h)
             const onboardingUrl = `${(event.headers['x-forwarded-proto'] || 'https')}://${event.headers.host}/onboarding.html`;
             const helpUrl       = `${(event.headers['x-forwarded-proto'] || 'https')}://${event.headers.host}/help.html`;
+            const [verifyProfile] = await getDb().select({ language: userProfiles.language })
+                .from(userProfiles).where(eq(userProfiles.userId, user.id)).limit(1);
+            const emailStr = getEmailStrings(verifyProfile?.language);
             sendEmail({
                 to: user.email,
-                subject: `Welcome to Aura Assist, ${user.firstName || 'there'}! 🎉`,
+                subject: emailStr.welcome_subject(user.firstName || 'there'),
                 html: `<p>Hi ${user.firstName || 'there'},</p>
                        <p>Your email is verified — welcome to Aura Assist! You're moments away from having your own AI team member handling the work you don't have time for.</p>
                        <h3 style="margin-top:24px;">Here's how to get started in 3 steps:</h3>
@@ -124,7 +137,10 @@ export const handler: Handler = async (event) => {
             }).catch(err => console.warn('[verify] Welcome email failed (non-blocking):', err));
         }
 
-        const tokenPayload = { userId: user.id, email: user.email };
+        // US-ADM-5.2.2: embed adminRole in JWT so the workspace sidebar can show the Admin Portal launcher
+        const ADMIN_ROLES = ['admin', 'super_admin', 'platform_admin', 'billing_admin', 'support_agent'];
+        const tokenPayload: Record<string, unknown> = { userId: user.id, email: user.email };
+        if (user.role && ADMIN_ROLES.includes(user.role)) tokenPayload.adminRole = user.role;
         const signedToken = jwt.sign(tokenPayload, jwtSecret, { expiresIn: '7d' });
         const sessionCookie = `aura_session=${signedToken}; Path=/; Secure; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}`;
 
@@ -162,8 +178,25 @@ export const handler: Handler = async (event) => {
         //   5. cancelled / no plan + existing assistants   → workspace (can view, not use)
         //   6. no plan + no assistants                     → pricing
         if (!priceId || !priceToTier[priceId]) {
-            // Case 0: Admin / superuser → redirect to admin portal
-            if (user.role === 'admin' || user.role === 'super_admin') {
+            // Case 0: Admin / superuser
+            // US-ADM-5.2.2: Dual-role — if the admin also has an active workspace plan, send them
+            // to workspace.html (the Admin Portal launcher appears in the sidebar).
+            // Admin-only accounts (no active plan) still go straight to the admin portal.
+            if (user.role && ADMIN_ROLES.includes(user.role)) {
+                const [adminPlan] = await db
+                    .select({ id: plans.id })
+                    .from(plans)
+                    .where(and(eq(plans.userId, user.id), eq(plans.status, 'active')))
+                    .limit(1);
+                if (adminPlan) {
+                    // Dual-role: has an active workspace — land on workspace dashboard
+                    return {
+                        statusCode: 200,
+                        headers: getHeaders(sessionCookie),
+                        body: JSON.stringify({ success: true, redirect: `${baseUrl}/workspace.html` })
+                    };
+                }
+                // Admin-only: no active workspace plan → go straight to admin portal
                 return {
                     statusCode: 200,
                     headers: getHeaders(sessionCookie),

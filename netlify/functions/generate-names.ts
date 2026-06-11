@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users } from '../../db/schema';
+import { logAiUsage } from '../../src/utils/ai-usage';
+import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 
 const jwtSecret = process.env.JWT_SECRET;
 const openAiKey = process.env.OPENAI_API_KEY;
@@ -11,6 +13,11 @@ const openAiKey = process.env.OPENAI_API_KEY;
 export const handler = async (event: HandlerEvent) => {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
     if (!jwtSecret || !openAiKey) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
+
+    // US-ADM-3.2.1: Global AI kill switch
+    if (await isGlobalAiDisabled()) {
+        return { statusCode: 503, body: JSON.stringify({ error: 'AI services are temporarily unavailable. Please try again later.' }) };
+    }
 
     // 1. Authenticate Session
     const rawCookieHeader = event.headers.cookie || '';
@@ -68,6 +75,15 @@ export const handler = async (event: HandlerEvent) => {
 
         const data = await response.json();
         const names = JSON.parse(data.choices[0].message.content);
+
+        // US-ADM-3.1.1: fire-and-forget usage log
+        void logAiUsage({
+            userId:      decoded.userId,
+            workspaceId: orgId,
+            model:       'gpt-3.5-turbo',
+            inputTokens:  data.usage?.prompt_tokens     ?? 0,
+            outputTokens: data.usage?.completion_tokens ?? 0,
+        });
 
         // 3. Return clean array
         return { statusCode: 200, body: JSON.stringify({ names }) };

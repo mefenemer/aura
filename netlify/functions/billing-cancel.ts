@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, plans } from '../../db/schema';
+import { users, plans, leads } from '../../db/schema';
 
 const jwtSecret    = process.env.JWT_SECRET;
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
@@ -72,9 +72,29 @@ export const handler: Handler = async (event) => {
 
         // Mirror the pending-cancellation status in our DB immediately.
         // The webhook (customer.subscription.deleted) will set it to 'cancelled' at period end.
-        await db.update(plans)
+        const [activePlan] = await db.update(plans)
             .set({ status: 'cancelling' })
-            .where(and(eq(plans.userId, userId), eq(plans.status, 'active')));
+            .where(and(eq(plans.userId, userId), eq(plans.status, 'active')))
+            .returning({ planName: plans.planName, organisationId: plans.organisationId });
+
+        // US-SALES-1.1 Part 3c: capture cancellation intent as a high-priority lead
+        try {
+            await db.insert(leads).values({
+                email: user.email,
+                opportunityReason: `Cancellation initiated — ${activePlan?.planName ?? 'unknown plan'}`,
+                action: 'cancellation_intent',
+                leadType: 'cancellation_intent',
+                source: 'workspace_cancel',
+                userId,
+                organisationId: activePlan?.organisationId ?? null,
+                priority: 'high',
+            }).onConflictDoUpdate({
+                target: [leads.email, leads.opportunityReason],
+                set: { priority: 'high', updatedAt: new Date() },
+            });
+        } catch (leadErr) {
+            console.error('[billing-cancel] lead capture failed (non-fatal):', leadErr);
+        }
 
         return {
             statusCode: 200,

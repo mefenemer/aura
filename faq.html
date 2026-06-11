@@ -14,6 +14,7 @@
         .fade-up   { animation: fadeUp .4s ease both; }
         .fade-up-2 { animation: fadeUp .4s .08s ease both; }
     </style>
+    <script src="/src/i18n.js"></script>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
@@ -36,8 +37,21 @@
 <main class="flex-grow">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
 
+        <!-- Section nav jump links (SC8) -->
+        <div class="mb-12 rounded-2xl bg-gray-50 border border-gray-200 p-6">
+            <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Jump to a section</p>
+            <div class="flex flex-wrap gap-2">
+                <a href="#section-getting-started" class="text-sm font-medium px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:border-emerald-400 hover:text-emerald-700 transition">Getting Started</a>
+                <a href="#section-how-it-works" class="text-sm font-medium px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:border-emerald-400 hover:text-emerald-700 transition">How It Actually Works</a>
+                <a href="#section-app-connections" class="text-sm font-medium px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:border-emerald-400 hover:text-emerald-700 transition">App Connections</a>
+                <a href="#section-billing" class="text-sm font-medium px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:border-emerald-400 hover:text-emerald-700 transition">Billing &amp; Plans</a>
+                <a href="#section-tasks" class="text-sm font-medium px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:border-emerald-400 hover:text-emerald-700 transition">Tasks &amp; Capacity</a>
+                <a href="#section-privacy" class="text-sm font-medium px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:border-emerald-400 hover:text-emerald-700 transition">Data Privacy &amp; Safety</a>
+            </div>
+        </div>
+
         <!-- Getting Started -->
-        <div class="mb-12">
+        <div id="section-getting-started" class="mb-12">
             <h2 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Getting Started</h2>
             <div class="space-y-3">
                 <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
@@ -70,9 +84,122 @@
             </div>
         </div>
 
-        <!-- Billing & Plans -->
-        <div class="mb-12">
-            <h2 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Billing &amp; Plans</h2>
+        <!-- How It Actually Works -->
+        <div id="section-how-it-works" class="mb-12">
+            <h2 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">How It Actually Works</h2>
+            <div class="space-y-3">
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>How does my Digital Assistant know how to sound like me?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        When you first set up your assistant, you'll go through a short onboarding process where you share a few things: your brand name, the tone you want (friendly, professional, bold, etc.), examples of content you love, and who your customers are. Think of it like briefing a new team member on their first day. From there, your assistant picks up patterns from everything it produces for you. The more you use it — and the more you approve or tweak its output — the sharper it gets at sounding like you, not a generic robot.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>Do I have to train it like a full-time job? I'm already stretched thin.</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Not at all. The initial setup takes around 10–15 minutes, and from there your assistant works from the preferences and examples you gave it. You won't be sitting at a dashboard feeding it instructions every morning. That said, the more specific feedback you give it over the first couple of weeks, the faster it dials in. After that, most customers find they barely need to touch the settings.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>What if it writes something I absolutely hate or that's factually wrong?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        This will happen — especially early on, and that's completely normal. Every piece of content your assistant produces is shown to you for review before anything is published or sent. Nothing goes live without your approval unless you've specifically turned on full automation for a particular task. If something's off, you simply reject it or leave a note, and the assistant adjusts. Think of it as a first draft from a very fast copywriter, not a final decision-maker.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>Does my assistant run in the background, or do I have to log in and assign it tasks every day?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Your assistant can do both — it's up to you. For recurring tasks (like scheduling three social posts a week, or triaging your inbox every morning), you set it up once and it runs automatically on your chosen schedule. You don't need to be logged in. For one-off tasks or anything that needs your specific input, you can pop in and brief it whenever you like. Most customers set up their routines once during onboarding and then check in a few times a week to review what's been produced.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>What does the 'In-House Editor' (Quality Reviewer) on Tier 2 actually do?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Think of it as a second pair of eyes built into the process. Before your assistant's content reaches you for final approval, the Quality Reviewer checks it against your brand guidelines — flagging anything that sounds off-brand, factually shaky, or inconsistent in tone. It's the difference between handing you a rough draft versus a polished near-final draft. It saves a significant amount of back-and-forth, especially if you're using your assistant for customer-facing content like emails or social media.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>Can I have multiple people on my team using the same assistant, or is this just for me?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        On Tier 1 and Tier 2, your assistants are primarily designed for individual or small-team use within a single workspace. On Tier 3, the Shared Virtual Workspace means your whole team — account managers, content leads, ops staff — can access and collaborate through the same assistants simultaneously, with shared context so everyone's on the same page. If you're running an agency or a team of more than a handful of people, Tier 3 or our Custom (Tier 4) option is the right fit.
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <!-- App Connections & Your Tech Stack -->
+        <div id="section-app-connections" class="mb-12">
+            <h2 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">App Connections &amp; Your Tech Stack</h2>
+            <div class="space-y-3">
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>What exactly counts as an 'app connection'?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Each tool or platform you link to Aura-Assist counts as one connection. So if you connect Gmail, that's one. If you then connect Instagram, that's two. Common examples include: Gmail, Outlook, Slack, Instagram, Facebook, LinkedIn, Notion, Google Drive, Shopify, and Calendly. Every individual platform is its own connection — connecting both your Gmail and your Outlook would use two slots, not one.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>What's the difference between a Standard App and a Premium App?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Standard Apps are the everyday tools most small businesses already use — think email, social media platforms, messaging tools, file storage, and scheduling apps. Premium Apps are more specialist, typically higher-complexity integrations like CRM platforms (HubSpot, Salesforce), ERP tools, or custom internal systems. Premium Apps require more sophisticated setup and ongoing maintenance on our end, which is why they're unlocked from Tier 3 onwards. If you're unsure whether a specific tool you use is Standard or Premium, just ask us before you sign up.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>If I hit my app connection limit mid-month, what happens?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Nothing breaks and nothing gets disconnected without your knowledge. You'll simply receive a notification letting you know you've reached your plan's limit. Your existing connected apps continue working normally. To add another connection, you'd either need to disconnect one of your current apps or upgrade to the next tier. We'll never silently disconnect something — you're always in control.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>Can I swap out which apps are connected, or am I locked in to my original choices?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        You can swap them out at any time from your dashboard. If you connected Instagram during your first week but want to replace it with LinkedIn next month, just disconnect Instagram and connect LinkedIn — it counts as one change, not an additional slot. Your total number of active connections just can't exceed your plan's limit at any given time.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>I use a really niche tool — will Aura-Assist support it?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Our current Standard App library covers the most widely-used business tools. If your tool isn't on the list, it doesn't automatically mean we can't support it — it may just require a custom integration, which falls under our Tier 4 (Custom) professional services. Get in touch with us and we'll be straight with you about what's possible and what it would involve.
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <!-- Billing, Invoices & Changing Plans -->
+        <div id="section-billing" class="mb-12">
+            <h2 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Billing, Invoices &amp; Changing Plans</h2>
             <div class="space-y-3">
                 <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
                     <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
@@ -101,11 +228,74 @@
                         Yes, at any time. Changes take effect at your next billing cycle. If you upgrade mid-cycle, we'll pro-rate the difference.
                     </div>
                 </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>What does 'rolling monthly contract' actually mean?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        It means there's no fixed end date and no long-term commitment. You pay month to month, and your plan renews automatically each month on the same date you originally signed up. If you decide to cancel, you give notice and your access continues until the end of that billing period — you won't be charged again after that. There are no cancellation fees, no exit penalties, and no awkward phone calls to cancel.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>If I choose the annual plan, do I pay everything upfront?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Yes — the annual plan is billed as a single payment at the start of your year. In return, you get a meaningful discount compared to paying month by month (the equivalent of getting roughly two months free, depending on the tier). If you'd prefer not to pay a lump sum, the monthly rolling contract is always there as an option.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>How do I get a proper invoice for my accounts, bookkeeper, or VAT records?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Every payment generates a full, compliant invoice automatically. You'll receive it by email immediately after each charge, and you can also download any past invoice directly from the Billing section of your account dashboard at any time. Invoices include your business name and address, the service description, the VAT or tax breakdown applicable to your country, and our registered company details.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>Are the prices shown on the website including or excluding VAT?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        The prices shown on our pricing page are exclusive of VAT. If you're based in the UK and are not VAT-registered, VAT at the current rate will be added at checkout. If you are VAT-registered, simply enter your VAT number at checkout and you'll see the correct treatment applied to your invoice. Customers outside the UK may be subject to local taxes depending on their jurisdiction — this is all handled automatically and shown clearly before you confirm payment.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>Can I upgrade my plan partway through the month?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Absolutely, and we make it as fair as possible. If you upgrade halfway through your billing cycle, you'll only pay the price difference for the remaining days in that period — you won't be charged twice for the whole month. Your new features and assistant slots are unlocked immediately the moment you upgrade, not at the start of the next cycle.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>What if I switch from monthly to annual billing later — do I lose time I've already paid for?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        No. If you switch to annual part-way through a monthly cycle, we'll credit the unused portion of your current monthly payment and apply it toward your annual plan. You'll see a clear breakdown of exactly what you're being charged and what credit is being applied before you confirm. Nothing disappears.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>What happens to my account if a payment fails?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        We'll immediately notify you by email if a payment doesn't go through. Your account enters a short grace period (typically 5 business days) during which you can update your payment details without any interruption to your service. If the payment still hasn't resolved after the grace period, your account will be temporarily paused — meaning your assistants stop running, but your data and settings are fully preserved. Once payment is resolved, everything picks back up exactly where it left off.
+                    </div>
+                </details>
             </div>
         </div>
 
         <!-- Tasks & Capacity -->
-        <div class="mb-12">
+        <div id="section-tasks" class="mb-12">
             <h2 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Tasks &amp; Capacity</h2>
             <div class="space-y-3">
                 <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
@@ -138,9 +328,9 @@
             </div>
         </div>
 
-        <!-- Safety & Privacy -->
-        <div class="mb-12">
-            <h2 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Safety &amp; Privacy</h2>
+        <!-- Data Privacy & Safety -->
+        <div id="section-privacy" class="mb-12">
+            <h2 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Data Privacy &amp; Safety</h2>
             <div class="space-y-3">
                 <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
                     <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
@@ -169,8 +359,58 @@
                         Only if you explicitly configure it that way. By default, every output enters a <strong class="text-gray-700">Draft Approvals</strong> queue so you can review and approve before anything goes live. You can choose to enable fully autonomous publishing for specific workflows once you're confident in your assistant's output quality.
                     </div>
                 </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>Do you use my data or my customers' emails to train your AI models?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        No. Your data — including any emails, documents, messages, or content your assistant handles — is never used to train public AI models or shared with third parties for model development. Full stop. What happens in your workspace stays in your workspace.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>Who at Aura-Assist can access my connected apps?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        In normal operations, no human at Aura-Assist reads your connected app data. Access is handled programmatically by the assistant — meaning software, not staff, is doing the reading and writing. The only exception would be if you explicitly raise a support ticket and grant us temporary, scoped permission to investigate a specific issue. Even then, access is logged, time-limited, and only to the minimum data needed to resolve your problem.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>Where is my data stored, and does it leave my country?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Your data is stored on servers based in the UK/EU, in compliance with UK GDPR and EU GDPR requirements. We do not transfer your personal data outside of the UK/EU without appropriate safeguards in place. For enterprise or regulated-industry customers with specific data residency requirements, please contact us.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>What happens to my data if I cancel my account?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        When you cancel, your account data is retained for 30 days in case you change your mind or need to export something. After 30 days, it is permanently and irreversibly deleted from our systems. Before cancelling, you'll be prompted to download any exports you need. We'll never hold your own content hostage or make it difficult to leave.
+                    </div>
+                </details>
+                <details class="bg-white border border-gray-200 rounded-xl shadow-sm group open:border-emerald-200 transition-all">
+                    <summary class="flex justify-between items-center font-semibold cursor-pointer list-none px-6 py-5 text-gray-900 hover:text-emerald-700 transition-colors">
+                        <span>Do you have a Data Processing Agreement (DPA) available?</span>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-6 pb-5 text-gray-500 text-sm leading-relaxed border-t border-gray-100 pt-4">
+                        Yes. If you're processing personal data belonging to your customers through Aura-Assist, you may need a DPA in place for GDPR compliance. You can request our standard DPA directly from the account dashboard under Settings → Legal, or by contacting our support team. Enterprise customers on Tier 4 can negotiate a custom DPA as part of their onboarding.
+                    </div>
+                </details>
             </div>
         </div>
+
+        <!-- SC7: Page disclaimer -->
+        <p class="text-xs text-gray-400 text-center mb-12 leading-relaxed max-w-2xl mx-auto">
+            These FAQs are written for a general audience and reflect platform behaviour as of June 2026. For jurisdiction-specific legal or tax questions, we recommend speaking with a qualified local advisor.
+        </p>
 
         <!-- Still have questions CTA -->
         <div class="rounded-2xl bg-emerald-50 border border-emerald-100 p-8 text-center">
@@ -197,6 +437,7 @@
         await loadComponent('nav-placeholder', './components/nav.html');
         loadComponent('footer-placeholder', './components/footer.html');
         setupMobileMenu();
+        if (window.i18n) window.i18n.apply();
     });
 })();
 </script>

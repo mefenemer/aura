@@ -7,8 +7,20 @@ node_bundler = "esbuild"
 
 [[edge_functions]]
   function = "auth-guard"
-  path = "/*.html" # Runs the check on all HTML file requests
+  path = "/*.html" # Maintenance mode + session guard on all HTML pages
+
+[[edge_functions]]
+  function = "auth-guard"
+  path = "/"
 
 # SC3: Daily task-volume threshold check — 08:00 UTC every day
 [functions.task-volume-check]
   schedule = "0 8 * * *"
+
+# US-ADM-2.3.1: Stripe↔DB nightly billing reconciliation — 02:00 UTC every day
+[functions.reconcile-billing]
+  schedule = "0 2 * * *"
+
+# US-SALES-1.1 Part 4: Nightly lead identification — 03:00 UTC every day
+[functions.identify-leads]
+  schedule = "0 3 * * *"

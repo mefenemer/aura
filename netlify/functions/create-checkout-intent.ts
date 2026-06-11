@@ -19,6 +19,7 @@ import {
   masterPlans,
   masterAssistants,
   onboardingDrafts,
+  planPrices,
 } from '../../db/schema';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
@@ -102,6 +103,8 @@ export const handler: Handler = async (event) => {
 
     const body = JSON.parse(event.body || '{}');
     const { clientName, businessName, tier, assistantName, customAssistantName, rawInputs, onboardingContext, consents } = body;
+    // US-I18N-2.1 SC3: user's selected currency (from frontend localStorage), fallback to GBP
+    const requestedCurrency = (body.currency || 'GBP').toUpperCase();
 
     if (assistantName === 'Social Media Manager') {
       if (!onboardingContext?.target_audience || !onboardingContext?.content_pillars || !onboardingContext?.tone_of_voice || !onboardingContext?.primary_platforms?.length) {
@@ -112,6 +115,19 @@ export const handler: Handler = async (event) => {
     // 2. MASTER PLAN LOOKUP
     const [masterPlan] = await db.select().from(masterPlans).where(eq(masterPlans.tierKey, tier?.toLowerCase() || 'employee')).limit(1);
     if (!masterPlan) return { statusCode: 400, body: JSON.stringify({ error: 'Invalid subscription tier selected.' }) };
+
+    // US-I18N-2.1 SC3: resolve currency pricing — fall back to GBP if no plan_prices row for requested currency
+    const SUPPORTED_CURRENCIES = ['GBP', 'USD', 'EUR', 'AUD', 'CAD'];
+    const currency = SUPPORTED_CURRENCIES.includes(requestedCurrency) ? requestedCurrency : 'GBP';
+    const [planPrice] = await db.select().from(planPrices)
+        .where(and(eq(planPrices.masterPlanId, masterPlan.id), eq(planPrices.currency, currency), eq(planPrices.isActive, true)))
+        .limit(1);
+    // SC4: fall back to GBP (existing behaviour) if no plan_prices row exists
+    const priceAmount = planPrice
+        ? Number(planPrice.monthlyPriceMajorUnit)
+        : Number(masterPlan.monthlyPriceGbp);
+    const priceCurrency = planPrice ? currency : 'GBP';
+    const resolvedCurrencyFallback = !planPrice && currency !== 'GBP';
 
     const targetName = customAssistantName?.trim() || 'Digital Assistant';
 
@@ -143,6 +159,7 @@ export const handler: Handler = async (event) => {
         masterPlanId: masterPlan.id,
         planName: masterPlan.name,
         planType: 'subscription',
+        currency: priceCurrency, // US-I18N-2.1 SC5: store subscriber's billing currency
       }).returning();
 
       const [assistantRecord] = await tx.select().from(masterAssistants).where(eq(masterAssistants.name, assistantName || 'Social Media Manager')).limit(1);
@@ -174,8 +191,8 @@ export const handler: Handler = async (event) => {
         userId: existingUser.id,
         organisationId: existingUser.organisationId!,
         planId: newPlan.id,
-        amount: masterPlan.monthlyPriceGbp,
-        currency: 'GBP',
+        amount: String(priceAmount),
+        currency: priceCurrency,
         status: 'pending',
         description: `Aura ${masterPlan.name} Setup`,
       }).returning();
@@ -192,19 +209,24 @@ export const handler: Handler = async (event) => {
       });
 
       // Create Stripe Subscription (incomplete — waits for payment confirmation)
+      // US-I18N-2.1 SC3: use Stripe Price ID from plan_prices if available, else price_data with resolved currency
+      const subscriptionItem: Stripe.SubscriptionCreateParams.Item = planPrice?.stripePriceId
+          ? { price: planPrice.stripePriceId }
+          : {
+              price_data: {
+                  currency: priceCurrency.toLowerCase(),
+                  product_data: {
+                      name: `Aura-Assist: ${targetName}`,
+                      metadata: { assistantType: assistantName || 'Digital Assistant' },
+                  },
+                  unit_amount: Math.round(priceAmount * 100),
+                  recurring: { interval: 'month' },
+              },
+          };
+
       const subscription = await stripe.subscriptions.create({
         customer: customer.id,
-        items: [{
-          price_data: {
-            currency: 'gbp',
-            product_data: {
-              name: `Aura-Assist: ${targetName}`,
-              metadata: { assistantType: assistantName || 'Digital Assistant' },
-            },
-            unit_amount: Math.round(Number(masterPlan.monthlyPriceGbp) * 100),
-            recurring: { interval: 'month' },
-          },
-        }],
+        items: [subscriptionItem],
         payment_behavior: 'default_incomplete',
         payment_settings: { save_default_payment_method: 'on_subscription' },
         expand: ['latest_invoice.payment_intent'],
@@ -223,7 +245,9 @@ export const handler: Handler = async (event) => {
         publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
         planName: masterPlan.name,
         assistantName: targetName,
-        amountGbp: masterPlan.monthlyPriceGbp,
+        amount: priceAmount,
+        currency: priceCurrency,
+        currencyFallback: resolvedCurrencyFallback, // true if requested currency was unavailable
         subscriptionId: subscription.id,
       };
     });
