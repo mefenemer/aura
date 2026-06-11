@@ -32,6 +32,7 @@ import {
     organisations, billingReconciliationLog, masterPlans, platformConfig, featureFlags,
     billingOverrides, payments, assistantVersions,
     agentAnomalies, agentAnomalyThresholds, taskRuns,
+    legalHolds,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendMagicLinkEmail } from '../../src/utils/email';
@@ -1732,6 +1733,53 @@ export const handler: Handler = async (event) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ threshold: row }),
             };
+        }
+
+        // ── US-GOV-4.2.2: Legal holds — place and lift ────────────────────────────
+        if (resource === 'legal-holds') {
+            const permErr = requirePermission(adminRole, 'platform_config');
+            if (permErr) return permErr;
+
+            if (event.httpMethod === 'GET') {
+                const rows = await db.select({
+                    id:             legalHolds.id,
+                    organisationId: legalHolds.organisationId,
+                    reason:         legalHolds.reason,
+                    isActive:       legalHolds.isActive,
+                    placedAt:       legalHolds.placedAt,
+                    liftedAt:       legalHolds.liftedAt,
+                    orgName:        organisations.name,
+                }).from(legalHolds)
+                  .leftJoin(organisations, eq(organisations.id, legalHolds.organisationId))
+                  .orderBy(desc(legalHolds.placedAt));
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ holds: rows }) };
+            }
+
+            if (event.httpMethod === 'POST') {
+                const body = JSON.parse(event.body || '{}');
+                const { organisationId, reason } = body;
+                if (!organisationId || !reason?.trim()) {
+                    return { statusCode: 400, body: JSON.stringify({ error: 'organisationId and reason are required.' }) };
+                }
+                const [hold] = await db.insert(legalHolds).values({
+                    organisationId, reason: reason.trim(), placedBy: adminId,
+                }).returning();
+                await audit(db, adminId, 'UPDATE', 'legal_holds', hold.id, { organisationId, reason });
+                return { statusCode: 201, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hold }) };
+            }
+
+            // PATCH ?id=N  { lift: true }
+            if (event.httpMethod === 'PATCH') {
+                const holdId = parseInt(qs.id || '');
+                if (!holdId) return { statusCode: 400, body: JSON.stringify({ error: 'id required.' }) };
+                const [lifted] = await db.update(legalHolds)
+                    .set({ isActive: false, liftedAt: new Date(), liftedBy: adminId })
+                    .where(eq(legalHolds.id, holdId))
+                    .returning();
+                if (!lifted) return { statusCode: 404, body: JSON.stringify({ error: 'Hold not found.' }) };
+                await audit(db, adminId, 'UPDATE', 'legal_holds', holdId, { liftedAt: lifted.liftedAt });
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hold: lifted }) };
+            }
         }
 
         return { statusCode: 404, body: JSON.stringify({ error: `Unknown resource: ${resource}` }) };

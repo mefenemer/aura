@@ -244,6 +244,9 @@ export const vaultSecrets = pgTable("vault_secrets", {
   encryptedPayload: text("encrypted_payload").notNull(), // AES-256-GCM ciphertext (base64)
   iv: text("iv").notNull(),                              // GCM nonce (base64, 12 bytes)
   authTag: text("auth_tag").notNull(),                   // GCM auth tag (base64, 16 bytes)
+  // US-GDPR-3.1.1: KEK/DEK hierarchy — per-user DEK encrypted with master KEK
+  // Null on legacy rows (pre-migration); vault.ts handles both cases during migration window.
+  encryptedDek: text("encrypted_dek"),                  // DEK wrapped by KEK (format: iv:authTag:ciphertext, all base64)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -899,6 +902,86 @@ export const leadAnalysisRuns = pgTable("lead_analysis_runs", {
   patternCounts: jsonb("pattern_counts"),  // { trial_expiry, never_onboarded, cancellation_approaching, upgrade_candidates }
   status: text("status").notNull().default("success"), // 'success' | 'failed'
   errorMessage: text("error_message"),
+});
+
+// ── Agent Run Events — US-GOV-4.2.2: Per-run full audit trail (6-month retention) ──
+export const agentRunEvents = pgTable("agent_run_events", {
+  id: serial().primaryKey(),
+  taskRunId: integer("task_run_id").notNull().references(() => taskRuns.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(), // 'llm_call' | 'tool_call' | 'human_intervention' | 'suspension' | 'termination'
+  eventIndex: integer("event_index").notNull(),
+  toolName: text("tool_name"),             // present for tool_call events
+  inputPayload: jsonb("input_payload"),    // sanitised — PII pseudonymised before storage
+  outputPayload: jsonb("output_payload"),  // sanitised
+  durationMs: integer("duration_ms"),
+  costGbp: decimal("cost_gbp", { precision: 10, scale: 6 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── Agent Run Summaries — retained 2 years for billing/compliance ──────────────
+export const agentRunSummaries = pgTable("agent_run_summaries", {
+  id: serial().primaryKey(),
+  taskRunId: integer("task_run_id").notNull().references(() => taskRuns.id, { onDelete: "cascade" }).unique(),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "set null" }),
+  totalLlmCalls: integer("total_llm_calls").notNull().default(0),
+  totalToolCalls: integer("total_tool_calls").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  totalCostGbp: decimal("total_cost_gbp", { precision: 10, scale: 6 }).notNull().default("0"),
+  wallClockMinutes: decimal("wall_clock_minutes", { precision: 8, scale: 2 }),
+  terminationReason: text("termination_reason"), // 'completed' | 'anomaly_suspended' | 'anomaly_terminated' | 'user_cancelled' | 'error'
+  humanInterventionCount: integer("human_intervention_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── Legal Holds — US-GOV-4.2.2: pause retention deletion for a workspace ───────
+export const legalHolds = pgTable("legal_holds", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  reason: text("reason").notNull(),
+  placedBy: integer("placed_by").references(() => users.id, { onDelete: "set null" }),
+  liftedBy: integer("lifted_by").references(() => users.id, { onDelete: "set null" }),
+  placedAt: timestamp("placed_at").defaultNow().notNull(),
+  liftedAt: timestamp("lifted_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── Pending Actions — US-GOV-4.1.2: HITL approval queue for Tier 3/4 agent actions ──
+export const pendingActions = pgTable("pending_actions", {
+  id: serial().primaryKey(),
+  taskRunId: integer("task_run_id").references(() => taskRuns.id, { onDelete: "cascade" }),
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }), // deployer who must approve
+  actionType: text("action_type").notNull(),       // e.g. 'send_email', 'delete_record', 'bulk_charge'
+  reversibilityTier: integer("reversibility_tier").notNull(), // 0-4
+  actionPayload: jsonb("action_payload").notNull(), // sanitised proposed action details
+  affectedRecordCount: integer("affected_record_count"),
+  status: text("status").notNull().default("pending"), // 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled'
+  approvedBy: integer("approved_by").references(() => users.id, { onDelete: "set null" }),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  expiresAt: timestamp("expires_at").notNull(), // auto-cancelled after 24h
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── Action Policies — US-GOV-4.1.2: Per-assistant HITL tier overrides ────────
+export const actionPolicies = pgTable("action_policies", {
+  id: serial().primaryKey(),
+  // null assistantId = platform-wide default; non-null = assistant-level override
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
+  // Minimum tier that requires HITL — assistants can raise this, never lower below platform min
+  hitlMinimumTier: integer("hitl_minimum_tier").notNull().default(3), // default: Tier 3+ requires approval
+  // Per-integration type overrides (jsonb map: { send_email: 2, delete_record: 3 })
+  integrationTypeMinTiers: jsonb("integration_type_min_tiers"),
+  // Tier 2 rate limit: max Tier 2 actions per run before queuing kicks in
+  tier2RateLimit: integer("tier2_rate_limit").notNull().default(10),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // ── Agent Anomaly Thresholds — US-GOV-4.2.1: Platform-wide and workspace-level kill-switch config ──
