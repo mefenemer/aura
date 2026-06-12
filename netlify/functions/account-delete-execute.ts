@@ -9,7 +9,7 @@ import * as crypto from 'crypto';
 import Stripe from 'stripe';
 import { eq, and, lt, isNotNull, count } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, plans, organisations, userOrganisations, gdprErasureLog, jwtBlocklist } from '../../db/schema';
+import { users, plans, organisations, userOrganisations, gdprErasureLog, jwtBlocklist, aiAssistants, aiUsageLog } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 import { purgeUserAssets } from '../../src/utils/gdpr-asset-purge';
 
@@ -75,6 +75,12 @@ async function executeDeleteions() {
                 assetsPurged:      purgeResult.assetsPurged,
                 embeddingsDeleted: purgeResult.embeddingsDeleted,
                 storageBytesFreed: purgeResult.storageBytesFreed,
+                dataWipedFields:   [
+                    'aiAssistants.onboardingContext',
+                    'aiAssistants.configuration',
+                    'aiAssistants.systemPrompt',
+                    'aiUsageLog.sessionId',
+                ],
                 ...(purgeResult.partialFailures.length > 0
                     ? { partialFailures: purgeResult.partialFailures, erasureStatus: 'PARTIAL' }
                     : {}),
@@ -94,6 +100,21 @@ async function executeDeleteions() {
                 await db.delete(organisations).where(eq(organisations.id, user.organisationId)).catch(() => {});
             }
         }
+
+        // US-GDPR-2.1.1: Wipe AI assistant personal data columns before cascade fires.
+        // After db.delete(users) the aiAssistants.userId FK is set to null by cascade,
+        // so this WHERE clause would match 0 rows — must run first.
+        await db.update(aiAssistants)
+            .set({ onboardingContext: null, configuration: null, systemPrompt: null })
+            .where(eq(aiAssistants.userId, user.id))
+            .catch(() => {});
+
+        // Null sessionId in ai_usage_log before deletion so it's auditable.
+        // (userId FK cascade sets userId=null on deletion; sessionId must be nulled explicitly.)
+        await db.update(aiUsageLog)
+            .set({ sessionId: null })
+            .where(eq(aiUsageLog.userId, user.id))
+            .catch(() => {});
 
         // Hard-delete user (cascades to all related tables via ON DELETE CASCADE)
         await db.delete(users).where(eq(users.id, user.id)).catch(err => {

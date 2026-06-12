@@ -983,17 +983,76 @@ export const handler: Handler = async (event) => {
                 .groupBy(sql`DATE(created_at)`)
                 .orderBy(sql`DATE(created_at)`);
 
+            const platformTotalGbp = +(platformTotalUsd * (fxRates.USD ?? 0.787)).toFixed(2);
+
             return {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    platformTotalUsd,
+                    platformTotalGbp,
                     topWorkspaces: workspacesWithMargin,
                     modelDist,
                     dailySpend,
                     monthStart: monthStart.toISOString(),
-                    fxRates, // US-I18N-2.1 SC7: exchange rates used for GBP normalisation
+                    fxRates,
                 }),
+            };
+        }
+
+        // ── GET: cogs-workspace-detail — US-ADM-3.1.1 ───────────────────────────
+        // Drill-down for a single workspace: per-assistant cost, per-task-type cost,
+        // hourly usage heatmap (last 7 days).
+        if (event.httpMethod === 'GET' && resource === 'cogs-workspace-detail') {
+            const permErr = requirePermission(adminRole, 'platform_config');
+            if (permErr) return permErr;
+
+            const orgId = qs.orgId ? parseInt(qs.orgId, 10) : null;
+            if (!orgId) return { statusCode: 400, body: JSON.stringify({ error: 'orgId is required.' }) };
+
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+            const [assistantCosts, taskTypeCosts, hourlyHeatmap] = await Promise.all([
+                // Per-assistant cost breakdown
+                db.select({
+                    assistantId: aiUsageLog.assistantId,
+                    totalCostUsd: sql<string>`COALESCE(SUM(cost_usd::numeric), 0)`,
+                    callCount: sql<string>`COUNT(*)`,
+                })
+                    .from(aiUsageLog)
+                    .where(eq(aiUsageLog.workspaceId, orgId))
+                    .groupBy(aiUsageLog.assistantId)
+                    .orderBy(sql`SUM(cost_usd::numeric) DESC`)
+                    .limit(20),
+
+                // Per-task-type cost breakdown (via taskRuns join)
+                db.select({
+                    taskType: taskRuns.taskType,
+                    totalCostUsd: sql<string>`COALESCE(SUM(${aiUsageLog.costUsd}::numeric), 0)`,
+                    callCount: sql<string>`COUNT(${aiUsageLog.id})`,
+                })
+                    .from(aiUsageLog)
+                    .innerJoin(taskRuns, eq(aiUsageLog.taskRunId, taskRuns.id))
+                    .where(eq(aiUsageLog.workspaceId, orgId))
+                    .groupBy(taskRuns.taskType)
+                    .orderBy(sql`SUM(${aiUsageLog.costUsd}::numeric) DESC`)
+                    .limit(20),
+
+                // Hourly usage heatmap — last 7 days
+                db.select({
+                    hour: sql<string>`DATE_TRUNC('hour', ${aiUsageLog.createdAt})`,
+                    totalCostUsd: sql<string>`COALESCE(SUM(cost_usd::numeric), 0)`,
+                    callCount: sql<string>`COUNT(*)`,
+                })
+                    .from(aiUsageLog)
+                    .where(and(eq(aiUsageLog.workspaceId, orgId), gte(aiUsageLog.createdAt, sevenDaysAgo)))
+                    .groupBy(sql`DATE_TRUNC('hour', ${aiUsageLog.createdAt})`)
+                    .orderBy(sql`DATE_TRUNC('hour', ${aiUsageLog.createdAt})`),
+            ]);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orgId, assistantCosts, taskTypeCosts, hourlyHeatmap }),
             };
         }
 

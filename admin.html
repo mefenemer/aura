@@ -25,68 +25,84 @@
 <!-- ── Layout ──────────────────────────────────────────────────────────── -->
 <div class="flex min-h-screen">
 
-  <!-- Sidebar -->
-  <aside class="w-56 bg-gray-900 text-white flex flex-col flex-shrink-0">
-    <div class="px-6 py-5 border-b border-gray-700">
-      <div class="text-lg font-extrabold">
-        <span class="text-emerald-400">Aura</span>-Assist
-      </div>
-      <div class="text-xs text-gray-400 mt-0.5 font-semibold uppercase tracking-wider">Admin</div>
+  <!-- US-ADM-1.4.1: Two-tier navigation -->
+  <!-- Primary sidebar: category icons + labels -->
+  <aside id="admin-primary-nav" class="admin-primary-nav w-16 lg:w-20 bg-gray-950 text-white flex flex-col flex-shrink-0 z-20">
+    <div class="h-14 flex items-center justify-center border-b border-gray-800 shrink-0">
+      <span class="text-emerald-400 font-extrabold text-lg">A</span>
     </div>
-    <nav class="flex-1 py-4 space-y-1 px-3">
-      <button onclick="adminNav('dashboard')" id="nav-dashboard" class="admin-nav-btn active w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        📊 Dashboard
+    <nav class="flex-1 py-3 flex flex-col gap-0.5 overflow-y-auto" id="admin-cat-nav" aria-label="Admin categories">
+      <!-- Dashboard (standalone) -->
+      <button data-cat="dashboard" onclick="adminCatNav('dashboard')"
+        class="admin-cat-btn group relative flex flex-col items-center justify-center py-3 px-1 transition-colors cursor-pointer"
+        aria-label="Dashboard" title="Dashboard">
+        <span class="text-xl">📊</span>
+        <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">Dash</span>
       </button>
-      <button onclick="adminNav('users')" id="nav-users" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        👥 Users
+      <button data-cat="users" onclick="adminCatNav('users')"
+        class="admin-cat-btn group relative flex flex-col items-center justify-center py-3 px-1 transition-colors cursor-pointer"
+        aria-label="Users" title="Users">
+        <span class="text-xl">👥</span>
+        <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">Users</span>
       </button>
-      <button onclick="adminNav('tickets')" id="nav-tickets" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        🎫 Support Tickets
+      <button data-cat="billing" onclick="adminCatNav('billing')"
+        class="admin-cat-btn group relative flex flex-col items-center justify-center py-3 px-1 transition-colors cursor-pointer"
+        aria-label="Billing" title="Billing">
+        <span class="text-xl">💳</span>
+        <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">Billing</span>
       </button>
-      <button onclick="adminNav('catalog')" id="nav-catalog" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        🤖 Assistant Catalog
+      <button data-cat="assistants" onclick="adminCatNav('assistants')"
+        class="admin-cat-btn group relative flex flex-col items-center justify-center py-3 px-1 transition-colors cursor-pointer"
+        aria-label="Assistants" title="Assistants">
+        <span class="text-xl">🤖</span>
+        <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">Assist.</span>
       </button>
-      <button onclick="adminNav('analytics')" id="nav-analytics" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        📈 Analytics
+      <button data-cat="platform" onclick="adminCatNav('platform')"
+        class="admin-cat-btn group relative flex flex-col items-center justify-center py-3 px-1 transition-colors cursor-pointer"
+        aria-label="Platform" title="Platform">
+        <span class="text-xl">🔧</span>
+        <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">Platform</span>
       </button>
-      <button onclick="adminNav('model-config')" id="nav-model-config" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        ⚙️ AI Model Config
+      <button data-cat="security" onclick="adminCatNav('security')"
+        class="admin-cat-btn group relative flex flex-col items-center justify-center py-3 px-1 transition-colors cursor-pointer"
+        aria-label="Security" title="Security">
+        <span class="text-xl">🛡️</span>
+        <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">Security</span>
       </button>
-      <button onclick="adminNav('logs')" id="nav-logs" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        📋 System Logs
-      </button>
-      <button onclick="adminNav('audit-log')" id="nav-audit-log" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        🔐 Audit Log
-      </button>
-      <button onclick="adminNav('cogs')" id="nav-cogs" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        💰 COGS Dashboard
-      </button>
-      <button onclick="adminNav('reconciliation')" id="nav-reconciliation" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        🔄 Reconciliation Queue
-      </button>
-      <button onclick="adminNav('dunning')" id="nav-dunning" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors text-orange-400 hover:text-orange-300">
-        ⏰ Dunning Queue
-      </button>
-      <button onclick="adminNav('sales-pipeline')" id="nav-sales-pipeline" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors text-emerald-400 hover:text-emerald-300">
-        💼 Sales Pipeline
-      </button>
-      <button onclick="adminNav('manage-admins')" id="nav-manage-admins" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        🛡 Manage Admins
-      </button>
-      <button onclick="adminNav('kill-switches')" id="nav-kill-switches" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors text-red-400 hover:text-red-300">
-        🚨 Emergency Controls
-      </button>
-      <button onclick="adminNav('feature-flags')" id="nav-feature-flags" class="admin-nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-        🚩 Feature Flags
+      <button data-cat="compliance" onclick="adminCatNav('compliance')"
+        class="admin-cat-btn group relative flex flex-col items-center justify-center py-3 px-1 transition-colors cursor-pointer"
+        aria-label="Compliance" title="Compliance">
+        <span class="text-xl">📋</span>
+        <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">Comply</span>
       </button>
     </nav>
-    <div class="px-4 pb-5">
-      <a href="/workspace.html" class="block text-center text-xs text-gray-400 hover:text-white py-2 rounded-lg hover:bg-gray-800 transition">← Back to Workspace</a>
+    <div class="pb-4 flex flex-col items-center gap-1">
+      <a href="/workspace.html" title="Back to Workspace"
+        class="flex flex-col items-center text-gray-500 hover:text-white transition py-2 cursor-pointer">
+        <span class="text-base">←</span>
+        <span class="text-[9px] font-bold hidden lg:block">Back</span>
+      </a>
     </div>
   </aside>
 
+  <!-- Secondary sidebar: child items for selected category -->
+  <div id="admin-secondary-nav"
+    class="admin-secondary-nav w-0 bg-gray-900 text-white flex flex-col flex-shrink-0 overflow-hidden z-10 transition-[width] duration-200 ease-out border-r border-gray-800">
+    <div class="w-48 flex flex-col h-full">
+      <div class="h-14 flex items-center px-4 border-b border-gray-800 shrink-0">
+        <span id="admin-secondary-title" class="text-xs font-extrabold text-gray-400 uppercase tracking-widest"></span>
+        <button id="admin-secondary-close" onclick="adminCatClose()" title="Close (Esc)"
+          class="ml-auto p-1 text-gray-500 hover:text-white transition cursor-pointer text-lg leading-none"
+          aria-label="Close sub-menu">×</button>
+      </div>
+      <nav id="admin-secondary-items" class="flex-1 py-3 space-y-0.5 px-2 overflow-y-auto" aria-label="Admin section">
+        <!-- Populated by adminCatNav() -->
+      </nav>
+    </div>
+  </div>
+
   <!-- Main content -->
-  <main class="flex-1 overflow-auto">
+  <main class="flex-1 overflow-auto min-w-0">
     <!-- Header bar -->
     <header class="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
       <h1 id="admin-page-title" class="text-xl font-extrabold text-gray-900">Dashboard</h1>
@@ -727,9 +743,25 @@
 </div>
 
 <style>
-  .admin-nav-btn { color: #9ca3af; }
-  .admin-nav-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
-  .admin-nav-btn.active { background: #10b981; color: #fff; }
+  /* Legacy flat nav buttons (kept for any JS still referencing them) */
+  .admin-nav-btn { display: none; }
+
+  /* Two-tier nav — US-ADM-1.4.1 */
+  .admin-cat-btn { color: #9ca3af; border-left: 3px solid transparent; }
+  .admin-cat-btn:hover { background: rgba(255,255,255,.06); color: #fff; }
+  .admin-cat-btn.active { background: rgba(16,185,129,.15); border-left-color: #10b981; color: #fff; }
+  .admin-cat-btn:focus-visible { outline: 2px solid #10b981; outline-offset: -2px; border-radius: 4px; }
+
+  .admin-secondary-nav { width: 0; }
+  .admin-secondary-nav.open { width: 12rem; }
+
+  .admin-child-btn { width: 100%; text-align: left; display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    color: #9ca3af; transition: background .12s, color .12s; white-space: nowrap; }
+  .admin-child-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+  .admin-child-btn.active { background: #10b981; color: #fff; }
+  .admin-child-btn:focus-visible { outline: 2px solid #10b981; outline-offset: -2px; }
+
   .admin-view { animation: fadeIn .15s ease; }
   @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 </style>
@@ -746,26 +778,117 @@ function debounce(fn, ms) {
   _debounceTimer = setTimeout(fn, ms);
 }
 
-// ── Navigation ────────────────────────────────────────────────────────────────
+// ── Navigation — US-ADM-1.4.1 Two-tier nav ───────────────────────────────────
 const VIEW_LABELS = {
-  dashboard: 'Dashboard', users: 'Users', tickets: 'Support Tickets',
+  dashboard: 'Dashboard', users: 'All Users', tickets: 'Support Tickets',
   catalog: 'Assistant Catalog', analytics: 'Analytics', 'model-config': 'AI Model Config',
-  logs: 'System Logs',
-  'audit-log': 'Admin Audit Log',
-  cogs: 'COGS Dashboard',
-  reconciliation: 'Billing Reconciliation Queue',
-  dunning: '⏰ Dunning Queue',
-  'manage-admins': '🛡 Manage Admins',
-  'kill-switches': '🚨 Emergency Controls',
-  'feature-flags': 'Feature Flags',
+  logs: 'System Logs', 'audit-log': 'Audit Log', cogs: 'COGS Dashboard',
+  reconciliation: 'Stripe Reconciliation', dunning: 'Dunning Queue',
+  'manage-admins': 'Admin Accounts', 'kill-switches': 'Emergency Controls',
+  'feature-flags': 'Feature Flags', 'sales-pipeline': 'Sales Pipeline',
 };
 
+// Category → child items mapping
+const ADMIN_CATS = {
+  dashboard: { label: 'Dashboard', children: [
+    { view: 'dashboard', icon: '📊', label: 'Dashboard' },
+  ]},
+  users: { label: 'Users', children: [
+    { view: 'users',    icon: '👥', label: 'All Users' },
+    { view: 'tickets',  icon: '🎫', label: 'Support Tickets' },
+    { view: 'sales-pipeline', icon: '💼', label: 'Sales Pipeline' },
+  ]},
+  billing: { label: 'Billing', children: [
+    { view: 'reconciliation', icon: '🔄', label: 'Stripe Reconciliation' },
+    { view: 'dunning',        icon: '⏰', label: 'Dunning Queue' },
+    { view: 'cogs',           icon: '💰', label: 'COGS Dashboard' },
+  ]},
+  assistants: { label: 'Assistants', children: [
+    { view: 'catalog',      icon: '🤖', label: 'Assistant Catalog' },
+    { view: 'model-config', icon: '⚙️', label: 'AI Model Config' },
+  ]},
+  platform: { label: 'Platform', children: [
+    { view: 'analytics',     icon: '📈', label: 'Analytics' },
+    { view: 'feature-flags', icon: '🚩', label: 'Feature Flags' },
+    { view: 'kill-switches', icon: '🚨', label: 'Emergency Controls' },
+  ]},
+  security: { label: 'Security', children: [
+    { view: 'manage-admins', icon: '🛡️', label: 'Admin Accounts' },
+    { view: 'audit-log',     icon: '🔐', label: 'Audit Log' },
+  ]},
+  compliance: { label: 'Compliance', children: [
+    { view: 'logs', icon: '📋', label: 'System Logs' },
+  ]},
+};
+
+let _activeCategory = null;
+let _activeView = 'dashboard';
+
+function adminCatNav(cat) {
+  const secondary = document.getElementById('admin-secondary-nav');
+  const titleEl   = document.getElementById('admin-secondary-title');
+  const itemsEl   = document.getElementById('admin-secondary-items');
+
+  // Dashboard is standalone — no sub-panel
+  if (cat === 'dashboard') {
+    adminCatClose();
+    adminNav('dashboard');
+    _activeCategory = 'dashboard';
+    document.querySelectorAll('.admin-cat-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === 'dashboard'));
+    return;
+  }
+
+  // Toggle: clicking active category closes the panel
+  if (_activeCategory === cat && secondary.classList.contains('open')) {
+    adminCatClose();
+    return;
+  }
+
+  _activeCategory = cat;
+  document.querySelectorAll('.admin-cat-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+
+  const catDef = ADMIN_CATS[cat];
+  if (!catDef) return;
+
+  titleEl.textContent = catDef.label;
+  itemsEl.innerHTML = catDef.children.map(c =>
+    `<button class="admin-child-btn${_activeView === c.view ? ' active' : ''}"
+      data-view="${c.view}"
+      onclick="adminNav('${c.view}')"
+      tabindex="0">${c.icon} ${c.label}</button>`
+  ).join('');
+
+  secondary.classList.add('open');
+
+  // Move focus to first child item (keyboard nav)
+  setTimeout(() => itemsEl.querySelector('.admin-child-btn')?.focus(), 50);
+}
+
+function adminCatClose() {
+  document.getElementById('admin-secondary-nav')?.classList.remove('open');
+  _activeCategory = null;
+  document.querySelectorAll('.admin-cat-btn').forEach(b => b.classList.remove('active'));
+}
+
+// Escape key closes secondary panel
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('admin-secondary-nav')?.classList.contains('open')) {
+      adminCatClose();
+      document.querySelector(`.admin-cat-btn[data-cat="${_activeCategory || 'dashboard'}"]`)?.focus();
+    }
+  }
+});
+
 function adminNav(view) {
+  _activeView = view;
   document.querySelectorAll('.admin-view').forEach(el => el.classList.add('hidden'));
-  document.querySelectorAll('.admin-nav-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('view-' + view)?.classList.remove('hidden');
-  document.getElementById('nav-' + view)?.classList.add('active');
   document.getElementById('admin-page-title').textContent = VIEW_LABELS[view] || view;
+
+  // Highlight active child in secondary panel
+  document.querySelectorAll('.admin-child-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+
   // Lazy-load section data
   if (view === 'dashboard')    loadDashboard();
   if (view === 'users')        loadUsers();
@@ -2449,7 +2572,8 @@ window._adminsList = [];
   } catch { /* non-blocking */ }
 })();
 
-loadDashboard();
+// Boot into dashboard via two-tier nav
+adminCatNav('dashboard');
 </script>
 </body>
 </html>

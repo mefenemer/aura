@@ -33,6 +33,8 @@ let _editMode = false;           // panel edit mode
 let _dragPostId = null;          // drag source
 let _dragTargetDate = null;      // drop target
 let _pendingReschedule = null;   // { postId, newDate }
+let _pendingApproveId = null;    // postId awaiting past-date modal decision
+let _listFilter = 'all';         // 'all' | 'pending' | 'approved' | 'published'
 
 // ── Init ──────────────────────────────────────────────────────────
 window.initCalendar = async function () {
@@ -200,21 +202,49 @@ function _renderList() {
     const year = _anchor.getFullYear(), month = _anchor.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
+    // Filter tabs
+    const tabs = [
+        { key: 'all',       label: 'All' },
+        { key: 'pending',   label: 'Pending Review' },
+        { key: 'approved',  label: 'Approved & Scheduled' },
+        { key: 'published', label: 'Published' },
+    ];
+    let html = `<div class="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 flex gap-1 overflow-x-auto">`;
+    tabs.forEach(t => {
+        const active = _listFilter === t.key;
+        html += `<button type="button" onclick="window._calSetListFilter('${t.key}')"
+            class="shrink-0 px-3 py-2.5 text-xs font-bold border-b-2 transition ${active ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700'}">
+            ${t.label}
+        </button>`;
+    });
+    html += `</div>`;
+
+    // Apply filter
+    const statusSets = {
+        all:       null,
+        pending:   new Set(['draft', 'in_review']),
+        approved:  new Set(['approved', 'scheduled']),
+        published: new Set(['published']),
+    };
+    const allowedStatuses = statusSets[_listFilter];
+
     const groups = [];
     for (let d = 1; d <= daysInMonth; d++) {
         const date = new Date(year, month, d);
-        const posts = _postsOnDate(date);
+        let posts = _postsOnDate(date);
+        if (allowedStatuses) posts = posts.filter(p => allowedStatuses.has(p.status));
         if (posts.length > 0) groups.push({ date, posts });
     }
 
     if (groups.length === 0) {
-        return `<div class="flex flex-col items-center justify-center py-24 text-gray-400 gap-3">
+        html += `<div class="flex flex-col items-center justify-center py-24 text-gray-400 gap-3">
             <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            <p class="text-sm font-medium">No posts this month.</p>
+            <p class="text-sm font-medium">No posts${_listFilter !== 'all' ? ' in this filter' : ''} this month.</p>
         </div>`;
+        return html;
     }
 
-    let html = `<div class="max-w-3xl mx-auto px-4 py-6 space-y-8">`;
+    html += `<div class="max-w-3xl mx-auto px-4 py-6 space-y-8">`;
     groups.forEach(({ date, posts }) => {
         const today = new Date(); today.setHours(0,0,0,0);
         const isToday = _dateKey(date) === _dateKey(today);
@@ -233,12 +263,19 @@ function _renderList() {
     return html;
 }
 
+window._calSetListFilter = function (key) {
+    _listFilter = key;
+    _render();
+};
+
 // ── Post chip (month/week) ────────────────────────────────────────
 function _postChip(post, viewType) {
     const plat = PLATFORM_META[post.platform] || { emoji: '📣', bg: 'bg-gray-500', text: 'text-white' };
     const sm = STATUS_META[post.status] || STATUS_META.draft;
     const time = new Date(post.publishDate).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     const isDraggable = ['draft', 'in_review', 'approved', 'scheduled'].includes(post.status);
+
+    const revisedBadge = post.isRevised ? `<span class="text-[9px] font-bold text-violet-600 bg-violet-50 border border-violet-200 px-1 rounded shrink-0">Revised</span>` : '';
 
     return `<div
         onclick="window._calOpenPost(${post.id})"
@@ -251,6 +288,7 @@ function _postChip(post, viewType) {
             <p class="text-[11px] font-bold text-gray-700 truncate">${time}</p>
             ${viewType === 'week' ? `<p class="text-[11px] text-gray-500 truncate leading-tight">${_escHtml((post.caption || '').substring(0, 40))}</p>` : ''}
         </div>
+        ${revisedBadge}
         <span class="w-1.5 h-1.5 rounded-full ${sm.dot} shrink-0"></span>
     </div>`;
 }
@@ -423,6 +461,51 @@ window._calOpenPost = async function (postId) {
         rejRow.classList.remove('hidden');
     } else { rejRow.classList.add('hidden'); }
 
+    // ── Revised-post diff — US-SMM-2.2.2 ────────────────────────
+    const diffSection = document.getElementById('panel-revision-diff');
+    if (diffSection) {
+        if (post.isRevised && post.revisedFromPostId) {
+            // Fetch original rejected post to show what feedback was given
+            const origPost = _posts.find(p => p.id === post.revisedFromPostId);
+            if (origPost) {
+                diffSection.classList.remove('hidden');
+                diffSection.innerHTML = `
+                    <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Revision History</h4>
+                    <div class="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-xs space-y-2">
+                        <p class="font-bold text-violet-700">Revised from rejected post</p>
+                        ${origPost.rejectionReason ? `<div class="bg-white border border-violet-100 rounded-lg px-3 py-2">
+                            <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Rejection feedback</p>
+                            <p class="text-gray-700 leading-relaxed">${_escHtml(origPost.rejectionReason)}</p>
+                        </div>` : ''}
+                        ${origPost.caption && origPost.caption !== post.caption ? `<div class="bg-white border border-violet-100 rounded-lg px-3 py-2">
+                            <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Original caption</p>
+                            <p class="text-gray-500 line-through leading-relaxed">${_escHtml(origPost.caption.substring(0, 200))}</p>
+                        </div>` : ''}
+                    </div>`;
+            } else {
+                diffSection.classList.add('hidden');
+            }
+        } else {
+            diffSection.classList.add('hidden');
+        }
+    }
+
+    // ── Platform post preview — US-SMM-2.1.1 ─────────────────────
+    const previewContainer = document.getElementById('panel-platform-preview');
+    if (previewContainer && window.PlatformPostPreview) {
+        const previewResult = window.PlatformPostPreview.render(previewContainer, {
+            post,
+            assets,
+            platforms: post.crossPostPlatforms?.length ? post.crossPostPlatforms : undefined,
+        });
+        // Gate Approve button if any platform is over its character limit
+        const approveGated = previewResult.approveBlocked;
+        if (approveGated) {
+            const btn = document.getElementById('btn-panel-approve');
+            if (btn) { btn.disabled = true; btn.title = 'Fix character limit issues before approving.'; btn.classList.add('opacity-50'); }
+        }
+    }
+
     // ── Footer actions ────────────────────────────────────────────
     const publishedActions = document.getElementById('panel-actions-published');
     const editableActions = document.getElementById('panel-actions-editable');
@@ -454,6 +537,48 @@ window._calOpenPost = async function (postId) {
         if (post.status === 'approved') { approveBtn.textContent = '✓ Approved'; approveBtn.disabled = true; approveBtn.classList.add('opacity-50'); }
         else { approveBtn.textContent = '✓ Approve'; approveBtn.disabled = false; approveBtn.classList.remove('opacity-50'); }
     }
+
+    // ── Next Post navigator (Pending Review only) ─────────────────
+    const pendingPosts = _posts
+        .filter(p => p.status === 'in_review')
+        .sort((a, b) => new Date(a.publishDate) - new Date(b.publishDate));
+    const pendingIdx = pendingPosts.findIndex(p => p.id === postId);
+    const navEl = document.getElementById('panel-review-nav');
+    if (navEl) {
+        if (pendingPosts.length > 0 && pendingIdx >= 0) {
+            const current = pendingIdx + 1;
+            const total = pendingPosts.length;
+            const hasPrev = pendingIdx > 0;
+            const hasNext = pendingIdx < total - 1;
+            navEl.classList.remove('hidden');
+            navEl.innerHTML = `
+                <div class="flex items-center justify-between gap-2">
+                    <button type="button" onclick="window._calNavPost(-1)"
+                        ${hasPrev ? '' : 'disabled'}
+                        class="p-1.5 rounded-lg text-gray-400 ${hasPrev ? 'hover:bg-gray-100 hover:text-gray-700 cursor-pointer' : 'opacity-30 cursor-not-allowed'} transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <span class="text-xs font-bold text-gray-500">Reviewing <span class="text-gray-900">${current}</span> of <span class="text-gray-900">${total}</span> pending</span>
+                    <button type="button" onclick="window._calNavPost(1)"
+                        ${hasNext ? '' : 'disabled'}
+                        class="p-1.5 rounded-lg text-gray-400 ${hasNext ? 'hover:bg-gray-100 hover:text-gray-700 cursor-pointer' : 'opacity-30 cursor-not-allowed'} transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                </div>`;
+        } else {
+            navEl.classList.add('hidden');
+        }
+    }
+};
+
+window._calNavPost = function (direction) {
+    const pendingPosts = _posts
+        .filter(p => p.status === 'in_review')
+        .sort((a, b) => new Date(a.publishDate) - new Date(b.publishDate));
+    const idx = pendingPosts.findIndex(p => p.id === _openPostId);
+    if (idx < 0) return;
+    const next = pendingPosts[idx + direction];
+    if (next) window._calOpenPost(next.id);
 };
 
 window._calClosePanel = function () {
@@ -537,14 +662,151 @@ window._calSaveEdits = async function () {
 // ── Governance actions ────────────────────────────────────────────
 window._calApprovePost = async function () {
     if (!_openPostId) return;
+    const post = _posts.find(p => p.id === _openPostId);
+    if (post && new Date(post.publishDate) < new Date()) {
+        // Scheduled time has passed — show resolution modal
+        _pendingApproveId = _openPostId;
+        const dt = new Date(post.publishDate);
+        const label = dt.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const msgEl = document.getElementById('approve-past-msg');
+        if (msgEl) msgEl.textContent = `The scheduled time for this post (${label}) has passed. Choose an option below:`;
+        // Pre-fill reschedule input with current time + 1h
+        const newDefault = new Date(Date.now() + 3600000);
+        const pad = n => String(n).padStart(2, '0');
+        const defaultVal = `${newDefault.getFullYear()}-${pad(newDefault.getMonth()+1)}-${pad(newDefault.getDate())}T${pad(newDefault.getHours())}:${pad(newDefault.getMinutes())}`;
+        const dtInput = document.getElementById('approve-reschedule-dt');
+        if (dtInput) dtInput.value = defaultVal;
+        document.getElementById('modal-approve-past')?.classList.remove('hidden');
+        return;
+    }
     await _patchStatus(_openPostId, 'approved');
+    _showApprovalConfirmation();
 };
+
+window._calApprovePastPublishNow = async function () {
+    document.getElementById('modal-approve-past')?.classList.add('hidden');
+    if (!_pendingApproveId) return;
+    await _patchStatus(_pendingApproveId, 'approved', { publishDate: new Date().toISOString() });
+    _pendingApproveId = null;
+    _showApprovalConfirmation();
+};
+
+window._calApprovePastReschedule = async function () {
+    const dtInput = document.getElementById('approve-reschedule-dt');
+    const val = dtInput?.value;
+    if (!val) { alert('Please select a new date and time.'); return; }
+    const newDate = new Date(val);
+    if (isNaN(newDate)) { alert('Invalid date selected.'); return; }
+    document.getElementById('modal-approve-past')?.classList.add('hidden');
+    if (!_pendingApproveId) return;
+    await _patchStatus(_pendingApproveId, 'approved', { publishDate: newDate.toISOString() });
+    _pendingApproveId = null;
+    _showApprovalConfirmation();
+};
+
+window._calDismissApprovalModal = function () {
+    document.getElementById('modal-approve-past')?.classList.add('hidden');
+    _pendingApproveId = null;
+};
+
+function _showApprovalConfirmation() {
+    const post = _openPostId ? _posts.find(p => p.id === _openPostId) : null;
+    if (!post) return;
+    const dt = new Date(post.publishDate);
+    const plat = PLATFORM_META[post.platform]?.label || post.platform;
+    const dateLabel = dt.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const banner = document.createElement('div');
+    banner.className = 'mx-5 mb-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-start gap-2';
+    banner.innerHTML = `<svg class="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span>Post approved. Scheduled for ${dateLabel} on ${_escHtml(plat)}.</span>`;
+    const footer = document.getElementById('panel-footer');
+    if (footer) footer.parentNode.insertBefore(banner, footer);
+    setTimeout(() => banner.remove(), 5000);
+}
 
 window._calCancelPost = async function () {
     if (!_openPostId) return;
-    if (!confirm('Cancel this post? It will be moved to Cancelled and removed from the publishing queue.')) return;
+    if (!confirm('Remove this post from the queue? It will be cancelled.')) return;
     await _patchStatus(_openPostId, 'cancelled');
     window._calClosePanel();
+};
+
+// ── Rejection flow — US-SMM-2.2.2 ────────────────────────────────
+window._calOpenRejectPanel = function () {
+    const feedbackEl = document.getElementById('reject-feedback-text');
+    const toggleEl   = document.getElementById('reject-rule-toggle');
+    const scopeEl    = document.getElementById('reject-rule-scope');
+    const errEl      = document.getElementById('reject-feedback-error');
+    if (feedbackEl) feedbackEl.value = '';
+    if (toggleEl)   { toggleEl.checked = false; }
+    if (scopeEl)    scopeEl.classList.add('hidden');
+    if (errEl)      errEl.classList.add('hidden');
+    document.getElementById('modal-reject-post')?.classList.remove('hidden');
+
+    // Wire toggle to show/hide scope selector
+    const toggle = document.getElementById('reject-rule-toggle');
+    if (toggle) {
+        toggle.onchange = () => {
+            document.getElementById('reject-rule-scope')?.classList.toggle('hidden', !toggle.checked);
+        };
+    }
+};
+
+window._calDismissRejectModal = function () {
+    document.getElementById('modal-reject-post')?.classList.add('hidden');
+};
+
+window._calSubmitRejection = async function () {
+    const feedbackText = (document.getElementById('reject-feedback-text')?.value || '').trim();
+    const errEl = document.getElementById('reject-feedback-error');
+    if (!feedbackText) {
+        errEl?.classList.remove('hidden');
+        return;
+    }
+    errEl?.classList.add('hidden');
+
+    const applyAsRule = !!(document.getElementById('reject-rule-toggle')?.checked);
+    const platform = applyAsRule ? (document.getElementById('reject-rule-platform')?.value || '') : '';
+
+    document.getElementById('modal-reject-post')?.classList.add('hidden');
+
+    try {
+        const res = await fetch('/.netlify/functions/reject-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: _openPostId, feedbackText, applyAsRule, platform: platform || undefined }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Rejection failed. Please try again.'); return; }
+
+        // Update local cache — mark post as rejected
+        const post = _posts.find(p => p.id === _openPostId);
+        if (post) { post.status = 'rejected'; post.rejectionReason = feedbackText; }
+
+        // If rule was saved, show confirmation banner in panel
+        if (data.ruleId && data.ruleText) {
+            const banner = document.createElement('div');
+            banner.className = 'mx-5 mb-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 font-semibold flex items-start gap-2';
+            banner.innerHTML = `<svg class="w-4 h-4 shrink-0 mt-0.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>Rule added to Content Rules Library: <em>${_escHtml(data.ruleText)}</em></span>`;
+            const footer = document.getElementById('panel-footer');
+            if (footer) footer.parentNode.insertBefore(banner, footer);
+            setTimeout(() => banner.remove(), 7000);
+        }
+
+        // Add revised draft to local posts cache so it appears on the calendar
+        if (data.revisedPostId) {
+            // Reload posts to pick up the new draft
+            await _loadAndRender();
+        } else {
+            _render();
+        }
+
+        // Refresh panel showing rejection state
+        await window._calOpenPost(_openPostId);
+    } catch (e) {
+        alert('Connection failed. Please try again.');
+    }
 };
 
 async function _patchStatus(postId, status, extra = {}) {

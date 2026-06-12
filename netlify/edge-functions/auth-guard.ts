@@ -25,6 +25,7 @@ export default async (request: Request, context: Context) => {
                 maintenanceMode: boolean;
                 maintenanceMessage: string;
                 registrationLocked: boolean;
+                globalAiDisabled: boolean;
             };
 
             if (cfg.maintenanceMode) {
@@ -49,6 +50,10 @@ export default async (request: Request, context: Context) => {
                     return Response.redirect(maintenanceUrl.toString(), 302);
                 }
             }
+
+            // US-ADM-3.2.1: Global AI kill switch — non-admin users on workspace see banner via JS;
+            // the individual AI function handlers return 503 (fixes in get-assistant-context.ts,
+            // provision-assistant-async.ts). No page-level redirect needed here.
 
             // Block registration if new_registration_lock is active
             if (cfg.registrationLocked && url.pathname === '/register.html') {

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants, dpaAcceptances, masterAssistants } from '../../db/schema';
+import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -25,6 +26,11 @@ export const handler: Handler = async (event) => {
         currentUserId = (jwt.verify(token, jwtSecret) as { userId: number }).userId;
     } catch (err) {
         return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) };
+    }
+
+    // US-ADM-3.2.1: Global AI kill switch check
+    if (await isGlobalAiDisabled()) {
+        return { statusCode: 503, body: JSON.stringify({ error: 'AI services are temporarily unavailable. Please try again later.' }) };
     }
 
     const db = getDb();

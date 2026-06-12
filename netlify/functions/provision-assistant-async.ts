@@ -3,10 +3,16 @@ import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants, dpaAcceptances, notifications, users, supportTickets } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
+import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 
 export const handler: Handler = async (event) => {
     const { assistantId } = JSON.parse(event.body!);
     const db = getDb();
+
+    // US-ADM-3.2.1: Global AI kill switch check
+    if (await isGlobalAiDisabled()) {
+        return { statusCode: 503, body: JSON.stringify({ error: 'AI services are temporarily unavailable. Please try again later.' }) };
+    }
 
     try {
         // Perform complex API integrations (Meta/LinkedIn) here

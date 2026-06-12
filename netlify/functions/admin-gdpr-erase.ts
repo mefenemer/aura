@@ -23,6 +23,7 @@ import { getDb } from '../../db/client';
 import {
     users, plans, gdprErasureLog, onboardingDrafts,
     userProfiles, userNotifications, notifications, jwtBlocklist,
+    aiAssistants, aiUsageLog,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendEmail } from '../../src/utils/email';
@@ -174,6 +175,21 @@ export const handler: Handler = async (event) => {
                 .where(eq(userNotifications.userId, targetUserId))
                 .catch(() => {});
 
+            // US-GDPR-2.1.1: Wipe personal data columns from AI assistants owned by this user.
+            // Must run before userId is nulled by cascade so the WHERE clause matches.
+            // The assistant row itself is retained — org members may depend on it.
+            await tx.update(aiAssistants)
+                .set({ onboardingContext: null, configuration: null, systemPrompt: null })
+                .where(eq(aiAssistants.userId, targetUserId))
+                .catch(() => {});
+
+            // US-GDPR-2.1.1: Null sessionId in ai_usage_log (userId FK is cascade set-null on delete;
+            // here we anonymise without deleting so we must null both manually).
+            await tx.update(aiUsageLog)
+                .set({ sessionId: null, userId: null })
+                .where(eq(aiUsageLog.userId, targetUserId))
+                .catch(() => {});
+
             // 9. Cancel Stripe subscriptions (DB-side status update inside tx;
             //    Stripe API call happens outside where a failure won't rollback PII erasure)
             await tx.update(plans)
@@ -218,6 +234,13 @@ export const handler: Handler = async (event) => {
                 assetsPurged:      purgeResult.assetsPurged,
                 embeddingsDeleted: purgeResult.embeddingsDeleted,
                 storageBytesFreed: purgeResult.storageBytesFreed,
+                dataWipedFields:   [
+                    'aiAssistants.onboardingContext',
+                    'aiAssistants.configuration',
+                    'aiAssistants.systemPrompt',
+                    'aiUsageLog.sessionId',
+                    'aiUsageLog.userId',
+                ],
                 ...(purgeResult.partialFailures.length > 0
                     ? { partialFailures: purgeResult.partialFailures, erasureStatus: 'PARTIAL' }
                     : {}),

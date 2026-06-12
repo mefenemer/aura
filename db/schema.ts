@@ -19,6 +19,9 @@ export const organisations = pgTable('organisations', {
   slug: text('slug').notNull().unique(),
   // US-AUD-5.3.1 SC1: opt-in agency attribution badge on exported deliverables
   agencyAttributionEnabled: boolean('agency_attribution_enabled').notNull().default(false),
+  // US-LEGAL-1.6: explicit opt-in required before any inputs/outputs are used for model improvement.
+  // Enterprise (Tier 4) accounts are locked to false and cannot opt in.
+  dataTrainingOptIn: boolean('data_training_opt_in').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -676,6 +679,10 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   rejectionReason: text("rejection_reason"),
   cancelledAt: timestamp("cancelled_at"),
 
+  // US-SMM-2.2.2: structured rejection — revised post chain
+  revisedFromPostId: integer("revised_from_post_id"),    // FK to scheduledPosts.id (self-ref)
+  isRevised: boolean("is_revised").notNull().default(false),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1060,6 +1067,53 @@ export const jwtBlocklist = pgTable("jwt_blocklist", {
 });
 
 // ── Billing Overrides — US-ADM-2.1.1 ─────────────────────────────────────────
+// US-LEGAL-1.1: Signed per-integration consent record — user authorises the assistant
+// to act on a connected service. Required before the assistant can send outbound actions.
+export const integrationAuthorizations = pgTable("integration_authorizations", {
+  id: serial().primaryKey(),
+  workspaceId: integer("workspace_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  authorizedByUserId: integer("authorized_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  integrationType: text("integration_type").notNull(), // 'gmail' | 'google_calendar' | 'twitter' | 'linkedin' | etc.
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
+  humanApprovalRequired: boolean("human_approval_required").notNull().default(true),
+  authorizedAt: timestamp("authorized_at").defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at"),
+  revokedByUserId: integer("revoked_by_user_id").references(() => users.id, { onDelete: "set null" }),
+}, (t) => ({
+  workspaceIntegrationUnique: unique("integration_auth_workspace_type_unique").on(t.workspaceId, t.integrationType, t.assistantId),
+}));
+
+// US-LEGAL-1.7: IP audit log — tracks every contractor/founder contribution and
+// whether a valid present-tense IP assignment deed is on file.
+export const ipAuditLog = pgTable("ip_audit_log", {
+  id: serial().primaryKey(),
+  contributorName: text("contributor_name").notNull(),
+  contributorType: text("contributor_type").notNull(), // 'founder' | 'contractor' | 'employee'
+  contributionScope: text("contribution_scope").notNull(), // brief description of what was contributed
+  engagementStart: timestamp("engagement_start"),
+  engagementEnd: timestamp("engagement_end"),
+  assignmentLanguage: text("assignment_language").notNull().default("unknown"), // 'hereby_assigns' | 'agrees_to_assign' | 'none' | 'unknown'
+  deedOnFile: boolean("deed_on_file").notNull().default(false),
+  deedSignedAt: timestamp("deed_signed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ── Content Rules Library — US-SMM-2.2.2 ─────────────────────────────────────
+// Per-assistant rules saved when a reviewer rejects a post with "apply as rule".
+// Injected into generation instructions for all future drafts by that assistant.
+export const contentRules = pgTable("content_rules", {
+  id: serial().primaryKey(),
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "cascade" }),
+  workspaceId: integer("workspace_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  ruleText: text("rule_text").notNull(),
+  platform: text("platform"),                              // null = all platforms
+  createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const billingOverrides = pgTable("billing_overrides", {
   id: serial().primaryKey(),
   workspaceId: integer("workspace_id").references(() => organisations.id, { onDelete: "cascade" }),

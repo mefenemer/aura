@@ -255,6 +255,8 @@ export const handler: Handler = async (event) => {
 
     // ── invoice.upcoming — renewal due in ~3 days ─────────────────
     // Stripe fires this automatically 3 days before a subscription renews.
+    // For annual plans (period ≥ 300 days) we also send a pre-renewal email
+    // (DMCCA / FTC compliance requires advance notice for auto-renewing annual plans).
     if (stripeEvent.type === 'invoice.upcoming') {
         const invoice = stripeEvent.data.object as Stripe.Invoice;
         const userId  = await _resolveUserId(invoice.customer as string);
@@ -264,7 +266,13 @@ export const handler: Handler = async (event) => {
                 ? new Date(invoice.period_end * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
                 : 'soon';
 
-            // Avoid duplicate notifications: check if one was already sent for this period
+            // Detect annual plan: period_end − period_start ≥ 300 days
+            const periodDays = invoice.period_start && invoice.period_end
+                ? (invoice.period_end - invoice.period_start) / 86400
+                : 0;
+            const isAnnual = periodDays >= 300;
+
+            // Avoid duplicate notifications: check if one was already sent for this invoice
             const existing = await db.select({ id: notifications.id })
                 .from(notifications)
                 .where(and(
@@ -273,11 +281,7 @@ export const handler: Handler = async (event) => {
                 ))
                 .limit(1);
 
-            // Only insert if no recent renewal-due notification exists for this invoice
-            const alreadySent = existing.some(n => {
-                // metadata.invoiceId matches
-                return (n as any).metadata?.invoiceId === invoice.id;
-            });
+            const alreadySent = existing.some(n => (n as any).metadata?.invoiceId === invoice.id);
 
             if (!alreadySent) {
                 await db.insert(notifications).values({
@@ -293,6 +297,26 @@ export const handler: Handler = async (event) => {
                         renewalDate: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
                     },
                 });
+
+                // US-LEGAL-1.5: Send pre-renewal email for annual plans (DMCCA compliance)
+                if (isAnnual) {
+                    const [userRow] = await db.select({ email: users.email, name: users.name })
+                        .from(users).where(eq(users.id, userId)).limit(1);
+                    if (userRow?.email) {
+                        await sendEmail({
+                            to: userRow.email,
+                            subject: `Your Aura-Assist annual plan renews on ${renewalDay}`,
+                            html: `
+                                <p>Hi ${userRow.name || 'there'},</p>
+                                <p>Your Aura-Assist annual subscription will automatically renew on <strong>${renewalDay}</strong>${amount ? ` for <strong>${amount}</strong>` : ''}.</p>
+                                <p>If you wish to cancel before this date, you can do so at any time from your <a href="https://aura-assist.com/billing.html">account settings</a>. Cancellations take effect at the end of your current billing period.</p>
+                                <p>If you have any questions, reply to this email or contact our support team.</p>
+                                <p>Thank you for being an Aura-Assist customer.</p>
+                                <p>— The Aura-Assist Team</p>
+                            `,
+                        }).catch(() => {}); // non-fatal
+                    }
+                }
             }
         }
     }
