@@ -34,7 +34,7 @@ async function requireAdmin(event: any): Promise<{ userId: number; name: string 
     if (!match) return null;
     let userId: number;
     try { userId = (jwt.verify(match[1], JWT_SECRET) as { userId: number }).userId; }
-    catch { return null; }
+    catch (_e) { return null; }
     const db = getDb();
     const [row] = await db.select({ role: users.role, name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
     if (!row || !isAdminRole(row.role)) return null;
@@ -85,7 +85,7 @@ function checkCompliance(caption: string, hashtags: string, sections: Record<str
     return { contentRules, strictRules, disclosurePresent, disclosureText, captionLen, platformLimit: limit };
 }
 
-export const handler: Handler = async (event) => {
+async function run(event: any) {
     const admin = await requireAdmin(event);
     if (!admin) return { statusCode: 401, body: JSON.stringify({ error: 'Admin auth required.' }) };
 
@@ -213,7 +213,7 @@ export const handler: Handler = async (event) => {
     const { assistantId, blueprintId, platform = 'instagram', contextPrompt } = body;
     if (!assistantId) return { statusCode: 400, body: JSON.stringify({ error: 'assistantId is required.' }) };
     if (contextPrompt && contextPrompt.length > 500) {
-        return { statusCode: 400, body: JSON.stringify({ error: 'contextPrompt must be ≤500 characters.' }) };
+        return { statusCode: 400, body: JSON.stringify({ error: 'contextPrompt must be 500 characters or fewer.' }) };
     }
 
     // Resolve assistant + org
@@ -265,4 +265,14 @@ export const handler: Handler = async (event) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobId, status: 'queued' }),
     };
+}
+
+export const handler: Handler = async (event) => {
+    try {
+        return await run(event);
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('[admin-test-generate] unhandled error:', msg);
+        return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: msg }) };
+    }
 };
