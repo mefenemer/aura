@@ -7,7 +7,7 @@
 // SC3: Email alert for already-expired tokens
 // SC6: 24-hour dedup per connection using processedWebhookEvents
 
-import { Handler, schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { eq, and, or, lte, isNotNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, systemConnections, notifications, processedWebhookEvents } from '../../db/schema';
@@ -115,7 +115,7 @@ async function runIntegrationHealthCheck() {
     }
 }
 
-export const handler: Handler = schedule('30 8 * * *', async () => {
+export const handler: Handler = async () => {
     try {
         await runIntegrationHealthCheck();
         return { statusCode: 200 };

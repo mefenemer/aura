@@ -7,7 +7,7 @@
 //   SC5: Trial has 1 day remaining  → send final warning email
 //   SC6: Trial expiresAt is in the past → expire plan, pause assistants, fire gate
 
-import { Handler, schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { eq, and, lt, lte, gte, isNotNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, plans, aiAssistants, notifications, processedWebhookEvents } from '../../db/schema';
@@ -146,7 +146,7 @@ async function runTrialExpiry() {
     }
 }
 
-export const handler: Handler = schedule('0 7 * * *', async () => {
+export const handler: Handler = async () => {
     try {
         await runTrialExpiry();
         return { statusCode: 200 };

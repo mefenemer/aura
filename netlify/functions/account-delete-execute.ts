@@ -4,7 +4,7 @@
 // Scheduled hourly (schedule: "0 * * * *")
 // Also handles the GDPR erasure log entry (SC3 / US-GAP-2.1.2 SC3)
 
-import { Handler, schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import * as crypto from 'crypto';
 import Stripe from 'stripe';
 import { eq, and, lt, isNotNull, count } from 'drizzle-orm';
@@ -127,7 +127,7 @@ async function executeDeleteions() {
     return pendingUsers.length;
 }
 
-export const handler: Handler = schedule('0 * * * *', async () => {
+export const handler: Handler = async () => {
     try {
         const deleted = await executeDeleteions();
         console.log(`[account-delete-execute] Processed ${deleted} deletion(s)`);

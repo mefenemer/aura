@@ -9,7 +9,7 @@
 // Day 7 email (SC3/SC4): sent when 7+ days have elapsed (grace period end — final notice)
 // SC5: Stop on payment — invoice.paid webhook resets plan to 'active' so these users are excluded
 
-import { Handler, schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { eq, and, lte, gte, isNotNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, plans, processedWebhookEvents } from '../../db/schema';
@@ -169,7 +169,7 @@ async function runDunningEscalation() {
     }
 }
 
-export const handler: Handler = schedule('0 9 * * *', async () => {
+export const handler: Handler = async () => {
     try {
         await runDunningEscalation();
         return { statusCode: 200 };

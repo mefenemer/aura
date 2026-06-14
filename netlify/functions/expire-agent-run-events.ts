@@ -5,7 +5,7 @@
 // - Logs purge count, date range, and deletedAt
 // Schedule: runs daily at 04:00 UTC
 
-import { Handler, schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { and, eq, lt, inArray, notInArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { agentRunEvents, agentRunSummaries, legalHolds, adminAuditLog } from '../../db/schema';
@@ -80,7 +80,7 @@ async function runExpiry() {
     return { eventsDeleted, summariesDeleted, heldOrgs: heldOrgIds.length };
 }
 
-export const handler: Handler = schedule('0 4 * * *', async () => {
+export const handler: Handler = async () => {
     const result = await runExpiry();
     return { statusCode: 200, body: JSON.stringify(result) };
 });

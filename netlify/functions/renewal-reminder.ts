@@ -6,7 +6,7 @@
 // Sends one email per user per renewal cycle; deduplication via processedWebhookEvents keyed on
 // sub_id + renewal_cycle_start.
 
-import { Handler, schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, plans, processedWebhookEvents } from '../../db/schema';
@@ -102,7 +102,7 @@ async function runRenewalReminder() {
     }
 }
 
-const scheduledHandler: Handler = schedule('0 7 * * *', async () => {
+export const handler: Handler = async () => {
     try {
         await runRenewalReminder();
         return { statusCode: 200, body: 'ok' };
@@ -110,6 +110,4 @@ const scheduledHandler: Handler = schedule('0 7 * * *', async () => {
         console.error('[renewal-reminder]', err);
         return { statusCode: 500, body: 'error' };
     }
-});
-
-export const handler = scheduledHandler;
+};

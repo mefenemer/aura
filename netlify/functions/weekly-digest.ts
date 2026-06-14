@@ -8,7 +8,7 @@
 //   - have not opted out via emailPreferences.weekly_digest = false (SC4)
 //   - have an 'active' plan (SC5 — exclude 'cancelled' / 'past_due')
 
-import { Handler, schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { eq, and, gte, count, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, userProfiles, plans, masterPlans, aiAssistants, taskRuns, scheduledPosts } from '../../db/schema';
@@ -129,7 +129,7 @@ async function runWeeklyDigest() {
     console.log(`[weekly-digest] Done — sent=${sent}, skipped=${skipped}`);
 }
 
-export const handler: Handler = schedule('0 8 * * 1', async () => {
+export const handler: Handler = async () => {
     try {
         await runWeeklyDigest();
         return { statusCode: 200 };

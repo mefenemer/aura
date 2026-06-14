@@ -6,7 +6,7 @@
 // Physical file deletion: when S3 is wired, deletes the object by storageKey.
 // Database: strips storageUrl/storageKey and marks purgedAt.
 
-import { Handler, schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { lte, and, isNull, isNotNull, inArray, lt } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { contentAssets, integrationApiCalls } from '../../db/schema';
@@ -89,4 +89,4 @@ const retentionHandler: Handler = async () => {
 };
 
 // Run every 6 hours
-export const handler = schedule('0 */6 * * *', retentionHandler);
+export const handler = retentionHandler;

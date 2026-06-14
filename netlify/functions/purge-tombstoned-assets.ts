@@ -7,7 +7,7 @@
 // Selects: workspace_assets WHERE isActive=false AND updatedAt < NOW()-30d AND extractedText IS NOT NULL
 // Action: delete from object storage, null extractedText + storageUrl, log count.
 
-import { Handler, schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { and, eq, lt, isNotNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { workspaceAssets } from '../../db/schema';
@@ -85,7 +85,7 @@ async function runPurge(): Promise<{ purged: number; bytesFreed: number; errors:
     return { purged, bytesFreed, errors };
 }
 
-export const handler: Handler = schedule('0 3 * * *', async () => {
+export const handler: Handler = async () => {
     const result = await runPurge();
     return {
         statusCode: 200,

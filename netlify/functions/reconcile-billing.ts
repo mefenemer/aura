@@ -285,7 +285,7 @@ async function runReconciliation(): Promise<void> {
     }
 }
 
-export const handler = schedule('0 2 * * *', async () => {
+export const handler = async () => {
     await runReconciliation();
     return { statusCode: 200 };
 });

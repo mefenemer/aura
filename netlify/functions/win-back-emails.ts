@@ -9,7 +9,7 @@
 // SC4: Suppression — skips users who have re-subscribed (active plan)
 // SC5: Unsubscribe — skips users in win_back_opt_outs
 
-import { Handler, schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { eq, and, gte, lte, isNotNull, count } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, plans, winBackOptOuts, processedWebhookEvents, taskRuns } from '../../db/schema';
@@ -162,7 +162,7 @@ async function runWinBackEmails() {
     }
 }
 
-export const handler: Handler = schedule('0 10 * * *', async () => {
+export const handler: Handler = async () => {
     try {
         await runWinBackEmails();
         return { statusCode: 200 };
