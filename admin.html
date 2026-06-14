@@ -1194,6 +1194,25 @@
   </div>
 </div>
 
+<!-- Blueprint Send confirmation bottom sheet -->
+<div id="bp-send-backdrop" class="bottom-sheet-backdrop" onclick="closeBottomSheet('bp-send')"></div>
+<div id="bp-send-sheet" class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="bp-send-title">
+  <div class="bottom-sheet-handle"></div>
+  <div class="px-5 pb-6 pt-2 max-h-[80vh] overflow-y-auto">
+    <h2 id="bp-send-title" class="text-base font-extrabold text-gray-900 mb-1">Send Blueprint to LLM</h2>
+    <p class="text-xs text-gray-500 mb-4">Review the pre-send checklist before activating this blueprint.</p>
+    <div id="bp-send-checklist-body" class="space-y-2 text-sm text-gray-700 mb-4"></div>
+    <div id="bp-ack-warnings-row" class="hidden mb-4 flex items-center gap-2">
+      <input type="checkbox" id="bp-ack-warnings" class="rounded">
+      <label for="bp-ack-warnings" class="text-xs text-amber-800 font-medium">I acknowledge the warnings above and accept responsibility for this send.</label>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="closeBottomSheet('bp-send')" class="flex-1 px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+      <button onclick="bpConfirmSend()" class="flex-1 px-4 py-2 text-sm font-semibold bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition">Confirm Send</button>
+    </div>
+  </div>
+</div>
+
 <style>
   /* Legacy flat nav buttons (kept for any JS still referencing them) */
   .admin-nav-btn { display: none; }
