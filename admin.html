@@ -1973,6 +1973,8 @@ function bpSendToLlm() {
 async function bpConfirmSend() {
   const asstId = _bpCurrentAssistantId;
   if (!asstId) return;
+  const confirmCheck = document.getElementById('bp-confirm-check');
+  if (confirmCheck && !confirmCheck.checked) { alert('Please confirm the blueprint is correct and complete.'); return; }
   const ackWarnings = document.getElementById('bp-ack-warnings');
   if (ackWarnings && !ackWarnings.checked) { alert('Please acknowledge the warnings first.'); return; }
   try {
