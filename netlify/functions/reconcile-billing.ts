@@ -288,4 +288,4 @@ async function runReconciliation(): Promise<void> {
 export const handler = async () => {
     await runReconciliation();
     return { statusCode: 200 };
-});
+};

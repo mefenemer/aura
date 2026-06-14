@@ -136,4 +136,4 @@ export const handler: Handler = async () => {
         console.error('[account-delete-execute]', err);
         return { statusCode: 500 };
     }
-});
+};

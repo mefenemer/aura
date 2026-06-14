@@ -137,4 +137,4 @@ export const handler: Handler = async () => {
         console.error('[weekly-digest]', err);
         return { statusCode: 500 };
     }
-});
+};

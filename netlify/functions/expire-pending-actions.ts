@@ -34,4 +34,4 @@ async function runExpiry() {
 export const handler: Handler = async () => {
     const result = await runExpiry();
     return { statusCode: 200, body: JSON.stringify(result) };
-});
+};

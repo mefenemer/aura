@@ -154,4 +154,4 @@ export const handler: Handler = async () => {
         console.error('[trial-expiry]', err);
         return { statusCode: 500 };
     }
-});
+};

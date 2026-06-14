@@ -123,4 +123,4 @@ export const handler: Handler = async () => {
         console.error('[integration-health-check]', err);
         return { statusCode: 500 };
     }
-});
+};

@@ -170,4 +170,4 @@ export const handler: Handler = async () => {
         console.error('[win-back-emails]', err);
         return { statusCode: 500 };
     }
-});
+};

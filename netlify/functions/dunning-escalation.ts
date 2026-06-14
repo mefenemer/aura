@@ -177,4 +177,4 @@ export const handler: Handler = async () => {
         console.error('[dunning-escalation]', err);
         return { statusCode: 500 };
     }
-});
+};
