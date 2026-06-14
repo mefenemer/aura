@@ -182,6 +182,18 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        // ── GET: assistants by org (for Blueprint Inspector assistant selector) ─
+        if (event.httpMethod === 'GET' && resource === 'assistants') {
+            const orgId = parseInt(qs.orgId || '');
+            if (!orgId) return { statusCode: 400, body: JSON.stringify({ error: 'orgId required.' }) };
+            const rows = await db
+                .select({ id: aiAssistants.id, name: aiAssistants.name })
+                .from(aiAssistants)
+                .where(eq(aiAssistants.organisationId, orgId))
+                .orderBy(aiAssistants.name);
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows) };
+        }
+
         // ── GET: organisations list (for Blueprint Inspector org selector) ───
         if (event.httpMethod === 'GET' && resource === 'organisations') {
             const rows = await db
