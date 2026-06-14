@@ -182,6 +182,15 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        // ── GET: organisations list (for Blueprint Inspector org selector) ───
+        if (event.httpMethod === 'GET' && resource === 'organisations') {
+            const rows = await db
+                .select({ id: organisations.id, name: organisations.name })
+                .from(organisations)
+                .orderBy(organisations.name);
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows) };
+        }
+
         // ── GET: single user detail ───────────────────────────────────────────
         if (event.httpMethod === 'GET' && resource === 'user') {
             const uid = parseInt(qs.id || '');
