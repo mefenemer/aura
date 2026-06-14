@@ -1535,6 +1535,14 @@ function adminCatNav(cat) {
 
   // Move focus to first child item (keyboard nav)
   setTimeout(() => itemsEl.querySelector('.admin-child-btn')?.focus(), 50);
+
+  // Sync bottom tab bar active state
+  document.querySelectorAll('.admin-bottom-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === cat);
+  });
+  document.querySelectorAll('.admin-more-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === cat);
+  });
 }
 
 function adminCatClose() {
@@ -4483,17 +4491,6 @@ function closeCascadeDeleteSheet() {
   _cascadeBlocked = false;
 }
 
-// Sync bottom tab bar active state with the primary nav
-var _origAdminCatNav = adminCatNav;
-function adminCatNav(cat) {
-  _origAdminCatNav(cat);
-  document.querySelectorAll('.admin-bottom-tab-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.cat === cat);
-  });
-  document.querySelectorAll('.admin-more-item').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.cat === cat);
-  });
-}
 
 function toggleMoreDrawer() {
   const drawer = document.getElementById('admin-more-drawer');
