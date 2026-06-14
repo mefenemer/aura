@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Third-Party Notices — Aura-Assist</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-gray-900 py-4 px-6">
+    <a href="/" class="text-emerald-400 font-extrabold text-xl tracking-tight">Aura<span class="text-white">-Assist</span></a>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-6 py-12">
+    <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Third-Party Notices</h1>
+    <p class="text-gray-500 mb-8 text-sm">
+      Aura-Assist uses open-source software. The following packages are included in this product
+      under their respective licenses. A full copy of this notice is available in the
+      <code class="bg-gray-100 px-1 rounded text-xs">THIRD-PARTY-NOTICES</code> file in the project repository.
+    </p>
+
+    <div id="notices-container" class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div class="p-8 text-center text-gray-400 text-sm">Loading notices…</div>
+    </div>
+  </main>
+
+  <footer class="text-center py-8 text-xs text-gray-400">
+    &copy; 2025 Aura-Assist&#8482; Ltd. All rights reserved.
+    &nbsp;·&nbsp;<a href="/privacy.html" class="hover:underline">Privacy</a>
+    &nbsp;·&nbsp;<a href="/terms_of_service.html" class="hover:underline">Terms</a>
+  </footer>
+
+  <script>
+  async function loadNotices() {
+    const container = document.getElementById('notices-container');
+    try {
+      const res = await fetch('/THIRD-PARTY-NOTICES');
+      if (!res.ok) throw new Error('Failed to load');
+      const text = await res.text();
+
+      // Parse into packages separated by the horizontal rule
+      const blocks = text.split('─'.repeat(80)).map(b => b.trim()).filter(Boolean);
+
+      // First block is the header — skip it
+      const packages = blocks.slice(1);
+
+      if (packages.length === 0) {
+        container.innerHTML = '<div class="p-8 text-gray-400 text-sm text-center">No third-party notices found.</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="divide-y divide-gray-100">
+          ${packages.map(block => {
+            const lines = block.split('\n');
+            const pkg = (lines.find(l => l.startsWith('Package:')) || '').replace('Package: ', '');
+            const license = (lines.find(l => l.startsWith('License:')) || '').replace('License: ', '');
+            const repo = (lines.find(l => l.startsWith('Repository:')) || '').replace('Repository: ', '');
+
+            return `<details class="group">
+              <summary class="flex items-center justify-between px-6 py-3 cursor-pointer hover:bg-gray-50 transition">
+                <span class="font-mono text-sm font-semibold text-gray-800">${_esc(pkg)}</span>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">${_esc(license)}</span>
+                  <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </div>
+              </summary>
+              <div class="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                ${repo ? `<p class="text-xs text-gray-500 mb-3"><a href="${_esc(repo)}" target="_blank" rel="noopener" class="text-emerald-600 hover:underline">${_esc(repo)}</a></p>` : ''}
+                <pre class="text-xs text-gray-600 whitespace-pre-wrap font-mono leading-relaxed max-h-64 overflow-y-auto">${_esc(block)}</pre>
+              </div>
+            </details>`;
+          }).join('')}
+        </div>
+      `;
+    } catch (e) {
+      container.innerHTML = `<div class="p-8 text-red-500 text-sm text-center">Failed to load third-party notices. <a href="/THIRD-PARTY-NOTICES" class="underline">View raw file</a>.</div>`;
+    }
+  }
+
+  function _esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  document.addEventListener('DOMContentLoaded', loadNotices);
+  </script>
+</body>
+</html>

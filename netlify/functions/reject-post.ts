@@ -14,7 +14,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { scheduledPosts, contentRules, users } from '../../db/schema';
+import { scheduledPosts, contentRules, users, notifications, aiAssistants } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -37,10 +37,10 @@ export const handler: Handler = async (event) => {
         return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) };
     }
 
-    let body: { postId?: number; feedbackText?: string; applyAsRule?: boolean; platform?: string };
+    let body: { postId?: number; feedbackText?: string; applyAsRule?: boolean; platform?: string; voiceFeedback?: boolean };
     try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
 
-    const { postId, feedbackText, applyAsRule = false, platform } = body;
+    const { postId, feedbackText, applyAsRule = false, platform, voiceFeedback = false } = body;
 
     if (!postId || typeof postId !== 'number') {
         return { statusCode: 400, body: JSON.stringify({ error: 'postId is required.' }) };
@@ -79,6 +79,8 @@ export const handler: Handler = async (event) => {
             platform: platform || null,
             createdByUserId: userId,
             isActive: true,
+            origin: 'rejection_feedback',
+            originPostId: postId,
         }).returning({ id: contentRules.id });
         ruleId = rule?.id;
     }
@@ -107,6 +109,27 @@ export const handler: Handler = async (event) => {
         revisedFromPostId: postId,
         isRevised: true,
     }).returning({ id: scheduledPosts.id });
+
+    // US-SMM-2.5.1: Notify user that revised post is ready when triggered by voice feedback
+    if (voiceFeedback && revised?.id) {
+        void (async () => {
+            try {
+                let assistantName = 'Your assistant';
+                if (post.assistantId) {
+                    const [asst] = await db.select({ name: aiAssistants.name })
+                        .from(aiAssistants).where(eq(aiAssistants.id, post.assistantId)).limit(1);
+                    if (asst?.name) assistantName = asst.name;
+                }
+                await db.insert(notifications).values({
+                    userId,
+                    type: 'post_revised',
+                    title: `${assistantName}: Your revised post is ready to review`,
+                    message: `Your voice feedback has been applied. The revised draft is ready for your review.`,
+                    metadata: { revisedPostId: revised.id, originalPostId: postId },
+                });
+            } catch { /* non-blocking */ }
+        })();
+    }
 
     return {
         statusCode: 200,

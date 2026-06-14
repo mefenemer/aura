@@ -10,7 +10,8 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, scheduledPosts, contentAssets } from '../../db/schema';
+import { users, scheduledPosts, contentAssets, contentProvenance } from '../../db/schema';
+import { createHmac, createHash, randomUUID } from 'crypto';
 import { propagateAssetStatuses } from './content-assets';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -222,6 +223,29 @@ export const handler: Handler = async (event) => {
                     updates.publishedAt = new Date();
                     updates.platformPostUrl = body.platformPostUrl || null;
                     updates.platformPostId = body.platformPostId || null;
+                    // US-GOV-3.2.1: attach C2PA provenance record on publish
+                    const contentId = existing.provenanceContentId || randomUUID();
+                    updates.provenanceContentId = contentId;
+                    void (async () => {
+                        try {
+                            const [existingProv] = await db.select({ id: contentProvenance.id }).from(contentProvenance).where(eq(contentProvenance.contentId, contentId)).limit(1);
+                            if (!existingProv) {
+                                const modelHash = createHash('sha256').update('gpt-4o').digest('hex').slice(0, 32);
+                                const orgHash = createHmac('sha256', process.env.JWT_SECRET || 'fallback').update(`org:${existing.organisationId}`).digest('hex').slice(0, 16);
+                                await db.insert(contentProvenance).values({
+                                    contentId,
+                                    assistantId: existing.assistantId || null,
+                                    organisationId: existing.organisationId || null,
+                                    workspaceIdHash: orgHash,
+                                    modelUsedHash: modelHash,
+                                    hitlReviewed: existing.status === 'approved',
+                                    hitlReviewedAt: existing.status === 'approved' ? new Date() : null,
+                                    publishedAt: new Date(),
+                                    c2paSchemaVersion: '1.0',
+                                });
+                            }
+                        } catch { /* non-blocking */ }
+                    })();
                 }
             }
 

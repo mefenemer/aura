@@ -16,7 +16,9 @@ import {
   notifications,
   masterAssistants,
   onboardingDrafts,
+  dpaAcceptances,
 } from '../../db/schema';
+import { CURRENT_DPA_VERSION } from './accept-dpa';
 import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
 import { checkRateLimit } from '../../src/utils/rate-limit';
 
@@ -135,8 +137,21 @@ export const handler: Handler = async (event) => {
       return { statusCode: 403, body: JSON.stringify({ error: 'Account pending verification or missing organisation.' }) };
     }
 
+    // US-GDPR-1.1.1: Block provisioning if organisation has not accepted the current DPA version
+    const [dpa] = await db
+      .select({ id: dpaAcceptances.id })
+      .from(dpaAcceptances)
+      .where(and(
+        eq(dpaAcceptances.organisationId, existingUser.organisationId!),
+        eq(dpaAcceptances.version, CURRENT_DPA_VERSION),
+      ))
+      .limit(1);
+    if (!dpa) {
+      return { statusCode: 403, body: JSON.stringify({ error: 'Please review and accept our Data Processing Agreement before activating your assistant.', code: 'DPA_REQUIRED' }) };
+    }
+
     const body = JSON.parse(event.body || '{}');
-    const { clientName, businessName, assistantName, customAssistantName, rawInputs, onboardingContext, consents } = body;
+    const { clientName, businessName, assistantName, customAssistantName, rawInputs, onboardingContext, consents, hourlyRateGbp } = body;
 
     if (assistantName === 'Social Media Manager') {
       if (!onboardingContext?.target_audience || !onboardingContext?.content_pillars || !onboardingContext?.tone_of_voice || !onboardingContext?.primary_platforms?.length) {
@@ -161,7 +176,12 @@ export const handler: Handler = async (event) => {
     }
 
     // 3. UPDATE PROFILE CONSENTS & ORG NAME
-    await db.update(userProfiles).set({ legalConsents: consents || {} }).where(eq(userProfiles.userId, existingUser.id));
+    const profileUpdate: Record<string, unknown> = { legalConsents: consents || {} };
+    if (typeof hourlyRateGbp === 'number' && hourlyRateGbp > 0) {
+      const [existing] = await db.select({ preferences: userProfiles.preferences }).from(userProfiles).where(eq(userProfiles.userId, existingUser.id)).limit(1);
+      profileUpdate.preferences = { ...(existing?.preferences as object || {}), hourlyRateGbp };
+    }
+    await db.update(userProfiles).set(profileUpdate).where(eq(userProfiles.userId, existingUser.id));
 
     if (businessName?.trim()) {
       await db.update(organisations).set({ name: sanitizeText(businessName.trim()) })

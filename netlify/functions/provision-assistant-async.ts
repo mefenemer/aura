@@ -1,9 +1,32 @@
 import { Handler } from '@netlify/functions';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { aiAssistants, dpaAcceptances, notifications, users, supportTickets } from '../../db/schema';
+import { aiAssistants, auditLogs, dpaAcceptances, masterAssistants, notifications, organisations, plans, riskAssessments, users, supportTickets } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 import { isGlobalAiDisabled } from '../../src/utils/platform-config';
+import { requireTosAcceptance, checkProhibitedUsePatterns } from '../../src/utils/tos-gate';
+import { CURRENT_DPA_VERSION } from './accept-dpa';
+import Stripe from 'stripe';
+
+const stripe = process.env.STRIPE_SECRET_KEY
+    ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' })
+    : null;
+
+const EU_COUNTRY_CODES = new Set([
+    'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI','FR','GR','HR','HU',
+    'IE','IT','LT','LU','LV','MT','NL','PL','PT','RO','SE','SI','SK',
+]);
+
+async function isEuOrg(stripeCustomerId: string | null | undefined): Promise<boolean> {
+    if (!stripe || !stripeCustomerId) return false;
+    try {
+        const customer = await stripe.customers.retrieve(stripeCustomerId) as Stripe.Customer;
+        const country = customer.address?.country;
+        return country ? EU_COUNTRY_CODES.has(country.toUpperCase()) : false;
+    } catch {
+        return false;
+    }
+}
 
 export const handler: Handler = async (event) => {
     const { assistantId } = JSON.parse(event.body!);
@@ -20,7 +43,7 @@ export const handler: Handler = async (event) => {
 
         // US-GOV-3.1.1 / US-GDPR-1.1.1: Pre-activation checks
         const [preCheck] = await db
-            .select({ disclosureText: aiAssistants.disclosureText, organisationId: aiAssistants.organisationId })
+            .select({ disclosureText: aiAssistants.disclosureText, organisationId: aiAssistants.organisationId, masterAssistantId: aiAssistants.masterAssistantId, userId: aiAssistants.userId })
             .from(aiAssistants)
             .where(eq(aiAssistants.id, assistantId))
             .limit(1);
@@ -30,17 +53,112 @@ export const handler: Handler = async (event) => {
             return { statusCode: 422, body: JSON.stringify({ error: 'AI disclosure text is required before this assistant can be activated (EU AI Act Art. 52).' }) };
         }
 
-        // US-GDPR-1.1.1: Block activation if organisation has not accepted the DPA
+        // US-GOV-1.2.1 AC5: Block all write/activation operations until user has accepted current ToS
+        if (preCheck?.userId) {
+            const tosBlock = await requireTosAcceptance(preCheck.userId);
+            if (tosBlock) {
+                console.warn(`[provision-assistant-async] Blocked activation for assistant ${assistantId}: ToS not accepted (userId=${preCheck.userId})`);
+                return tosBlock;
+            }
+        }
+
+        // US-GOV-1.2.1 AC4: Detect prohibited-use patterns in system prompt; require ack flag + log it
+        const [assistantFull] = await db
+            .select({ systemPrompt: aiAssistants.systemPrompt, prohibitedUseAcknowledged: aiAssistants.prohibitedUseAcknowledged })
+            .from(aiAssistants)
+            .where(eq(aiAssistants.id, assistantId))
+            .limit(1);
+
+        if (assistantFull?.systemPrompt) {
+            const puCheck = checkProhibitedUsePatterns(assistantFull.systemPrompt);
+            if (puCheck.detected) {
+                // If the deployer has not acknowledged prohibited-use categories, block activation
+                if (!assistantFull.prohibitedUseAcknowledged) {
+                    console.warn(`[provision-assistant-async] Blocked activation for assistant ${assistantId}: prohibited-use patterns detected (${puCheck.categories.join(', ')}) without acknowledgment`);
+                    return {
+                        statusCode: 422,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            error: 'The assistant\'s system prompt contains content that falls under prohibited-use categories. Please review the Terms of Service (clauses 10.3 and 11.4) and acknowledge compliance before activating.',
+                            code: 'PROHIBITED_USE_ACK_REQUIRED',
+                            categories: puCheck.categories,
+                        }),
+                    };
+                }
+
+                // Log the acknowledgment in audit_logs
+                if (preCheck?.userId) {
+                    const { CURRENT_TOS_VERSION } = await import('./accept-tos');
+                    await db.insert(auditLogs).values({
+                        userId: preCheck.userId,
+                        actionType: 'PROHIBITED_USE_ACK',
+                        resourceType: 'ai_assistants',
+                        resourceId: String(assistantId),
+                        newState: {
+                            categories: puCheck.categories,
+                            tosVersion: CURRENT_TOS_VERSION,
+                            acknowledgedAt: new Date().toISOString(),
+                        },
+                    }).catch(() => {});
+                }
+            }
+        }
+
+        // US-GDPR-1.1.1: Block activation if organisation has not accepted the current DPA version
         if (preCheck?.organisationId) {
             const [dpa] = await db
                 .select({ id: dpaAcceptances.id })
                 .from(dpaAcceptances)
-                .where(eq(dpaAcceptances.organisationId, preCheck.organisationId))
+                .where(and(
+                    eq(dpaAcceptances.organisationId, preCheck.organisationId),
+                    eq(dpaAcceptances.version, CURRENT_DPA_VERSION),
+                ))
                 .limit(1);
 
             if (!dpa) {
                 console.warn(`[provision-assistant-async] Blocked activation for assistant ${assistantId}: DPA not accepted for org ${preCheck.organisationId}`);
                 return { statusCode: 403, body: JSON.stringify({ error: 'Your organisation must accept the Data Processing Agreement before activating an assistant.', code: 'DPA_REQUIRED' }) };
+            }
+        }
+
+        // US-GOV-1.1.1: Block EU-market activation of high_risk assistants without an approved risk assessment
+        if (preCheck?.organisationId && preCheck.masterAssistantId) {
+            const [master] = await db
+                .select({ riskClassification: masterAssistants.riskClassification })
+                .from(masterAssistants)
+                .where(eq(masterAssistants.id, preCheck.masterAssistantId))
+                .limit(1);
+
+            if (master?.riskClassification === 'high_risk') {
+                // Determine EU jurisdiction via Stripe billing country
+                const [plan] = await db
+                    .select({ stripeCustomerId: plans.stripeCustomerId })
+                    .from(plans)
+                    .where(eq(plans.userId, preCheck.userId!))
+                    .limit(1);
+
+                const euJurisdiction = await isEuOrg(plan?.stripeCustomerId);
+
+                if (euJurisdiction) {
+                    // Check for an approved risk assessment for this assistant + org
+                    const [assessment] = await db
+                        .select({ id: riskAssessments.id })
+                        .from(riskAssessments)
+                        .where(and(
+                            eq(riskAssessments.masterAssistantId, preCheck.masterAssistantId),
+                            eq(riskAssessments.organisationId, preCheck.organisationId),
+                            eq(riskAssessments.approvalStatus, 'approved'),
+                        ))
+                        .limit(1);
+
+                    if (!assessment) {
+                        console.warn(`[provision-assistant-async] Blocked EU activation for assistant ${assistantId}: high_risk classification requires approved conformity assessment`);
+                        return { statusCode: 403, body: JSON.stringify({
+                            error: 'This assistant is classified as High Risk under the EU AI Act. A completed conformity assessment must be approved before EU-market deployment.',
+                            code: 'HIGH_RISK_EU_BLOCKED',
+                        }) };
+                    }
+                }
             }
         }
 

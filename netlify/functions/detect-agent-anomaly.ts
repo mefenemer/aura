@@ -13,11 +13,11 @@
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { and, eq, gte, isNull, or } from 'drizzle-orm';
+import { and, avg, eq, gte, isNull, or } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     users, taskRuns, aiAssistants, agentAnomalies,
-    agentAnomalyThresholds, notifications,
+    agentAnomalyThresholds, agentRunSummaries, notifications,
 } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -50,6 +50,27 @@ function detectErrorRate(calls: ToolCall[], windowMs: number, threshold: number)
 function detectConsecutiveRateLimits(calls: ToolCall[], consecutiveLimit: number): boolean {
     if (calls.length < consecutiveLimit) return false;
     return calls.slice(-consecutiveLimit).every(c => c.status === 'rate_limited');
+}
+
+async function detectRateAnomaly(
+    db: ReturnType<typeof getDb>,
+    assistantId: number | null,
+    currentRunToolCallCount: number,
+    multiplier: number,
+): Promise<boolean> {
+    if (!assistantId || currentRunToolCallCount < 5) return false; // too few calls to be meaningful
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [row] = await db
+        .select({ avgToolCalls: avg(agentRunSummaries.totalToolCalls) })
+        .from(agentRunSummaries)
+        .innerJoin(taskRuns, eq(taskRuns.id, agentRunSummaries.taskRunId))
+        .where(and(
+            eq(taskRuns.assistantId, assistantId),
+            gte(agentRunSummaries.createdAt, sevenDaysAgo),
+        ));
+    const rollingAvg = parseFloat(String(row?.avgToolCalls ?? '0'));
+    if (rollingAvg < 1) return false; // no baseline yet
+    return currentRunToolCallCount > rollingAvg * multiplier;
 }
 
 export const handler: Handler = async (event) => {
@@ -112,11 +133,17 @@ export const handler: Handler = async (event) => {
         consecutiveRateLimitHits: 3,
     };
 
-    // Detect anomalies
+    // Detect anomalies — checked in severity order
     let anomalyType: string | null = null;
-    if (detectLoop(recentToolCalls, thresholds.loopDetectionLimit)) anomalyType = 'loop';
-    else if (detectErrorRate(recentToolCalls, 5 * 60 * 1000, thresholds.errorRatePercent)) anomalyType = 'error_rate';
-    else if (detectConsecutiveRateLimits(recentToolCalls, thresholds.consecutiveRateLimitHits)) anomalyType = 'consecutive_429';
+    if (detectLoop(recentToolCalls, thresholds.loopDetectionLimit)) {
+        anomalyType = 'loop';
+    } else if (detectErrorRate(recentToolCalls, 5 * 60 * 1000, thresholds.errorRatePercent)) {
+        anomalyType = 'error_rate';
+    } else if (detectConsecutiveRateLimits(recentToolCalls, thresholds.consecutiveRateLimitHits)) {
+        anomalyType = 'consecutive_429';
+    } else if (await detectRateAnomaly(db, assistantId ?? null, recentToolCalls.length, thresholds.toolRateMultiplier ?? 2)) {
+        anomalyType = 'tool_call_rate';
+    }
 
     if (!anomalyType) {
         return {

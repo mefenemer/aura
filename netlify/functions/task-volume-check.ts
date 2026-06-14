@@ -8,7 +8,7 @@
 //   schedule = "0 8 * * *"   # 08:00 UTC every day
 
 import { Handler } from '@netlify/functions';
-import { eq, and, gte, count, isNotNull, ne } from 'drizzle-orm';
+import { eq, and, gte, count, isNotNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, plans, masterPlans, taskRuns, notifications, aiAssistants } from '../../db/schema';
 
@@ -62,17 +62,18 @@ export const handler: Handler = async (event) => {
             if (pct >= 100) {
                 // ── 100%: pause automated tasks + deduplicated notification ──
                 const existingPause = await db
-                    .select({ id: notifications.id })
+                    .select({ id: notifications.id, metadata: notifications.metadata })
                     .from(notifications)
                     .where(and(
                         eq(notifications.userId, userId),
                         eq(notifications.type, 'task_limit_reached'),
+                        gte(notifications.createdAt, monthStart),
                     ))
                     .limit(1);
 
                 // Only fire once per calendar month — check metadata
                 const alreadyPaused = existingPause.some(n => {
-                    const meta = (n as any).metadata;
+                    const meta = n.metadata as Record<string, unknown> | null;
                     return meta?.month === monthLabel;
                 });
 
@@ -106,16 +107,17 @@ export const handler: Handler = async (event) => {
             } else if (pct >= 80) {
                 // ── 80%: warn user — deduplicated ──────────────────────────
                 const existingWarn = await db
-                    .select({ id: notifications.id })
+                    .select({ id: notifications.id, metadata: notifications.metadata })
                     .from(notifications)
                     .where(and(
                         eq(notifications.userId, userId),
                         eq(notifications.type, 'task_limit_warning'),
+                        gte(notifications.createdAt, monthStart),
                     ))
                     .limit(1);
 
                 const alreadyWarned = existingWarn.some(n => {
-                    const meta = (n as any).metadata;
+                    const meta = n.metadata as Record<string, unknown> | null;
                     return meta?.month === monthLabel;
                 });
 

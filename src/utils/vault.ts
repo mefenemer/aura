@@ -3,14 +3,18 @@
 // Plaintext credentials NEVER appear in DB columns, logs, or error messages (SC2).
 //
 // Env required:
-//   VAULT_KEK  — 64 hex chars (32 bytes) master Key Encryption Key
-//                e.g. openssl rand -hex 32
-//   VAULT_KEY  — legacy fallback (64 hex chars) for rows without encryptedDek
+//   VAULT_KEK_VERSION — integer: current KEK version (e.g. "2"); defaults to 1
+//   VAULT_KEK_<N>     — 64 hex chars (32 bytes) KEK for version N
+//                       e.g. VAULT_KEK_1, VAULT_KEK_2
+//   VAULT_KEK         — legacy alias for VAULT_KEK_1 (backwards compat)
+//   VAULT_KEY         — legacy fallback (64 hex chars) for rows without encryptedDek
 //
-// KEK/DEK architecture:
-//   - A random 32-byte DEK is generated per vault write and wrapped with the KEK.
+// KEK/DEK architecture (US-DB-1.6.1: multi-version key rotation):
+//   - A random 32-byte DEK is generated per vault write and wrapped with the current KEK version.
 //   - The wrapped DEK is stored in the encryptedDek column (iv:authTag:ciphertext).
-//   - On read: unwrap DEK with KEK → decrypt payload with DEK.
+//   - vault_secrets.keyVersion records which KEK version was used.
+//   - On read: select KEK by keyVersion → unwrap DEK → decrypt payload.
+//   - Lazy rotation: if keyVersion < current, re-encrypt with current KEK and write back.
 //   - Legacy rows (encryptedDek IS NULL) fall back to the single VAULT_KEY.
 
 import crypto from 'crypto';
@@ -22,10 +26,17 @@ const ALGORITHM = 'aes-256-gcm';
 
 // ── Key helpers ───────────────────────────────────────────────────────────────
 
-function getKek(): Buffer {
-    const hex = process.env.VAULT_KEK;
+/** Current KEK version — set VAULT_KEK_VERSION env var to rotate. */
+function getCurrentKekVersion(): number {
+    return parseInt(process.env.VAULT_KEK_VERSION || '1', 10);
+}
+
+/** Retrieve the KEK buffer for a specific version. */
+function getKekByVersion(version: number): Buffer {
+    // Support VAULT_KEK_<N> per version; fall back to VAULT_KEK for version 1 (backwards compat)
+    const hex = process.env[`VAULT_KEK_${version}`] ?? (version === 1 ? process.env.VAULT_KEK : undefined);
     if (!hex || hex.length !== 64) {
-        throw new Error('VAULT_KEK env var is missing or not 64 hex chars.');
+        throw new Error(`VAULT_KEK_${version} env var is missing or not 64 hex chars.`);
     }
     return Buffer.from(hex, 'hex');
 }
@@ -68,32 +79,45 @@ function wrapDek(dek: Buffer): string {
     return `${iv}:${authTag}:${ciphertext}`;
 }
 
-function unwrapDek(encryptedDek: string): Buffer {
+function unwrapDek(encryptedDek: string, kekVersion = 1): Buffer {
     const parts = encryptedDek.split(':');
     if (parts.length !== 3) throw new Error('Malformed encryptedDek.');
     const [iv, authTag, ciphertext] = parts;
-    return gcmDecrypt(getKek(), iv, authTag, ciphertext);
+    return gcmDecrypt(getKekByVersion(kekVersion), iv, authTag, ciphertext);
 }
 
 // ── Payload encrypt / decrypt ─────────────────────────────────────────────────
 
 function encryptWithDek(plaintext: string): {
-    encryptedPayload: string; iv: string; authTag: string; encryptedDek: string;
+    encryptedPayload: string; iv: string; authTag: string; encryptedDek: string; keyVersion: number;
 } {
+    const keyVersion = getCurrentKekVersion();
     const dek = crypto.randomBytes(32);
     const { iv, authTag, ciphertext } = gcmEncrypt(dek, Buffer.from(plaintext, 'utf8'));
-    return { encryptedPayload: ciphertext, iv, authTag, encryptedDek: wrapDek(dek) };
+    const encryptedDek = gcmEncrypt(getKekByVersion(keyVersion), dek);
+    return {
+        encryptedPayload: ciphertext,
+        iv,
+        authTag,
+        encryptedDek: `${encryptedDek.iv}:${encryptedDek.authTag}:${encryptedDek.ciphertext}`,
+        keyVersion,
+    };
 }
 
 function decryptRow(row: {
-    encryptedPayload: string; iv: string; authTag: string; encryptedDek: string | null;
+    encryptedPayload: string; iv: string; authTag: string; encryptedDek: string | null; keyVersion?: number | null;
 }): string {
     if (row.encryptedDek) {
-        const dek = unwrapDek(row.encryptedDek);
+        const dek = unwrapDek(row.encryptedDek, row.keyVersion ?? 1);
         return gcmDecrypt(dek, row.iv, row.authTag, row.encryptedPayload).toString('utf8');
     }
     // Legacy path: single VAULT_KEY (pre-migration rows)
     return gcmDecrypt(getLegacyKey(), row.iv, row.authTag, row.encryptedPayload).toString('utf8');
+}
+
+/** True when row was encrypted with an older KEK version and should be re-encrypted. */
+function needsRotation(row: { keyVersion?: number | null }): boolean {
+    return (row.keyVersion ?? 1) < getCurrentKekVersion();
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -115,14 +139,14 @@ export async function storeSecret(
     payload: Record<string, unknown>
 ): Promise<void> {
     const plaintext = JSON.stringify(payload);
-    const { encryptedPayload, iv, authTag, encryptedDek } = encryptWithDek(plaintext);
+    const { encryptedPayload, iv, authTag, encryptedDek, keyVersion } = encryptWithDek(plaintext);
 
     await db
         .insert(vaultSecrets)
-        .values({ refKey, encryptedPayload, iv, authTag, encryptedDek })
+        .values({ refKey, encryptedPayload, iv, authTag, encryptedDek, keyVersion })
         .onConflictDoUpdate({
             target: vaultSecrets.refKey,
-            set: { encryptedPayload, iv, authTag, encryptedDek, updatedAt: new Date() },
+            set: { encryptedPayload, iv, authTag, encryptedDek, keyVersion, updatedAt: new Date() },
         });
 }
 
@@ -141,6 +165,16 @@ export async function getSecret(
         .limit(1);
     if (!row) return null;
     const plaintext = decryptRow(row);
+
+    // US-DB-1.6.1: Lazy key rotation — re-encrypt with current KEK version on read
+    if (needsRotation(row)) {
+        const { encryptedPayload, iv, authTag, encryptedDek, keyVersion } = encryptWithDek(plaintext);
+        await db
+            .update(vaultSecrets)
+            .set({ encryptedPayload, iv, authTag, encryptedDek, keyVersion, updatedAt: new Date() })
+            .where(eq(vaultSecrets.refKey, refKey));
+    }
+
     return JSON.parse(plaintext);
 }
 

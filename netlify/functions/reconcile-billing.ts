@@ -12,13 +12,14 @@
 // Mismatches trigger a superadmin in-app notification.
 
 import { schedule } from '@netlify/functions';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { getDb } from '../../db/client';
 import {
     plans, organisations, masterPlans, users, notifications,
-    billingReconciliationLog,
+    billingReconciliationLog, usageCounters, taskRuns,
 } from '../../db/schema';
+import { getPeriodStart } from '../../src/utils/atomic-cap-check';
 
 // Same Stripe price → tier mapping as verify.ts
 const PRICE_TO_TIER: Record<string, string> = {
@@ -178,6 +179,40 @@ async function runReconciliation(): Promise<void> {
                     stripeStatus:         'not_found_in_stripe',
                     lastWebhookDate:      dbPlan.updatedAt ? new Date(dbPlan.updatedAt).toISOString() : null,
                 });
+            }
+        }
+
+        // ── 4a. US-DB-1.4.1: Cross-check usageCounters.taskCount vs live task_runs count ──
+        const periodStart  = getPeriodStart();
+        const ucRows = await db
+            .select({ organisationId: usageCounters.organisationId, taskCount: usageCounters.taskCount })
+            .from(usageCounters)
+            .where(eq(usageCounters.periodStart, periodStart));
+
+        for (const uc of ucRows) {
+            const [live] = await db.execute(sql`
+                SELECT COUNT(*) AS live_count
+                FROM task_runs
+                WHERE organisation_id = ${uc.organisationId}
+                  AND created_at >= ${periodStart}
+            `);
+            const liveCount = Number((live as any).live_count ?? 0);
+            const counterCount = uc.taskCount ?? 0;
+            const drift = Math.abs(liveCount - counterCount);
+            const driftPct = liveCount > 0 ? drift / liveCount : 0;
+
+            if (driftPct > 0.01) {
+                // >1% drift — flag it
+                mismatches.push({
+                    type:           'usage_counter_drift',
+                    organisationId: uc.organisationId,
+                    counterValue:   counterCount,
+                    liveValue:      liveCount,
+                    delta:          counterCount - liveCount,
+                    driftPct:       Math.round(driftPct * 10000) / 100,
+                    period:         periodStart.toISOString(),
+                });
+                console.warn(`[reconcile-billing] Usage counter drift >1% for org ${uc.organisationId}: counter=${counterCount}, live=${liveCount}`);
             }
         }
 

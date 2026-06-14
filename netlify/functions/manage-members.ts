@@ -21,6 +21,7 @@ import {
     organisations,
     plans,
     masterPlans,
+    jwtBlocklist,
 } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { tombstoneOrgMemberAssets } from '../../src/utils/gdpr-asset-purge';
@@ -191,12 +192,18 @@ export const handler: Handler = async (event) => {
                     eq(userOrganisations.organisationId, orgId),
                 ));
 
-            // SC4b: Invalidate session — update tokenExpiresAt to past so next request fails
-            // (full session invalidation within 5 minutes via JWT expiry; setting verificationToken
-            //  to null forces re-login if they use a magic link. Short-lived JWTs handle the rest.)
+            // SC4b: Invalidate session immediately — update tokenExpiresAt and blocklist all
+            // existing JWTs so the removed member cannot continue using a valid 7-day token.
             await db.update(users)
                 .set({ tokenExpiresAt: new Date(0) })
                 .where(eq(users.id, targetUserId));
+
+            await db.insert(jwtBlocklist).values({
+                userId: targetUserId,
+                blockType: 'userId',
+                reason: 'member_removed',
+                expiresAt: null,
+            });
 
             // US-GDPR-2.2.1: Tombstone departing member's assets so remaining members
             // can't access their files, but org-level rows remain intact (isActive=false).

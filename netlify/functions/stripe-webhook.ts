@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 import { eq, and, inArray, desc, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices, processedWebhookEvents, userReferrals, platformConfig } from '../../db/schema';
+import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices, processedWebhookEvents, userReferrals, platformConfig, stripeDisputes } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
@@ -305,7 +305,7 @@ export const handler: Handler = async (event) => {
                     if (userRow?.email) {
                         await sendEmail({
                             to: userRow.email,
-                            subject: `Your Aura-Assist annual plan renews on ${renewalDay}`,
+                            subject: `Your Aura-Assist™ annual plan renews on ${renewalDay}`,
                             html: `
                                 <p>Hi ${userRow.name || 'there'},</p>
                                 <p>Your Aura-Assist annual subscription will automatically renew on <strong>${renewalDay}</strong>${amount ? ` for <strong>${amount}</strong>` : ''}.</p>
@@ -641,6 +641,26 @@ export const handler: Handler = async (event) => {
                     metadata: { disputeId: dispute.id, reason: dispute.reason, chargeId },
                 }).catch(() => {});
             }
+
+            // Persist dispute record to DB for admin portal disputes tab
+            let affectedOrgId: number | null = null;
+            if (affectedUserId) {
+                const [userRow] = await db.select({ organisationId: users.organisationId }).from(users).where(eq(users.id, affectedUserId)).limit(1);
+                affectedOrgId = userRow?.organisationId ?? null;
+            }
+            await db.insert(stripeDisputes).values({
+                stripeDisputeId: dispute.id,
+                stripeChargeId:  chargeId ?? null,
+                userId:          affectedUserId,
+                organisationId:  affectedOrgId,
+                amount:          dispute.amount ?? null,
+                currency:        dispute.currency ?? 'gbp',
+                reason:          dispute.reason ?? null,
+                status:          dispute.status,
+                evidenceDeadline: dispute.evidence_details?.due_by
+                    ? new Date(dispute.evidence_details.due_by * 1000)
+                    : null,
+            }).onConflictDoNothing().catch(() => {});
 
             // Notify all super_admins
             const superAdmins = await db

@@ -266,21 +266,55 @@ function renderCard(a) {
   const iconClass = `icon-${a.iconColor || 'blue'}`;
 
   if (a.comingSoon) {
+    // US-AUD-2.3.1 SC1/SC3/SC4: milestone progress bar card
+    const required = a.milestoneTasksRequired ?? 25;
+    const completed = a.completedTasks ?? 0;
+    const pct = a.pct ?? Math.min(Math.round((completed / required) * 100), 100);
+    const unlocked = a.unlocked ?? (completed >= required);
+    const notifyOn = a.notifyEnabled ?? a.onWaitlist ?? false;
+    const toGo = Math.max(required - completed, 0);
+
+    if (unlocked) {
+      return `
+        <div class="assistant-card bg-white rounded-2xl border-2 border-emerald-400 shadow-md overflow-hidden flex flex-col relative hover:shadow-lg transition-shadow">
+          <div class="absolute top-4 right-4 bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200">🎉 Early Access</div>
+          <div class="p-6 flex-grow">
+            <div class="w-12 h-12 rounded-xl ${iconClass} flex items-center justify-center mb-4">${iconSvg}</div>
+            <h2 class="text-xl font-bold text-gray-900 mb-1 pr-28">${escHtml(a.name)}</h2>
+            <p class="text-sm text-gray-500 font-medium mb-3">${escHtml(a.category)}</p>
+            <p class="text-sm text-gray-600 leading-relaxed mb-4">${escHtml(a.description || '')}</p>
+            <p class="text-sm font-semibold text-emerald-700">You've unlocked early access!</p>
+          </div>
+          <div class="p-4 bg-emerald-50 border-t border-emerald-100 flex justify-between items-center gap-3">
+            <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider">${required} tasks completed</span>
+            <button onclick="hireAssistant('${escAttr(a.roleKey)}')" class="bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-800 transition">Hire Role</button>
+          </div>
+        </div>`;
+    }
+
     return `
-      <div class="assistant-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col relative">
+      <div class="assistant-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col relative hover:shadow-md transition-shadow">
         <div class="absolute top-4 right-4 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">Coming Soon</div>
         <div class="p-6 flex-grow">
           <div class="w-12 h-12 rounded-xl ${iconClass} flex items-center justify-center mb-4">${iconSvg}</div>
-          <h2 class="text-xl font-bold text-gray-900 mb-1 pr-20">${escHtml(a.name)}</h2>
-          <p class="text-sm text-gray-500 font-medium mb-4">${escHtml(a.category)}</p>
-          <p class="text-sm text-gray-600 leading-relaxed">${escHtml(a.description || '')}</p>
+          <h2 class="text-xl font-bold text-gray-900 mb-1 pr-28">${escHtml(a.name)}</h2>
+          <p class="text-sm text-gray-500 font-medium mb-3">${escHtml(a.category)}</p>
+          <p class="text-sm text-gray-600 leading-relaxed mb-4">${escHtml(a.description || '')}</p>
+          <div class="mb-1 flex justify-between items-center">
+            <span class="text-xs font-semibold text-gray-700">${completed} tasks completed — ${toGo} to go for early access</span>
+          </div>
+          <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+            <div class="h-2 rounded-full bg-emerald-500 transition-all duration-700 ease-out" style="width:${pct}%"></div>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">${pct}% of ${required} tasks needed to unlock</p>
         </div>
         <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center gap-3">
-          <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">${a.waitlistCount > 0 ? `${a.waitlistCount} on waitlist` : 'Join Waitlist'}</span>
-          <button onclick="openWaitlist(${a.id}, '${escAttr(a.name)}', ${a.onWaitlist})"
-            class="${a.onWaitlist ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-default' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'} px-4 py-2 rounded-lg text-sm font-semibold transition"
-            ${a.onWaitlist ? 'disabled' : ''}>
-            ${a.onWaitlist ? '✓ On Waitlist' : 'Notify Me'}
+          <span class="text-xs font-medium text-gray-500">Notify me when live</span>
+          <button onclick="_notifyToggle(${a.id}, ${notifyOn})"
+            data-notify-btn="${a.id}"
+            class="${notifyOn ? 'bg-emerald-500' : 'bg-gray-300'} relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+            role="switch" aria-checked="${notifyOn}">
+            <span class="${notifyOn ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
           </button>
         </div>
       </div>`;
@@ -337,15 +371,43 @@ function renderGrid() {
 // ── Load data ────────────────────────────────────────────────────────────────
 async function loadCatalog() {
   try {
-    const res = await fetch('/.netlify/functions/master-assistants');
-    if (!res.ok) throw new Error('Failed to load.');
-    const { assistants } = await res.json();
+    const [catRes, milestoneRes] = await Promise.all([
+      fetch('/.netlify/functions/master-assistants'),
+      fetch('/.netlify/functions/milestone-progress'),
+    ]);
+    if (!catRes.ok) throw new Error('Failed to load.');
+    const { assistants } = await catRes.json();
     _all = assistants || [];
+
+    // US-AUD-2.3.1: Merge milestone progress into coming-soon cards
+    if (milestoneRes.ok) {
+      const { assistants: milestoneData } = await milestoneRes.json();
+      if (Array.isArray(milestoneData)) {
+        const byId = Object.fromEntries(milestoneData.map(m => [m.id, m]));
+        _all = _all.map(a => a.comingSoon && byId[a.id] ? { ...a, ...byId[a.id] } : a);
+      }
+    }
   } catch {
     _all = [];
   }
   renderGrid();
 }
+
+// ── US-AUD-2.3.1: Notify Me toggle ──────────────────────────────────────────
+async function _notifyToggle(masterAssistantId, currentlyOn) {
+  const enable = !currentlyOn;
+  try {
+    await fetch('/.netlify/functions/milestone-progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ masterAssistantId, enable }),
+    });
+    // Update local state and re-render
+    _all = _all.map(a => a.id === masterAssistantId ? { ...a, notifyEnabled: enable } : a);
+    renderGrid();
+  } catch { /* ignore */ }
+}
+window._notifyToggle = _notifyToggle;
 
 // ── Category tabs ────────────────────────────────────────────────────────────
 document.getElementById('category-tabs').addEventListener('click', e => {
@@ -555,7 +617,7 @@ async function submitRoleRequest() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email,
-        subject: `New Role Request: ${role}`,
+        subject: `[Role Request] ${role} — ${urgency}`,
         message: `Role: ${role}\n\nTasks to automate:\n${tasks}${industry ? '\n\nIndustry: ' + industry : ''}\n\nUrgency: ${urgency}`,
         source: 'assistant-library-role-request',
       }),

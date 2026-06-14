@@ -290,6 +290,22 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── Load & hydrate ────────────────────────────────────────────
     try {
         const res = await fetch(`/.netlify/functions/get-assistant-context?id=${assistantId}`);
+        if (res.status === 403) {
+            const errBody = await res.json().catch(() => ({}));
+            if (errBody.code === 'DPA_REQUIRED') {
+                // Show blocking DPA acceptance modal — user cannot view assistant config until accepted
+                const modal = document.getElementById('modal-dpa-required');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                    // Wire up accept button with the assistantId so we can reload after acceptance
+                    const acceptBtn = document.getElementById('btn-dpa-accept');
+                    if (acceptBtn) acceptBtn.dataset.assistantId = assistantId;
+                }
+                return;
+            }
+            throw new Error('Failed to load');
+        }
         if (!res.ok) throw new Error('Failed to load');
         currentData = await res.json();
 

@@ -169,7 +169,7 @@
             <p id="checkout-tos-copy" class="text-center text-xs text-gray-400 mt-4">
               By confirming, you agree to Aura-Assist's
               <a href="terms_of_service.html" class="underline hover:text-gray-600">Terms of Service</a>
-              and authorise this recurring charge. Cancel anytime.
+              and authorise this recurring charge. <span id="checkout-renewal-disclosure">Your subscription renews automatically. Cancel anytime from Settings → Billing.</span>
             </p>
           </form>
         </div>
@@ -383,6 +383,19 @@
     document.getElementById('summary-price-original').textContent = formatted + (billingCycle === 'annual' ? '/yr' : '/mo');
     document.getElementById('summary-total').textContent          = formatted;
     document.getElementById('subscription-cycle-label').textContent = cycleLabel;
+
+    // US-LEGAL-1.5: Update renewal disclosure with actual renewal date, amount, and cancel path
+    const renewalDate = new Date();
+    if (billingCycle === 'annual') {
+      renewalDate.setFullYear(renewalDate.getFullYear() + 1);
+    } else {
+      renewalDate.setMonth(renewalDate.getMonth() + 1);
+    }
+    const renewalDateStr = renewalDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    const disclosureEl = document.getElementById('checkout-renewal-disclosure');
+    if (disclosureEl) {
+      disclosureEl.textContent = `Your subscription renews on ${renewalDateStr} for ${formatted}${billingCycle === 'annual' ? '/yr' : '/mo'}. Cancel anytime from Settings → Billing.`;
+    }
     document.getElementById('summary-features').innerHTML = planInfo.features.map(f => `
       <div class="flex items-center gap-2.5 text-sm text-gray-600">
         <span class="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">

@@ -24,9 +24,10 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
-import { eq, and, gte, gt, count, sum, asc } from 'drizzle-orm';
+import { eq, and, gte, gt, count, sum, asc, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { plans, masterPlans, aiAssistants, taskRuns, userOrganisations, users } from '../../db/schema';
+import { plans, masterPlans, planPrices, aiAssistants, taskRuns, usageCounters, userOrganisations, users, systemConnections } from '../../db/schema';
+import { getPeriodStart } from '../../src/utils/atomic-cap-check';
 
 const stripe = process.env.STRIPE_SECRET_KEY
     ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' })
@@ -60,6 +61,7 @@ export const handler: Handler = async (event) => {
                 expiresAt: plans.expiresAt,
                 gracePeriodEndsAt: plans.gracePeriodEndsAt,
                 masterPlanId: plans.masterPlanId,
+                currency: plans.currency,
                 tierKey: masterPlans.tierKey,
                 tierName: masterPlans.name,
                 monthlyPriceGbp: masterPlans.monthlyPriceGbp,
@@ -85,6 +87,7 @@ export const handler: Handler = async (event) => {
                     expiresAt: plans.expiresAt,
                     gracePeriodEndsAt: plans.gracePeriodEndsAt,
                     masterPlanId: plans.masterPlanId,
+                    currency: plans.currency,
                     stripeCustomerId: plans.stripeCustomerId,
                     tierKey: masterPlans.tierKey,
                     tierName: masterPlans.name,
@@ -102,6 +105,16 @@ export const handler: Handler = async (event) => {
                 .limit(1)
             : [];
 
+        // SC6c: check for expired trial plans when no active or past_due plan exists
+        const expiredTrialPlan = (activePlan.length === 0 && pastDuePlan.length === 0)
+            ? await db
+                .select({ planType: plans.planType, expiresAt: plans.expiresAt })
+                .from(plans)
+                .where(and(eq(plans.userId, userId), eq(plans.planType, 'trial'), eq(plans.status, 'expired')))
+                .orderBy(desc(plans.expiresAt))
+                .limit(1)
+            : [];
+
         const plan = activePlan[0] ?? pastDuePlan[0] ?? null;
         const assistantLimit: number | null = plan?.assistantLimit ?? null;
         const monthlyTaskLimit: number | null = plan?.monthlyTaskLimit ?? null;
@@ -109,42 +122,93 @@ export const handler: Handler = async (event) => {
         const appConnectionLimit: number | null = plan?.appConnectionLimit ?? null;
         const seatLimit: number | null = plan?.seatLimit ?? null;
 
-        // ── 2. Count active assistants & workspace seats used ───────
-        const [{ value: assistantCount }] = await db
-            .select({ value: count() })
-            .from(aiAssistants)
-            .where(and(eq(aiAssistants.userId, userId), eq(aiAssistants.isActive, true)));
-
-        // Seat count = number of active users in the same organisation
+        // ── 2. Resolve orgId and count seats ─────────────────────────────
         const [userOrg] = await db
             .select({ organisationId: users.organisationId })
             .from(users)
             .where(eq(users.id, userId))
             .limit(1);
 
-        let seatCount = 1; // default: just the owner
-        if (userOrg?.organisationId) {
+        const orgId = userOrg?.organisationId ?? null;
+
+        let seatCount = 1;
+        if (orgId) {
             const [{ value: orgMemberCount }] = await db
                 .select({ value: count() })
                 .from(userOrganisations)
-                .where(eq(userOrganisations.organisationId, userOrg.organisationId));
+                .where(eq(userOrganisations.organisationId, orgId));
             seatCount = orgMemberCount || 1;
         }
 
-        // ── 3. Count task_runs and sum tokens this calendar month ───
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-        const [taskStats] = await db
-            .select({ taskCount: count(), tokenUsage: sum(taskRuns.tokensUsed) })
-            .from(taskRuns)
+        // US-DB-1.4.1: Counts are now org-level, not user-level
+        // Active assistants across the whole organisation
+        const [{ value: assistantCount }] = await db
+            .select({ value: count() })
+            .from(aiAssistants)
             .where(and(
-                eq(taskRuns.userId, userId),
-                gte(taskRuns.createdAt, monthStart),
+                orgId ? eq(aiAssistants.organisationId, orgId) : eq(aiAssistants.userId, userId),
+                eq(aiAssistants.isActive, true),
             ));
 
-        const taskCount = taskStats?.taskCount ?? 0;
-        const tokenUsage = Number(taskStats?.tokenUsage ?? 0);
+        // ── 3. Task & token counts from usageCounters (authoritative) ──
+        // Fall back to live COUNT if no usage_counters row exists yet (new org)
+        const periodStart = getPeriodStart();
+        let taskCount  = 0;
+        let tokenUsage = 0;
+
+        if (orgId) {
+            const [ucRow] = await db
+                .select({ taskCount: usageCounters.taskCount, tokenCount: usageCounters.tokenCount })
+                .from(usageCounters)
+                .where(and(
+                    eq(usageCounters.organisationId, orgId),
+                    eq(usageCounters.periodStart, periodStart),
+                ))
+                .limit(1);
+
+            if (ucRow) {
+                taskCount  = ucRow.taskCount  ?? 0;
+                tokenUsage = ucRow.tokenCount ?? 0;
+            } else {
+                // No counter row yet — fall back to live aggregate (pre-migration orgs)
+                const [taskStats] = await db
+                    .select({ taskCount: count(), tokenUsage: sum(taskRuns.tokensUsed) })
+                    .from(taskRuns)
+                    .where(and(
+                        eq(taskRuns.organisationId, orgId),
+                        gte(taskRuns.createdAt, periodStart),
+                    ));
+                taskCount  = taskStats?.taskCount  ?? 0;
+                tokenUsage = Number(taskStats?.tokenUsage ?? 0);
+            }
+        } else {
+            // Solo user with no org — live aggregate keyed on userId
+            const [taskStats] = await db
+                .select({ taskCount: count(), tokenUsage: sum(taskRuns.tokensUsed) })
+                .from(taskRuns)
+                .where(and(
+                    eq(taskRuns.userId, userId),
+                    gte(taskRuns.createdAt, periodStart),
+                ));
+            taskCount  = taskStats?.taskCount  ?? 0;
+            tokenUsage = Number(taskStats?.tokenUsage ?? 0);
+        }
+
+        // ── 4a. US-DB-1.3.1: count app connections by assistantId for cap enforcement ──
+        // Returns the max connection count across all active assistants in the org,
+        // so the UI can gate adding new integrations when appConnectionLimit is reached.
+        let maxAppConnectionCount = 0;
+        if (orgId && appConnectionLimit !== null) {
+            const connRows = await db
+                .select({ assistantId: systemConnections.assistantId, cnt: count() })
+                .from(systemConnections)
+                .where(and(
+                    eq(systemConnections.organisationId, orgId),
+                    eq(systemConnections.isActive, true),
+                ))
+                .groupBy(systemConnections.assistantId);
+            maxAppConnectionCount = connRows.reduce((m, r) => Math.max(m, r.cnt), 0);
+        }
 
         // ── 4. Compute percentages ──────────────────────────────────
         const assistantPct = assistantLimit
@@ -160,7 +224,8 @@ export const handler: Handler = async (event) => {
         // ── 5. Resolve next plan tier (for upgrade modal SC2 / SC5) ──────────
         // Find the cheapest plan that costs more than the current plan — that's the next tier up.
         // Returns null if the user is already on the highest-paid plan (enterprise contact path).
-        let nextPlan: { tierKey: string; name: string; monthlyPriceGbp: string; assistantLimit: number | null } | null = null;
+        const userCurrency = (plan as any)?.currency || 'GBP';
+        let nextPlan: { tierKey: string; name: string; monthlyPriceGbp: string; monthlyPrice: string; assistantLimit: number | null } | null = null;
         if (plan?.monthlyPriceGbp != null) {
             const [nextTierRow] = await db
                 .select({
@@ -168,6 +233,7 @@ export const handler: Handler = async (event) => {
                     name: masterPlans.name,
                     monthlyPriceGbp: masterPlans.monthlyPriceGbp,
                     assistantLimit: masterPlans.assistantLimit,
+                    masterPlanId: masterPlans.id,
                 })
                 .from(masterPlans)
                 .where(and(
@@ -176,7 +242,19 @@ export const handler: Handler = async (event) => {
                 ))
                 .orderBy(asc(masterPlans.monthlyPriceGbp))
                 .limit(1);
-            nextPlan = nextTierRow ?? null;
+            if (nextTierRow) {
+                // US-I18N-2.1 SC5: look up price in user's billing currency
+                let monthlyPrice = String(nextTierRow.monthlyPriceGbp);
+                if (userCurrency !== 'GBP') {
+                    const [priceRow] = await db
+                        .select({ monthlyPriceMajorUnit: planPrices.monthlyPriceMajorUnit })
+                        .from(planPrices)
+                        .where(and(eq(planPrices.masterPlanId, nextTierRow.masterPlanId), eq(planPrices.currency, userCurrency), eq(planPrices.isActive, true)))
+                        .limit(1);
+                    if (priceRow) monthlyPrice = String(priceRow.monthlyPriceMajorUnit);
+                }
+                nextPlan = { tierKey: nextTierRow.tierKey, name: nextTierRow.name, monthlyPriceGbp: String(nextTierRow.monthlyPriceGbp), monthlyPrice, assistantLimit: nextTierRow.assistantLimit };
+            }
         }
 
         // ── 6. Grace period — expose expiry for UI warning banner ───
@@ -225,6 +303,7 @@ export const handler: Handler = async (event) => {
                 tokenUsage,
                 monthlyTokenLimit,
                 appConnectionLimit,
+                appConnectionCount: maxAppConnectionCount,
                 seatCount,
                 seatLimit,
                 seatPct,
@@ -237,7 +316,8 @@ export const handler: Handler = async (event) => {
                 planType: plan?.planType ?? null,
                 gracePeriodEndsAt,
                 graceExpired,    // true if grace period has passed and access should be blocked
-                // US-GAP-8.1.1 SC3: trial countdown badge data
+                // US-GAP-8.1.1 SC3/SC6c: trial countdown badge and expired gate data
+                trialExpired: expiredTrialPlan.length > 0,
                 isTrial: plan?.planType === 'trial',
                 trialExpiresAt: plan?.planType === 'trial' && plan?.expiresAt
                     ? (plan.expiresAt instanceof Date ? plan.expiresAt : new Date(plan.expiresAt as string)).toISOString()
@@ -245,10 +325,12 @@ export const handler: Handler = async (event) => {
                 trialDaysRemaining: plan?.planType === 'trial' && plan?.expiresAt
                     ? Math.max(0, Math.ceil((new Date(plan.expiresAt instanceof Date ? plan.expiresAt : plan.expiresAt as string).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
                     : null,
-                pastDueAmountGbp,    // amount owed on open Stripe invoice (SC2)
-                pastDueAttemptCount, // number of charge attempts (SC2)
-                stripePortalUrl,     // Stripe billing portal URL for payment update CTA (SC2)
-                nextPlan,        // next tier up — null if already on highest plan
+                currency: userCurrency,      // US-I18N-2.1 SC5: user's billing currency
+                pastDueAmountGbp,            // amount owed on open Stripe invoice (SC2)
+                pastDueAmount: pastDueAmountGbp, // alias — use formatCurrency(pastDueAmount, currency) in UI
+                pastDueAttemptCount,         // number of charge attempts (SC2)
+                stripePortalUrl,             // Stripe billing portal URL for payment update CTA (SC2)
+                nextPlan,                    // next tier up — null if already on highest plan
             }),
         };
 

@@ -58,7 +58,7 @@ async function handlePatch(event: any): Promise<any> {
     if (!existing) return { statusCode: 404, body: JSON.stringify({ error: 'Master assistant not found.' }) };
 
     // Build update payload (only allow safe fields)
-    const allowedFields = ['name', 'description', 'category', 'iconKey', 'iconColor', 'comingSoon', 'isActive'];
+    const allowedFields = ['name', 'description', 'category', 'iconKey', 'iconColor', 'comingSoon', 'isActive', 'riskClassification', 'lifecycleState', 'specialCategoryClauseEnabled'];
     const updates: Record<string, any> = {};
     for (const f of allowedFields) {
         if (body[f] !== undefined) updates[f] = body[f];
@@ -163,6 +163,34 @@ async function handlePatch(event: any): Promise<any> {
         } catch (fanOutErr) {
             // Non-blocking — update already applied; log and continue
             console.error('[master-assistants] Fan-out error (non-blocking):', fanOutErr);
+        }
+    }
+
+    // US-GOV-1.1.1: Reclassification to high_risk — notify workspace_admin users (30-day grace period notice)
+    const reclassifiedToHighRisk = updates.riskClassification === 'high_risk' &&
+        existing.riskClassification !== 'high_risk';
+    if (reclassifiedToHighRisk) {
+        try {
+            const { users: usersTable } = await import('../../db/schema');
+            const admins = await db
+                .select({ id: usersTable.id })
+                .from(usersTable)
+                .where(eq(usersTable.role as any, 'workspace_admin'));
+            // Notify workspace admins in batches; message includes 30-day grace period
+            if (admins.length > 0) {
+                const reclassNotifs = admins.map(a => ({
+                    userId: a.id,
+                    type: 'risk_reclassification',
+                    title: `High-Risk Reclassification: ${updated.name}`,
+                    message: `${updated.name} has been reclassified as High Risk under the EU AI Act. EU-market workspaces have a 30-day grace period before enforcement begins. A conformity assessment must be submitted to continue EU deployment.`,
+                    isRead: false,
+                }));
+                for (let i = 0; i < reclassNotifs.length; i += 100) {
+                    await db.insert(notifications).values(reclassNotifs.slice(i, i + 100));
+                }
+            }
+        } catch (reclassErr) {
+            console.error('[master-assistants] Reclassification notification error (non-blocking):', reclassErr);
         }
     }
 

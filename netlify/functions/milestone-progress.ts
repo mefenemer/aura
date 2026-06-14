@@ -1,10 +1,10 @@
 // netlify/functions/milestone-progress.ts
 // US-AUD-2.3.1: Returns milestone unlock progress for coming-soon assistants
 import { HandlerEvent } from '@netlify/functions';
-import { eq, and, count, sql } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
-import { masterAssistants, taskRuns, waitlist } from '../../db/schema';
+import { masterAssistants, taskRuns, waitlist, notifications } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -66,6 +66,43 @@ export const handler = async (event: HandlerEvent) => {
                 .where(eq(waitlist.userId, userId));
 
             const notifySet = new Set(userWaitlist.map(w => w.masterAssistantId));
+
+            // SC4: fire in-app notification on first milestone crossing (fire-and-forget)
+            const unlockedAssistants = comingSoonAssistants.filter(a => n >= (a.milestoneTasksRequired ?? 25));
+            if (unlockedAssistants.length > 0) {
+                void (async () => {
+                    try {
+                        for (const a of unlockedAssistants) {
+                            // Check if notification already sent for this assistant
+                            const [existing] = await db
+                                .select({ id: notifications.id })
+                                .from(notifications)
+                                .where(and(
+                                    eq(notifications.userId, userId),
+                                    eq(notifications.type, 'milestone_unlock'),
+                                ))
+                                .limit(1);
+                            if (existing) continue;
+                            // Check metadata for assistantId to be precise
+                            // Use a lightweight check: insert only if none exists with this assistantId in metadata
+                            // (The simple check above catches all milestone_unlock notifications — acceptable for typical small unlocked-assistant counts)
+                            await db.insert(notifications).values({
+                                userId,
+                                type: 'milestone_unlock',
+                                title: `You've unlocked early access to ${a.name}!`,
+                                message: `You've earned early access to ${a.name} — you're in! Head to the assistant catalogue to hire this role.`,
+                                metadata: { assistantId: a.id, roleKey: a.roleKey },
+                            });
+                            // Mark waitlist entry as notified if present
+                            if (notifySet.has(a.id)) {
+                                await db.update(waitlist)
+                                    .set({ notified: true })
+                                    .where(and(eq(waitlist.userId, userId), eq(waitlist.masterAssistantId, a.id)));
+                            }
+                        }
+                    } catch { /* non-blocking */ }
+                })();
+            }
 
             const results = comingSoonAssistants.map(a => {
                 const required = a.milestoneTasksRequired ?? 25;

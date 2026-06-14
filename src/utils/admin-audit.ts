@@ -9,6 +9,7 @@
 
 import { getDb } from '../../db/client';
 import { adminAuditLog } from '../../db/schema';
+import { pseudonymiseIp } from './ip-pseudonymise';
 
 export type AdminAction =
     | 'impersonate_start'
@@ -27,7 +28,12 @@ export type AdminAction =
     | 'dunning_override'
     | 'trial_extension'
     | 'account_delete'
-    | 'sar_export';
+    | 'sar_export'
+    | 'security_incident_detected'
+    | 'emergency_token_revocation'
+    | 'regulator_notification_submitted'
+    | 'assistant_state_change'
+    | 'record_delete';
 
 export interface AdminAuditParams {
     adminId: number;
@@ -56,7 +62,7 @@ export async function insertAdminAuditLog(params: AdminAuditParams): Promise<voi
             targetId:      params.targetId != null ? String(params.targetId) : null,
             previousState: params.previousState ?? null,
             newState:      params.newState ?? null,
-            ipAddress:     params.ipAddress ?? null,
+            ipAddress:     pseudonymiseIp(params.ipAddress) ?? null,
             userAgent:     params.userAgent ?? null,
             reason:        params.reason ?? null,
             metadata:      params.metadata ?? null,

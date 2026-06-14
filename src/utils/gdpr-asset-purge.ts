@@ -4,7 +4,7 @@
 // Called by both admin-gdpr-erase.ts and account-delete-execute.ts.
 
 import { and, eq, inArray } from 'drizzle-orm';
-import { workspaceAssets, vectorEmbeddings } from '../../db/schema';
+import { workspaceAssets, vectorEmbeddings, aiAssistants } from '../../db/schema';
 
 export interface AssetPurgeResult {
   assetsPurged: number;
@@ -119,9 +119,10 @@ export async function tombstoneOrgMemberAssets(
   uploaderId: number,
   organisationId: number,
 ): Promise<number> {
+  const now = new Date();
   const result = await db
     .update(workspaceAssets)
-    .set({ isActive: false, updatedAt: new Date() })
+    .set({ isActive: false, updatedAt: now })
     .where(
       and(
         eq(workspaceAssets.uploaderId, uploaderId),
@@ -129,6 +130,20 @@ export async function tombstoneOrgMemberAssets(
       )
     )
     .returning({ id: workspaceAssets.id });
+
+  // US-GDPR-2.2.3 AC2: flag all active assistants in this org so the UI can warn
+  // that their knowledge base may be incomplete due to the tombstoned assets.
+  if (result.length > 0) {
+    await db
+      .update(aiAssistants)
+      .set({ knowledgeStaleAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(aiAssistants.organisationId, organisationId),
+          eq(aiAssistants.isActive, true),
+        )
+      );
+  }
 
   return result.length;
 }

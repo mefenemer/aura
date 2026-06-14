@@ -10,8 +10,9 @@ import Stripe from 'stripe';
 import jwt from 'jsonwebtoken';
 import { eq, and, gt } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, plans, masterPlans, notifications } from '../../db/schema';
+import { users, plans, masterPlans, notifications, processedWebhookEvents } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
+import { checkImpersonationBlock } from '../../src/utils/impersonation';
 
 const jwtSecret      = process.env.JWT_SECRET!;
 const stripeSecret   = process.env.STRIPE_SECRET_KEY!;
@@ -211,6 +212,9 @@ export const handler: Handler = async (event) => {
     // ─────────────────────────────────────────────────────────────────────────
     // POST: SC3 — execute the upgrade via Stripe
     // ─────────────────────────────────────────────────────────────────────────
+    const impersonationBlock = checkImpersonationBlock(event.headers.cookie, 'billing_upgrade');
+    if (impersonationBlock) return impersonationBlock;
+
     if (!currentPlan.stripeSubscriptionId) {
         return { statusCode: 400, body: JSON.stringify({ error: 'No Stripe subscription on record. Please contact support.' }) };
     }
@@ -220,7 +224,7 @@ export const handler: Handler = async (event) => {
         const currentItemId = sub.items.data[0]?.id;
         if (!currentItemId) throw new Error('No subscription item found');
 
-        // SC3: upgrade with proration
+        // SC3: upgrade with proration — expand latest_invoice so prorated amount and URL are available
         const updatedSub = await stripe.subscriptions.update(currentPlan.stripeSubscriptionId, {
             items: [{ id: currentItemId, price: targetPriceId }],
             proration_behavior: 'create_prorations',
@@ -229,6 +233,7 @@ export const handler: Handler = async (event) => {
                 tier: targetTierKey,
                 masterPlanId: String(targetMp.id),
             },
+            expand: ['latest_invoice'],
         });
 
         // SC3b: update DB plan record immediately
@@ -250,25 +255,38 @@ export const handler: Handler = async (event) => {
             isRead: false,
         });
 
-        // SC4b: confirmation email (US-GAP-1.1.2 SC1/SC2)
-        const [userRecord] = await db.select({ email: users.email, firstName: users.firstName }).from(users).where(eq(users.id, userId)).limit(1);
-        if (userRecord) {
-            // Get prorated invoice if available
-            const latestInvoice = updatedSub.latest_invoice;
-            const invoiceUrl = typeof latestInvoice === 'string' ? null : (latestInvoice as any)?.hosted_invoice_url || null;
-            const proratedAmount = typeof latestInvoice === 'string' ? null : (((latestInvoice as any)?.amount_due || 0) / 100).toFixed(2);
+        // SC4b: confirmation email (US-GAP-1.1.2 SC1/SC2/SC3)
+        // Idempotency: keyed on upgrade-email:{subscriptionId}:{newPriceId} to prevent double-sends on retries
+        const upgradeEmailKey = `upgrade-email:${currentPlan.stripeSubscriptionId}:${targetPriceId}`;
+        const [emailAlreadySent] = await db
+            .select({ id: processedWebhookEvents.id })
+            .from(processedWebhookEvents)
+            .where(eq(processedWebhookEvents.stripeEventId, upgradeEmailKey))
+            .limit(1);
 
-            await sendEmail({
-                to: userRecord.email,
-                subject: `You've upgraded to ${targetMp.name} — welcome to your new plan`,
-                html: `<p>Hi ${userRecord.firstName || 'there'},</p>
-                       <p>Your plan has been upgraded to <strong>${targetMp.name}</strong>.</p>
-                       ${proratedAmount ? `<p>A prorated charge of <strong>£${proratedAmount}</strong> has been applied for the remainder of this billing period.</p>` : ''}
-                       <p>Going forward, your monthly renewal will be <strong>£${targetMp.monthlyPriceGbp}/month</strong>.</p>
-                       ${invoiceUrl ? `<p><a href="${invoiceUrl}">View your invoice →</a></p>` : ''}
-                       <p><a href="${BASE_URL}/billing.html">View your billing page →</a></p>
-                       <p>The Aura Team</p>`,
-            }).catch(() => { /* non-critical */ });
+        if (!emailAlreadySent) {
+            await db.insert(processedWebhookEvents)
+                .values({ stripeEventId: upgradeEmailKey, eventType: 'upgrade_confirmation_email_sent' })
+                .onConflictDoNothing();
+
+            const [userRecord] = await db.select({ email: users.email, firstName: users.firstName }).from(users).where(eq(users.id, userId)).limit(1);
+            if (userRecord) {
+                const latestInvoice = updatedSub.latest_invoice;
+                const invoiceUrl = typeof latestInvoice === 'string' ? null : (latestInvoice as any)?.hosted_invoice_url || null;
+                const proratedAmount = typeof latestInvoice === 'string' ? null : (((latestInvoice as any)?.amount_due || 0) / 100).toFixed(2);
+
+                await sendEmail({
+                    to: userRecord.email,
+                    subject: `You've upgraded to ${targetMp.name} — welcome to your new plan`,
+                    html: `<p>Hi ${userRecord.firstName || 'there'},</p>
+                           <p>Your plan has been upgraded to <strong>${targetMp.name}</strong>.</p>
+                           ${proratedAmount ? `<p>A prorated charge of <strong>£${proratedAmount}</strong> has been applied for the remainder of this billing period.</p>` : ''}
+                           <p>Going forward, your monthly renewal will be <strong>£${targetMp.monthlyPriceGbp}/month</strong>.</p>
+                           ${invoiceUrl ? `<p><a href="${invoiceUrl}">View your invoice →</a></p>` : ''}
+                           <p><a href="${BASE_URL}/billing.html">View your billing page →</a></p>
+                           <p>The Aura Team</p>`,
+                }).catch(() => { /* non-critical */ });
+            }
         }
 
         return {

@@ -12,6 +12,15 @@ import { getDb } from '../../db/client';
 import { aiUsageLog, aiModelPricing } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
+// US-GDPR-4.2.2: valid data category labels
+export type DataCategory =
+    | 'general'
+    | 'business_context'
+    | 'pii_redacted'
+    | 'special_category_suspected'
+    | 'financial'
+    | 'health';
+
 export interface AiUsageParams {
     workspaceId?: number | null;
     userId?: number | null;
@@ -21,6 +30,8 @@ export interface AiUsageParams {
     outputTokens: number;
     taskRunId?: number | null;
     sessionId?: string | null;
+    // US-GDPR-4.2.2: data categories present in the prompt. Defaults to ['general'].
+    dataCategories?: DataCategory[];
 }
 
 /**
@@ -50,15 +61,16 @@ export async function logAiUsage(params: AiUsageParams): Promise<void> {
         }
 
         await db.insert(aiUsageLog).values({
-            workspaceId:  params.workspaceId  ?? null,
-            userId:       params.userId       ?? null,
-            assistantId:  params.assistantId  ?? null,
-            model:        params.model,
-            inputTokens:  params.inputTokens,
-            outputTokens: params.outputTokens,
+            workspaceId:    params.workspaceId  ?? null,
+            userId:         params.userId       ?? null,
+            assistantId:    params.assistantId  ?? null,
+            model:          params.model,
+            inputTokens:    params.inputTokens,
+            outputTokens:   params.outputTokens,
             costUsd,
-            taskRunId:    params.taskRunId    ?? null,
-            sessionId:    params.sessionId    ?? null,
+            taskRunId:      params.taskRunId    ?? null,
+            sessionId:      params.sessionId    ?? null,
+            dataCategories: params.dataCategories?.length ? params.dataCategories : ['general'],
         });
     } catch (err) {
         console.error('[ai-usage] Failed to write usage log row:', err);

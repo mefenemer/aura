@@ -22,6 +22,7 @@ import {
     users, plans, masterPlans, billingOverrides, notifications,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
+import { sendEmail } from '../../src/utils/email';
 
 const jwtSecret = process.env.JWT_SECRET;
 const stripe    = process.env.STRIPE_SECRET_KEY
@@ -215,15 +216,30 @@ export const handler: Handler = async (event) => {
                     .set({ status: 'paused', updatedAt: new Date() })
                     .where(eq(plans.id, activePlan.id));
 
-                // Notify user
+                // Notify user — in-app notification
+                const resumeDateDisplay = resumeDateIso
+                    ? new Date(resumeDateIso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : null;
+                const pauseMessage = resumeDateDisplay
+                    ? `Your subscription has been paused and will automatically resume on ${resumeDateDisplay}.`
+                    : 'Your subscription has been paused. Contact support to resume.';
+
                 await db.insert(notifications).values({
                     userId:  uid,
                     type:    'billing',
                     title:   'Your subscription has been paused',
-                    message: resumeDateIso
-                        ? `Your subscription has been paused and will automatically resume on ${new Date(resumeDateIso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`
-                        : 'Your subscription has been paused. Contact support to resume.',
+                    message: pauseMessage,
                     metadata: { pausedBy: adminId, resumeDate: resumeDateIso || null },
+                }).catch(() => {});
+
+                // AC requirement: also send email notification
+                sendEmail({
+                    to: targetUser.email,
+                    subject: 'Your subscription has been paused',
+                    html: `<p>Hi ${targetUser.firstName || 'there'},</p>
+                           <p>${pauseMessage}</p>
+                           <p>If you have any questions, please reply to this email or contact our support team.</p>
+                           <p>The Aura Team</p>`,
                 }).catch(() => {});
 
                 stripeRef   = activePlan.stripeSubscriptionId!;

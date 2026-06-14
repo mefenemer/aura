@@ -1,6 +1,7 @@
 // src/utils/audit.ts
 import { getDb } from '../../db/client';
 import { auditLogs } from '../../db/schema';
+import { pseudonymiseIp } from './ip-pseudonymise';
 
 interface AuditEvent {
     userId?: number;
@@ -27,7 +28,7 @@ export const logAuditEvent = (event: AuditEvent) => {
         resourceId: String(event.resourceId), // Cast to string for schema consistency
         previousState: event.previousState || null,
         newState: event.newState || null,
-        ipAddress: event.ipAddress || null,
+        ipAddress: pseudonymiseIp(event.ipAddress) ?? null,
         userAgent: event.userAgent || null,
     }).catch(error => {
         // Log to server console only; do not disrupt the user's flow

@@ -1,19 +1,34 @@
 // netlify/functions/quality-review.ts
-// US-AUD-2.2.1: Secondary LLM quality review for AI output.
+// US-AUD-2.2.1: Secondary LLM quality review for AI-generated content.
 //
-//  POST { content: string, assistantId?: number, tier?: 'basic' | 'premium' }
-//   → { checks: ReviewCheck[], tier, upgradeHint? }
+// POST /.netlify/functions/quality-review
+//   Auth: aura_session
+//   Body: { content: string, assistantId?: number }
+//
+// Tier gate (by tierKey on active plan):
+//   'buster' (Tier 1) → 403 with upgrade callout
+//   'saver'  (Tier 2) → Quick Review: 3 checks (factual, tone, hallucination); ✅/⚠️; max 3 lines; 5s timeout
+//   'employee'+ (Tier 3/4) → Full Review: Quick checks + brand voice score + competitor + legal/compliance
+//
+// No usage cap — all eligible paid tiers may call without restriction.
 
-import { HandlerEvent } from '@netlify/functions';
-import { eq, and } from 'drizzle-orm';
+import { Handler } from '@netlify/functions';
+import Anthropic from '@anthropic-ai/sdk';
 import jwt from 'jsonwebtoken';
+import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, userProfiles, aiAssistants, plans, masterPlans, taskRuns } from '../../db/schema';
+import { users, aiAssistants, plans, masterPlans } from '../../db/schema';
 import { logAiUsage } from '../../src/utils/ai-usage';
-import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 
-const jwtSecret = process.env.JWT_SECRET;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const jwtSecret   = process.env.JWT_SECRET;
+const anthropic   = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const REVIEW_MODEL = 'claude-haiku-4-5-20251001';
+const TIMEOUT_MS   = 5_000;
+
+// Tiers that receive Full Review
+const FULL_REVIEW_TIERS = new Set(['employee']);
+// Tiers blocked from Quick Review (upgrade callout only)
+const BLOCKED_TIERS = new Set(['buster']);
 
 interface ReviewCheck {
     label: string;
@@ -21,253 +36,201 @@ interface ReviewCheck {
     detail?: string;
 }
 
-// SC5: Tier gate — Tier 3+ gets full review
-async function getUserTierLevel(db: any, userId: number): Promise<number> {
-    const [user] = await db
-        .select({ organisationId: users.organisationId })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-    if (!user?.organisationId) return 1;
-
-    const [cheapest] = await db
-        .select({ monthlyPriceGbp: masterPlans.monthlyPriceGbp })
-        .from(masterPlans)
-        .where(eq(masterPlans.isActive, true))
-        .orderBy(masterPlans.monthlyPriceGbp)
-        .limit(1);
-
-    const [plan] = await db
-        .select({ monthlyPriceGbp: masterPlans.monthlyPriceGbp })
+async function getUserPlanTierKey(db: any, userId: number): Promise<string | null> {
+    const [row] = await db
+        .select({ tierKey: masterPlans.tierKey })
         .from(plans)
         .innerJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
-        .where(and(eq(plans.organisationId, user.organisationId), eq(plans.status, 'active')))
+        .where(and(eq(plans.userId, userId), eq(plans.status, 'active')))
         .limit(1);
-
-    if (!plan || !cheapest) return 1;
-    const cheapestPrice = parseFloat(String(cheapest.monthlyPriceGbp));
-    const orgPrice = parseFloat(String(plan.monthlyPriceGbp));
-    if (orgPrice >= cheapestPrice * 4) return 4; // Tier 4
-    if (orgPrice >= cheapestPrice * 3) return 3; // Tier 3
-    if (orgPrice >= cheapestPrice * 2) return 2; // Tier 2
-    return 1; // Tier 1 / solo
+    return row?.tierKey ?? null;
 }
 
-export const handler = async (event: HandlerEvent) => {
-    if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
-    if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server configuration error.' }) };
-    if (!OPENAI_API_KEY) return { statusCode: 500, body: JSON.stringify({ error: 'AI service not configured.' }) };
+function buildPrompt(content: string, reviewType: 'quick' | 'full', brandVoice: string): string {
+    const base = `You are a quality reviewer for AI-generated business content. Analyse the following content and respond ONLY with a valid JSON object (no markdown fences, no extra text).
 
-    // US-ADM-3.2.1: Global AI kill switch
-    if (await isGlobalAiDisabled()) {
-        return { statusCode: 503, body: JSON.stringify({ error: 'AI services are temporarily unavailable. Please try again later.' }) };
+Content:
+"""
+${content.slice(0, 3_000)}
+"""
+
+Always include these 3 checks:
+{
+  "factual":       { "status": "pass"|"warn", "detail": "one short sentence if warn, else omit" },
+  "tone":          { "status": "pass"|"warn", "detail": "one short sentence if warn, else omit" },
+  "hallucination": { "status": "pass"|"warn", "detail": "one short sentence if warn, else omit" }
+}
+
+Rules:
+- "factual" warn: specific verifiable claims (statistics, dates, named persons, URLs) present without a source.
+- "tone" warn: unprofessional, aggressive, or unsuitable language for business use.
+- "hallucination" warn: internal contradictions, invented URLs, fictional citations.`;
+
+    if (reviewType !== 'full') return base;
+
+    const brandSection = brandVoice
+        ? `Brand voice guide (first 500 chars): "${brandVoice}"`
+        : 'No brand voice guide available — skip brandVoice check (set score to null, status "pass").';
+
+    return `${base}
+
+Also include these 3 Full Review checks:
+  "brandVoice":  { "score": 0-100 | null, "status": "pass"|"warn", "detail": "..." },
+  "competitors": { "status": "pass"|"warn", "detail": "..." },
+  "compliance":  { "status": "pass"|"warn", "detail": "..." }
+
+${brandSection}
+- "competitors" warn: any recognisable competitor brand names present.
+- "compliance" warn: legal, medical, financial, or regulatory language requiring professional sign-off.`;
+}
+
+function formatChecks(raw: Record<string, any>, isFull: boolean): ReviewCheck[] {
+    const fmt = (key: string, passLabel: string, warnPrefix: string): ReviewCheck => ({
+        label: raw[key]?.status === 'warn'
+            ? `⚠️ ${warnPrefix}${raw[key]?.detail ? ': ' + raw[key].detail : ''}`
+            : `✅ ${passLabel}`,
+        status: raw[key]?.status === 'warn' ? 'warn' : 'pass',
+        detail: raw[key]?.detail,
+    });
+
+    const checks: ReviewCheck[] = [
+        fmt('factual',       'No factual red flags',          'Factual flag'),
+        fmt('tone',          'Tone appropriate',              'Tone issue'),
+        fmt('hallucination', 'No hallucination markers',      'Hallucination marker'),
+    ];
+
+    if (isFull) {
+        if (raw.brandVoice) {
+            const score = raw.brandVoice.score != null ? ` (${raw.brandVoice.score}/100)` : '';
+            checks.push({
+                label: raw.brandVoice.status === 'warn'
+                    ? `⚠️ Brand voice mismatch${score}${raw.brandVoice.detail ? ': ' + raw.brandVoice.detail : ''}`
+                    : `✅ Brand voice aligned${score}`,
+                status: raw.brandVoice.status === 'warn' ? 'warn' : 'pass',
+                detail: raw.brandVoice.detail,
+            });
+        }
+        if (raw.competitors) checks.push(fmt('competitors', 'No competitor names', 'Competitor mention'));
+        if (raw.compliance)  checks.push(fmt('compliance',  'No compliance flags', 'Compliance flag'));
     }
 
-    const rawCookies = event.headers.cookie || '';
-    const cookies = Object.fromEntries(
-        rawCookies.split(';').map(c => {
-            const [k, ...v] = c.trim().split('=');
-            return [k, decodeURIComponent(v.join('='))];
-        }).filter(([k]) => k !== '')
-    );
-    const sessionToken = cookies['aura_session'];
-    if (!sessionToken) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
+    return checks;
+}
+
+export const handler: Handler = async (event) => {
+    if (event.httpMethod !== 'POST') {
+        return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+    }
+    if (!jwtSecret) {
+        return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
+    }
+
+    const match = (event.headers.cookie || '').match(/aura_session=([^;]+)/);
+    if (!match) return { statusCode: 401, body: JSON.stringify({ error: 'Not authenticated.' }) };
 
     let userId: number;
     try {
-        const decoded = jwt.verify(sessionToken, jwtSecret) as { userId: number };
-        userId = decoded.userId;
+        userId = (jwt.verify(match[1], jwtSecret) as { userId: number }).userId;
     } catch {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid or expired session.' }) };
+        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) };
     }
 
-    const db = getDb();
     const body = JSON.parse(event.body || '{}');
     const { content, assistantId } = body;
 
     if (!content || typeof content !== 'string' || content.trim().length < 10) {
-        return { statusCode: 400, body: JSON.stringify({ error: 'content is required.' }) };
+        return { statusCode: 400, body: JSON.stringify({ error: 'content is required (min 10 characters).' }) };
     }
 
-    // US-GAP-3.1.1 SC3: Block task execution when plan is past_due.
-    // Insert a skipped task_run record and return 402.
-    const [activePlanCheck] = await db
-        .select({ status: plans.status })
-        .from(plans)
-        .where(eq(plans.userId, userId))
-        .orderBy(plans.startedAt)
-        .limit(1);
+    const db = getDb();
+    const tierKey = await getUserPlanTierKey(db, userId);
 
-    if (activePlanCheck?.status === 'past_due') {
-        // Record the skipped run for audit trail
-        await db.insert(taskRuns).values({
-            userId,
-            assistantId: assistantId ?? null,
-            status: 'skipped',
-            metadata: { reason: 'plan_past_due' },
-        }).catch(() => { /* non-critical — don't block the 402 response */ });
-
+    // Tier 1 (buster) — upgrade callout
+    if (!tierKey || BLOCKED_TIERS.has(tierKey)) {
         return {
-            statusCode: 402,
+            statusCode: 403,
             body: JSON.stringify({
-                error: 'Payment required. Please update your payment details to run tasks.',
-                reason: 'plan_past_due',
+                error: 'Quality Review is available on Saver and above.',
+                upgradeRequired: true,
+                upgradeMessage: 'Upgrade your plan to unlock AI Quality Review — instant fact-checking, tone analysis, and hallucination detection for every output.',
             }),
         };
     }
 
-    // Get tier
-    const tierLevel = await getUserTierLevel(db, userId);
-    const isPremium = tierLevel >= 3; // SC4: Tier 3/4 get full review
+    const isFull = FULL_REVIEW_TIERS.has(tierKey);
+    const reviewType: 'quick' | 'full' = isFull ? 'full' : 'quick';
 
-    // Get brand voice context for tone check if premium
-    let brandVoiceContext = '';
-    if (isPremium && assistantId) {
+    // Fetch brand voice context for Full Review
+    let brandVoice = '';
+    if (isFull && assistantId) {
         const [assistant] = await db
-            .select({ systemPrompt: aiAssistants.systemPrompt, onboardingContext: aiAssistants.onboardingContext })
+            .select({ systemPrompt: aiAssistants.systemPrompt })
             .from(aiAssistants)
             .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.userId, userId)))
             .limit(1);
-        if (assistant?.systemPrompt) brandVoiceContext = assistant.systemPrompt.slice(0, 500);
+        if (assistant?.systemPrompt) brandVoice = assistant.systemPrompt.slice(0, 500);
     }
 
-    // Build the review prompt
-    const basicPrompt = `You are a quality review assistant. Analyse the following AI-generated content for quality issues.
+    const prompt = buildPrompt(content, reviewType, brandVoice);
 
-CONTENT TO REVIEW:
-"""
-${content.slice(0, 3000)}
-"""
-
-Perform ONLY these 3 checks and respond in JSON:
-1. Factual red flags: Check for any specific claims that could be verified (named statistics, dates, persons, URLs). If found, flag them.
-2. Tone: Check if the tone is professional and appropriate for a business context.
-3. Hallucination markers: Check for internal contradictions, invented URLs, or fictional citations.
-
-Return ONLY valid JSON in this exact format:
-{
-  "factual": { "status": "pass" | "warn", "detail": "brief note if warn" },
-  "tone": { "status": "pass" | "warn", "detail": "brief note if warn" },
-  "hallucination": { "status": "pass" | "warn", "detail": "brief note if warn" }
-}`;
-
-    const premiumAddition = isPremium && brandVoiceContext ? `
-4. Brand voice alignment: Compare the content tone against this brand voice guide: "${brandVoiceContext}". Score 0-100.
-5. Competitor mentions: Flag any competitor brand names.
-6. Legal/compliance: Flag any legal, regulatory, or compliance terminology that should be reviewed.
-
-Add to JSON:
-  "brandVoice": { "score": 0-100, "status": "pass"|"warn", "detail": "..." },
-  "competitors": { "status": "pass"|"warn", "detail": "..." },
-  "compliance": { "status": "pass"|"warn", "detail": "..." }` : '';
-
-    const reviewPrompt = basicPrompt + (isPremium ? premiumAddition : '');
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
-        const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            },
-            body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [{ role: 'user', content: reviewPrompt }],
-                max_tokens: 500,
-                temperature: 0.1,
-            }),
-        });
+        const response = await anthropic.messages.create({
+            model:      REVIEW_MODEL,
+            max_tokens: 600,
+            messages:   [{ role: 'user', content: prompt }],
+        }, { signal: controller.signal as any });
 
-        if (!openaiRes.ok) {
-            return { statusCode: 502, body: JSON.stringify({ error: 'Review service temporarily unavailable.' }) };
-        }
+        clearTimeout(timeoutId);
 
-        const openaiData = await openaiRes.json();
-
-        // US-ADM-3.1.1: fire-and-forget token usage log
         void logAiUsage({
-            userId:      userId,
-            model:       'gpt-4o-mini',
-            inputTokens:  openaiData.usage?.prompt_tokens     ?? 0,
-            outputTokens: openaiData.usage?.completion_tokens ?? 0,
+            userId,
+            model:        REVIEW_MODEL,
+            inputTokens:  response.usage.input_tokens,
+            outputTokens: response.usage.output_tokens,
             assistantId:  assistantId ?? null,
+            dataCategories: ['business_context'],
         });
 
-        const rawText = openaiData.choices?.[0]?.message?.content || '{}';
-
-        // Parse JSON from LLM response
-        let reviewResult: Record<string, any> = {};
+        const text = response.content[0].type === 'text' ? response.content[0].text : '';
+        let raw: Record<string, any> = {};
         try {
-            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-            reviewResult = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
-        } catch {
-            reviewResult = {};
-        }
+            const m = text.match(/\{[\s\S]*\}/);
+            raw = m ? JSON.parse(m[0]) : {};
+        } catch { /* leave raw empty; format will use pass defaults */ }
 
-        // Format into structured checks (SC3: max 3 lines for basic)
-        const checks: ReviewCheck[] = [
-            {
-                label: reviewResult.factual?.status === 'warn'
-                    ? `⚠️ Potential issue: ${reviewResult.factual?.detail || 'Factual claim detected — verify before use'}`
-                    : '✅ No factual red flags detected',
-                status: reviewResult.factual?.status || 'pass',
-            },
-            {
-                label: reviewResult.tone?.status === 'warn'
-                    ? `⚠️ Potential issue: ${reviewResult.tone?.detail || 'Tone may not match expected style'}`
-                    : '✅ Tone appropriate',
-                status: reviewResult.tone?.status || 'pass',
-            },
-            {
-                label: reviewResult.hallucination?.status === 'warn'
-                    ? `⚠️ Potential issue: ${reviewResult.hallucination?.detail || 'Possible hallucination markers detected'}`
-                    : '✅ No hallucination markers detected',
-                status: reviewResult.hallucination?.status || 'pass',
-            },
-        ];
-
-        // SC4: Premium additional checks
-        if (isPremium) {
-            if (reviewResult.brandVoice) {
-                checks.push({
-                    label: reviewResult.brandVoice.status === 'warn'
-                        ? `⚠️ Brand voice: ${reviewResult.brandVoice.detail || `Score: ${reviewResult.brandVoice.score}/100`}`
-                        : `✅ Brand voice aligned (${reviewResult.brandVoice.score}/100)`,
-                    status: reviewResult.brandVoice.status || 'pass',
-                    detail: `Score: ${reviewResult.brandVoice.score}/100`,
-                });
-            }
-            if (reviewResult.competitors) {
-                checks.push({
-                    label: reviewResult.competitors.status === 'warn'
-                        ? `⚠️ Competitor mention: ${reviewResult.competitors.detail}`
-                        : '✅ No competitor names detected',
-                    status: reviewResult.competitors.status || 'pass',
-                });
-            }
-            if (reviewResult.compliance) {
-                checks.push({
-                    label: reviewResult.compliance.status === 'warn'
-                        ? `⚠️ Compliance flag: ${reviewResult.compliance.detail}`
-                        : '✅ No compliance issues detected',
-                    status: reviewResult.compliance.status || 'pass',
-                });
-            }
-        }
+        const checks = formatChecks(raw, isFull);
 
         return {
             statusCode: 200,
             body: JSON.stringify({
                 checks,
-                tier: isPremium ? 'premium' : 'basic',
-                // SC5: upgrade hint for Tier 1/2
-                upgradeHint: !isPremium
-                    ? 'Full brand voice analysis and compliance checking available on Tier 3+.'
+                reviewType,
+                tierKey,
+                upgradeHint: !isFull
+                    ? 'Upgrade to Employee plan for Full Review: brand voice scoring, competitor detection, and legal/compliance flagging.'
                     : null,
             }),
         };
-    } catch (err) {
-        console.error('quality-review error:', err);
+
+    } catch (err: any) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError' || err.message?.includes('abort')) {
+            // 5-second timeout — return safe partial result rather than error
+            return {
+                statusCode: 200,
+                body: JSON.stringify({
+                    checks: [{ label: '⚠️ Review timed out — please try again', status: 'warn' }],
+                    reviewType,
+                    tierKey,
+                    timedOut: true,
+                    upgradeHint: null,
+                }),
+            };
+        }
+        console.error('[quality-review]', err);
         return { statusCode: 500, body: JSON.stringify({ error: 'Quality review failed.' }) };
     }
 };

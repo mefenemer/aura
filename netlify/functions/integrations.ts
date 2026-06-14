@@ -2,8 +2,8 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { systemConnections } from '../../db/schema';
-import { encryptCredential } from '../../src/utils/encryption';
+import { systemConnections, users } from '../../db/schema';
+import { storeSecret, deleteSecret, buildRefKey } from '../../src/utils/vault';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -22,6 +22,10 @@ export const handler: Handler = async (event) => {
     }
 
     const db = getDb();
+
+    // US-DB-1.3.1: resolve orgId — mandatory for all system_connections queries
+    const [currentUser] = await db.select({ organisationId: users.organisationId }).from(users).where(eq(users.id, currentUserId)).limit(1);
+    const currentOrgId = currentUser?.organisationId ?? null;
 
     try {
         // --- GET: FETCH INTEGRATIONS DASHBOARD ---
@@ -44,8 +48,12 @@ export const handler: Handler = async (event) => {
 
             const systemCatalog = await db.select(safeColumns).from(systemConnections).where(isNull(systemConnections.userId));
 
-            // 2. Fetch current user's actual connections (no tokens)
-            const userConnections = await db.select(safeColumns).from(systemConnections).where(eq(systemConnections.userId, currentUserId));
+            // 2. Fetch current user's connections scoped by org (US-DB-1.3.1)
+            const userConnections = await db.select(safeColumns).from(systemConnections).where(
+                currentOrgId
+                    ? and(eq(systemConnections.organisationId, currentOrgId), eq(systemConnections.userId, currentUserId))
+                    : eq(systemConnections.userId, currentUserId)
+            );
 
             // 3. Merge: user connection overrides the system catalog row for the same service
             const merged = systemCatalog.map(catalog => {
@@ -105,21 +113,30 @@ export const handler: Handler = async (event) => {
                 }
             }
 
-            const encryptedToken = encryptCredential(apiKey);
-
             // Upsert — if the user already has a connection for this service, replace it
+            // US-DB-1.3.1: scope upsert check by organisationId + userId
             const existing = await db
-                .select({ id: systemConnections.id })
+                .select({ id: systemConnections.id, vaultRefKey: systemConnections.vaultRefKey })
                 .from(systemConnections)
-                .where(and(eq(systemConnections.userId, currentUserId), eq(systemConnections.serviceName, serviceName)))
+                .where(and(
+                    eq(systemConnections.userId, currentUserId),
+                    eq(systemConnections.serviceName, serviceName),
+                    ...(currentOrgId ? [eq(systemConnections.organisationId, currentOrgId)] : []),
+                ))
                 .limit(1);
 
             const scopeString = Array.isArray(scopes) && scopes.length ? scopes.join(' ') : null;
+            const refKey = buildRefKey(currentUserId, serviceName, 'apikey');
+            await storeSecret(refKey, apiKey);
 
             if (existing.length > 0) {
+                // Delete old vault entry if the key changed
+                if (existing[0].vaultRefKey && existing[0].vaultRefKey !== refKey) {
+                    await deleteSecret(existing[0].vaultRefKey).catch(() => {});
+                }
                 await db.update(systemConnections)
                     .set({
-                        accessToken: encryptedToken,
+                        vaultRefKey: refKey,
                         externalUserId: handle || null,
                         scopes: scopeString,
                         metadata: pageUrl ? { pageUrl } : null,
@@ -129,11 +146,13 @@ export const handler: Handler = async (event) => {
                     })
                     .where(eq(systemConnections.id, existing[0].id));
             } else {
+                if (!currentOrgId) return { statusCode: 400, body: JSON.stringify({ error: 'No organisation found for this account.' }) };
                 await db.insert(systemConnections).values({
                     userId: currentUserId,
+                    organisationId: currentOrgId,
                     serviceName,
                     connectionType,
-                    accessToken: encryptedToken,
+                    vaultRefKey: refKey,
                     externalUserId: handle || null,
                     scopes: scopeString,
                     metadata: pageUrl ? { pageUrl } : null,
@@ -150,12 +169,25 @@ export const handler: Handler = async (event) => {
             const connectionId = event.queryStringParameters?.id;
             if (!connectionId) return { statusCode: 400, body: JSON.stringify({ error: 'Connection ID required.' }) };
 
-            // Hard delete ensures tokens are permanently removed from the database
+            // Fetch vaultRefKey before deleting so we can purge the secret
+            const [conn] = await db
+                .select({ vaultRefKey: systemConnections.vaultRefKey })
+                .from(systemConnections)
+                .where(and(
+                    eq(systemConnections.id, parseInt(connectionId)),
+                    eq(systemConnections.userId, currentUserId),
+                ))
+                .limit(1);
+
             await db.delete(systemConnections)
                 .where(and(
                     eq(systemConnections.id, parseInt(connectionId)),
                     eq(systemConnections.userId, currentUserId)
                 ));
+
+            if (conn?.vaultRefKey) {
+                await deleteSecret(conn.vaultRefKey).catch(() => {});
+            }
 
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }

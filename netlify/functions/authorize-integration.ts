@@ -16,6 +16,7 @@ import jwt from 'jsonwebtoken';
 import { and, eq, isNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { integrationAuthorizations, aiAssistants, users } from '../../db/schema';
+import { validateDisclosureText } from '../../src/utils/ai-email-footer';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -51,9 +52,15 @@ export const handler: Handler = async (event) => {
         return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON.' }) };
     }
 
-    const { integrationType, assistantId, humanApprovalRequired = true } = body;
+    const { integrationType, assistantId, humanApprovalRequired = true, disclosureText, grantedScopes } = body;
     if (!integrationType?.trim()) {
         return { statusCode: 400, body: JSON.stringify({ error: 'integrationType is required.' }) };
+    }
+
+    // US-GOV-3.1.2: Validate custom disclosure text if provided
+    if (disclosureText != null) {
+        const validationError = validateDisclosureText(String(disclosureText));
+        if (validationError) return { statusCode: 400, body: JSON.stringify({ error: validationError }) };
     }
 
     const db = getDb();
@@ -80,10 +87,19 @@ export const handler: Handler = async (event) => {
         ))
         .limit(1);
 
+    const now = new Date();
+    // Detect scope change for lastScopeChangedAt tracking
+    const scopesChanged = Array.isArray(grantedScopes) && grantedScopes.length > 0;
+
     if (existing.length) {
-        // Update humanApprovalRequired on existing active auth
         await db.update(integrationAuthorizations)
-            .set({ humanApprovalRequired, authorizedAt: new Date(), authorizedByUserId: userId })
+            .set({
+                humanApprovalRequired,
+                ...(disclosureText != null ? { disclosureText: String(disclosureText).trim() || null } : {}),
+                ...(scopesChanged ? { grantedScopes, lastScopeChangedAt: now } : {}),
+                authorizedAt: now,
+                authorizedByUserId: userId,
+            })
             .where(eq(integrationAuthorizations.id, existing[0].id));
 
         return {
@@ -99,6 +115,8 @@ export const handler: Handler = async (event) => {
         integrationType: integrationType.trim().toLowerCase(),
         assistantId: assistantId ?? null,
         humanApprovalRequired,
+        ...(disclosureText != null ? { disclosureText: String(disclosureText).trim() || null } : {}),
+        ...(scopesChanged ? { grantedScopes, lastScopeChangedAt: now } : {}),
     }).returning({ id: integrationAuthorizations.id });
 
     return {

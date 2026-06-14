@@ -32,7 +32,7 @@
     <div class="flex justify-between h-16 items-center">
       <div class="flex items-center">
         <a href="index.html" class="flex items-center">
-          <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura-Assist</span>
+          <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura-Assist&#8482;</span>
         </a>
         <span id="nav-subtitle" class="text-base font-medium text-gray-400 ml-2">| Set Up Your Assistant</span>
       </div>
@@ -608,6 +608,20 @@
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Review Your Setup</h2>
           <p class="text-gray-500 mb-6">Here is a high-level summary of your configuration. To protect proprietary logic, your specific workflow is compiled securely on our servers.</p>
           <div id="summary_container" class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+          </div>
+
+          <div class="mt-6 p-5 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <label class="block text-sm font-bold text-gray-900 mb-1" for="val_hourly_rate">
+              What is your hourly rate? <span class="text-gray-400 font-normal">(Optional)</span>
+            </label>
+            <p class="text-xs text-gray-500 mb-3">Aura uses this to calculate how much time — and money — your assistants save you each month.</p>
+            <div class="flex items-center gap-2 max-w-xs">
+              <span class="text-gray-500 font-bold text-sm">£</span>
+              <input type="number" id="val_hourly_rate" min="1" max="9999" step="1"
+                class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white"
+                placeholder="e.g. 75">
+              <span class="text-gray-500 text-sm whitespace-nowrap">/ hr</span>
+            </div>
           </div>
         </div>
 
@@ -1358,6 +1372,7 @@
     // 2. Safe Consent Handling: Use optional chaining or fallback to false
     const getConsent = (id) => document.getElementById(id)?.checked || false;
 
+    const hourlyRateRaw = parseFloat(document.getElementById('val_hourly_rate')?.value);
     const payload = {
       clientName: sessionStorage.getItem('aura_client_name') || 'User',
       businessName: sessionStorage.getItem('aura_business_name') || 'Business',
@@ -1366,6 +1381,7 @@
       tier: currentTierKey,
       rawInputs: window.globalRawInputs,
       onboardingContext: structuredContext,
+      ...(hourlyRateRaw > 0 ? { hourlyRateGbp: hourlyRateRaw } : {}),
       consents: {
         legal: getConsent('legal_consent'),
         no_training: getConsent('no_training_consent'),
@@ -1394,6 +1410,20 @@
 
       if (response.ok) {
         window.location.href = 'workspace.html';
+      } else if (response.status === 403) {
+        const errData = await response.json();
+        if (errData.code === 'DPA_REQUIRED') {
+          // Show DPA acceptance modal — user must accept before provisioning can proceed
+          document.getElementById('setup-loading-view').classList.add('hidden');
+          const dpaModal = document.getElementById('modal-dpa-onboarding');
+          if (dpaModal) { dpaModal.classList.remove('hidden'); dpaModal.classList.add('flex'); }
+          return;
+        }
+        document.getElementById('setup-initial-view').classList.remove('hidden');
+        document.getElementById('setup-loading-view').classList.add('hidden');
+        document.getElementById('btn-next').disabled = false;
+        document.getElementById('btn-back').style.display = 'block';
+        alert(`Setup failed: ${errData.error}`);
       } else {
         document.getElementById('setup-initial-view').classList.remove('hidden');
         document.getElementById('setup-loading-view').classList.add('hidden');
@@ -1710,6 +1740,61 @@
     }
   };
 })();
+</script>
+
+<!-- US-GDPR-1.1.1: DPA acceptance modal for onboarding flow -->
+<div id="modal-dpa-onboarding" class="hidden fixed inset-0 z-[70] items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+    <div class="flex items-start gap-3 mb-4">
+      <span class="text-2xl flex-shrink-0">📋</span>
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">One Last Step — Data Processing Agreement</h2>
+        <p class="text-sm text-gray-500 mt-1">Before your assistant can be activated, your organisation must accept our Data Processing Agreement (DPA) as required by UK GDPR Article 28.</p>
+      </div>
+    </div>
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-5 max-h-48 overflow-y-auto text-sm text-gray-700 leading-relaxed">
+      <p class="font-bold mb-2">Data Processing Agreement — Summary</p>
+      <p class="mb-2">By accepting this agreement, your organisation (the Data Controller) authorises Aura-Assist (the Data Processor) to process personal data on your behalf solely to provide the Aura-Assist platform services, in accordance with your instructions.</p>
+      <p class="mb-2">Aura-Assist commits to: (1) process data only on documented instructions; (2) ensure confidentiality; (3) implement appropriate technical and organisational security measures; (4) assist with data subject rights requests; (5) delete or return all personal data at contract end; (6) provide audit assistance.</p>
+      <p>Sub-processors are listed in our Privacy Policy. Full agreement available at <a href="/privacy.html" target="_blank" class="text-emerald-700 underline">aura-assist.com/privacy</a>.</p>
+    </div>
+    <label class="flex items-start gap-3 mb-6 cursor-pointer">
+      <input type="checkbox" id="dpa-onboarding-checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" onchange="document.getElementById('btn-dpa-onboarding-accept').disabled=!this.checked">
+      <span class="text-sm text-gray-700">I have read and agree to the <a href="/privacy.html#dpa" target="_blank" class="text-emerald-700 underline font-medium">Data Processing Agreement</a> on behalf of my organisation.</span>
+    </label>
+    <button id="btn-dpa-onboarding-accept" onclick="acceptDpaAndRetry()"
+      class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled>
+      Accept DPA &amp; Activate Assistant
+    </button>
+    <p class="text-xs text-gray-400 text-center mt-3">Your acceptance is recorded with timestamp and IP address as legally admissible evidence under UK GDPR Article 28(9).</p>
+  </div>
+</div>
+
+<script>
+async function acceptDpaAndRetry() {
+  const btn = document.getElementById('btn-dpa-onboarding-accept');
+  btn.disabled = true;
+  btn.textContent = 'Recording acceptance…';
+  try {
+    const res = await fetch('/.netlify/functions/accept-dpa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: '1.0' }),
+    });
+    if (!res.ok) throw new Error('Failed');
+    // Hide modal and re-trigger submission
+    document.getElementById('modal-dpa-onboarding').classList.add('hidden');
+    document.getElementById('modal-dpa-onboarding').classList.remove('flex');
+    document.getElementById('setup-loading-view').classList.remove('hidden');
+    document.getElementById('setup-initial-view').classList.add('hidden');
+    if (typeof window.submitToBackend === 'function') window.submitToBackend();
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Accept DPA & Activate Assistant';
+    alert('Failed to record DPA acceptance. Please try again.');
+  }
+}
 </script>
 </body>
 </html>

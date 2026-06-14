@@ -4,6 +4,7 @@
 // Scheduled daily at 09:00 UTC (schedule: "0 9 * * *")
 // Scans all past_due plans and sends escalation emails based on days since first failure.
 //
+// Day 1 email: sent when 1–2 days have elapsed since first payment failure (soft warning)
 // Day 3 email (SC1/SC2): sent when 3–6 days have elapsed since first payment failure
 // Day 7 email (SC3/SC4): sent when 7+ days have elapsed (grace period end — final notice)
 // SC5: Stop on payment — invoice.paid webhook resets plan to 'active' so these users are excluded
@@ -30,6 +31,8 @@ async function runDunningEscalation() {
     // Day 3 window: gracePeriodEndsAt is between now+1d and now+4d (i.e., failure was 3–6 days ago)
     // Day 7 window: gracePeriodEndsAt is within the next 24h (i.e., failure was 7+ days ago)
 
+    const day1Start = new Date(now.getTime() + 5  * 24 * 60 * 60 * 1000); // grace expires in 5–6 days = day 1–2
+    const day1End   = new Date(now.getTime() + 6  * 24 * 60 * 60 * 1000);
     const day3Start = new Date(now.getTime() + 1  * 24 * 60 * 60 * 1000); // grace expires in 1–4 days = day 3–6
     const day3End   = new Date(now.getTime() + 4  * 24 * 60 * 60 * 1000);
     const day7End   = new Date(now.getTime() + 1  * 24 * 60 * 60 * 1000); // grace expires within 24h = day 7
@@ -55,10 +58,11 @@ async function runDunningEscalation() {
 
         const isDay7 = graceEnd <= day7End;  // grace period expires within 24h
         const isDay3 = !isDay7 && graceEnd >= day3Start && graceEnd <= day3End;
+        const isDay1 = !isDay7 && !isDay3 && graceEnd >= day1Start && graceEnd <= day1End;
 
-        if (!isDay3 && !isDay7) continue;
+        if (!isDay1 && !isDay3 && !isDay7) continue;
 
-        const emailType = isDay7 ? 'day7' : 'day3';
+        const emailType = isDay7 ? 'day7' : isDay3 ? 'day3' : 'day1';
         const dedupeKey = `dunning:${plan.planId}:${emailType}`;
 
         // SC5/Idempotency: skip if already sent
@@ -98,7 +102,26 @@ async function runDunningEscalation() {
 
         const name = userRecord.firstName || 'there';
 
-        if (isDay3) {
+        if (isDay1) {
+            // Day 1 soft warning email
+            await sendEmail({
+                to: userRecord.email,
+                subject: `Payment failed — please update your details`,
+                html: `<p>Hi ${name},</p>
+                       <p>We were unable to process your Aura subscription payment. This can happen when a card expires or a bank declines an automated charge.</p>
+                       <p>Your assistants remain active for now, but <strong>please update your payment details as soon as possible</strong> to avoid any interruption to your service.</p>
+                       <p style="margin-top:24px;">
+                         <a href="${portalUrl}" style="background:#f59e0b;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+                           Update Payment Details →
+                         </a>
+                       </p>
+                       <p style="margin-top:16px;font-size:0.875rem;color:#6b7280;">
+                         Need help? <a href="mailto:hello@aura-assist.com">Contact our support team</a>.
+                       </p>
+                       <p>The Aura Team</p>`,
+            }).catch(err => console.warn('[dunning-escalation] Day 1 email failed:', err));
+
+        } else if (isDay3) {
             // SC1/SC2: Day 3 escalation email
             await sendEmail({
                 to: userRecord.email,

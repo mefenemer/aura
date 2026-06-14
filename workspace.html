@@ -51,6 +51,216 @@
   </div>
 </div>
 
+<!-- US-GDPR-1.1.1: DPA acceptance required modal — blocks assistant access until accepted -->
+<div id="modal-dpa-required" class="hidden fixed inset-0 z-[70] items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="dpa-modal-title">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+    <div class="flex items-start gap-3 mb-4">
+      <span class="text-2xl flex-shrink-0">📋</span>
+      <div>
+        <h2 id="dpa-modal-title" class="text-xl font-bold text-gray-900">Data Processing Agreement Required</h2>
+        <p class="text-sm text-gray-500 mt-1">Before activating your AI assistant, your organisation must accept our Data Processing Agreement (DPA) as required by UK GDPR Article 28.</p>
+      </div>
+    </div>
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-5 max-h-48 overflow-y-auto text-sm text-gray-700 leading-relaxed">
+      <p class="font-bold mb-2">Data Processing Agreement — Summary</p>
+      <p class="mb-2">By accepting this agreement, your organisation (the Data Controller) authorises Aura-Assist (the Data Processor) to process personal data on your behalf solely to provide the Aura-Assist platform services, in accordance with your instructions.</p>
+      <p class="mb-2">Aura-Assist commits to: (1) process data only on documented instructions; (2) ensure confidentiality; (3) implement appropriate technical and organisational security measures; (4) assist with data subject rights requests; (5) delete or return all personal data at contract end; (6) provide audit assistance.</p>
+      <p>Sub-processors are listed in our Privacy Policy. You will be notified of any intended changes to sub-processors. Full agreement available at <a href="/privacy.html" target="_blank" class="text-emerald-700 underline">aura-assist.com/privacy</a>.</p>
+    </div>
+    <label class="flex items-start gap-3 mb-6 cursor-pointer">
+      <input type="checkbox" id="dpa-agree-checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+      <span class="text-sm text-gray-700">I have read and agree to the <a href="/privacy.html#dpa" target="_blank" class="text-emerald-700 underline font-medium">Data Processing Agreement</a> on behalf of my organisation.</span>
+    </label>
+    <button id="btn-dpa-accept" onclick="submitDpaAcceptance(this)"
+      class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled>
+      Accept DPA &amp; Continue
+    </button>
+    <p class="text-xs text-gray-400 text-center mt-3">Your acceptance is recorded with timestamp and IP address as legally admissible evidence under UK GDPR Article 28(9).</p>
+  </div>
+</div>
+
+<script>
+// US-GDPR-1.1.1: Enable accept button only when checkbox is ticked; check DPA on load
+document.addEventListener('DOMContentLoaded', function () {
+    const cb = document.getElementById('dpa-agree-checkbox');
+    const btn = document.getElementById('btn-dpa-accept');
+    if (cb && btn) cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
+
+    checkDpaAcceptance();
+});
+
+async function checkDpaAcceptance() {
+    try {
+        const res = await fetch('/.netlify/functions/check-dpa');
+        if (!res.ok) return; // Non-blocking — don't prevent workspace loading on auth errors
+        const data = await res.json();
+        if (!data.upToDate) {
+            const modal = document.getElementById('modal-dpa-required');
+            if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+        }
+    } catch {
+        // Non-blocking
+    }
+}
+
+async function submitDpaAcceptance(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Recording acceptance…';
+    try {
+        const res = await fetch('/.netlify/functions/accept-dpa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version: '1.0' }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        // Hide modal and reload the assistant detail to retry get-assistant-context
+        const modal = document.getElementById('modal-dpa-required');
+        if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+        const assistantId = btn.dataset.assistantId;
+        if (assistantId && typeof window.loadAssistantDetail === 'function') {
+            window.loadAssistantDetail(assistantId);
+        } else {
+            window.location.reload();
+        }
+    } catch {
+        btn.disabled = false;
+        btn.textContent = 'Accept DPA & Continue';
+        alert('Failed to record acceptance. Please try again.');
+    }
+}
+</script>
+
+<!-- US-GOV-1.2.1: ToS re-acceptance modal — shown when ToS version is outdated -->
+<div id="modal-tos-required" class="hidden fixed inset-0 z-[75] items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="tos-modal-title">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+    <div class="flex items-start gap-3 mb-4">
+      <span class="text-2xl flex-shrink-0">📄</span>
+      <div>
+        <h2 id="tos-modal-title" class="text-xl font-bold text-gray-900">Updated Terms of Service</h2>
+        <p class="text-sm text-gray-500 mt-1">Our Terms of Service have been updated. Please review and accept the new terms to continue using Aura-Assist.</p>
+      </div>
+    </div>
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-5 max-h-48 overflow-y-auto text-sm text-gray-700 leading-relaxed">
+      <p class="font-bold mb-2">Key updates in Terms v2.0</p>
+      <ul class="list-disc list-inside space-y-1">
+        <li>Strengthened confidentiality protections for AI system prompts (clause 11.5)</li>
+        <li>Prohibited use clause extended — reverse engineering and prompt extraction prohibited (clause 11.4)</li>
+        <li>Human-in-the-loop mandate for Tier-2 publishing integrations (clause 10.5)</li>
+        <li>EU AI Act Article 50 compliance obligations clarified (section 13)</li>
+        <li>Liability allocation clarified for AI-generated content (section 10)</li>
+      </ul>
+      <p class="mt-3">Full terms available at <a href="/terms_of_service.html" target="_blank" class="text-emerald-700 underline">aura-assist.com/terms</a>.</p>
+    </div>
+    <label class="flex items-start gap-3 mb-6 cursor-pointer">
+      <input type="checkbox" id="tos-agree-checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+      <span class="text-sm text-gray-700">I have read and agree to the updated <a href="/terms_of_service.html" target="_blank" class="text-emerald-700 underline font-medium">Terms of Service</a> (v2.0).</span>
+    </label>
+    <button id="btn-tos-accept" onclick="submitTosAcceptance(this)"
+      class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled>
+      Accept Terms &amp; Continue
+    </button>
+    <p class="text-xs text-gray-400 text-center mt-3">Your acceptance is recorded with timestamp and IP address.</p>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Enable accept button only when checkbox is ticked
+    const cb = document.getElementById('tos-agree-checkbox');
+    const btn = document.getElementById('btn-tos-accept');
+    if (cb && btn) cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
+
+    // Check ToS acceptance on load
+    checkTosAcceptance();
+});
+
+async function checkTosAcceptance() {
+    try {
+        const res = await fetch('/.netlify/functions/check-tos');
+        if (!res.ok) return; // Don't block on auth errors
+        const data = await res.json();
+        if (!data.upToDate) {
+            const modal = document.getElementById('modal-tos-required');
+            if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+        }
+    } catch {
+        // Non-blocking — don't prevent workspace from loading if check fails
+    }
+}
+
+async function submitTosAcceptance(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Recording acceptance…';
+    try {
+        const res = await fetch('/.netlify/functions/accept-tos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version: '2.0' }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        const modal = document.getElementById('modal-tos-required');
+        if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    } catch {
+        btn.disabled = false;
+        btn.textContent = 'Accept Terms & Continue';
+        alert('Failed to record acceptance. Please try again.');
+    }
+}
+</script>
+
+<!-- US-GOV-2.1.1: Review Queue drawer -->
+<div id="review-queue-drawer" class="hidden fixed inset-0 z-[65] flex items-stretch" role="dialog" aria-modal="true" aria-labelledby="rq-title">
+  <!-- Backdrop -->
+  <div class="flex-1 bg-gray-900/60 backdrop-blur-sm" onclick="closeReviewQueue()"></div>
+  <!-- Panel -->
+  <div class="w-full max-w-2xl bg-white flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+      <h2 id="rq-title" class="text-lg font-extrabold text-gray-900">Pending Approvals</h2>
+      <button onclick="closeReviewQueue()" class="text-gray-400 hover:text-gray-600 transition cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <!-- Tabs -->
+    <div class="flex gap-1 px-6 pt-3 border-b border-gray-100">
+      <button class="rq-tab px-4 py-2 text-sm font-semibold rounded-t border-b-2 border-emerald-600 text-emerald-700" data-status="pending" onclick="rqSetTab('pending',this)">Pending <span id="rq-pending-tab-count" class="ml-1 bg-emerald-100 text-emerald-700 text-xs px-1.5 py-0.5 rounded-full"></span></button>
+      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t" data-status="approved" onclick="rqSetTab('approved',this)">Approved</button>
+      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t" data-status="rejected" onclick="rqSetTab('rejected',this)">Rejected</button>
+    </div>
+    <!-- List -->
+    <div id="rq-list" class="flex-1 overflow-y-auto divide-y divide-gray-100 px-6 py-2"></div>
+    <!-- Reject reason input (shown inline on card) -->
+  </div>
+</div>
+
+<!-- US-GOV-2.1.1: Autonomous-override acknowledgment modal -->
+<div id="modal-autonomous-override" class="hidden fixed inset-0 z-[80] items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      <h2 class="text-lg font-extrabold text-gray-900">Disable Human Review?</h2>
+    </div>
+    <p class="text-sm text-gray-700 mb-4 leading-relaxed">
+      You are about to allow this integration to <strong>publish content without human review</strong>.
+      You accept sole responsibility for all content published by this assistant.
+    </p>
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-xs text-amber-800 leading-relaxed">
+      This assistant will act autonomously. Errors, inappropriate content, or policy violations will be published immediately without a human check.
+    </div>
+    <label class="flex items-start gap-2 mb-5 cursor-pointer select-none">
+      <input type="checkbox" id="autonomous-ack-checkbox" class="mt-0.5 accent-red-600">
+      <span class="text-sm text-gray-700">I understand this assistant will publish content without human review. I accept sole responsibility for all published content.</span>
+    </label>
+    <div class="flex gap-3">
+      <button id="btn-autonomous-cancel" onclick="closeAutonomousOverrideModal()" class="flex-1 py-2 border border-gray-300 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer">Cancel</button>
+      <button id="btn-autonomous-accept" disabled onclick="confirmAutonomousOverride()" class="flex-1 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition cursor-pointer">I Accept</button>
+    </div>
+  </div>
+</div>
+
 <!-- US-AUD-4.3.1 SC5: AI Disclaimer first-time acknowledgement modal -->
 <div id="ai-disclaimer-modal" class="hidden fixed inset-0 z-[60] items-center justify-center p-4 bg-gray-900/70 backdrop-blur-sm">
   <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
@@ -235,6 +445,27 @@
     </div>
   </div>
 
+  <!-- US-GAP-8.1.1 SC6c: Trial Expired Gate — full-page non-dismissable, shown after cron marks plan 'expired' -->
+  <div id="trial-expired-gate" class="hidden fixed inset-0 z-[9999] bg-gray-950/95 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+      <div class="flex items-center justify-center w-16 h-16 bg-amber-100 rounded-full mx-auto mb-4">
+        <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">Your Free Trial Has Ended</h2>
+      <p class="text-gray-600 mb-6">Your 14-day free trial has expired. Choose a plan to continue using your assistant — your configuration and data are safe.</p>
+      <a href="/pricing.html"
+         class="block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl mb-3 transition-colors">
+        Choose a Plan →
+      </a>
+      <a href="mailto:hello@aura-assist.com?subject=Trial%20Enquiry" class="text-sm text-gray-500 hover:text-gray-700 underline">
+        Questions? Contact us
+      </a>
+    </div>
+  </div>
+
   <!-- US-GAP-8.1.1 SC3: Trial Countdown Badge — persistent when plan is trial -->
   <div id="trial-badge" class="hidden w-full bg-blue-600 text-white text-sm text-center py-2 px-4 flex items-center justify-center gap-3">
     <span id="trial-badge-text">Free Trial</span>
@@ -245,10 +476,40 @@
   <!-- Rendered by renderTaskVolumeBanner() after check-capacity resolves. -->
   <div id="task-volume-banner" class="hidden w-full px-4 pt-3"></div>
 
+  <!-- US-AUD-1.2.1: Persistent ROI Card -->
+  <div id="roi-card" class="hidden w-full px-4 pt-3">
+    <div class="bg-white border border-gray-200 rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+      <div id="roi-card-body" class="flex-1 min-w-0">
+        <p id="roi-card-primary" class="text-base font-bold text-gray-900 truncate"></p>
+        <p id="roi-card-secondary" class="text-sm text-gray-500 mt-0.5"></p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+          <button id="roi-period-month" onclick="switchRoiPeriod('month')"
+            class="px-3 py-1.5 bg-emerald-700 text-white transition">Month</button>
+          <button id="roi-period-week" onclick="switchRoiPeriod('week')"
+            class="px-3 py-1.5 bg-white text-gray-500 hover:bg-gray-50 transition">Week</button>
+        </div>
+        <a id="roi-card-cta" href="#" class="hidden text-xs font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap transition"></a>
+      </div>
+    </div>
+  </div>
+
   <main id="workspace-content" class="flex-1 w-full"></main>
 </div>
 
 <script>
+// US-I18N-2.1 SC5: currency-aware formatter — replaces all hardcoded £ symbols
+function formatCurrency(amount, currency) {
+  if (amount == null || isNaN(parseFloat(amount))) return '';
+  return new Intl.NumberFormat('en', {
+    style: 'currency',
+    currency: currency || 'GBP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(parseFloat(amount));
+}
+
   async function loadSidebar(placeholderId) {
     const paths = ["./components/sidebar.html", "./sidebar.html"];
     for (let path of paths) {
@@ -699,7 +960,8 @@
       const nextPlanBlock = document.getElementById('upgrade-modal-next-plan');
       if (opts.nextPlan) {
         const np = opts.nextPlan;
-        const price = np.monthlyPriceGbp ? `£${parseFloat(np.monthlyPriceGbp).toFixed(0)}/mo` : '';
+        const _currency = opts.currency || window._capacityCache?.currency || 'GBP';
+        const price = (np.monthlyPrice || np.monthlyPriceGbp) ? `${formatCurrency(np.monthlyPrice || np.monthlyPriceGbp, _currency)}/mo` : '';
         const slots = np.assistantLimit != null ? `${np.assistantLimit} active assistant${np.assistantLimit === 1 ? '' : 's'}` : 'Unlimited assistants';
         document.getElementById('upgrade-next-plan-name').textContent       = np.name || '';
         document.getElementById('upgrade-next-plan-price').textContent      = price;
@@ -769,7 +1031,7 @@
         selector: '[data-feature="analytics"]',
         title: 'Analytics Dashboard',
         subtitle: 'Available on Business Automator and above.',
-        body: 'Upgrade to the Business Automator plan (£349/mo) to unlock detailed task analytics, performance trends, and assistant health reports.',
+        body: (cap) => `Upgrade to the ${cap?.nextPlan?.name || 'Business Automator'} plan (${cap?.nextPlan ? formatCurrency(cap.nextPlan.monthlyPrice || cap.nextPlan.monthlyPriceGbp, cap.currency) + '/mo' : 'see pricing'}) to unlock detailed task analytics, performance trends, and assistant health reports.`,
       },
       {
         // 24/7 monitoring — locked on Starter and Pro Team
@@ -785,7 +1047,7 @@
         selector: '[data-feature="auto-trigger"]',
         title: 'Automated Triggers',
         subtitle: 'Available on Pro Team and above.',
-        body: 'Upgrade to Pro Team (£99/mo) to let your assistants react automatically the moment a new task arrives — no manual command needed.',
+        body: (cap) => `Upgrade to ${cap?.nextPlan?.name || 'Pro Team'} (${cap?.nextPlan ? formatCurrency(cap.nextPlan.monthlyPrice || cap.nextPlan.monthlyPriceGbp, cap.currency) + '/mo' : 'see pricing'}) to let your assistants react automatically the moment a new task arrives — no manual command needed.`,
       },
       {
         // Style & memory learning — locked on Starter only
@@ -827,7 +1089,7 @@
                 Upgrade to Unlock
               </button>
             </div>`;
-          overlay.addEventListener('click', () => window.openUpgradeModal(title, subtitle, body));
+          overlay.addEventListener('click', () => window.openUpgradeModal(title, subtitle, typeof body === 'function' ? body(window._capacityCache) : body));
           el.appendChild(overlay);
         });
       });
@@ -842,7 +1104,7 @@
       // SC2: populate amount owed and retry count
       const amountEl   = document.getElementById('payment-gate-amount');
       const attemptsEl = document.getElementById('payment-gate-attempts');
-      if (amountEl)   amountEl.textContent   = cap.pastDueAmountGbp   != null ? `£${cap.pastDueAmountGbp}` : 'See billing page';
+      if (amountEl)   amountEl.textContent   = cap.pastDueAmount != null ? formatCurrency(cap.pastDueAmount, cap.currency) : 'See billing page';
       if (attemptsEl) attemptsEl.textContent = cap.pastDueAttemptCount != null ? `${cap.pastDueAttemptCount}` : '—';
 
       // SC2: CTA links to Stripe billing portal if available, otherwise billing.html
@@ -858,6 +1120,13 @@
 
     // Pre-fetch capacity once on workspace boot (non-blocking)
     // After loading, render the task-volume banner if applicable (US-GAP-9.2.1).
+    // US-GAP-8.1.1 SC6c: Show full-page non-dismissable gate when trial has been marked 'expired' by cron
+    function renderTrialExpiredGate(cap) {
+      if (!cap || !cap.trialExpired) return;
+      const gate = document.getElementById('trial-expired-gate');
+      if (gate) { gate.classList.remove('hidden'); gate.classList.add('flex'); }
+    }
+
     // US-GAP-8.1.1 SC3: Trial countdown badge
     function renderTrialBadge(cap) {
       if (!cap || !cap.isTrial) return;
@@ -876,9 +1145,63 @@
 
     window.checkCapacity().then(cap => {
       renderPaymentRequiredGate(cap);
+      renderTrialExpiredGate(cap);
       renderTrialBadge(cap);
       renderTaskVolumeBanner(cap);
     });
+
+    // US-AUD-1.2.1: Persistent ROI card
+    let _roiPeriod = 'month';
+    async function loadRoiCard(period) {
+      try {
+        const res = await fetch(`/.netlify/functions/roi-stats?period=${period}`);
+        if (!res.ok) return;
+        const roi = await res.json();
+        const card = document.getElementById('roi-card');
+        const primary = document.getElementById('roi-card-primary');
+        const secondary = document.getElementById('roi-card-secondary');
+        const cta = document.getElementById('roi-card-cta');
+        const label = period === 'week' ? 'this week' : 'this month';
+
+        cta.classList.add('hidden');
+        cta.removeAttribute('href');
+
+        if (roi.gbpSaved != null && roi.planCostGbp != null && roi.gbpSaved > 0) {
+          const saved = formatCurrency(roi.gbpSaved, roi.currency || 'GBP');
+          if (roi.gbpSaved >= roi.planCostGbp) {
+            const mult = (roi.gbpSaved / roi.planCostGbp).toFixed(1);
+            primary.textContent = `${saved} saved ${label}`;
+            secondary.textContent = `${mult}× your subscription cost — your assistants are paying for themselves.`;
+          } else {
+            const remaining = formatCurrency(roi.planCostGbp - roi.gbpSaved, roi.currency || 'GBP');
+            primary.textContent = `${saved} saved ${label}`;
+            secondary.textContent = `${remaining} more to beat your subscription cost — keep going.`;
+          }
+          card.classList.remove('hidden');
+        } else if (roi.hoursSaved != null && roi.hoursSaved > 0) {
+          const hrs = roi.hoursSaved % 1 === 0 ? roi.hoursSaved : roi.hoursSaved.toFixed(1);
+          primary.textContent = `${hrs}h saved ${label}`;
+          secondary.textContent = 'Set your hourly rate to see this as a £ value.';
+          cta.textContent = 'Set your rate →';
+          cta.href = '?view=settings';
+          cta.classList.remove('hidden');
+          card.classList.remove('hidden');
+        }
+      } catch { /* fail silently */ }
+    }
+
+    window.switchRoiPeriod = function(period) {
+      _roiPeriod = period;
+      document.getElementById('roi-period-month').className = period === 'month'
+        ? 'px-3 py-1.5 bg-emerald-700 text-white transition'
+        : 'px-3 py-1.5 bg-white text-gray-500 hover:bg-gray-50 transition';
+      document.getElementById('roi-period-week').className = period === 'week'
+        ? 'px-3 py-1.5 bg-emerald-700 text-white transition'
+        : 'px-3 py-1.5 bg-white text-gray-500 hover:bg-gray-50 transition';
+      loadRoiCard(period);
+    };
+
+    loadRoiCard('month');
 
     // US-AUD-4.3.1 SC5: Check if user has acknowledged AI disclaimer; show modal if not.
     (async function checkAiDisclaimerConsent() {
@@ -959,20 +1282,21 @@
         if (!modal) return;
 
         document.getElementById('um-savings-line').textContent =
-          `£${roi.gbpSaved.toLocaleString('en-GB', { maximumFractionDigits: 0 })} saved this month`;
+          `${formatCurrency(roi.amountSaved ?? roi.gbpSaved, roi.currency || cap.currency)} saved this month`;
         document.getElementById('um-roi-line').textContent =
           `Your subscription has paid for itself ${Math.floor(multiplier)}× over — see what's possible next.`;
 
         if (cap.nextPlan) {
           document.getElementById('um-next-tier-info').classList.remove('hidden');
           document.getElementById('um-next-tier-name').textContent = cap.nextPlan.name;
-          document.getElementById('um-next-tier-price').textContent =
-            `£${cap.nextPlan.monthlyPriceGbp}/month`;
+          const _np = cap.nextPlan;
+          const _npPrice = formatCurrency(_np.monthlyPrice || _np.monthlyPriceGbp, cap.currency);
+          document.getElementById('um-next-tier-price').textContent = `${_npPrice}/month`;
           const bullets = UPGRADE_FEATURES_BY_VARIANT[variant] || UPGRADE_FEATURES_BY_VARIANT.break_even;
           document.getElementById('um-feature-bullets').innerHTML =
             bullets.map(b => `<li class="flex items-center gap-2">${b}</li>`).join('');
           const ctaBtn = document.getElementById('um-cta-btn');
-          ctaBtn.textContent = `Upgrade to ${cap.nextPlan.name} — £${cap.nextPlan.monthlyPriceGbp}/month`;
+          ctaBtn.textContent = `Upgrade to ${_np.name} — ${_npPrice}/month`;
           ctaBtn.href = `/checkout.html?tier=${cap.nextPlan.tierKey}`;
         }
 
@@ -1792,7 +2116,254 @@
 <script src="/help.js"></script>
 <script src="/my-content.js"></script>
 <script src="/src/components/platform-post-preview.js"></script>
+<script src="/src/components/confidence-badge.js"></script>
 <script src="/calendar.js"></script>
 <script src="/billing.js"></script>
+
+<!-- US-GOV-2.1.1: Review Queue + Pending Badge JS -->
+<script>
+// ── Pending badge ────────────────────────────────────────────────────────────
+let _rqPollInterval = null;
+
+async function refreshPendingBadge() {
+    try {
+        const res = await fetch('/.netlify/functions/get-pending-actions?status=pending&limit=1');
+        if (!res.ok) return;
+        const { totalPending } = await res.json();
+        document.querySelectorAll('.pending-badge').forEach(el => {
+            el.textContent = totalPending || '';
+            el.classList.toggle('hidden', !totalPending);
+        });
+        const tabCount = document.getElementById('rq-pending-tab-count');
+        if (tabCount) tabCount.textContent = totalPending ? `(${totalPending})` : '';
+    } catch { /* non-blocking */ }
+}
+
+// ── Review Queue drawer ──────────────────────────────────────────────────────
+let _rqCurrentTab = 'pending';
+
+function openReviewQueue() {
+    const el = document.getElementById('review-queue-drawer');
+    if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
+    rqLoadItems('pending');
+}
+
+function closeReviewQueue() {
+    const el = document.getElementById('review-queue-drawer');
+    if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
+}
+
+function rqSetTab(status, btn) {
+    _rqCurrentTab = status;
+    document.querySelectorAll('.rq-tab').forEach(t => {
+        t.classList.remove('border-b-2', 'border-emerald-600', 'text-emerald-700');
+        t.classList.add('text-gray-500');
+    });
+    btn.classList.add('border-b-2', 'border-emerald-600', 'text-emerald-700');
+    btn.classList.remove('text-gray-500');
+    rqLoadItems(status);
+}
+
+async function rqLoadItems(status) {
+    const list = document.getElementById('rq-list');
+    if (!list) return;
+    list.innerHTML = '<p class="text-sm text-gray-400 py-8 text-center">Loading…</p>';
+    try {
+        const res = await fetch(`/.netlify/functions/get-pending-actions?status=${status}`);
+        if (!res.ok) throw new Error();
+        const { items, totalPending } = await res.json();
+        const tabCount = document.getElementById('rq-pending-tab-count');
+        if (tabCount) tabCount.textContent = totalPending ? `(${totalPending})` : '';
+        document.querySelectorAll('.pending-badge').forEach(el => {
+            el.textContent = totalPending || '';
+            el.classList.toggle('hidden', !totalPending);
+        });
+        if (!items.length) {
+            list.innerHTML = '<p class="text-sm text-gray-400 py-12 text-center">Nothing here.</p>';
+            return;
+        }
+        list.innerHTML = items.map(item => rqRenderCard(item)).join('');
+    } catch {
+        list.innerHTML = '<p class="text-sm text-red-500 py-8 text-center">Failed to load items.</p>';
+    }
+}
+
+function rqRenderCard(item) {
+    const ago = rqTimeAgo(item.createdAt);
+    const tierColor = { irreversible: 'red', reversible: 'amber', trivial: 'emerald' }[item.reversibilityTier] || 'gray';
+    const payload = item.actionPayload ? JSON.stringify(item.actionPayload, null, 2) : '—';
+    const isPending = item.status === 'pending';
+    const expired = item.expiresAt && new Date(item.expiresAt) < new Date();
+    const confidenceLevel = item.taskRunMetadata?.confidenceLevel || null;
+
+    const html = `<div class="py-4" data-action-id="${item.id}">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-gray-900 truncate">${_rqEsc(item.actionType)}</p>
+          <p class="text-xs text-gray-500 mt-0.5">${_rqEsc(item.assistantName || 'Unknown assistant')} · ${ago}</p>
+        </div>
+        <span class="flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full bg-${tierColor}-50 border border-${tierColor}-200 text-${tierColor}-700">${_rqEsc(item.reversibilityTier || '—')}</span>
+      </div>
+      <div id="rq-confidence-${item.id}" class="mb-2"></div>
+      <details class="mb-3">
+        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Show payload</summary>
+        <pre class="mt-1 text-xs bg-gray-50 rounded-lg p-3 overflow-x-auto max-h-32 text-gray-700 font-mono">${_rqEsc(payload)}</pre>
+      </details>
+      ${isPending && !expired ? `
+      <div class="rq-reject-form-${item.id} hidden mb-2">
+        <input type="text" id="rq-reason-${item.id}" placeholder="Rejection reason (required)" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-red-300">
+      </div>
+      <div class="flex gap-2">
+        <button onclick="rqApprove(${item.id})" data-action="approve-output" class="flex-1 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Approve</button>
+        <button onclick="rqToggleReject(${item.id})" class="flex-1 py-1.5 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer" id="rq-reject-btn-${item.id}">Reject</button>
+      </div>` : expired ? `<span class="text-xs text-gray-400 italic">Expired</span>` : `<span class="text-xs text-gray-500">${item.status}</span>`}
+    </div>`;
+
+    // Defer badge render so the DOM element exists
+    if (confidenceLevel && confidenceLevel !== 'green') {
+        setTimeout(() => {
+            const badgeEl = document.getElementById(`rq-confidence-${item.id}`);
+            if (badgeEl && window.renderConfidenceBadge) {
+                window.renderConfidenceBadge(badgeEl, confidenceLevel, item.taskRunMetadata?.verifyHint || null);
+            }
+        }, 0);
+    }
+
+    return html;
+}
+
+function _rqEsc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function rqTimeAgo(ts) {
+    if (!ts) return '—';
+    const diff = Math.floor((Date.now() - new Date(ts)) / 1000);
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+    return `${Math.floor(diff/86400)}d ago`;
+}
+
+function rqToggleReject(id) {
+    const form = document.querySelector(`.rq-reject-form-${id}`);
+    const btn  = document.getElementById(`rq-reject-btn-${id}`);
+    if (!form) return;
+    const hidden = form.classList.toggle('hidden');
+    if (!hidden) {
+        btn.textContent = 'Submit Rejection';
+        btn.onclick = () => rqReject(id);
+    } else {
+        btn.textContent = 'Reject';
+        btn.onclick = () => rqToggleReject(id);
+    }
+}
+
+async function rqApprove(id) {
+    await rqDecide(id, 'approved', null);
+}
+
+async function rqReject(id) {
+    const reason = (document.getElementById(`rq-reason-${id}`) || {}).value?.trim();
+    if (!reason) { alert('Please enter a rejection reason.'); return; }
+    await rqDecide(id, 'rejected', reason);
+}
+
+async function rqDecide(id, decision, rejectionReason) {
+    try {
+        const res = await fetch('/.netlify/functions/approve-pending-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pendingActionId: id, decision, rejectionReason }),
+        });
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            alert(d.error || 'Failed to process action.');
+            return;
+        }
+        rqLoadItems(_rqCurrentTab);
+        refreshPendingBadge();
+    } catch {
+        alert('Network error — please try again.');
+    }
+}
+
+// ── Autonomous-override modal ────────────────────────────────────────────────
+let _pendingAutonomousIntegrationId = null;
+
+function openAutonomousOverrideModal(integrationId) {
+    _pendingAutonomousIntegrationId = integrationId;
+    const modal = document.getElementById('modal-autonomous-override');
+    const cb = document.getElementById('autonomous-ack-checkbox');
+    const btn = document.getElementById('btn-autonomous-accept');
+    if (cb) cb.checked = false;
+    if (btn) btn.disabled = true;
+    if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+}
+
+function closeAutonomousOverrideModal() {
+    _pendingAutonomousIntegrationId = null;
+    const modal = document.getElementById('modal-autonomous-override');
+    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+}
+
+async function confirmAutonomousOverride() {
+    if (!_pendingAutonomousIntegrationId) return;
+    const btn = document.getElementById('btn-autonomous-accept');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    try {
+        const res = await fetch('/.netlify/functions/authorize-integration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                integrationId: _pendingAutonomousIntegrationId,
+                humanApprovalRequired: false,
+                autonomousAcknowledged: true,
+            }),
+        });
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            alert(d.error || 'Failed to save setting.');
+        } else {
+            closeAutonomousOverrideModal();
+        }
+    } catch {
+        alert('Network error — please try again.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'I Accept'; }
+    }
+}
+
+// Wire autonomous acknowledgment checkbox → button
+// ── US-SMM-2.4.2: Review Queue summary widget ─────────────────────────────
+async function refreshReviewSummaryWidget(assistantId) {
+    if (!assistantId) return;
+    try {
+        const res = await fetch(`/.netlify/functions/get-review-queue?assistantId=${assistantId}&tab=pending`);
+        if (!res.ok) return;
+        const { summary } = await res.json();
+        if (!summary) return;
+        const widget = document.getElementById('review-summary-widget');
+        if (!widget) return;
+        const { totalPending, redZoneCount, nextPostDueIn } = summary;
+        widget.classList.toggle('hidden', totalPending === 0);
+        const el = (id) => document.getElementById(id);
+        if (el('rw-total'))    el('rw-total').textContent    = totalPending;
+        if (el('rw-red'))      el('rw-red').textContent      = redZoneCount;
+        if (el('rw-next'))     el('rw-next').textContent     = nextPostDueIn ? `Next due in ${nextPostDueIn}` : '—';
+        if (el('rw-red-pill')) el('rw-red-pill').classList.toggle('hidden', redZoneCount === 0);
+    } catch { /* non-blocking */ }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const cb  = document.getElementById('autonomous-ack-checkbox');
+    const btn = document.getElementById('btn-autonomous-accept');
+    if (cb && btn) cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
+
+    // Start badge polling
+    refreshPendingBadge();
+    _rqPollInterval = setInterval(refreshPendingBadge, 60_000);
+});
+</script>
 </body>
 </html>

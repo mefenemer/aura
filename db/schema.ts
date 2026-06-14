@@ -10,7 +10,11 @@ import {
   jsonb,
   unique,
   varchar,
+  index,
+  check,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // Organisations table — companies or groups users belong to
 export const organisations = pgTable('organisations', {
@@ -22,6 +26,9 @@ export const organisations = pgTable('organisations', {
   // US-LEGAL-1.6: explicit opt-in required before any inputs/outputs are used for model improvement.
   // Enterprise (Tier 4) accounts are locked to false and cannot opt in.
   dataTrainingOptIn: boolean('data_training_opt_in').notNull().default(false),
+  // US-LEGAL-3.1: EU AI Act Art.50 — outbound AI content footer
+  aiDisclosureFooterEnabled: boolean('ai_disclosure_footer_enabled').notNull().default(false),
+  aiDisclosureFooterText: text('ai_disclosure_footer_text'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -31,6 +38,8 @@ export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   firstName: text('first_name'),
   lastName: text('last_name'),
+  // DEPRECATED (US-DB-1.3.1): use userOrganisations junction table for all new queries.
+  // Retained for zero-downtime migration; scheduled for removal in following sprint.
   organisationId: integer('organisation_id').references(() => organisations.id),
   email: text('email').notNull().unique(),
 
@@ -68,7 +77,10 @@ export const userOrganisations = pgTable("user_organisations", {
       .references(() => organisations.id, { onDelete: "cascade" }),
   role: text("role").notNull().default("member"),
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.3.1: unique membership — prevents duplicate invite rows
+  unique("user_organisations_user_org_unique").on(t.userId, t.organisationId),
+]);
 
 // Leads table — Interest capture for pending AI roles
 export const leads = pgTable('leads', {
@@ -120,7 +132,32 @@ export const plans = pgTable("plans", {
   cancelledAt: timestamp("cancelled_at"),               // set when status transitions to 'cancelled' (US-GAP-4.2.1)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.4.1: Enforces exactly one active/past_due plan per organisation at the DB level.
+  index("plans_one_active_per_org").on(t.organisationId).where(sql`status IN ('active', 'past_due')`),
+  // US-DB-1.1.1: Hot-path indexes for plan lookups
+  index("plans_user_status_idx").on(t.userId, t.status),
+  index("plans_org_idx").on(t.organisationId),
+  index("plans_stripe_sub_idx").on(t.stripeSubscriptionId),
+]);
+
+// US-DB-1.4.1: Atomic usage counters — one row per org per billing period.
+// Cap checks are done as a single atomic UPDATE (not SELECT then INSERT) to eliminate
+// the check-then-insert race condition where two concurrent requests both pass the cap check.
+export const usageCounters = pgTable("usage_counters", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  // First day of the calendar month in UTC — e.g. 2026-06-01 00:00:00 UTC
+  periodStart: timestamp("period_start").notNull(),
+  taskCount:       integer("task_count").notNull().default(0),
+  tokenCount:      integer("token_count").notNull().default(0),
+  assistantCount:  integer("assistant_count").notNull().default(0),
+  connectionCount: integer("connection_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  orgPeriodUnique: unique("usage_counters_org_period_unique").on(t.organisationId, t.periodStart),
+}));
 
 // Billing information table — stored billing address and contact details per user
 export const billingInformation = pgTable("billing_information", {
@@ -153,7 +190,8 @@ export const payments = pgTable("payments", {
       .references(() => plans.id, { onDelete: "cascade" }),
   masterPlanId: integer("master_plan_id").references(() => masterPlans.id),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
-  currency: text("currency").notNull().default("USD"),
+  // US-DB-1.2.1: default corrected from 'USD' to 'GBP' (platform bills in GBP)
+  currency: text("currency").notNull().default("GBP"),
   status: text("status").notNull().default("pending"),
   paymentMethod: text("payment_method"),
   externalPaymentId: text("external_payment_id"),
@@ -167,7 +205,12 @@ export const payments = pgTable("payments", {
   metadata: jsonb("metadata"),
   paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  check("payments_currency_check", sql`${t.currency} IN ('GBP', 'EUR', 'USD')`),
+  // US-DB-1.1.1: Org-level and user-level payment lookups
+  index("payments_org_idx").on(t.organisationId),
+  index("payments_user_idx").on(t.userId),
+]);
 
 // AI assistants table — AI agents configured by or assigned to a user
 export const aiAssistants = pgTable("ai_assistants", {
@@ -181,20 +224,36 @@ export const aiAssistants = pgTable("ai_assistants", {
   systemPrompt: text("system_prompt"),
   // US-GOV-3.1.1: EU AI Act Art. 52 disclosure — required before activation
   disclosureText: text("disclosure_text"),
+  // US-GOV-1.2.1: Deployer acknowledgment that the system prompt has been reviewed against prohibited-use categories
+  prohibitedUseAcknowledged: boolean("prohibited_use_acknowledged").notNull().default(false),
+  // US-SMM-2.4.1: How many days ahead the assistant keeps the post queue filled (1–30, default 7)
+  draftHorizonDays: integer("draft_horizon_days").notNull().default(7),
+  // US-SMM-2.4.2: Review queue cut-off — hours before scheduled publish time; unapproved posts become 'missed' (1–24, default 2)
+  reviewCutoffHours: integer("review_cutoff_hours").notNull().default(2),
+  // US-SMM-2.4.2: Notification preference — 'immediate' | 'daily_digest' | 'red_urgency_only'
+  reviewNotifPreference: text("review_notif_preference").notNull().default('immediate'),
+  // US-SMM-2.4.2: Time for daily digest notifications in HH:MM UTC (only used when reviewNotifPreference='daily_digest')
+  reviewDigestTime: text("review_digest_time").notNull().default('09:00'),
   isActive: boolean("is_active").notNull().default(true),
   configuration: jsonb("configuration"),
 
   // Flexible schema expansion for role-specific answers
   onboardingContext: jsonb("onboarding_context"),
 
+  // US-GDPR-2.2.3: set when an org member leaves and their assets are tombstoned;
+  // non-null signals that this assistant's knowledge base may be incomplete.
+  knowledgeStaleAt: timestamp("knowledge_stale_at"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   // provisioningStatus: 'pending' | 'complete' | 'failed' | 'cancelled' | 'paused_limit' | 'paused_payment'
   provisioningStatus: text("provisioning_status").default("pending"),
-}, (t) => ({
-  // DB-level unique guard prevents race-condition duplicates during concurrent onboarding submissions
-  userNameUnique: unique("ai_assistants_user_name_unique").on(t.userId, t.name),
-}));
+}, (t) => [
+  unique("ai_assistants_user_name_unique").on(t.userId, t.name),
+  // US-DB-1.1.1: Hot-path indexes for assistant lookups
+  index("ai_assistants_org_active_idx").on(t.organisationId, t.isActive),
+  index("ai_assistants_user_active_idx").on(t.userId, t.isActive),
+]);
 
 // User profiles table — extended profile details for a user
 export const userProfiles = pgTable("user_profiles", {
@@ -224,6 +283,8 @@ export const userProfiles = pgTable("user_profiles", {
 });
 
 // Notifications table — in-app notifications delivered to a user
+// ADR-001 (US-DB-1.2.1): This is the CANONICAL notifications table. Use this for all new code.
+// See userNotifications below — that table is deprecated and retained only for legacy reads.
 export const notifications = pgTable("notifications", {
   id: serial().primaryKey(),
   userId: integer("user_id")
@@ -236,7 +297,10 @@ export const notifications = pgTable("notifications", {
   readAt: timestamp("read_at"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.1.1: Notification inbox query — userId + isRead + createdAt
+  index("notifications_user_read_idx").on(t.userId, t.isRead, t.createdAt),
+]);
 
 // ── Vault Secrets — US-AUD-4.2.1 SC1/SC2 ────────────────────────────────────
 // Stores AES-256-GCM encrypted credential payloads. DB never holds plaintext.
@@ -250,6 +314,11 @@ export const vaultSecrets = pgTable("vault_secrets", {
   // US-GDPR-3.1.1: KEK/DEK hierarchy — per-user DEK encrypted with master KEK
   // Null on legacy rows (pre-migration); vault.ts handles both cases during migration window.
   encryptedDek: text("encrypted_dek"),                  // DEK wrapped by KEK (format: iv:authTag:ciphertext, all base64)
+  // US-DB-1.3.1: relational ownership for GDPR erasure and breach response enumeration.
+  // Backfilled by parsing refKey convention 'aura/user-{id}/...' on existing rows.
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
+  keyVersion: integer("key_version").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -258,6 +327,11 @@ export const vaultSecrets = pgTable("vault_secrets", {
 export const systemConnections = pgTable("system_connections", {
   id: serial().primaryKey(),
   userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  // US-DB-1.3.1: org tenancy — mandatory for multi-tenant isolation.
+  // NOT NULL; backfilled from users.organisationId on existing rows before constraint applied.
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  // US-DB-1.3.1: per-assistant connection scoping — enables appConnectionLimit cap by assistantId.
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "cascade" }),
   serviceName: text("service_name").notNull(),
   connectionType: text("connection_type").notNull().default("oauth"), // 'oauth', 'api_key', 'legacy'
 
@@ -265,9 +339,9 @@ export const systemConnections = pgTable("system_connections", {
   // Format: 'aura/user-<id>/<serviceName>-<connectionType>'
   vaultRefKey: text("vault_ref_key"),
 
-  // DEPRECATED (SC1): kept nullable for zero-downtime migration; cleared after vault migration
-  accessToken: text("access_token"),
-  refreshToken: text("refresh_token"),
+  // US-DB-1.6.1: plaintext accessToken and refreshToken columns dropped.
+  // All credentials are now stored exclusively in vault_secrets (KEK/DEK encrypted).
+  // Pre-migration assertion: ensure zero non-null rows exist before applying db:push.
   tokenExpiresAt: timestamp("token_expires_at"),
 
   // SC3: documented minimum scopes per integration (comma-separated)
@@ -283,7 +357,13 @@ export const systemConnections = pgTable("system_connections", {
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.3.1: indexes for org-scoped and assistant-scoped connection queries
+  index("system_connections_org_active_idx").on(t.organisationId, t.isActive),
+  index("system_connections_assistant_active_idx").on(t.assistantId, t.isActive),
+  // US-DB-1.1.1: User-level connection lookups
+  index("system_connections_user_active_idx").on(t.userId, t.isActive),
+]);
 
 // ── Integration API Call Audit Log — US-AUD-4.2.1 SC6 ───────────────────────
 // Records every API call made on behalf of a user using a stored credential.
@@ -295,7 +375,10 @@ export const integrationApiCalls = pgTable("integration_api_calls", {
   endpoint: text("endpoint").notNull(), // redacted URL — path only, no query params (SC6)
   httpStatus: integer("http_status"),
   calledAt: timestamp("called_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.1.1: 90-day pruning job and per-user API call history
+  index("integration_api_calls_user_called_idx").on(t.userId, t.calledAt),
+]);
 
 // ── Webhook idempotency log — prevents double-processing Stripe events ────────
 // One row per Stripe event ID; inserted before handling, acts as a distributed lock.
@@ -343,17 +426,44 @@ export const taskRuns = pgTable("task_runs", {
   organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "set null" }),
   assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
   taskType: text("task_type").notNull().default("automated"),  // 'automated' | 'manual' | 'scheduled'
-  status: text("status").notNull().default("completed"),       // 'completed' | 'failed' | 'skipped' | 'suspended' | 'terminated'
+  // US-DB-1.5.1: Full state machine — pending|running|reviewing|suspended|completed|failed|skipped|terminated
+  status: text("status").notNull().default("pending"),
   anomalyCount: integer("anomaly_count").notNull().default(0), // US-GOV-4.2.1: incremented on each kill-switch trigger; ≥2 → permanent termination
   tokensUsed: integer("tokens_used").default(0),               // LLM tokens consumed by this run
+  // US-GOV-4.1.1: Hard execution budget tracking
+  llmCallCount: integer("llm_call_count").notNull().default(0),
+  toolCallCount: integer("tool_call_count").notNull().default(0),
+  costGbp: numeric("cost_gbp", { precision: 10, scale: 6 }).notNull().default('0'),
+  wallClockStartedAt: timestamp("wall_clock_started_at"),
+  suspendReason: text("suspend_reason"),
+  budgetSnapshot: jsonb("budget_snapshot"),
+  // US-DB-1.5.1: Worker lease columns — FOR UPDATE SKIP LOCKED queue
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(3),
+  lockedBy: text("locked_by"),           // worker/function instance identifier
+  lockedAt: timestamp("locked_at"),
+  leaseExpiresAt: timestamp("lease_expires_at"),
+  // US-DB-1.5.1: Quality-reviewer loop columns
+  reviewerAssistantId: integer("reviewer_assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
+  reviewVerdict: text("review_verdict"),  // 'approved' | 'revise' | 'escalated'
+  reviewCycleCount: integer("review_cycle_count").notNull().default(0),
   // metadata JSONB shape (US-AUD-2.1.1):
-  //   { confidenceLevel: 'green' | 'amber' | 'red',   // AI self-assessed confidence (SC5)
-  //     verifyHint: string | null,                      // AMBER/RED: what to verify
-  //     model: string,                                  // model used for this run
+  //   { confidenceLevel: 'green' | 'amber' | 'red',
+  //     verifyHint: string | null,
+  //     model: string,
   //     promptTokens: number, completionTokens: number }
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.5.1: Partial index for O(claimable) queue polling — scans only pending/expired-lease rows
+  index("task_runs_claimable_idx").on(t.createdAt).where(sql`status = 'pending' OR (status = 'running' AND lease_expires_at < now())`),
+  // US-DB-1.1.1: Monthly usage aggregation and per-assistant run history
+  index("task_runs_user_created_idx").on(t.userId, t.createdAt),
+  index("task_runs_org_created_idx").on(t.organisationId, t.createdAt),
+  index("task_runs_assistant_idx").on(t.assistantId),
+]);
 
 export const masterAssistants = pgTable("master_assistants", {
   id: serial().primaryKey(),
@@ -370,12 +480,15 @@ export const masterAssistants = pgTable("master_assistants", {
   // US-ADM-4.1.1: Lifecycle state machine — draft|review|beta|live|deprecated|archived
   lifecycleState: text("lifecycle_state").notNull().default("draft"),
   // Points to the current active assistant_versions row
-  currentVersionId: integer("current_version_id"),
-  // For deprecated assistants — ID of the recommended replacement
-  replacementAssistantId: integer("replacement_assistant_id"),
+  // US-DB-1.2.1: AnyPgColumn callback required — assistantVersions is defined after masterAssistants (circular reference)
+  currentVersionId: integer("current_version_id").references((): AnyPgColumn => assistantVersions.id, { onDelete: "set null" }),
+  // For deprecated assistants — ID of the recommended replacement (self-reference)
+  replacementAssistantId: integer("replacement_assistant_id").references((): AnyPgColumn => masterAssistants.id, { onDelete: "set null" }),
   // US-GDPR-1.2.1: Confirms the Article 52 special-category refusal clause is present
   // in this assistant's current system prompt version. Set true by admin on version create.
   specialCategoryClauseEnabled: boolean("special_category_clause_enabled").notNull().default(false),
+  // US-GOV-1.1.1: EU AI Act risk classification — minimal | limited | high_risk_borderline | high_risk
+  riskClassification: text("risk_classification").notNull().default("limited"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -390,6 +503,25 @@ export const assistantVersions = pgTable("assistant_versions", {
   createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
   changeNote: text("change_note").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  unique("assistant_versions_assistant_id_version_number_key").on(t.assistantId, t.versionNumber),
+]);
+
+// US-GOV-1.1.1: Risk assessments for high-risk EU AI Act assistants
+export const riskAssessments = pgTable("risk_assessments", {
+  id: serial().primaryKey(),
+  masterAssistantId: integer("master_assistant_id").notNull().references(() => masterAssistants.id, { onDelete: "cascade" }),
+  // Workspace org that submitted the assessment (null = global/platform-level)
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
+  assessmentVersion: text("assessment_version").notNull().default("1.0"),
+  assessorId: integer("assessor_id").references(() => users.id, { onDelete: "set null" }),
+  assessedAt: timestamp("assessed_at").defaultNow().notNull(),
+  findings: text("findings"),
+  approvalStatus: text("approval_status").notNull().default("pending"), // pending | approved | rejected
+  approvedById: integer("approved_by_id").references(() => users.id, { onDelete: "set null" }),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Waitlist table — interest signups for coming-soon assistant roles
@@ -488,7 +620,11 @@ export const workspaceAssets = pgTable("workspace_assets", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.1.1: Org-level and uploader-level asset lookups
+  index("workspace_assets_org_idx").on(t.organisationId),
+  index("workspace_assets_uploader_idx").on(t.uploaderId),
+]);
 // Support Tickets Table — For user help requests and issue tracking
 export const supportTickets = pgTable("support_tickets", {
   id: serial("id").primaryKey(),
@@ -547,6 +683,9 @@ export const aiModelConfig = pgTable("ai_model_config", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 // User Notifications Table — Global feed for alerts, tickets, and billing
+// DEPRECATED (US-DB-1.2.1 ADR-001): userNotifications duplicates the notifications table.
+// Canonical table is notifications (above). All new writes/reads must use notifications.
+// Remove this table after all legacy callers are migrated.
 export const userNotifications = pgTable("user_notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
@@ -560,7 +699,10 @@ export const userNotifications = pgTable("user_notifications", {
 
   isRead: boolean("is_read").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.1.1: Notification inbox query — userId + isRead + createdAt
+  index("user_notifications_user_read_idx").on(t.userId, t.isRead, t.createdAt),
+]);
 // Onboarding Drafts Table — Stores auto-save progress for incomplete setups
 export const onboardingDrafts = pgTable("onboarding_drafts", {
   userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
@@ -598,6 +740,7 @@ export const contentAssets = pgTable("content_assets", {
   rejectionReason: text("rejection_reason"),
 
   // Scheduling / publication
+  // DEPRECATED (US-DB-1.2.1): use scheduledPostAssets junction table. Retained for migration window.
   scheduledPostId: integer("scheduled_post_id"),
   postedAt: timestamp("posted_at"),
   rejectedAt: timestamp("rejected_at"),
@@ -608,7 +751,11 @@ export const contentAssets = pgTable("content_assets", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.1.1: Org-level and user-level content asset lookups
+  index("content_assets_org_idx").on(t.organisationId),
+  index("content_assets_user_idx").on(t.userId),
+]);
 
 // Invoices table — one row per generated invoice, created on every successful payment
 export const invoices = pgTable("invoices", {
@@ -635,7 +782,12 @@ export const invoices = pgTable("invoices", {
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  check("invoices_currency_check", sql`${t.currency} IN ('GBP', 'EUR', 'USD')`),
+  // US-DB-1.1.1: Org-level and user-level invoice lookups
+  index("invoices_org_idx").on(t.organisationId),
+  index("invoices_user_idx").on(t.userId),
+]);
 
 // Scheduled Posts Table — Content Calendar & Post Governance
 export const scheduledPosts = pgTable("scheduled_posts", {
@@ -658,7 +810,9 @@ export const scheduledPosts = pgTable("scheduled_posts", {
 
   // Content & creative
   caption: text("caption"),
-  contentAssetIds: jsonb("content_asset_ids").default([]),  // array of contentAssets.id
+  // DEPRECATED (US-DB-1.2.1): use scheduledPostAssets junction table for all new queries.
+  // Retained until one-time migration script populates scheduledPostAssets from existing rows; drop after migration.
+  contentAssetIds: jsonb("content_asset_ids").default([]),
   linkUrl: text("link_url"),
   ctaText: text("cta_text"),
   hashtags: text("hashtags"),                    // space-separated or newline-separated
@@ -666,7 +820,7 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   utmParams: text("utm_params"),
 
   // Workflow & governance
-  // Status: draft | in_review | approved | scheduled | published | rejected | cancelled
+  // Status: draft | in_review | approved | scheduled | published | rejected | cancelled | missed
   status: text("status").notNull().default("draft"),
   ownerId: integer("owner_id")
       .references(() => users.id, { onDelete: "set null" }),
@@ -678,14 +832,44 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   rejectedAt: timestamp("rejected_at"),
   rejectionReason: text("rejection_reason"),
   cancelledAt: timestamp("cancelled_at"),
+  // US-SMM-2.4.2: Timestamp when post transitioned to 'missed' status
+  missedAt: timestamp("missed_at"),
+  // US-SMM-2.4.2: Whether a red-urgency push notification has already been sent (prevents duplicate alerts)
+  redAlertSentAt: timestamp("red_alert_sent_at"),
 
   // US-SMM-2.2.2: structured rejection — revised post chain
   revisedFromPostId: integer("revised_from_post_id"),    // FK to scheduledPosts.id (self-ref)
   isRevised: boolean("is_revised").notNull().default(false),
 
+  // US-GOV-2.2.1: Confidence scoring & factual claim detection
+  confidenceScore: text("confidence_score"),             // 'green' | 'amber' | 'red' | null (not yet scored)
+  factualClaimsCount: integer("factual_claims_count"),   // number of factual claims detected
+  factualClaims: jsonb("factual_claims"),                // array of { claim, claimType, sourceAvailable }
+  confidenceAssessedAt: timestamp("confidence_assessed_at"),
+  confidenceAssessmentMs: integer("confidence_assessment_ms"), // duration of scoring call
+
+  // US-GOV-3.2.1: C2PA provenance — FK set at publish time
+  provenanceContentId: text("provenance_content_id"),      // references contentProvenance.contentId
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.1.1: Org-level and user-level scheduled post lookups
+  index("scheduled_posts_org_idx").on(t.organisationId),
+  index("scheduled_posts_user_idx").on(t.userId),
+]);
+
+// US-DB-1.2.1: Junction table replacing scheduledPosts.contentAssetIds JSONB array.
+// Provides referential integrity: GDPR purge of a contentAsset now cascades correctly.
+// Migration: one-time script reads scheduledPosts.contentAssetIds[] and inserts rows here;
+// scheduledPosts.contentAssetIds is deprecated and will be dropped after migration.
+export const scheduledPostAssets = pgTable("scheduled_post_assets", {
+  scheduledPostId: integer("scheduled_post_id").notNull().references(() => scheduledPosts.id, { onDelete: "cascade" }),
+  contentAssetId: integer("content_asset_id").notNull().references(() => contentAssets.id, { onDelete: "cascade" }),
+  position: integer("position").notNull().default(0),
+}, (t) => [
+  unique("scheduled_post_assets_pk").on(t.scheduledPostId, t.contentAssetId),
+]);
 
 // ── DPA Requests — US-AUD-4.1.1 SC3 ──────────────────────────────────────────
 // Stores Data Processing Agreement request submissions from the /trust.html page.
@@ -722,7 +906,10 @@ export const rateLimitAttempts = pgTable("rate_limit_attempts", {
   key: text("key").notNull(),          // IP or 'user:<id>'
   endpoint: text("endpoint").notNull(), // e.g. 'register', 'login', 'onboarding', 'support'
   attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.1.1: checkRateLimit called on every public endpoint — must use index scan
+  index("rate_limit_key_endpoint_idx").on(t.key, t.endpoint, t.attemptedAt),
+]);
 
 // ── Referral Attribution — US-AUD-5.3.1 SC5 ──────────────────────────────────
 // Records new signups that originated from an agency attribution badge link.
@@ -787,7 +974,11 @@ export const vectorEmbeddings = pgTable("vector_embeddings", {
   userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
   organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.1.1: Org-level and user-level embedding lookups + GDPR erasure queries
+  index("vector_embeddings_org_idx").on(t.organisationId),
+  index("vector_embeddings_user_idx").on(t.userId),
+]);
 
 // ── Data Export Requests — US-GAP-2.2.1 SC5 ─────────────────────────────────
 // Tracks data export requests to enforce 24-hour rate limit.
@@ -839,7 +1030,11 @@ export const adminAuditLog = pgTable("admin_audit_log", {
   reason: text("reason"),                                       // mandatory for destructive actions
   metadata: jsonb("metadata"),                                  // extra context (sessionId, extensionDays, etc.)
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.1.1: Admin audit log viewer filter queries
+  index("admin_audit_log_admin_created_idx").on(t.adminId, t.createdAt),
+  index("admin_audit_log_target_idx").on(t.targetType, t.targetId),
+]);
 
 // ── Platform Config — US-ADM-3.2.1 kill switches ─────────────────────────────
 export const platformConfig = pgTable("platform_config", {
@@ -862,18 +1057,31 @@ export const featureFlags = pgTable("feature_flags", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ── Supported Languages — US-ADM-1.7.2: platform-level i18n reference data ───
+export const supportedLanguages = pgTable("supported_languages", {
+  code: varchar("code", { length: 10 }).primaryKey(),  // BCP-47 tag, e.g. 'en-GB', 'fr'
+  name: text("name").notNull(),                         // display name, e.g. 'English (UK)'
+  nativeName: text("native_name"),                      // e.g. 'Français'
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
 // ── AI Usage Log — US-ADM-3.1.1 COGS Dashboard ───────────────────────────────
 export const aiUsageLog = pgTable("ai_usage_log", {
   id: serial().primaryKey(),
   workspaceId: integer("workspace_id").references(() => organisations.id, { onDelete: "set null" }),
   userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
-  assistantId: integer("assistant_id"),                        // aiAssistants.id (nullable)
+  // US-DB-1.2.1: added FK references (previously bare integers)
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
   model: text("model").notNull(),                              // e.g. 'gpt-4o-mini'
   inputTokens: integer("input_tokens").notNull().default(0),
   outputTokens: integer("output_tokens").notNull().default(0),
   costUsd: decimal("cost_usd", { precision: 10, scale: 6 }).notNull().default("0"),
-  taskRunId: integer("task_run_id"),                           // nullable FK to task_runs
+  taskRunId: integer("task_run_id").references(() => taskRuns.id, { onDelete: "set null" }),
   sessionId: text("session_id"),
+  // US-GDPR-4.2.2: Article 30 RoPA — data categories present in the prompt.
+  // Valid values: 'general' | 'business_context' | 'pii_redacted' | 'special_category_suspected' | 'financial' | 'health'
+  dataCategories: text("data_categories").array().notNull().default(sql`'{general}'`),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1064,7 +1272,11 @@ export const jwtBlocklist = pgTable("jwt_blocklist", {
   reason: text("reason").notNull(), // 'gdpr_erasure' | 'account_delete' | 'admin_revoke'
   expiresAt: timestamp("expires_at"),  // can be NULL meaning indefinite
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // US-DB-1.1.1: Blocklist check on every authenticated request — must use index scan
+  index("jwt_blocklist_user_type_idx").on(t.userId, t.blockType),
+  index("jwt_blocklist_jti_idx").on(t.jti),
+]);
 
 // ── Billing Overrides — US-ADM-2.1.1 ─────────────────────────────────────────
 // US-LEGAL-1.1: Signed per-integration consent record — user authorises the assistant
@@ -1076,6 +1288,12 @@ export const integrationAuthorizations = pgTable("integration_authorizations", {
   integrationType: text("integration_type").notNull(), // 'gmail' | 'google_calendar' | 'twitter' | 'linkedin' | etc.
   assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
   humanApprovalRequired: boolean("human_approval_required").notNull().default(true),
+  // US-GOV-3.1.2: Custom AI disclosure footer text for outbound emails. Must contain 'AI'.
+  disclosureText: text("disclosure_text"),
+  // US-GOV-4.2.3: OAuth scope minimisation — scopes actually granted at consent time
+  grantedScopes: text("granted_scopes").array(),
+  lastUsedAt: timestamp("last_used_at"),
+  lastScopeChangedAt: timestamp("last_scope_changed_at"),
   authorizedAt: timestamp("authorized_at").defaultNow().notNull(),
   revokedAt: timestamp("revoked_at"),
   revokedByUserId: integer("revoked_by_user_id").references(() => users.id, { onDelete: "set null" }),
@@ -1111,7 +1329,49 @@ export const contentRules = pgTable("content_rules", {
   platform: text("platform"),                              // null = all platforms
   createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
   isActive: boolean("is_active").notNull().default(true),
+  note: text("note"),                                      // optional note explaining the reason
+  origin: text("origin").notNull().default('manual'),      // 'manual' | 'rejection_feedback'
+  originPostId: integer("origin_post_id"),                 // FK to scheduledPosts.id (set null on delete)
+  updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at"),
+  previousText: text("previous_text"),                     // text before last edit
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── Stripe Disputes — US-ADM-2.2.1 ──────────────────────────────────────────
+export const stripeDisputes = pgTable("stripe_disputes", {
+  id: serial().primaryKey(),
+  stripeDisputeId: text("stripe_dispute_id").notNull().unique(),
+  stripeChargeId: text("stripe_charge_id"),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "set null" }),
+  amount: integer("amount"),           // in pence
+  currency: text("currency").default("gbp"),
+  reason: text("reason"),              // e.g. 'fraudulent', 'product_not_received'
+  status: text("status").notNull(),    // 'warning_needs_response' | 'needs_response' | 'under_review' | 'won' | 'lost'
+  evidenceDeadline: timestamp("evidence_deadline"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ── ToS Acceptances — US-GOV-1.2.1 ──────────────────────────────────────────
+export const tosAcceptances = pgTable("tos_acceptances", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  version: text("version").notNull(),
+  acceptedAt: timestamp("accepted_at").defaultNow().notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+});
+
+// ── Prompt Probe Attempts — US-LEGAL-2.3 ────────────────────────────────────
+export const promptProbeAttempts = pgTable("prompt_probe_attempts", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
+  queryContent: text("query_content"),
+  responseFragment: text("response_fragment"),
+  detectedAt: timestamp("detected_at").defaultNow().notNull(),
 });
 
 export const billingOverrides = pgTable("billing_overrides", {
@@ -1125,3 +1385,101 @@ export const billingOverrides = pgTable("billing_overrides", {
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ── Bias Audit — US-GOV-3.3.1 ────────────────────────────────────────────────
+// Quarterly prompt review records
+export const biasAuditReviews = pgTable("bias_audit_reviews", {
+  id: serial().primaryKey(),
+  reviewerId: integer("reviewer_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  reviewDate: timestamp("review_date").defaultNow().notNull(),
+  promptsReviewed: integer("prompts_reviewed").notNull().default(0),
+  findingsCount: integer("findings_count").notNull().default(0),
+  actionsRequired: text("actions_required"), // free-text summary
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Bias incidents — raised by statistical sampling or manual review
+// Retained minimum 3 years (regulatory evidence)
+export const biasIncidents = pgTable("bias_incidents", {
+  id: serial().primaryKey(),
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
+  detectionMethod: text("detection_method").notNull(), // 'statistical_sampling' | 'manual_review' | 'user_report'
+  findingsSummary: text("findings_summary").notNull(),
+  investigatorId: integer("investigator_id").references(() => users.id, { onDelete: "set null" }),
+  resolution: text("resolution"),
+  resolvedAt: timestamp("resolved_at"),
+  // Reactivation gate: deployer must acknowledge corrective actions before assistant resumes
+  deployerAckAt: timestamp("deployer_ack_at"),
+  deployerAckUserId: integer("deployer_ack_user_id").references(() => users.id, { onDelete: "set null" }),
+  deployerAckNote: text("deployer_ack_note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  // Retention: must not be deleted before 3 years
+  retainUntil: timestamp("retain_until").notNull(),
+});
+
+// Monthly statistical sampling reports (one row per run)
+export const biasSamplingReports = pgTable("bias_sampling_reports", {
+  id: serial().primaryKey(),
+  runAt: timestamp("run_at").defaultNow().notNull(),
+  sampledCount: integer("sampled_count").notNull().default(0),
+  flaggedAnomalies: integer("flagged_anomalies").notNull().default(0),
+  // Full JSON report stored here; downloadable as CSV via admin endpoint
+  reportData: jsonb("report_data"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── OAuth Scope Minimisation — US-GOV-4.2.3 ──────────────────────────────────
+// Platform-level registry: capability → minimum required scopes per integration type
+// ── Content Provenance — US-GOV-3.2.1: C2PA-compatible metadata for AI-generated content ─────
+export const contentProvenance = pgTable("content_provenance", {
+  id: serial("id").primaryKey(),
+  contentId: text("content_id").notNull().unique(),      // stable UUID assigned at generation time
+  creatorSystem: text("creator_system").notNull().default("Aura-Assist"),
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
+  workspaceIdHash: text("workspace_id_hash").notNull(), // pseudonymised org identifier (HMAC)
+  modelUsedHash: text("model_used_hash").notNull(),      // SHA-256 of model name — not exposed directly
+  hitlReviewed: boolean("hitl_reviewed").notNull().default(false),
+  hitlReviewedAt: timestamp("hitl_reviewed_at"),
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+  publishedAt: timestamp("published_at"),
+  c2paSchemaVersion: text("c2pa_schema_version").notNull().default("1.0"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("content_provenance_org_idx").on(t.organisationId),
+  index("content_provenance_assistant_idx").on(t.assistantId),
+]);
+
+export const oauthScopeRegistry = pgTable("oauth_scope_registry", {
+  id: serial().primaryKey(),
+  integrationType: text("integration_type").notNull(), // 'gmail' | 'google_calendar' | 'slack' etc.
+  capability: text("capability").notNull(),             // 'send_email' | 'read_calendar' etc.
+  requiredScopes: text("required_scopes").array().notNull(), // e.g. ['https://www.googleapis.com/auth/gmail.send']
+  scopeJustification: text("scope_justification").notNull(), // shown to deployer at consent
+  maximumAllowedScopes: text("maximum_allowed_scopes").array(), // SuperAdmin enforced ceiling
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  capabilityUnique: unique("oauth_scope_capability_unique").on(t.integrationType, t.capability),
+}));
+
+// US-ADM-4.2.1: Compiled assistant blueprints — one row per compile run.
+// blueprintVersion is a hash of all contributing source record IDs + updatedAt values;
+// any source change produces a new hash, automatically marking the cached blueprint stale.
+export const aiBlueprints = pgTable("ai_blueprints", {
+  id: serial().primaryKey(),
+  assistantId: integer("assistant_id").notNull().references(() => aiAssistants.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  blueprintVersion: text("blueprint_version").notNull(),   // SHA-256 hex of contributing record IDs+timestamps
+  compiledAt: timestamp("compiled_at").defaultNow().notNull(),
+  compiledBy: text("compiled_by").notNull().default("system"), // 'system' | admin userId as string
+  triggerType: text("trigger_type").notNull().default("admin-manual"), // 'admin-manual' | 'system-auto' | 'dry-run'
+  sections: jsonb("sections").notNull(),      // Record<sectionKey, { content, sources, status }>
+  missingFields: jsonb("missing_fields").notNull().default('[]'), // MissingField[]
+  completenessPercent: integer("completeness_percent").notNull().default(0),
+  sentAt: timestamp("sent_at"),
+  sentByAdminId: integer("sent_by_admin_id").references(() => users.id, { onDelete: "set null" }),
+}, (t) => [
+  index("ai_blueprints_assistant_idx").on(t.assistantId, t.compiledAt),
+  index("ai_blueprints_version_idx").on(t.blueprintVersion),
+]);

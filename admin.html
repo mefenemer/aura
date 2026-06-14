@@ -568,6 +568,142 @@
         </div>
       </section>
 
+      <!-- ── US-ADM-1.7.1: Master Data Management ─────────────────────── -->
+      <section id="view-master-data" class="admin-view hidden">
+        <!-- Tab bar -->
+        <div class="flex gap-1 overflow-x-auto mb-5 border-b border-gray-200 pb-0" id="md-tab-bar">
+          <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="plans" onclick="mdSwitchTab('plans')">Plans</button>
+          <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="plan-prices" onclick="mdSwitchTab('plan-prices')">Plan Prices</button>
+          <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="assistants" onclick="mdSwitchTab('assistants')">Assistants</button>
+          <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="assistant-versions" onclick="mdSwitchTab('assistant-versions')">Versions</button>
+          <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="feature-flags-md" onclick="mdSwitchTab('feature-flags-md')">Feature Flags</button>
+          <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="languages" onclick="mdSwitchTab('languages')">Languages</button>
+          <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="system-config" onclick="mdSwitchTab('system-config')">System Config</button>
+        </div>
+
+        <!-- Plans tab -->
+        <div id="md-pane-plans" class="md-pane hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-700">Master Plans</h2>
+            <button onclick="mdOpenAdd('plans')" class="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black transition">+ Add Plan</button>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
+            <table class="w-full text-sm admin-responsive-table">
+              <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <tr><th class="px-4 py-3 text-left">Name</th><th class="px-4 py-3 text-left">Tier</th><th class="px-4 py-3 text-right">Monthly (GBP)</th><th class="px-4 py-3 text-center">Active</th><th class="px-4 py-3 text-left">Actions</th></tr>
+              </thead>
+              <tbody id="md-plans-tbody"><tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Plan Prices tab -->
+        <div id="md-pane-plan-prices" class="md-pane hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-700">Plan Prices</h2>
+            <button onclick="mdOpenAdd('plan-prices')" class="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black transition">+ Add Price</button>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
+            <table class="w-full text-sm admin-responsive-table">
+              <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <tr><th class="px-4 py-3 text-left">Plan</th><th class="px-4 py-3 text-left">Currency</th><th class="px-4 py-3 text-right">Monthly</th><th class="px-4 py-3 text-right">Annual</th><th class="px-4 py-3 text-left">Actions</th></tr>
+              </thead>
+              <tbody id="md-plan-prices-tbody"><tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Assistants tab -->
+        <div id="md-pane-assistants" class="md-pane hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-700">Master Assistants</h2>
+            <button onclick="mdOpenAdd('assistants')" class="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black transition">+ Add Assistant</button>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
+            <table class="w-full text-sm admin-responsive-table">
+              <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <tr><th class="px-4 py-3 text-left">Name</th><th class="px-4 py-3 text-left">Category</th><th class="px-4 py-3 text-left">Risk</th><th class="px-4 py-3 text-center">Active</th><th class="px-4 py-3 text-left">Actions</th></tr>
+              </thead>
+              <tbody id="md-assistants-tbody"><tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Assistant Versions tab -->
+        <div id="md-pane-assistant-versions" class="md-pane hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-700">Assistant Versions</h2>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
+            <table class="w-full text-sm admin-responsive-table">
+              <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <tr><th class="px-4 py-3 text-left">Assistant</th><th class="px-4 py-3 text-center">Version</th><th class="px-4 py-3 text-left">Change Note</th><th class="px-4 py-3 text-left">Created</th></tr>
+              </thead>
+              <tbody id="md-assistant-versions-tbody"><tr><td colspan="4" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Feature Flags tab (master-data-api view) -->
+        <div id="md-pane-feature-flags-md" class="md-pane hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-700">Feature Flags</h2>
+            <button onclick="mdOpenAdd('feature-flags-md')" class="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black transition">+ Add Flag</button>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
+            <table class="w-full text-sm admin-responsive-table">
+              <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <tr><th class="px-4 py-3 text-left">Key</th><th class="px-4 py-3 text-left">Description</th><th class="px-4 py-3 text-center">Active</th><th class="px-4 py-3 text-center">Rollout %</th><th class="px-4 py-3 text-left">Actions</th></tr>
+              </thead>
+              <tbody id="md-feature-flags-md-tbody"><tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Languages tab -->
+        <div id="md-pane-languages" class="md-pane hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-700">Supported Languages</h2>
+            <button onclick="mdOpenAdd('languages')" class="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black transition">+ Add Language</button>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
+            <table class="w-full text-sm admin-responsive-table">
+              <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <tr><th class="px-4 py-3 text-left">Code</th><th class="px-4 py-3 text-left">Name</th><th class="px-4 py-3 text-left">Native</th><th class="px-4 py-3 text-center">Active</th><th class="px-4 py-3 text-left">Actions</th></tr>
+              </thead>
+              <tbody id="md-languages-tbody"><tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- System Config tab -->
+        <div id="md-pane-system-config" class="md-pane hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-700">System Configuration</h2>
+            <button onclick="mdOpenAdd('system-config')" class="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black transition">+ Add Config</button>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
+            <table class="w-full text-sm admin-responsive-table">
+              <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <tr><th class="px-4 py-3 text-left">Key</th><th class="px-4 py-3 text-left">Value</th><th class="px-4 py-3 text-left">Description</th><th class="px-4 py-3 text-left">Actions</th></tr>
+              </thead>
+              <tbody id="md-system-config-tbody"><tr><td colspan="4" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Add/Edit form panel -->
+        <div id="md-form-panel" class="hidden mt-5 bg-white rounded-2xl border border-indigo-200 p-6">
+          <h3 id="md-form-title" class="text-sm font-bold text-gray-800 mb-4"></h3>
+          <div id="md-form-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+          <p id="md-plan-warning" class="hidden mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">⚠️ Changes apply to new subscribers only. Existing subscribers retain their current terms until renewal or upgrade.</p>
+          <div class="flex gap-3 mt-5">
+            <button onclick="mdSaveRecord()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition">Save</button>
+            <button onclick="mdCloseForm()" class="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-semibold rounded-lg hover:bg-gray-50 transition">Cancel</button>
+          </div>
+        </div>
+      </section>
+
       <!-- ── US-ADM-3.2.1: Emergency Controls / Kill Switches ────────── -->
       <!-- ── US-ADM-5.2.1: Manage Admins ──────────────────────────────── -->
       <section id="view-manage-admins" class="admin-view hidden">
@@ -593,6 +729,20 @@
           <button onclick="loadDunningQueue()" class="text-sm px-4 py-2 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700">Refresh</button>
         </div>
         <div id="dunning-queue-body">
+          <p class="text-gray-400 text-sm">Loading…</p>
+        </div>
+      </section>
+
+      <!-- ── US-ADM-2.2.1: Disputes Tab ───────────────────────────────── -->
+      <section id="view-disputes" class="admin-view hidden">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h2 class="text-lg font-bold text-gray-900">Payment Disputes</h2>
+            <p class="text-sm text-gray-500 mt-0.5">Stripe chargebacks opened against the platform. Evidence deadlines are highlighted when approaching.</p>
+          </div>
+          <button onclick="loadDisputes()" class="text-sm px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">Refresh</button>
+        </div>
+        <div id="disputes-body">
           <p class="text-gray-400 text-sm">Loading…</p>
         </div>
       </section>
@@ -723,7 +873,7 @@
         </div>
 
         <!-- Model distribution -->
-        <div class="bg-white rounded-2xl border border-gray-200 p-5">
+        <div class="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
           <h3 class="text-sm font-bold text-gray-700 mb-3">Model Distribution (last 30 days)</h3>
           <table class="w-full text-sm" id="cogs-model-table">
             <thead class="text-xs font-bold text-gray-500 uppercase">
@@ -736,10 +886,252 @@
             <tbody id="cogs-model-tbody"><tr><td colspan="3" class="py-4 text-center text-gray-400">—</td></tr></tbody>
           </table>
         </div>
+
+        <!-- US-GDPR-4.2.2: Data Categories panel -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-gray-700">Data Categories — LLM Transfers (last 30 days)</h3>
+            <button onclick="downloadRopaExport()" class="px-3 py-1.5 text-xs font-bold bg-gray-900 text-white rounded-lg hover:bg-black transition">⬇ Article 30 RoPA Export</button>
+          </div>
+          <div id="cogs-special-alert" class="hidden mb-3 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <span class="text-base">🚨</span>
+            <p id="cogs-special-alert-text" class="text-xs font-bold text-red-700"></p>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4" id="cogs-category-cards">
+            <div class="col-span-2 sm:col-span-3 text-xs text-gray-400 py-4 text-center">Loading…</div>
+          </div>
+          <div class="flex items-center justify-between text-xs text-gray-500 mt-2 pt-3 border-t border-gray-100">
+            <span>Special category suspected: <strong id="cogs-special-count" class="text-gray-800">—</strong></span>
+            <span>Total calls: <strong id="cogs-total-calls" class="text-gray-800">—</strong></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Breach Response — US-GDPR-3.2.1 ─────────────────────────────── -->
+      <section id="view-breach-response" class="admin-view hidden space-y-6">
+
+        <!-- Header row -->
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 class="text-lg font-extrabold text-gray-900">Breach Response</h2>
+            <p class="text-sm text-gray-500 mt-0.5">Article 33/34 GDPR incident tracking and notification workflow</p>
+          </div>
+          <button onclick="openLogIncidentModal()"
+            class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition cursor-pointer">
+            + Log New Incident
+          </button>
+        </div>
+
+        <!-- Incidents list -->
+        <div id="breach-incidents-list" class="space-y-4">
+          <div class="text-center py-12 text-gray-400 text-sm">Loading incidents…</div>
+        </div>
+
+        <!-- Log Incident Modal -->
+        <div id="modal-log-incident" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 class="text-lg font-bold text-gray-900">Log Security Incident</h3>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 mb-1">Title <span class="text-red-500">*</span></label>
+              <input id="inc-title" type="text" placeholder="e.g. OAuth token exposure"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 mb-1">Description <span class="text-red-500">*</span></label>
+              <textarea id="inc-description" rows="3" placeholder="What happened and initial scope assessment"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Severity <span class="text-red-500">*</span></label>
+                <select id="inc-severity" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 bg-white">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high" selected>High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Affected Users (est.)</label>
+                <input id="inc-user-count" type="number" min="0" value="0"
+                  class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 mb-1">Data Types Affected (comma-separated)</label>
+              <input id="inc-data-types" type="text" placeholder="e.g. oauth_tokens, email, session_data"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400">
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button onclick="document.getElementById('modal-log-incident').classList.add('hidden')" type="button"
+                class="flex-1 py-2.5 text-sm font-bold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition cursor-pointer">Cancel</button>
+              <button onclick="submitLogIncident()" type="button"
+                class="flex-1 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition cursor-pointer">Log Incident</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ICO Notification Modal -->
+        <div id="modal-ico-notification" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-gray-900">Submit ICO Notification — Article 33</h3>
+            <p class="text-xs text-gray-500">Complete all 5 ICO template fields. This cannot be undone.</p>
+            <input id="ico-incident-id" type="hidden">
+            <div>
+              <label class="block text-xs font-bold text-gray-600 mb-1">Nature of the Breach <span class="text-red-500">*</span></label>
+              <textarea id="ico-nature" rows="2" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 mb-1">Categories of Data <span class="text-red-500">*</span></label>
+              <textarea id="ico-categories" rows="2" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 mb-1">Approximate Number of Data Subjects <span class="text-red-500">*</span></label>
+              <input id="ico-subject-count" type="number" min="0"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 mb-1">Likely Consequences <span class="text-red-500">*</span></label>
+              <textarea id="ico-consequences" rows="2" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 mb-1">Measures Taken or Proposed <span class="text-red-500">*</span></label>
+              <textarea id="ico-measures" rows="2" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"></textarea>
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button onclick="document.getElementById('modal-ico-notification').classList.add('hidden')" type="button"
+                class="flex-1 py-2.5 text-sm font-bold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition cursor-pointer">Cancel</button>
+              <button onclick="submitIcoNotification()" type="button"
+                class="flex-1 py-2.5 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition cursor-pointer">Submit to ICO</button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- US-ADM-4.3.1/4.3.2: Blueprint Inspector view -->
+      <section id="view-blueprint-inspector" class="admin-view hidden space-y-5">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 class="text-lg font-extrabold text-gray-900">Blueprint Inspector</h2>
+            <p class="text-sm text-gray-500 mt-0.5">Compile and inspect the full LLM blueprint for any assistant</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="bpDryRun()" class="px-3 py-1.5 text-sm font-semibold border border-gray-300 rounded-lg hover:bg-gray-50 transition">Dry Run</button>
+            <button onclick="bpPreviewPayload()" id="bp-preview-btn" class="px-3 py-1.5 text-sm font-semibold border border-emerald-600 text-emerald-700 rounded-lg hover:bg-emerald-50 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>Preview LLM Payload</button>
+            <button onclick="bpSendToLlm()" id="bp-send-btn" class="px-3 py-1.5 text-sm font-semibold bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>Send to LLM</button>
+          </div>
+        </div>
+
+        <!-- Selectors -->
+        <div class="flex flex-wrap gap-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">Organisation</label>
+            <select id="bp-org-select" onchange="bpLoadAssistants()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-600">
+              <option value="">— select org —</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">Assistant</label>
+            <select id="bp-asst-select" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-600" disabled>
+              <option value="">— select assistant —</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button onclick="bpCompile()" class="px-4 py-2 text-sm font-bold bg-gray-900 text-white rounded-lg hover:bg-black transition">Compile Blueprint</button>
+          </div>
+        </div>
+
+        <!-- Stale notice -->
+        <div id="bp-stale-notice" class="hidden bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-sm">
+          <span class="text-amber-800 font-medium">Blueprint is stale — source data has changed since last compile.</span>
+          <button onclick="bpCompile(true)" class="text-xs font-bold text-amber-700 border border-amber-300 rounded-lg px-3 py-1 hover:bg-amber-100 transition">Recompile Now</button>
+        </div>
+
+        <!-- Blocking gap banner -->
+        <div id="bp-blocking-banner" class="hidden bg-red-50 border border-red-300 rounded-xl px-4 py-3 text-sm text-red-800 font-semibold"></div>
+
+        <!-- Warning banner -->
+        <div id="bp-warning-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800"></div>
+
+        <!-- Completeness Scorecard (US-ADM-4.3.2) -->
+        <div id="bp-scorecard" class="hidden bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div>
+              <p class="text-sm font-bold text-gray-700">Completeness</p>
+              <p id="bp-score-pct" class="text-3xl font-extrabold text-gray-900">—</p>
+            </div>
+            <div id="bp-effectiveness-badge" class="px-3 py-1.5 rounded-full text-sm font-bold"></div>
+          </div>
+          <div id="bp-section-rows" class="space-y-1.5"></div>
+          <div class="mt-4 flex gap-4 text-xs text-gray-500">
+            <span id="bp-blocking-count"></span>
+            <span id="bp-warning-count"></span>
+          </div>
+        </div>
+
+        <!-- Accordion sections -->
+        <div id="bp-sections" class="space-y-2"></div>
+
+        <!-- History panel -->
+        <div class="mt-6">
+          <button onclick="bpLoadHistory()" class="text-sm font-semibold text-gray-500 hover:text-gray-800 transition">Show blueprint history ▾</button>
+          <div id="bp-history" class="hidden mt-3 space-y-2 text-sm text-gray-600"></div>
+        </div>
+      </section>
+
+      <!-- US-ADM-1.4.1: Workspaces view -->
+      <section id="view-workspaces" class="admin-view hidden">
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-6">
+          <div>
+            <h2 class="text-lg font-extrabold text-gray-900">Workspaces</h2>
+            <p class="text-sm text-gray-500 mt-0.5">All registered organisations on the platform</p>
+          </div>
+        </div>
+        <div id="workspaces-list" class="text-gray-500 text-sm">Loading…</div>
       </section>
 
     </div><!-- /p-8 -->
   </main>
+</div>
+
+<!-- ── US-ADM-1.6.1: Cascade Delete Bottom Sheet ──────────────────────── -->
+<div id="cascade-delete-backdrop" class="bottom-sheet-backdrop" onclick="closeCascadeDeleteSheet()"></div>
+<div id="cascade-delete-sheet" class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="cascade-delete-title">
+  <div class="bottom-sheet-handle"></div>
+  <div class="px-5 pb-6 pt-2 max-h-[80vh] overflow-y-auto">
+    <h2 id="cascade-delete-title" class="text-base font-extrabold text-gray-900 mb-1">Delete Record</h2>
+    <p id="cascade-delete-subtitle" class="text-xs text-gray-500 mb-4"></p>
+
+    <!-- Impact preview -->
+    <div id="cascade-preview-loading" class="text-sm text-gray-400 py-4 text-center">Loading impact preview…</div>
+    <div id="cascade-preview-content" class="hidden">
+      <!-- Blocked banner -->
+      <div id="cascade-blocked-banner" class="hidden mb-4 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+        <span class="text-lg">🔒</span>
+        <div>
+          <p class="text-sm font-bold text-red-700">Deletion blocked</p>
+          <p id="cascade-blocked-reason" class="text-xs text-red-600 mt-0.5"></p>
+        </div>
+      </div>
+
+      <!-- Impact groups -->
+      <div id="cascade-groups" class="space-y-2 mb-4"></div>
+
+      <!-- Reason field -->
+      <div id="cascade-reason-section" class="hidden">
+        <label class="block text-xs font-bold text-gray-600 mb-1">Reason for deletion <span class="text-red-500">*</span></label>
+        <textarea id="cascade-reason-input" rows="2" placeholder="Enter a reason (required for audit log)…"
+          class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-400 outline-none resize-none"></textarea>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="flex gap-3 mt-5">
+      <button id="cascade-confirm-btn" onclick="confirmCascadeDelete()" class="hidden flex-1 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition">Delete</button>
+      <button onclick="closeCascadeDeleteSheet()" class="flex-1 py-2.5 text-sm font-semibold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -757,13 +1149,194 @@
 
   .admin-child-btn { width: 100%; text-align: left; display: flex; align-items: center; gap: 8px;
     padding: 8px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
-    color: #9ca3af; transition: background .12s, color .12s; white-space: nowrap; }
+    color: #9ca3af; transition: background .12s, color .12s; white-space: nowrap; cursor: pointer; }
   .admin-child-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
   .admin-child-btn.active { background: #10b981; color: #fff; }
   .admin-child-btn:focus-visible { outline: 2px solid #10b981; outline-offset: -2px; }
 
   .admin-view { animation: fadeIn .15s ease; }
   @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+  /* ── US-ADM-1.5.1: Mobile Responsive Layout ─────────────────────────── */
+
+  /* Minimum 44×44px tap targets for all interactive admin controls */
+  .admin-cat-btn { min-height: 44px; min-width: 44px; }
+  .admin-child-btn { min-height: 44px; }
+
+  /* 320px+: no horizontal overflow */
+  body { overflow-x: hidden; }
+  main { overflow-x: hidden; }
+
+  /* Table → card-per-row on mobile */
+  @media (max-width: 767px) {
+    .admin-responsive-table thead { display: none; }
+    .admin-responsive-table tbody tr {
+      display: block;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      padding: 12px;
+    }
+    .admin-responsive-table tbody td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border: none;
+      font-size: 13px;
+      gap: 8px;
+    }
+    .admin-responsive-table tbody td::before {
+      content: attr(data-label);
+      font-weight: 700;
+      color: #374151;
+      flex-shrink: 0;
+    }
+
+    /* Hide primary sidebar on mobile — replaced by bottom tab bar */
+    #admin-primary-nav { display: none !important; }
+    /* Hide secondary nav panel on mobile */
+    #admin-secondary-nav-wrapper { display: none !important; }
+
+    /* Add bottom padding to main so content clears the bottom tab bar */
+    main { padding-bottom: 68px; }
+
+    /* Compact header on mobile */
+    header { padding: 10px 16px !important; }
+    header h1 { font-size: 16px !important; }
+  }
+
+  /* 768px–1023px: icon-only rail (existing sidebar, no text labels) */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    #admin-primary-nav span.text-\[10px\] { display: none !important; }
+    #admin-primary-nav { width: 52px !important; }
+    #admin-bottom-tabs { display: none !important; }
+  }
+
+  /* 1024px+: full sidebar with labels */
+  @media (min-width: 1024px) {
+    #admin-bottom-tabs { display: none !important; }
+  }
+
+  /* ── Bottom tab bar (mobile only <768px) ───────────────────────────── */
+  #admin-bottom-tabs {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: #030712;
+    border-top: 1px solid #1f2937;
+    z-index: 50;
+  }
+  #admin-bottom-tabs nav {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+  }
+  .admin-bottom-tab-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 6px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #6b7280;
+    border: none;
+    background: none;
+    cursor: pointer;
+    gap: 2px;
+    min-height: 44px;
+    transition: color .12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .admin-bottom-tab-btn.active { color: #10b981; }
+  .admin-bottom-tab-btn:focus-visible { outline: 2px solid #10b981; outline-offset: -2px; }
+  .admin-bottom-tab-btn span.tab-icon { font-size: 18px; line-height: 1; }
+
+  /* More drawer */
+  #admin-more-drawer {
+    display: none;
+    position: fixed; inset: 0; z-index: 100;
+  }
+  #admin-more-drawer.open { display: block; }
+  #admin-more-drawer-backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,.6);
+  }
+  #admin-more-drawer-panel {
+    position: absolute; bottom: 60px; left: 0; right: 0;
+    background: #111827;
+    border-top: 1px solid #1f2937;
+    border-radius: 16px 16px 0 0;
+    padding: 16px 0 8px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  .admin-more-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px;
+    color: #d1d5db;
+    font-size: 15px; font-weight: 600;
+    cursor: pointer;
+    border: none; background: none; width: 100%; text-align: left;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .admin-more-item:hover, .admin-more-item.active { color: #10b981; }
+  .admin-more-item span.more-icon { font-size: 20px; width: 28px; text-align: center; }
+
+  @media (max-width: 767px) {
+    #admin-bottom-tabs { display: block; }
+  }
+
+  /* ── 568px–767px: icon-rail sidebar + 2-col grid ───────────────────── */
+  @media (min-width: 568px) and (max-width: 767px) {
+    #admin-primary-nav { display: flex !important; width: 52px !important; }
+    #admin-primary-nav span.text-\[10px\] { display: none !important; }
+    #admin-bottom-tabs { display: none !important; }
+    #admin-main-content { margin-left: 52px !important; }
+    .admin-responsive-grid { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; }
+  }
+
+  /* ── Scrollable time-series charts ─────────────────────────────────── */
+  .admin-chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .admin-chart-scroll > * { min-width: 480px; }
+
+  /* ── Bottom sheet for destructive actions (mobile) ──────────────────── */
+  .bottom-sheet-backdrop {
+    display: none;
+    position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 60;
+  }
+  .bottom-sheet-backdrop.open { display: block; }
+  .bottom-sheet {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 61;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 20px 32px;
+    transform: translateY(100%);
+    transition: transform .25s ease;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .bottom-sheet.open { transform: translateY(0); }
+  .bottom-sheet-handle {
+    width: 40px; height: 4px; background: #e5e7eb;
+    border-radius: 2px; margin: 0 auto 16px;
+  }
+
+  /* On desktop, bottom-sheet-triggered dialogs fall back to centred modal */
+  @media (min-width: 768px) {
+    .bottom-sheet-backdrop.open { display: flex; align-items: center; justify-content: center; }
+    .bottom-sheet {
+      position: static;
+      border-radius: 12px;
+      transform: none !important;
+      max-width: 460px;
+      width: 100%;
+      padding: 24px;
+    }
+  }
 </style>
 
 <script>
@@ -786,40 +1359,79 @@ const VIEW_LABELS = {
   reconciliation: 'Stripe Reconciliation', dunning: 'Dunning Queue',
   'manage-admins': 'Admin Accounts', 'kill-switches': 'Emergency Controls',
   'feature-flags': 'Feature Flags', 'sales-pipeline': 'Sales Pipeline',
+  'breach-response': 'Breach Response', 'master-data': 'Master Data',
+  workspaces: 'Workspaces', 'workspace-detail': 'Workspace Detail',
+  'blueprint-inspector': 'Blueprint Inspector',
 };
 
 // Category → child items mapping
 const ADMIN_CATS = {
-  dashboard: { label: 'Dashboard', children: [
+  dashboard: { label: 'Dashboard', roles: null, children: [
     { view: 'dashboard', icon: '📊', label: 'Dashboard' },
   ]},
-  users: { label: 'Users', children: [
+  users: { label: 'Users', roles: ['admin','super_admin','support_agent'], children: [
     { view: 'users',    icon: '👥', label: 'All Users' },
     { view: 'tickets',  icon: '🎫', label: 'Support Tickets' },
     { view: 'sales-pipeline', icon: '💼', label: 'Sales Pipeline' },
   ]},
-  billing: { label: 'Billing', children: [
+  billing: { label: 'Billing', roles: ['admin','super_admin','billing_admin'], children: [
     { view: 'reconciliation', icon: '🔄', label: 'Stripe Reconciliation' },
     { view: 'dunning',        icon: '⏰', label: 'Dunning Queue' },
+    { view: 'disputes',       icon: '⚠️', label: 'Disputes' },
     { view: 'cogs',           icon: '💰', label: 'COGS Dashboard' },
   ]},
-  assistants: { label: 'Assistants', children: [
-    { view: 'catalog',      icon: '🤖', label: 'Assistant Catalog' },
-    { view: 'model-config', icon: '⚙️', label: 'AI Model Config' },
+  assistants: { label: 'Assistants', roles: ['admin','super_admin','platform_admin'], children: [
+    { view: 'catalog',              icon: '🤖', label: 'Assistant Catalog' },
+    { view: 'model-config',         icon: '⚙️', label: 'AI Model Config' },
+    { view: 'blueprint-inspector',  icon: '🔬', label: 'Blueprint Inspector' },
   ]},
-  platform: { label: 'Platform', children: [
+  platform: { label: 'Platform', roles: ['admin','super_admin','platform_admin'], children: [
     { view: 'analytics',     icon: '📈', label: 'Analytics' },
+    { view: 'master-data',   icon: '🗂️', label: 'Master Data' },
     { view: 'feature-flags', icon: '🚩', label: 'Feature Flags' },
     { view: 'kill-switches', icon: '🚨', label: 'Emergency Controls' },
   ]},
-  security: { label: 'Security', children: [
+  security: { label: 'Security', roles: ['admin','super_admin'], children: [
     { view: 'manage-admins', icon: '🛡️', label: 'Admin Accounts' },
     { view: 'audit-log',     icon: '🔐', label: 'Audit Log' },
   ]},
-  compliance: { label: 'Compliance', children: [
-    { view: 'logs', icon: '📋', label: 'System Logs' },
+  compliance: { label: 'Compliance', roles: ['admin','super_admin'], children: [
+    { view: 'breach-response', icon: '🚨', label: 'Breach Response' },
+    { view: 'logs',            icon: '📋', label: 'System Logs' },
+  ]},
+  workspaces: { label: 'Workspaces', roles: ['admin','super_admin'], children: [
+    { view: 'workspaces', icon: '🏢', label: 'All Workspaces' },
   ]},
 };
+
+// ── RBAC: decode admin role from JWT cookie ──────────────────────────────────
+function _getAdminRole() {
+  try {
+    const match = document.cookie.match(/aura_session=([^;]+)/);
+    if (!match) return null;
+    const parts = match[1].split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.adminRole || null;
+  } catch { return null; }
+}
+
+const _adminRole = _getAdminRole();
+
+function _catAllowed(catKey) {
+  const cat = ADMIN_CATS[catKey];
+  if (!cat) return false;
+  if (cat.roles === null) return true; // dashboard always visible
+  if (!_adminRole) return false;
+  return cat.roles.includes(_adminRole);
+}
+
+// Filter primary nav buttons based on role
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.admin-cat-btn').forEach(btn => {
+    if (!_catAllowed(btn.dataset.cat)) btn.style.display = 'none';
+  });
+});
 
 let _activeCategory = null;
 let _activeView = 'dashboard';
@@ -886,6 +1498,11 @@ function adminNav(view) {
   document.getElementById('view-' + view)?.classList.remove('hidden');
   document.getElementById('admin-page-title').textContent = VIEW_LABELS[view] || view;
 
+  // Update URL without triggering a full navigation
+  const newUrl = new URL(location.href);
+  newUrl.searchParams.set('view', view);
+  history.pushState({ view }, '', newUrl.toString());
+
   // Highlight active child in secondary panel
   document.querySelectorAll('.admin-child-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
 
@@ -901,10 +1518,504 @@ function adminNav(view) {
   if (view === 'cogs')            loadCogsDashboard();
   if (view === 'reconciliation')  loadReconciliation();
   if (view === 'dunning')         loadDunningQueue();
+  if (view === 'disputes')        loadDisputes();
   if (view === 'manage-admins')   loadManageAdmins();
   if (view === 'sales-pipeline')  loadSalesPipeline();
   if (view === 'kill-switches')   loadKillSwitches();
   if (view === 'feature-flags')   loadFeatureFlags();
+  if (view === 'breach-response') loadBreachResponse();
+  if (view === 'master-data')     { if (!_mdActiveTab) mdSwitchTab('plans'); else mdLoadTab(_mdActiveTab); }
+  if (view === 'workspaces')          loadWorkspaces();
+  if (view === 'blueprint-inspector') initBlueprintInspector();
+}
+
+// ── US-ADM-4.3.1/4.3.2: Blueprint Inspector ─────────────────────────────────
+
+const SECTION_LABELS = {
+  '1-identity':     'Section 1 — Identity',
+  '2-base-prompt':  'Section 2 — Base System Prompt',
+  '3-strict-rules': 'Section 3 — Strict Rules',
+  '4-content-rules':'Section 4 — Content Rules',
+  '5-org-context':  'Section 5 — User & Organisation Context',
+  '6-onboarding':   'Section 6 — Onboarding Answers',
+  '7-integrations': 'Section 7 — Active Integrations',
+  '8-plan':         'Section 8 — Plan & Capability Constraints',
+  '9-compliance':   'Section 9 — Compliance & Governance',
+  '10-execution':   'Section 10 — Execution Constraints',
+};
+
+const STATUS_BADGE = {
+  complete: '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">Complete</span>',
+  partial:  '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">Partial</span>',
+  missing:  '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">Missing</span>',
+};
+
+let _bpCurrentAssistantId = null;
+let _bpCurrentResult = null;
+let _bpCurrentBlueprintId = null;
+let _bpPreviousResult = null;
+
+// Route source table/recordId to relevant admin edit section
+function bpNavToSource(table, recordId) {
+  const routeMap = {
+    users:            () => { adminNav('users');       if (recordId) setTimeout(() => loadUserDetail?.(recordId), 300); },
+    ai_assistants:    () => { adminNav('assistants');  if (recordId) setTimeout(() => loadAssistantDetail?.(recordId), 300); },
+    organisations:    () => { adminNav('workspaces');  },
+    user_profiles:    () => { adminNav('users');       if (recordId) setTimeout(() => loadUserDetail?.(recordId), 300); },
+    onboarding_data:  () => { adminNav('users'); },
+    compliance_records: () => { adminNav('audit-log'); },
+  };
+  const fn = routeMap[table];
+  if (fn) fn();
+}
+
+async function initBlueprintInspector() {
+  _bpCurrentResult = null;
+  _bpCurrentAssistantId = null;
+  document.getElementById('bp-sections').innerHTML = '';
+  document.getElementById('bp-scorecard').classList.add('hidden');
+  document.getElementById('bp-blocking-banner').classList.add('hidden');
+  document.getElementById('bp-warning-banner').classList.add('hidden');
+  document.getElementById('bp-stale-notice').classList.add('hidden');
+  document.getElementById('bp-preview-btn').disabled = true;
+  document.getElementById('bp-send-btn').disabled = true;
+
+  // Load orgs into selector
+  try {
+    const res = await fetch('/.netlify/functions/admin-api?resource=organisations');
+    if (!res.ok) return;
+    const data = await res.json();
+    const orgs = Array.isArray(data) ? data : (data.organisations || data.rows || []);
+    const sel = document.getElementById('bp-org-select');
+    sel.innerHTML = '<option value="">— select org —</option>' +
+      orgs.map(o => `<option value="${o.id}">${o.name || o.id}</option>`).join('');
+  } catch { /* ignore */ }
+}
+
+async function bpLoadAssistants() {
+  const orgId = document.getElementById('bp-org-select').value;
+  const asstSel = document.getElementById('bp-asst-select');
+  asstSel.innerHTML = '<option value="">Loading…</option>';
+  asstSel.disabled = true;
+  if (!orgId) { asstSel.innerHTML = '<option value="">— select assistant —</option>'; return; }
+  try {
+    const res = await fetch(`/.netlify/functions/admin-api?resource=assistants&orgId=${orgId}`);
+    const data = await res.json();
+    const assts = Array.isArray(data) ? data : (data.assistants || data.rows || []);
+    asstSel.innerHTML = '<option value="">— select assistant —</option>' +
+      assts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+    asstSel.disabled = false;
+  } catch { asstSel.innerHTML = '<option value="">Failed to load</option>'; }
+}
+
+async function bpCompile(force = false) {
+  const asstId = document.getElementById('bp-asst-select').value;
+  if (!asstId) { alert('Please select an assistant first.'); return; }
+  _bpCurrentAssistantId = asstId;
+  const prevResult = force ? _bpCurrentResult : null;
+  document.getElementById('bp-sections').innerHTML = '<p class="text-gray-400 text-sm animate-pulse">Compiling blueprint…</p>';
+  document.getElementById('bp-scorecard').classList.add('hidden');
+  document.getElementById('bp-blocking-banner').classList.add('hidden');
+  document.getElementById('bp-warning-banner').classList.add('hidden');
+  document.getElementById('bp-stale-notice').classList.add('hidden');
+  document.getElementById('bp-diff-panel')?.remove();
+  try {
+    const res = await fetch(`/.netlify/functions/assemble-blueprint?assistantId=${asstId}${force ? '&force=1' : ''}`);
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Compile failed'); }
+    const result = await res.json();
+    _bpPreviousResult = _bpCurrentResult;
+    _bpCurrentResult = result;
+    _bpCurrentBlueprintId = result.blueprint?.id ?? null;
+    bpRenderResult(result);
+    if (force && prevResult) bpShowDiff(prevResult.sections, result.sections);
+  } catch (e) {
+    document.getElementById('bp-sections').innerHTML = `<p class="text-red-600 text-sm">${e.message}</p>`;
+  }
+}
+
+function bpShowDiff(prevSections, nextSections) {
+  const changes = [];
+  for (const key of Object.keys(nextSections)) {
+    const prev = prevSections[key]?.content || {};
+    const next = nextSections[key]?.content || {};
+    const allKeys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+    const fieldChanges = [];
+    for (const f of allKeys) {
+      const pv = prev[f] == null ? '[NOT SET]' : String(typeof prev[f] === 'object' ? JSON.stringify(prev[f]) : prev[f]);
+      const nv = next[f] == null ? '[NOT SET]' : String(typeof next[f] === 'object' ? JSON.stringify(next[f]) : next[f]);
+      if (pv !== nv) fieldChanges.push({ field: f, prev: pv, next: nv });
+    }
+    if (fieldChanges.length) changes.push({ section: SECTION_LABELS[key] || key, fields: fieldChanges });
+  }
+  const container = document.getElementById('bp-sections');
+  const panel = document.createElement('div');
+  panel.id = 'bp-diff-panel';
+  panel.className = 'mb-4 bg-blue-50 border border-blue-200 rounded-xl p-4';
+  if (!changes.length) {
+    panel.innerHTML = '<p class="text-sm text-blue-700 font-semibold">No changes detected since last compile.</p>';
+  } else {
+    panel.innerHTML = `<p class="text-sm font-bold text-blue-800 mb-3">Changes since last compile (${changes.reduce((a,c)=>a+c.fields.length,0)} field${changes.reduce((a,c)=>a+c.fields.length,0)!==1?'s':''} across ${changes.length} section${changes.length!==1?'s':''}):</p>` +
+      changes.map(c => `<div class="mb-3"><p class="text-xs font-bold text-blue-700 mb-1">${c.section}</p><table class="w-full text-xs"><tbody>${
+        c.fields.map(f => `<tr><td class="pr-3 py-0.5 font-medium text-gray-600 whitespace-nowrap align-top">${f.field}</td><td class="pr-3 py-0.5 text-red-600 line-through align-top max-w-xs truncate">${f.prev}</td><td class="py-0.5 text-emerald-700 align-top max-w-xs truncate">${f.next}</td></tr>`).join('')
+      }</tbody></table></div>`).join('');
+  }
+  container.insertAdjacentElement('beforebegin', panel);
+}
+
+async function bpDryRun() {
+  const asstId = document.getElementById('bp-asst-select').value;
+  if (!asstId) { alert('Please select an assistant first.'); return; }
+  document.getElementById('bp-sections').innerHTML = '<p class="text-gray-400 text-sm animate-pulse">Running dry run…</p>';
+  document.getElementById('bp-diff-panel')?.remove();
+  try {
+    const res = await fetch(`/.netlify/functions/assemble-blueprint?assistantId=${asstId}&dryRun=1`);
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Dry run failed'); }
+    const result = await res.json();
+    _bpCurrentResult = result;
+    bpRenderResult(result, true);
+
+    // Dry run result panel: token count + estimated cost
+    const sections = result.sections || {};
+    let totalChars = 0;
+    for (const sec of Object.values(sections)) {
+      for (const v of Object.values(sec.content || {})) {
+        if (v != null) totalChars += String(typeof v === 'object' ? JSON.stringify(v) : v).length;
+      }
+    }
+    const tokens = Math.round(totalChars / 4);
+    // £0.003 per 1K input tokens (approximate Claude Sonnet rate in GBP)
+    const costGbp = ((tokens / 1000) * 0.003).toFixed(4);
+    const warnings = (result.missingFields || []).filter(f => f.severity === 'warning');
+    const dryPanel = document.createElement('div');
+    dryPanel.className = 'mb-4 bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-1 text-sm';
+    dryPanel.innerHTML = `<p class="font-bold text-gray-800">Dry Run Result</p>
+      <div class="flex gap-6 text-gray-600">
+        <span>~<strong>${tokens.toLocaleString()}</strong> tokens</span>
+        <span>Est. cost: <strong>£${costGbp}</strong> per call</span>
+        <span class="${warnings.length ? 'text-amber-600 font-semibold' : 'text-gray-400'}">${warnings.length} warning${warnings.length !== 1 ? 's' : ''}</span>
+      </div>
+      <p class="text-xs text-gray-400">Cost estimate uses ~£0.003/1K input tokens. No LLM API call was made.</p>`;
+    document.getElementById('bp-sections').insertAdjacentElement('beforebegin', dryPanel);
+  } catch (e) {
+    document.getElementById('bp-sections').innerHTML = `<p class="text-red-600 text-sm">${e.message}</p>`;
+  }
+}
+
+function bpRenderResult(result, isDryRun = false) {
+  const { sections, missingFields, completenessPercent } = result;
+  const blocking = missingFields.filter(f => f.severity === 'blocking');
+  const warnings = missingFields.filter(f => f.severity === 'warning');
+
+  // Blocking banner
+  const blockBanner = document.getElementById('bp-blocking-banner');
+  if (blocking.length) {
+    blockBanner.innerHTML = `⛔ ${blocking.length} blocking gap${blocking.length > 1 ? 's' : ''} found. This blueprint cannot be sent to the LLM until resolved:<ul class="mt-2 ml-4 list-disc font-normal">${blocking.map(f => `<li>${f.section} → <strong>${f.field}</strong> (${f.sourceTable}.${f.sourceColumn})</li>`).join('')}</ul>`;
+    blockBanner.classList.remove('hidden');
+  } else {
+    blockBanner.classList.add('hidden');
+  }
+
+  // Warning banner
+  const warnBanner = document.getElementById('bp-warning-banner');
+  if (warnings.length) {
+    warnBanner.innerHTML = `⚠️ ${warnings.length} warning${warnings.length > 1 ? 's' : ''}: ${warnings.map(f => `<strong>${f.field}</strong> (${f.section})`).join(', ')}`;
+    warnBanner.classList.remove('hidden');
+  } else {
+    warnBanner.classList.add('hidden');
+  }
+
+  // Scorecard
+  const scorecard = document.getElementById('bp-scorecard');
+  document.getElementById('bp-score-pct').textContent = `${completenessPercent}%`;
+  const effectBadge = document.getElementById('bp-effectiveness-badge');
+  const tooltipMissing = missingFields.length
+    ? 'Missing: ' + missingFields.map(f => `${f.section} › ${f.field}`).join(', ')
+    : 'All required fields populated';
+  if (completenessPercent >= 90) {
+    effectBadge.textContent = 'Strong'; effectBadge.className = 'px-3 py-1.5 rounded-full text-sm font-bold bg-emerald-100 text-emerald-700 cursor-help';
+  } else if (completenessPercent >= 70) {
+    effectBadge.textContent = 'Adequate'; effectBadge.className = 'px-3 py-1.5 rounded-full text-sm font-bold bg-amber-100 text-amber-700 cursor-help';
+  } else {
+    effectBadge.textContent = 'Weak'; effectBadge.className = 'px-3 py-1.5 rounded-full text-sm font-bold bg-red-100 text-red-700 cursor-help';
+  }
+  effectBadge.title = tooltipMissing;
+  const colorMap = { complete: 'bg-emerald-50 border-emerald-200 text-emerald-700', partial: 'bg-amber-50 border-amber-200 text-amber-700', missing: 'bg-red-50 border-red-200 text-red-700' };
+  document.getElementById('bp-section-rows').innerHTML = Object.entries(sections).map(([key, sec]) => {
+    const missing = missingFields.filter(f => f.section === key);
+    const fieldCount = Object.keys(sec.content || {}).length;
+    const populated = fieldCount - missing.length;
+    return `<div class="flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs font-medium ${colorMap[sec.status] || ''}" onclick="document.getElementById('bp-acc-${key}')?.scrollIntoView({behavior:'smooth'})" style="cursor:pointer">
+      <span>${SECTION_LABELS[key] || key}</span>
+      <span>${populated}/${fieldCount} fields ${STATUS_BADGE[sec.status] || ''}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('bp-blocking-count').textContent = `${blocking.length} blocking`;
+  document.getElementById('bp-warning-count').textContent = `${warnings.length} warning${warnings.length !== 1 ? 's' : ''}`;
+  scorecard.classList.remove('hidden');
+
+  // Accordion sections
+  const container = document.getElementById('bp-sections');
+  container.innerHTML = Object.entries(sections).map(([key, sec]) => {
+    const label = SECTION_LABELS[key] || key;
+    const sectionMissing = missingFields.filter(f => f.section === key);
+    const contentHtml = Object.entries(sec.content || {}).map(([k, v]) => {
+      const missingEntry = sectionMissing.find(f => f.field === k);
+      const isMissing = !!missingEntry;
+      let display;
+      if (v == null || v === '') {
+        const srcLink = missingEntry ? ` <button onclick="bpNavToSource('${missingEntry.sourceTable}', ${missingEntry.sourceRecordId ?? 'null'})" class="ml-2 text-xs text-blue-600 hover:underline">→ Fix in admin</button>` : '';
+        display = `<span class="text-red-500 font-semibold">NOT SET — source: ${missingEntry?.sourceTable ?? '?'}.${missingEntry?.sourceColumn ?? '?'}</span>${srcLink}`;
+      } else {
+        display = typeof v === 'object' ? `<pre class="text-xs bg-gray-50 rounded p-2 overflow-auto max-h-32">${JSON.stringify(v, null, 2)}</pre>` : String(v);
+      }
+      return `<tr class="${isMissing ? 'bg-red-50' : ''}"><td class="py-1 pr-3 text-xs text-gray-500 font-medium align-top whitespace-nowrap">${k}</td><td class="py-1 text-xs text-gray-800">${display}</td></tr>`;
+    }).join('');
+    const sourcesHtml = (sec.sources || []).map(s =>
+      `<button onclick="bpNavToSource('${s.table}', ${s.recordId ?? 'null'})" class="block w-full text-left text-xs text-blue-600 hover:underline font-mono py-0.5">${s.table}.${s.column} — record #${s.recordId ?? '?'}${s.resolvedAt ? ` — ${s.resolvedAt.slice(0,10)}` : ''}</button>`
+    ).join('');
+    return `<div id="bp-acc-${key}" class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <button class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span class="font-semibold text-sm text-gray-900">${label}</span>
+        <span>${STATUS_BADGE[sec.status] || ''}</span>
+      </button>
+      <div class="hidden border-t border-gray-100">
+        <div class="px-4 py-3 overflow-x-auto">
+          <table class="w-full"><tbody>${contentHtml}</tbody></table>
+        </div>
+        ${sourcesHtml ? `<details class="px-4 pb-3"><summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Sources</summary><div class="mt-2 space-y-0.5">${sourcesHtml}</div></details>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Enable/disable action buttons + "Send with warnings" label
+  const sendBtn = document.getElementById('bp-send-btn');
+  document.getElementById('bp-preview-btn').disabled = false;
+  sendBtn.disabled = blocking.length > 0 || isDryRun;
+  if (blocking.length > 0) {
+    sendBtn.textContent = 'Send to LLM';
+    sendBtn.title = 'Resolve blocking gaps first';
+  } else if (warnings.length > 0 && !isDryRun) {
+    sendBtn.textContent = 'Send with warnings ⚠️';
+    sendBtn.title = '';
+  } else {
+    sendBtn.textContent = 'Send to LLM';
+    sendBtn.title = '';
+  }
+}
+
+function bpPreviewPayload() {
+  if (!_bpCurrentResult) return;
+  const { sections, blueprintVersion, completenessPercent } = _bpCurrentResult;
+  let payload = `BLUEPRINT VERSION: ${blueprintVersion}\nCOMPLETENESS: ${completenessPercent}%\n\n`;
+  for (const [key, sec] of Object.entries(sections)) {
+    const label = SECTION_LABELS[key] || key;
+    payload += `\n--- ${label.toUpperCase()} ---\n`;
+    for (const [k, v] of Object.entries(sec.content || {})) {
+      const val = v == null ? '[NOT SET]' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+      payload += `${k}: ${val}\n`;
+    }
+  }
+  const chars = payload.length;
+  const tokens = Math.round(chars / 4);
+
+  // Open full-screen preview panel
+  let panel = document.getElementById('bp-payload-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'bp-payload-panel';
+    panel.className = 'fixed inset-0 z-[200] bg-white flex flex-col';
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML = `<div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+    <div>
+      <h2 class="font-extrabold text-gray-900">LLM Payload Preview</h2>
+      <p class="text-xs text-gray-500 mt-0.5">${chars.toLocaleString()} characters — approx. ${tokens.toLocaleString()} tokens</p>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="navigator.clipboard.writeText(document.getElementById('bp-payload-text').value)" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Copy</button>
+      <button onclick="bpDownloadPayload()" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Download .txt</button>
+      <button onclick="document.getElementById('bp-payload-panel').remove()" class="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-black">Close</button>
+    </div>
+  </div>
+  <textarea id="bp-payload-text" class="flex-1 font-mono text-xs p-6 resize-none border-none focus:outline-none" readonly>${payload.replace(/</g,'&lt;')}</textarea>`;
+  panel.querySelector('textarea').value = payload;
+}
+
+function bpDownloadPayload() {
+  if (!_bpCurrentResult) return;
+  const text = document.getElementById('bp-payload-text')?.value;
+  if (!text) return;
+  const asstName = document.getElementById('bp-asst-select').selectedOptions[0]?.text || 'assistant';
+  const date = new Date().toISOString().slice(0,10);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+  a.download = `blueprint-${asstName.replace(/\s+/g,'-')}-${date}.txt`;
+  a.click();
+}
+
+function bpSendToLlm() {
+  if (!_bpCurrentResult || !_bpCurrentAssistantId) return;
+  const { blueprintVersion, completenessPercent, missingFields, sections, blueprint } = _bpCurrentResult;
+  const warnings = (missingFields || []).filter(f => f.severity === 'warning');
+  const blocking = (missingFields || []).filter(f => f.severity === 'blocking');
+  const compiledAt = blueprint?.compiledAt ? new Date(blueprint.compiledAt).toLocaleString() : '—';
+  const riskTier = sections?.['1-identity']?.content?.riskTier ?? '—';
+  const dpaAccepted = sections?.['9-compliance']?.content?.dpaAcceptedAt ? 'Yes' : 'No';
+  const hitlMode = sections?.['9-compliance']?.content?.hitlMode ?? '—';
+  openBottomSheet('bp-send');
+
+  document.getElementById('bp-send-checklist-body').innerHTML = `
+    <div class="space-y-2 text-sm text-gray-700">
+      <div class="flex justify-between"><span>Blueprint version</span><span class="font-mono text-xs text-gray-500">${blueprintVersion}</span></div>
+      <div class="flex justify-between"><span>Compiled at</span><span class="text-xs text-gray-500">${compiledAt}</span></div>
+      <div class="flex justify-between"><span>Completeness</span><span class="font-semibold">${completenessPercent}%</span></div>
+      <div class="flex justify-between"><span>Blocking gaps</span><span class="font-semibold ${blocking.length ? 'text-red-600' : 'text-emerald-600'}">${blocking.length}</span></div>
+      <div class="flex justify-between"><span>Warnings</span><span class="font-semibold ${warnings.length ? 'text-amber-600' : 'text-gray-400'}">${warnings.length}</span></div>
+      <div class="flex justify-between"><span>EU AI Act risk tier</span><span class="font-semibold">${riskTier}</span></div>
+      <div class="flex justify-between"><span>DPA accepted</span><span class="font-semibold ${dpaAccepted === 'Yes' ? 'text-emerald-600' : 'text-red-600'}">${dpaAccepted}</span></div>
+      <div class="flex justify-between"><span>HITL mode</span><span class="font-semibold">${hitlMode}</span></div>
+    </div>
+    ${warnings.length ? `<label class="flex items-start gap-2 mt-4 text-sm text-amber-700"><input type="checkbox" id="bp-ack-warnings" class="mt-0.5"> I acknowledge the ${warnings.length} warning${warnings.length > 1 ? 's' : ''} and still want to proceed.</label>` : ''}
+    <label class="flex items-start gap-2 mt-3 text-sm text-gray-700"><input type="checkbox" id="bp-confirm-check" onchange="document.getElementById('bp-confirm-send-btn').disabled=!this.checked"> I confirm this blueprint is correct and complete.</label>`;
+}
+
+async function bpConfirmSend() {
+  const asstId = _bpCurrentAssistantId;
+  if (!asstId) return;
+  const ackWarnings = document.getElementById('bp-ack-warnings');
+  if (ackWarnings && !ackWarnings.checked) { alert('Please acknowledge the warnings first.'); return; }
+  try {
+    const res = await fetch(`/.netlify/functions/assemble-blueprint?assistantId=${asstId}&action=send`, { method: 'POST' });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+    closeBottomSheet('bp-send');
+    alert('Blueprint sent. Send event logged.');
+  } catch (e) { alert('Send failed: ' + e.message); }
+}
+
+let _bpHistoryRows = [];
+
+async function bpLoadHistory() {
+  const asstId = _bpCurrentAssistantId || document.getElementById('bp-asst-select').value;
+  if (!asstId) { alert('Select an assistant first.'); return; }
+  const el = document.getElementById('bp-history');
+  el.innerHTML = '<p class="text-gray-400 text-xs animate-pulse">Loading…</p>';
+  el.classList.remove('hidden');
+  try {
+    const res = await fetch(`/.netlify/functions/assemble-blueprint?assistantId=${asstId}&history=1`);
+    _bpHistoryRows = await res.json();
+    if (!_bpHistoryRows.length) { el.innerHTML = '<p class="text-gray-400 text-xs">No history yet.</p>'; return; }
+    el.innerHTML = `<div class="flex items-center justify-between mb-2">
+        <p class="text-xs text-gray-500 font-semibold">Select two versions to compare</p>
+        <button onclick="bpCompareSelected()" class="px-3 py-1 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40" id="bp-compare-btn" disabled>Compare selected</button>
+      </div>` +
+      _bpHistoryRows.map((r, i) => `<div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 flex items-center gap-3 hover:bg-gray-100 cursor-pointer" onclick="bpViewHistorySnapshot(${i})">
+        <input type="checkbox" class="bp-hist-chk shrink-0" data-idx="${i}" onclick="event.stopPropagation(); bpUpdateCompareBtn()" />
+        <div class="flex-1 min-w-0">
+          <span class="font-mono text-xs text-gray-500">${r.blueprintVersion?.slice(0,12) ?? '?'}…</span>
+          <span class="ml-2 text-xs text-gray-600">${fmt(r.compiledAt)} — ${r.triggerType} — ${r.completenessPercent}% complete</span>
+          ${r.sentAt ? `<span class="ml-2 text-xs text-emerald-600 font-semibold">Sent ${fmt(r.sentAt)}</span>` : ''}
+        </div>
+      </div>`).join('');
+  } catch { el.innerHTML = '<p class="text-red-500 text-xs">Failed to load history.</p>'; }
+}
+
+function bpUpdateCompareBtn() {
+  const checked = document.querySelectorAll('.bp-hist-chk:checked').length;
+  const btn = document.getElementById('bp-compare-btn');
+  if (btn) btn.disabled = checked !== 2;
+}
+
+function bpViewHistorySnapshot(idx) {
+  const row = _bpHistoryRows[idx];
+  if (!row?.sections) { alert('Frozen snapshot not available for this entry.'); return; }
+  // Render the frozen sections in a full-screen overlay
+  let panel = document.getElementById('bp-snapshot-panel');
+  if (!panel) { panel = document.createElement('div'); panel.id = 'bp-snapshot-panel'; panel.className = 'fixed inset-0 z-[200] bg-white flex flex-col'; document.body.appendChild(panel); }
+  const fakeResult = { sections: row.sections, missingFields: row.missingFields || [], completenessPercent: row.completenessPercent, blueprint: row };
+  panel.innerHTML = `<div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+    <div>
+      <h2 class="font-extrabold text-gray-900">Frozen Snapshot</h2>
+      <p class="text-xs text-gray-500 mt-0.5">${row.blueprintVersion} — ${fmt(row.compiledAt)} — ${row.completenessPercent}% complete</p>
+    </div>
+    <button onclick="document.getElementById('bp-snapshot-panel').remove()" class="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-black">Close</button>
+  </div>
+  <div id="bp-snapshot-body" class="flex-1 overflow-auto p-6 space-y-3"></div>`;
+  const body = panel.querySelector('#bp-snapshot-body');
+  body.innerHTML = Object.entries(row.sections).map(([key, sec]) => {
+    const label = SECTION_LABELS[key] || key;
+    const contentHtml = Object.entries(sec.content || {}).map(([k, v]) => {
+      const display = v == null ? `<span class="text-red-500">NOT SET</span>` : (typeof v === 'object' ? `<pre class="text-xs">${JSON.stringify(v,null,2)}</pre>` : String(v));
+      return `<tr><td class="py-0.5 pr-3 text-xs text-gray-500 font-medium whitespace-nowrap">${k}</td><td class="py-0.5 text-xs text-gray-800">${display}</td></tr>`;
+    }).join('');
+    return `<div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div class="px-4 py-2 font-semibold text-sm text-gray-900 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+        <span>${label}</span>${STATUS_BADGE[sec.status] || ''}
+      </div>
+      <div class="px-4 py-3 overflow-x-auto"><table class="w-full"><tbody>${contentHtml}</tbody></table></div>
+    </div>`;
+  }).join('');
+}
+
+function bpCompareSelected() {
+  const checked = [...document.querySelectorAll('.bp-hist-chk:checked')];
+  if (checked.length !== 2) return;
+  const [a, b] = checked.map(c => _bpHistoryRows[+c.dataset.idx]).sort((x, y) => new Date(x.compiledAt) - new Date(y.compiledAt));
+  let panel = document.getElementById('bp-compare-panel');
+  if (!panel) { panel = document.createElement('div'); panel.id = 'bp-compare-panel'; panel.className = 'fixed inset-0 z-[200] bg-white flex flex-col'; document.body.appendChild(panel); }
+  panel.innerHTML = `<div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+    <div>
+      <h2 class="font-extrabold text-gray-900">Version Comparison</h2>
+      <p class="text-xs text-gray-500 mt-0.5">${a.blueprintVersion?.slice(0,12)}… vs ${b.blueprintVersion?.slice(0,12)}…</p>
+    </div>
+    <button onclick="document.getElementById('bp-compare-panel').remove()" class="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-black">Close</button>
+  </div>
+  <div class="flex-1 overflow-auto p-6 space-y-4">${
+    Object.keys({ ...a.sections, ...b.sections }).map(key => {
+      const label = SECTION_LABELS[key] || key;
+      const aSec = a.sections?.[key]?.content || {};
+      const bSec = b.sections?.[key]?.content || {};
+      const allFields = [...new Set([...Object.keys(aSec), ...Object.keys(bSec)])];
+      const changed = allFields.filter(f => String(aSec[f] ?? '') !== String(bSec[f] ?? ''));
+      if (!changed.length) return `<div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs text-gray-400">${label} — no changes</div>`;
+      return `<div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div class="px-4 py-2 font-semibold text-sm bg-gray-50 border-b border-gray-100">${label} — ${changed.length} change${changed.length!==1?'s':''}</div>
+        <div class="overflow-x-auto px-4 py-3">
+          <table class="w-full text-xs"><thead><tr>
+            <th class="text-left pr-3 pb-1 text-gray-400 font-normal">Field</th>
+            <th class="text-left pr-3 pb-1 text-gray-400 font-normal">${fmt(a.compiledAt)} (older)</th>
+            <th class="text-left pb-1 text-gray-400 font-normal">${fmt(b.compiledAt)} (newer)</th>
+          </tr></thead><tbody>${changed.map(f => `<tr>
+            <td class="py-0.5 pr-3 font-medium text-gray-500 whitespace-nowrap align-top">${f}</td>
+            <td class="py-0.5 pr-3 text-red-600 align-top max-w-xs">${aSec[f] ?? '[NOT SET]'}</td>
+            <td class="py-0.5 text-emerald-700 align-top max-w-xs">${bSec[f] ?? '[NOT SET]'}</td>
+          </tr>`).join('')}</tbody></table>
+        </div>
+      </div>`;
+    }).join('')
+  }</div>`;
+}
+
+function loadWorkspaces() {
+  const el = document.getElementById('workspaces-list');
+  if (!el) return;
+  el.textContent = 'Loading…';
+  fetch('/.netlify/functions/admin-api?resource=organisations')
+    .then(r => r.json())
+    .then(data => {
+      const rows = Array.isArray(data) ? data : (data.organisations || data.rows || []);
+      if (!rows.length) { el.textContent = 'No workspaces found.'; return; }
+      el.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-sm admin-responsive-table">
+        <thead><tr class="text-left text-xs text-gray-500 border-b border-gray-200">
+          <th class="pb-2 pr-4">ID</th><th class="pb-2 pr-4">Name</th><th class="pb-2 pr-4">Created</th>
+        </tr></thead>
+        <tbody>${rows.map(r => `<tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="py-2 pr-4 font-mono text-xs text-gray-400">${r.id}</td>
+          <td class="py-2 pr-4 font-medium text-gray-900">${r.name || '—'}</td>
+          <td class="py-2 pr-4 text-gray-500">${r.createdAt ? fmt(r.createdAt) : '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+    })
+    .catch(() => { el.textContent = 'Failed to load workspaces.'; });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1092,11 +2203,7 @@ async function promoteAdmin(uid) {
 }
 
 async function deleteUser(uid, email) {
-  if (!confirm(`Permanently delete user "${email}"? This cannot be undone.`)) return;
-  try {
-    await api(`/.netlify/functions/admin-api?resource=user&id=${uid}`, { method:'DELETE' });
-    closeUserPanel(); loadUsers();
-  } catch(e) { alert(e.message); }
+  openCascadeDeleteSheet('users', uid, `User: ${email}`, () => { closeUserPanel(); loadUsers(); });
 }
 
 // ── Support Tickets ───────────────────────────────────────────────────────────
@@ -1806,6 +2913,77 @@ async function markPaymentArranged(planId, email) {
   } catch(e) { alert('Request failed: ' + e.message); }
 }
 
+// ── US-ADM-2.2.1: Disputes Tab ───────────────────────────────────────────────
+async function loadDisputes() {
+  const body = document.getElementById('disputes-body');
+  body.innerHTML = '<p class="text-gray-400 text-sm">Loading…</p>';
+  try {
+    const res  = await fetch('/.netlify/functions/admin-api?resource=disputes');
+    const data = await res.json();
+    if (!res.ok) { body.innerHTML = `<p class="text-red-500">${data.error}</p>`; return; }
+
+    const { disputes } = data;
+    if (!disputes.length) {
+      body.innerHTML = '<div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center"><p class="text-emerald-700 font-semibold">✅ No disputes on record</p></div>';
+      return;
+    }
+
+    const STATUS_BADGE = {
+      needs_response:         'bg-red-100 text-red-700',
+      warning_needs_response: 'bg-orange-100 text-orange-700',
+      under_review:           'bg-amber-100 text-amber-700',
+      won:                    'bg-emerald-100 text-emerald-700',
+      lost:                   'bg-gray-100 text-gray-600',
+    };
+
+    const now = Date.now();
+    body.innerHTML = `
+      <div class="overflow-x-auto rounded-xl border border-gray-200">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              ${['Dispute ID', 'Workspace', 'User', 'Amount', 'Reason', 'Status', 'Evidence Deadline', 'Opened'].map(h =>
+                `<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">${h}</th>`
+              ).join('')}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            ${disputes.map(d => {
+              const deadlineMs   = d.evidenceDeadline ? new Date(d.evidenceDeadline).getTime() : null;
+              const hoursLeft    = deadlineMs ? Math.floor((deadlineMs - now) / 3600000) : null;
+              const deadlineBadge = hoursLeft === null ? '' :
+                hoursLeft <= 0   ? ' 🔴 OVERDUE' :
+                hoursLeft <= 48  ? ` 🟡 ${hoursLeft}h left` : '';
+              const deadlineStr  = d.evidenceDeadline
+                ? new Date(d.evidenceDeadline).toLocaleDateString('en-GB') + deadlineBadge
+                : '—';
+              const statusCls = STATUS_BADGE[d.status] || 'bg-gray-100 text-gray-600';
+              return `
+              <tr class="hover:bg-red-50">
+                <td class="px-4 py-3 font-mono text-xs text-gray-500">${d.stripeDisputeId}</td>
+                <td class="px-4 py-3 text-gray-700">${d.orgName || '—'}</td>
+                <td class="px-4 py-3">
+                  ${d.userId
+                    ? `<a href="#" onclick="loadUserDetail(${d.userId});adminNav('users');return false" class="text-blue-600 hover:underline">${d.userEmail || '#' + d.userId}</a>`
+                    : '—'}
+                </td>
+                <td class="px-4 py-3 font-semibold text-red-700">${d.amount != null ? '£' + (d.amount / 100).toFixed(2) : '—'}</td>
+                <td class="px-4 py-3 text-gray-600">${d.reason || '—'}</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${statusCls}">
+                    ${d.status.replace(/_/g, ' ')}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-xs ${hoursLeft !== null && hoursLeft <= 48 ? 'text-red-600 font-semibold' : 'text-gray-500'}">${deadlineStr}</td>
+                <td class="px-4 py-3 text-gray-400 text-xs">${new Date(d.createdAt).toLocaleDateString('en-GB')}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch(e) { body.innerHTML = `<p class="text-red-500">${e.message}</p>`; }
+}
+
 // ── US-SALES-1.1 Part 5: Sales Pipeline ──────────────────────────────────────
 const SP_PRIORITY_BADGE = {
   high:   'bg-red-100 text-red-800',
@@ -2047,6 +3225,43 @@ async function loadCogsDashboard() {
         <td class="py-2 text-sm text-right font-mono text-gray-800">$${parseFloat(m.totalCostUsd).toFixed(4)}</td>
       </tr>`
     ).join('') || '<tr><td colspan="3" class="py-4 text-center text-gray-400">No data.</td></tr>';
+
+    // Data Categories breakdown (US-GDPR-4.2.2 AC3)
+    const dc = d.dataCategoryBreakdown || {};
+    const catCards = document.getElementById('cogs-category-cards');
+    const byCategory = dc.byCategory || [];
+    if (byCategory.length) {
+      const catColors = {
+        general: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        business_context: 'bg-blue-50 text-blue-700 border-blue-200',
+        pii_redacted: 'bg-amber-50 text-amber-700 border-amber-200',
+        special_category_suspected: 'bg-red-50 text-red-700 border-red-200',
+        financial: 'bg-purple-50 text-purple-700 border-purple-200',
+        health: 'bg-pink-50 text-pink-700 border-pink-200',
+      };
+      catCards.innerHTML = byCategory.map(c => {
+        const cls = catColors[c.category] || 'bg-gray-50 text-gray-700 border-gray-200';
+        return `<div class="rounded-xl border p-3 ${cls}">
+          <p class="text-[10px] font-bold uppercase tracking-wider opacity-70 mb-1">${c.category.replace(/_/g,' ')}</p>
+          <p class="text-xl font-extrabold">${c.pct}%</p>
+          <p class="text-xs opacity-60 mt-0.5">${c.callCount.toLocaleString()} calls</p>
+        </div>`;
+      }).join('');
+    } else {
+      catCards.innerHTML = '<div class="col-span-3 text-xs text-gray-400 py-4 text-center">No LLM usage recorded in the last 30 days.</div>';
+    }
+
+    document.getElementById('cogs-total-calls').textContent = (dc.totalCalls || 0).toLocaleString();
+    document.getElementById('cogs-special-count').textContent = (dc.specialCategoryCount || 0).toLocaleString();
+
+    const alertEl = document.getElementById('cogs-special-alert');
+    const alertTextEl = document.getElementById('cogs-special-alert-text');
+    if (dc.alert?.triggered) {
+      alertEl.classList.remove('hidden');
+      alertTextEl.textContent = `⚠ Special category data spike: ${dc.specialCategoryCount} calls exceed the 1% alert threshold (${dc.alert.threshold} calls). Review LLM inputs immediately.`;
+    } else {
+      alertEl.classList.add('hidden');
+    }
 
   } catch(e) {
     document.getElementById('cogs-tbody').innerHTML =
@@ -2572,8 +3787,612 @@ window._adminsList = [];
   } catch { /* non-blocking */ }
 })();
 
-// Boot into dashboard via two-tier nav
-adminCatNav('dashboard');
+// ── Breach Response — US-GDPR-3.2.1 ─────────────────────────────────────────
+const SEV_BADGE = {
+  low:      'bg-gray-100 text-gray-600 border-gray-300',
+  medium:   'bg-yellow-100 text-yellow-700 border-yellow-300',
+  high:     'bg-orange-100 text-orange-700 border-orange-300',
+  critical: 'bg-red-100 text-red-700 border-red-300',
+};
+
+function fmtCountdown(ms) {
+  if (ms <= 0) return '<span class="text-red-600 font-extrabold">OVERDUE</span>';
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const colour = ms < 6 * 3600000 ? 'text-red-600' : ms < 24 * 3600000 ? 'text-amber-600' : 'text-gray-700';
+  return `<span class="${colour} font-bold">${h}h ${m}m remaining</span>`;
+}
+
+async function loadBreachResponse() {
+  const el = document.getElementById('breach-incidents-list');
+  el.innerHTML = '<div class="text-center py-12 text-gray-400 text-sm">Loading incidents…</div>';
+  try {
+    const d = await api('/.netlify/functions/get-security-incidents');
+    const incidents = d.incidents || [];
+    if (incidents.length === 0) {
+      el.innerHTML = `<div class="text-center py-16 text-gray-400 gap-3 flex flex-col items-center">
+        <div class="text-4xl">✅</div>
+        <p class="text-sm font-semibold">No active security incidents.</p>
+      </div>`;
+      return;
+    }
+    el.innerHTML = incidents.map(inc => {
+      const sev = SEV_BADGE[inc.severity] || SEV_BADGE.medium;
+      const tl = inc.timeline;
+      const isHighRisk = ['high', 'critical'].includes(inc.severity);
+      const regulatorDone = tl.regulatorNotification.completed;
+
+      return `<div class="bg-white border border-gray-200 rounded-2xl p-5 space-y-4" id="inc-card-${inc.id}">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-bold px-2 py-0.5 rounded-full border ${sev}">${inc.severity.toUpperCase()}</span>
+              <span class="text-xs font-bold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-600 border-gray-200">${inc.status}</span>
+            </div>
+            <h3 class="font-extrabold text-gray-900">${_escH(inc.title)}</h3>
+            <p class="text-xs text-gray-500 mt-0.5">${_escH(inc.description || '')}</p>
+          </div>
+          <div class="flex gap-2 flex-wrap shrink-0">
+            ${isHighRisk ? `<button onclick="confirmRevokeTokens(${inc.id}, ${JSON.stringify(inc.affectedUserIds || []).replace(/"/g,"'")})"
+              class="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition cursor-pointer">
+              🔑 Revoke All Tokens
+            </button>` : ''}
+            ${!regulatorDone ? `<button onclick="openIcoModal(${inc.id}, ${JSON.stringify(inc).replace(/"/g,"'")})"
+              class="px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-lg transition cursor-pointer">
+              📋 Submit ICO Notification
+            </button>` : '<span class="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg">✓ ICO Notified</span>'}
+          </div>
+        </div>
+
+        <!-- Breach timeline -->
+        <div class="border border-gray-100 rounded-xl overflow-hidden">
+          <table class="w-full text-xs">
+            <tbody class="divide-y divide-gray-100">
+              <tr class="bg-gray-50">
+                <td class="px-4 py-2.5 font-bold text-gray-600 w-1/3">T+0 — Detected</td>
+                <td class="px-4 py-2.5 text-gray-700">${fmt(tl.t0.timestamp)}</td>
+                <td class="px-4 py-2.5"><span class="text-emerald-600 font-bold">✓ Logged</span></td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2.5 font-bold text-gray-600">T+24h — Controller</td>
+                <td class="px-4 py-2.5 text-gray-500">${fmt(tl.controllerNotification.deadline)}</td>
+                <td class="px-4 py-2.5">${tl.controllerNotification.completed
+                  ? '<span class="text-emerald-600 font-bold">✓ Notified</span>'
+                  : fmtCountdown(tl.controllerNotification.msRemaining)}</td>
+              </tr>
+              <tr class="bg-gray-50">
+                <td class="px-4 py-2.5 font-bold text-gray-600">T+72h — ICO (Art.33)</td>
+                <td class="px-4 py-2.5 text-gray-500">${fmt(tl.regulatorNotification.deadline)}</td>
+                <td class="px-4 py-2.5">${tl.regulatorNotification.completed
+                  ? '<span class="text-emerald-600 font-bold">✓ Submitted</span>'
+                  : fmtCountdown(tl.regulatorNotification.msRemaining)}</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2.5 font-bold text-gray-600">Data Subjects (Art.34)</td>
+                <td class="px-4 py-2.5 text-gray-500" colspan="2">${isHighRisk
+                  ? '<span class="text-orange-600 font-bold">Required — notify without undue delay</span>'
+                  : '<span class="text-gray-400">Not required (low/medium severity)</span>'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        ${inc.affectedUserCount ? `<p class="text-xs text-gray-500">Affected users: ~<strong>${inc.affectedUserCount}</strong></p>` : ''}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('breach-incidents-list').innerHTML =
+      '<div class="text-red-500 text-sm">Failed to load incidents.</div>';
+  }
+}
+
+function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function openLogIncidentModal() {
+  ['inc-title','inc-description','inc-data-types'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('inc-severity').value = 'high';
+  document.getElementById('inc-user-count').value = '0';
+  document.getElementById('modal-log-incident').classList.remove('hidden');
+}
+
+async function submitLogIncident() {
+  const title       = document.getElementById('inc-title').value.trim();
+  const description = document.getElementById('inc-description').value.trim();
+  const severity    = document.getElementById('inc-severity').value;
+  const userCount   = parseInt(document.getElementById('inc-user-count').value) || 0;
+  const dataTypesRaw = document.getElementById('inc-data-types').value;
+  const dataTypes   = dataTypesRaw.split(',').map(s => s.trim()).filter(Boolean);
+
+  if (!title || !description) { alert('Title and description are required.'); return; }
+
+  try {
+    const res = await fetch('/.netlify/functions/report-security-incident', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ title, description, severity, affectedUserCount: userCount, dataTypesAffected: dataTypes }),
+    });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || 'Failed to log incident.'); return; }
+    document.getElementById('modal-log-incident').classList.add('hidden');
+    loadBreachResponse();
+  } catch { alert('Connection failed.'); }
+}
+
+async function confirmRevokeTokens(incidentId, affectedUserIds) {
+  if (!confirm('⚠️ This will immediately revoke ALL connected app tokens for affected users. They will need to reconnect their integrations. Proceed?')) return;
+  try {
+    const res = await fetch('/.netlify/functions/emergency-revoke-tokens', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ incidentId, affectedUserIds }),
+    });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || 'Revocation failed.'); return; }
+    alert(`✓ Emergency revocation complete. ${d.totalRevoked ?? 0} token(s) revoked. Affected users notified.`);
+    loadBreachResponse();
+  } catch { alert('Connection failed.'); }
+}
+
+function openIcoModal(incidentId, inc) {
+  document.getElementById('ico-incident-id').value = incidentId;
+  document.getElementById('ico-nature').value = inc.description || '';
+  const types = Array.isArray(inc.dataTypesAffected) ? inc.dataTypesAffected.join(', ') : '';
+  document.getElementById('ico-categories').value = types;
+  document.getElementById('ico-subject-count').value = inc.affectedUserCount || 0;
+  document.getElementById('ico-consequences').value = '';
+  document.getElementById('ico-measures').value = '';
+  document.getElementById('modal-ico-notification').classList.remove('hidden');
+}
+
+async function submitIcoNotification() {
+  const incidentId            = parseInt(document.getElementById('ico-incident-id').value);
+  const natureOfBreach        = document.getElementById('ico-nature').value.trim();
+  const categoriesOfData      = document.getElementById('ico-categories').value.trim();
+  const approximateSubjectCount = parseInt(document.getElementById('ico-subject-count').value) || 0;
+  const likelyConsequences    = document.getElementById('ico-consequences').value.trim();
+  const measuresTaken         = document.getElementById('ico-measures').value.trim();
+
+  if (!natureOfBreach || !categoriesOfData || !likelyConsequences || !measuresTaken) {
+    alert('All 5 fields are required for ICO notification.'); return;
+  }
+
+  if (!confirm('Submit this notification to the ICO? This action will be permanently logged.')) return;
+
+  try {
+    const res = await fetch('/.netlify/functions/submit-regulator-notification', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ incidentId, natureOfBreach, categoriesOfData, approximateSubjectCount, likelyConsequences, measuresTaken }),
+    });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || 'Submission failed.'); return; }
+    document.getElementById('modal-ico-notification').classList.add('hidden');
+    alert(`✓ ICO notification logged. ${d.withinSla ? 'Within 72-hour SLA.' : '⚠️ Outside 72-hour SLA — ' + Math.round(d.hoursElapsed) + 'h elapsed.'}`);
+    loadBreachResponse();
+  } catch { alert('Connection failed.'); }
+}
+
+// ── popstate: back/forward navigation restores the correct view ──────────────
+window.addEventListener('popstate', (e) => {
+  const view = e.state?.view || new URLSearchParams(location.search).get('view') || 'dashboard';
+  // Find which category owns this view and open it, then load the view
+  const cat = Object.keys(ADMIN_CATS).find(k => ADMIN_CATS[k].children.some(c => c.view === view));
+  if (cat && cat !== 'dashboard') {
+    adminCatNav(cat);
+  }
+  adminNav(view);
+});
+
+// Boot: restore from URL param or default to dashboard
+(function bootAdmin() {
+  const params = new URLSearchParams(location.search);
+  const initialView = params.get('view') || 'dashboard';
+  const cat = Object.keys(ADMIN_CATS).find(k => ADMIN_CATS[k].children.some(c => c.view === initialView));
+  if (cat && cat !== 'dashboard') {
+    adminCatNav(cat);
+    adminNav(initialView);
+  } else {
+    adminCatNav('dashboard');
+  }
+})();
+
+// ── US-ADM-1.5.1: Bottom sheet helper ────────────────────────────────────────
+function openBottomSheet(id) {
+  document.getElementById(id + '-backdrop').classList.add('open');
+  document.getElementById(id + '-sheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeBottomSheet(id) {
+  document.getElementById(id + '-backdrop').classList.remove('open');
+  document.getElementById(id + '-sheet').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── US-ADM-1.7.1: Master Data Management ────────────────────────────────────
+
+const MD_API = '/.netlify/functions/master-data-api';
+
+const MD_TAB_RESOURCE = {
+  'plans':              'master-plans',
+  'plan-prices':        'plan-prices',
+  'assistants':         'master-assistants',
+  'assistant-versions': 'assistant-versions',
+  'feature-flags-md':   'feature-flags',
+  'languages':          'supported-languages',
+  'system-config':      'platform-config',
+};
+
+const MD_FIELDS = {
+  'master-plans': [
+    { key: 'name',              label: 'Name',              type: 'text',   required: true },
+    { key: 'description',       label: 'Description',       type: 'text' },
+    { key: 'monthlyPriceGbp',   label: 'Monthly Price (GBP)', type: 'number', required: true },
+    { key: 'tierKey',           label: 'Tier Key',          type: 'text',   required: true },
+    { key: 'isActive',          label: 'Active',            type: 'checkbox' },
+  ],
+  'plan-prices': [
+    { key: 'masterPlanId',      label: 'Master Plan ID',    type: 'number', required: true },
+    { key: 'currency',          label: 'Currency',          type: 'text',   required: true, placeholder: 'GBP' },
+    { key: 'monthlyPricePence', label: 'Monthly (pence)',   type: 'number', required: true },
+    { key: 'annualPricePence',  label: 'Annual (pence)',    type: 'number' },
+    { key: 'stripePriceIdMonthly', label: 'Stripe Monthly Price ID', type: 'text' },
+    { key: 'stripePriceIdAnnual',  label: 'Stripe Annual Price ID',  type: 'text' },
+  ],
+  'master-assistants': [
+    { key: 'name',              label: 'Name',              type: 'text',   required: true },
+    { key: 'roleKey',           label: 'Role Key',          type: 'text',   required: true },
+    { key: 'category',          label: 'Category',          type: 'text' },
+    { key: 'systemPrompt',      label: 'System Prompt',     type: 'textarea' },
+    { key: 'riskClassification', label: 'Risk',             type: 'text' },
+    { key: 'isActive',          label: 'Active',            type: 'checkbox' },
+  ],
+  'feature-flags': [
+    { key: 'key',               label: 'Flag Key',          type: 'text',   required: true },
+    { key: 'description',       label: 'Description',       type: 'text' },
+    { key: 'rolloutPercentage', label: 'Rollout %',         type: 'number' },
+    { key: 'isActive',          label: 'Active',            type: 'checkbox' },
+  ],
+  'supported-languages': [
+    { key: 'code',              label: 'BCP-47 Code',       type: 'text',   required: true },
+    { key: 'name',              label: 'Name',              type: 'text',   required: true },
+    { key: 'nativeName',        label: 'Native Name',       type: 'text' },
+    { key: 'sortOrder',         label: 'Sort Order',        type: 'number' },
+    { key: 'isActive',          label: 'Active',            type: 'checkbox' },
+  ],
+  'platform-config': [
+    { key: 'key',               label: 'Config Key',        type: 'text',   required: true },
+    { key: 'value',             label: 'Value',             type: 'text',   required: true },
+    { key: 'description',       label: 'Description',       type: 'text' },
+  ],
+};
+
+let _mdActiveTab = null;
+let _mdEditId = null;
+let _mdEditResource = null;
+let _mdCache = {};
+
+function mdSwitchTab(tab) {
+  _mdActiveTab = tab;
+  document.querySelectorAll('.md-tab').forEach(b => {
+    const active = b.dataset.tab === tab;
+    b.classList.toggle('border-indigo-600', active);
+    b.classList.toggle('text-indigo-600', active);
+    b.classList.toggle('border-transparent', !active);
+    b.classList.toggle('text-gray-500', !active);
+  });
+  document.querySelectorAll('.md-pane').forEach(p => p.classList.add('hidden'));
+  const pane = document.getElementById('md-pane-' + tab);
+  if (pane) pane.classList.remove('hidden');
+  mdCloseForm();
+  mdLoadTab(tab);
+}
+
+async function mdLoadTab(tab) {
+  const resource = MD_TAB_RESOURCE[tab];
+  if (!resource) return;
+  const tbodyId = 'md-' + tab + '-tbody';
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="9" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr>';
+  try {
+    const d = await api(MD_API + '?resource=' + resource);
+    const rows = d.data || d.records || d || [];
+    _mdCache[tab] = rows;
+    tbody.innerHTML = rows.length ? rows.map(r => mdRenderRow(tab, r)).join('') : '<tr><td colspan="9" class="px-5 py-8 text-center text-gray-400">No records found.</td></tr>';
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="9" class="px-5 py-8 text-center text-red-400">Failed to load: ' + (e.message || e) + '</td></tr>';
+  }
+}
+
+function mdRenderRow(tab, r) {
+  const editBtn = `<button onclick='mdOpenEdit("${tab}", ${JSON.stringify(r.id ?? r.key ?? r.code ?? '').replace(/'/g,"\\'")})'
+    class="text-xs text-indigo-600 hover:underline font-semibold mr-2">Edit</button>`;
+  const activeChip = v => v ? '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">Active</span>'
+                           : '<span class="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-xs">Inactive</span>';
+  const delBtn = (dbTable, id, lbl) => `<button onclick='openCascadeDeleteSheet("${dbTable}",${JSON.stringify(id)},"${String(lbl).replace(/"/g,"&quot;")}",()=>mdLoadTab(_mdActiveTab))' class="text-xs text-red-500 hover:underline font-semibold">Delete</button>`;
+  if (tab === 'plans') return `<tr class="border-t border-gray-100"><td class="px-4 py-3 font-medium">${r.name||''}</td><td class="px-4 py-3 text-gray-500">${r.tierKey||''}</td><td class="px-4 py-3 text-right font-mono">£${(r.monthlyPriceGbp||0)}</td><td class="px-4 py-3 text-center">${activeChip(r.isActive)}</td><td class="px-4 py-3 flex gap-2">${editBtn}${delBtn('master_plans',r.id,r.name||'Plan')}</td></tr>`;
+  if (tab === 'plan-prices') return `<tr class="border-t border-gray-100"><td class="px-4 py-3">${r.masterPlanId||''}</td><td class="px-4 py-3 font-mono font-bold">${r.currency||''}</td><td class="px-4 py-3 text-right font-mono">${r.monthlyPricePence!=null?r.monthlyPricePence+'p':'-'}</td><td class="px-4 py-3 text-right font-mono">${r.annualPricePence!=null?r.annualPricePence+'p':'-'}</td><td class="px-4 py-3 flex gap-2">${editBtn}${delBtn('plan_prices',r.id,(r.currency||'')+'price')}</td></tr>`;
+  if (tab === 'assistants') return `<tr class="border-t border-gray-100"><td class="px-4 py-3 font-medium">${r.name||''}</td><td class="px-4 py-3 text-gray-500">${r.category||''}</td><td class="px-4 py-3 text-gray-500">${r.riskClassification||''}</td><td class="px-4 py-3 text-center">${activeChip(r.isActive)}</td><td class="px-4 py-3 flex gap-2">${editBtn}${delBtn('master_assistants',r.id,r.name||'Assistant')}</td></tr>`;
+  if (tab === 'assistant-versions') return `<tr class="border-t border-gray-100"><td class="px-4 py-3">${r.masterAssistantId||''}</td><td class="px-4 py-3 text-center font-mono">v${r.versionNumber||''}</td><td class="px-4 py-3 text-gray-500 max-w-xs truncate">${r.changeNote||''}</td><td class="px-4 py-3 text-gray-400 text-xs">${r.createdAt?new Date(r.createdAt).toLocaleDateString('en-GB'):''}</td></tr>`;
+  if (tab === 'feature-flags-md') return `<tr class="border-t border-gray-100"><td class="px-4 py-3 font-mono text-xs">${r.key||''}</td><td class="px-4 py-3 text-gray-500 max-w-xs truncate">${r.description||''}</td><td class="px-4 py-3 text-center">${activeChip(r.isActive)}</td><td class="px-4 py-3 text-center font-mono">${r.rolloutPercentage??0}%</td><td class="px-4 py-3 flex gap-2">${editBtn}${delBtn('feature_flags',r.key,r.key||'Flag')}</td></tr>`;
+  if (tab === 'languages') return `<tr class="border-t border-gray-100"><td class="px-4 py-3 font-mono">${r.code||''}</td><td class="px-4 py-3">${r.name||''}</td><td class="px-4 py-3 text-gray-500">${r.nativeName||''}</td><td class="px-4 py-3 text-center">${activeChip(r.isActive)}</td><td class="px-4 py-3 flex gap-2">${editBtn}${delBtn('supported_languages',r.code,r.name||r.code)}</td></tr>`;
+  if (tab === 'system-config') return `<tr class="border-t border-gray-100"><td class="px-4 py-3 font-mono text-xs">${r.key||''}</td><td class="px-4 py-3 font-mono text-xs max-w-xs truncate">${r.value||''}</td><td class="px-4 py-3 text-gray-500 text-xs">${r.description||''}</td><td class="px-4 py-3 flex gap-2">${editBtn}${delBtn('platform_config',r.key,r.key||'Config')}</td></tr>`;
+  return '';
+}
+
+function mdOpenAdd(tab) {
+  _mdEditId = null;
+  _mdEditResource = MD_TAB_RESOURCE[tab];
+  mdRenderForm(tab, {});
+}
+
+function mdOpenEdit(tab, id) {
+  _mdEditId = id;
+  _mdEditResource = MD_TAB_RESOURCE[tab];
+  const rows = _mdCache[tab] || [];
+  const record = rows.find(r => (r.id ?? r.key ?? r.code) == id) || {};
+  mdRenderForm(tab, record);
+}
+
+function mdRenderForm(tab, record) {
+  const resource = MD_TAB_RESOURCE[tab];
+  const fields = MD_FIELDS[resource] || [];
+  const isEdit = _mdEditId != null;
+  document.getElementById('md-form-title').textContent = (isEdit ? 'Edit' : 'Add') + ' — ' + (document.querySelector('.md-tab[data-tab="' + tab + '"]')?.textContent || tab);
+  const isPlan = tab === 'plans' && isEdit;
+  document.getElementById('md-plan-warning').classList.toggle('hidden', !isPlan);
+  document.getElementById('md-form-fields').innerHTML = fields.map(f => {
+    const val = record[f.key] ?? '';
+    if (f.type === 'checkbox') return `<label class="flex items-center gap-2 sm:col-span-2"><input type="checkbox" id="md-f-${f.key}" class="w-4 h-4 accent-indigo-600" ${val ? 'checked' : ''}><span class="text-sm text-gray-700">${f.label}</span></label>`;
+    if (f.type === 'textarea') return `<div class="sm:col-span-2"><label class="block text-xs font-bold text-gray-500 mb-1">${f.label}${f.required?' <span class=\'text-red-500\'>*</span>':''}</label><textarea id="md-f-${f.key}" rows="4" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none font-mono text-xs">${val}</textarea></div>`;
+    return `<div><label class="block text-xs font-bold text-gray-500 mb-1">${f.label}${f.required?' <span class="text-red-500">*</span>':''}</label><input id="md-f-${f.key}" type="${f.type}" value="${String(val).replace(/"/g,'&quot;')}" placeholder="${f.placeholder||''}" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"></div>`;
+  }).join('');
+  document.getElementById('md-form-panel').classList.remove('hidden');
+  document.getElementById('md-form-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function mdSaveRecord() {
+  const resource = _mdEditResource;
+  const fields = MD_FIELDS[resource] || [];
+  const body = {};
+  for (const f of fields) {
+    const el = document.getElementById('md-f-' + f.key);
+    if (!el) continue;
+    if (f.type === 'checkbox') body[f.key] = el.checked;
+    else if (f.type === 'number') body[f.key] = el.value !== '' ? Number(el.value) : null;
+    else body[f.key] = el.value;
+    if (f.required && (body[f.key] === '' || body[f.key] === null)) {
+      alert(f.label + ' is required.');
+      el.focus();
+      return;
+    }
+  }
+  const isEdit = _mdEditId != null;
+  const url = MD_API + '?resource=' + resource + (isEdit ? '&id=' + encodeURIComponent(_mdEditId) : '');
+  try {
+    await api(url, { method: isEdit ? 'PATCH' : 'POST', body: JSON.stringify(body) });
+    mdCloseForm();
+    mdLoadTab(_mdActiveTab);
+  } catch (e) {
+    alert('Save failed: ' + (e.message || e));
+  }
+}
+
+function mdCloseForm() {
+  document.getElementById('md-form-panel').classList.add('hidden');
+  _mdEditId = null;
+  _mdEditResource = null;
+}
+
+// Load master data when the view is opened
+const _origLoadView = typeof loadView === 'function' ? loadView : null;
+function _mdOnViewSwitch(view) {
+  if (view === 'master-data' && !_mdActiveTab) {
+    mdSwitchTab('plans');
+  }
+}
+// Hook into the existing adminShowView if available
+(function() {
+  const orig = window.adminShowView;
+  if (typeof orig === 'function') {
+    window.adminShowView = function(view) { orig(view); _mdOnViewSwitch(view); };
+  }
+})();
+
+// ── US-GDPR-4.2.2: RoPA Export ───────────────────────────────────────────────
+async function downloadRopaExport() {
+  try {
+    const res = await fetch('/.netlify/functions/admin-api?resource=ropa-export', {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `aura-ropa-article30-${today}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('RoPA export failed: ' + (e.message || e));
+  }
+}
+
+// ── US-ADM-1.6.1: Cascade Delete Sheet ──────────────────────────────────────
+
+let _cascadeTable = null;
+let _cascadeId = null;
+let _cascadeLabel = null;
+let _cascadeOnSuccess = null;
+let _cascadeBlocked = false;
+
+async function openCascadeDeleteSheet(table, id, label, onSuccess) {
+  _cascadeTable = table;
+  _cascadeId = id;
+  _cascadeLabel = label;
+  _cascadeOnSuccess = onSuccess || null;
+  _cascadeBlocked = false;
+
+  document.getElementById('cascade-delete-subtitle').textContent = label;
+  document.getElementById('cascade-preview-loading').classList.remove('hidden');
+  document.getElementById('cascade-preview-content').classList.add('hidden');
+  document.getElementById('cascade-confirm-btn').classList.add('hidden');
+  document.getElementById('cascade-reason-input').value = '';
+
+  openBottomSheet('cascade-delete');
+
+  try {
+    const d = await api(`/.netlify/functions/cascade-preview?table=${encodeURIComponent(table)}&id=${encodeURIComponent(id)}`);
+    document.getElementById('cascade-preview-loading').classList.add('hidden');
+    document.getElementById('cascade-preview-content').classList.remove('hidden');
+
+    const blockedBanner = document.getElementById('cascade-blocked-banner');
+    const blockedReason = document.getElementById('cascade-blocked-reason');
+    const groupsEl = document.getElementById('cascade-groups');
+    const reasonSection = document.getElementById('cascade-reason-section');
+    const confirmBtn = document.getElementById('cascade-confirm-btn');
+
+    if (d.blocked) {
+      _cascadeBlocked = true;
+      blockedBanner.classList.remove('hidden');
+      blockedReason.textContent = d.blockedReason || 'This record cannot be deleted.';
+      groupsEl.innerHTML = '';
+      reasonSection.classList.add('hidden');
+      confirmBtn.classList.add('hidden');
+    } else {
+      blockedBanner.classList.add('hidden');
+      _cascadeBlocked = false;
+
+      const groups = d.cascadeGroups || [];
+      if (groups.length === 0) {
+        groupsEl.innerHTML = '<p class="text-xs text-gray-400">No dependent records will be affected.</p>';
+      } else {
+        groupsEl.innerHTML = groups.map(g => {
+          const typeLabel = g.type === 'hard_deleted' ? '🗑 Hard-deleted'
+                         : g.type === 'soft_deleted'  ? '📦 Soft-deleted'
+                         :                              '🔗 FK nullified';
+          const colorClass = g.type === 'hard_deleted' ? 'text-red-600' : g.type === 'soft_deleted' ? 'text-amber-600' : 'text-gray-500';
+          return `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-100 last:border-0">
+            <span class="font-mono text-gray-700">${g.table}</span>
+            <span class="${colorClass} font-semibold">${typeLabel} &times; ${g.count}</span>
+          </div>`;
+        }).join('');
+      }
+
+      reasonSection.classList.remove('hidden');
+      confirmBtn.classList.remove('hidden');
+      confirmBtn.textContent = d.tier === 'hard' || d.tier === 'hard_confirmed' ? '⚠️ Permanently Delete' : 'Delete';
+    }
+  } catch (e) {
+    document.getElementById('cascade-preview-loading').classList.add('hidden');
+    document.getElementById('cascade-preview-content').innerHTML = `<p class="text-sm text-red-500">Failed to load preview: ${e.message}</p>`;
+    document.getElementById('cascade-preview-content').classList.remove('hidden');
+  }
+}
+
+async function confirmCascadeDelete() {
+  if (_cascadeBlocked) return;
+  const reason = document.getElementById('cascade-reason-input').value.trim();
+  if (!reason) {
+    document.getElementById('cascade-reason-input').focus();
+    document.getElementById('cascade-reason-input').classList.add('ring-2', 'ring-red-400');
+    return;
+  }
+  document.getElementById('cascade-reason-input').classList.remove('ring-2', 'ring-red-400');
+
+  const btn = document.getElementById('cascade-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+
+  try {
+    await api('/.netlify/functions/admin-delete-record', {
+      method: 'POST',
+      body: JSON.stringify({ table: _cascadeTable, id: _cascadeId, reason, previewAcknowledged: true }),
+    });
+    closeCascadeDeleteSheet();
+    if (typeof _cascadeOnSuccess === 'function') _cascadeOnSuccess();
+  } catch (e) {
+    alert('Delete failed: ' + (e.message || e));
+    btn.disabled = false;
+    btn.textContent = 'Delete';
+  }
+}
+
+function closeCascadeDeleteSheet() {
+  closeBottomSheet('cascade-delete');
+  _cascadeTable = null;
+  _cascadeId = null;
+  _cascadeLabel = null;
+  _cascadeOnSuccess = null;
+  _cascadeBlocked = false;
+}
+
+// Sync bottom tab bar active state with the primary nav
+const _origAdminCatNav = adminCatNav;
+function adminCatNav(cat) {
+  _origAdminCatNav(cat);
+  document.querySelectorAll('.admin-bottom-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === cat);
+  });
+  document.querySelectorAll('.admin-more-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === cat);
+  });
+}
+
+function toggleMoreDrawer() {
+  const drawer = document.getElementById('admin-more-drawer');
+  const btn = document.getElementById('admin-more-btn');
+  const isOpen = drawer.classList.toggle('open');
+  btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+function closeMoreDrawer() {
+  document.getElementById('admin-more-drawer').classList.remove('open');
+  document.getElementById('admin-more-btn').setAttribute('aria-expanded', 'false');
+}
 </script>
+
+<!-- US-ADM-1.5.1: Bottom tab bar (mobile <768px) — 4 tabs + More -->
+<div id="admin-bottom-tabs" role="navigation" aria-label="Admin mobile navigation">
+  <nav>
+    <button class="admin-bottom-tab-btn" data-cat="users" onclick="adminCatNav('users')" aria-label="Users">
+      <span class="tab-icon">👥</span>
+      <span>Users</span>
+    </button>
+    <button class="admin-bottom-tab-btn" data-cat="billing" onclick="adminCatNav('billing')" aria-label="Billing">
+      <span class="tab-icon">💳</span>
+      <span>Billing</span>
+    </button>
+    <button class="admin-bottom-tab-btn" data-cat="platform" onclick="adminCatNav('platform')" aria-label="Platform">
+      <span class="tab-icon">⚙️</span>
+      <span>Platform</span>
+    </button>
+    <button class="admin-bottom-tab-btn" data-cat="security" onclick="adminCatNav('security')" aria-label="Security">
+      <span class="tab-icon">🔒</span>
+      <span>Security</span>
+    </button>
+    <button class="admin-bottom-tab-btn" id="admin-more-btn" onclick="toggleMoreDrawer()" aria-label="More" aria-expanded="false">
+      <span class="tab-icon">•••</span>
+      <span>More</span>
+    </button>
+  </nav>
+</div>
+
+<!-- More drawer -->
+<div id="admin-more-drawer" role="dialog" aria-label="More navigation" aria-modal="true">
+  <div id="admin-more-drawer-backdrop" onclick="closeMoreDrawer()"></div>
+  <div id="admin-more-drawer-panel">
+    <button class="admin-more-item" data-cat="dashboard" onclick="adminCatNav('dashboard');closeMoreDrawer()">
+      <span class="more-icon">📊</span>Dashboard
+    </button>
+    <button class="admin-more-item" data-cat="assistants" onclick="adminCatNav('assistants');closeMoreDrawer()">
+      <span class="more-icon">🤖</span>Assistants
+    </button>
+    <button class="admin-more-item" data-cat="analytics" onclick="adminCatNav('analytics');closeMoreDrawer()">
+      <span class="more-icon">📈</span>Analytics
+    </button>
+    <button class="admin-more-item" data-cat="logs" onclick="adminCatNav('logs');closeMoreDrawer()">
+      <span class="more-icon">📋</span>Audit Logs
+    </button>
+  </div>
+</div>
 </body>
 </html>

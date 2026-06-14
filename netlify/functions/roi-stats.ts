@@ -87,9 +87,10 @@ export const handler = async (event: HandlerEvent) => {
             .where(eq(users.id, userId));
 
         let planCostGbp: number | null = null;
+        let currency = 'GBP';
         if (user?.organisationId) {
             const [plan] = await db
-                .select({ monthlyPriceGbp: masterPlans.monthlyPriceGbp })
+                .select({ monthlyPriceGbp: masterPlans.monthlyPriceGbp, currency: plans.currency })
                 .from(plans)
                 .innerJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
                 .where(and(eq(plans.organisationId, user.organisationId), eq(plans.status, 'active')))
@@ -97,6 +98,7 @@ export const handler = async (event: HandlerEvent) => {
             if (plan?.monthlyPriceGbp) {
                 planCostGbp = parseFloat(String(plan.monthlyPriceGbp));
             }
+            if (plan?.currency) currency = plan.currency;
         }
 
         // SC2: multiplier = gbpSaved / planCostGbp (only for monthly period)
@@ -120,7 +122,10 @@ export const handler = async (event: HandlerEvent) => {
                 taskCount: completedTasks,
                 hoursSaved,
                 gbpSaved,
+                amountSaved: gbpSaved,    // US-I18N-2.1 SC5: currency-neutral alias — format with `currency`
                 planCostGbp,
+                planCost: planCostGbp,    // US-I18N-2.1 SC5: currency-neutral alias
+                currency,                 // user's billing currency — use with Intl.NumberFormat
                 multiplier,
                 tasksToBreakEven,
                 hourlyRateSet: hourlyRate !== null,

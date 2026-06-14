@@ -256,6 +256,28 @@
             if (bannerDesc) bannerDesc.textContent = d.starterTask.description;
           }
         }
+
+        // SC3: Gate the assistant library until first task is complete
+        if (!d.milestoneComplete && !d.milestoneSkipped) {
+          const catalogBtn = document.getElementById('route-to-catalog');
+          if (catalogBtn) {
+            catalogBtn.removeAttribute('href');
+            catalogBtn.style.cssText += ';opacity:0.5;cursor:not-allowed;pointer-events:none;position:relative;';
+            catalogBtn.title = 'Complete your first task to unlock the full library.';
+            catalogBtn.setAttribute('aria-disabled', 'true');
+            // Tooltip wrapper
+            const wrapper = document.createElement('span');
+            wrapper.style.cssText = 'position:relative;display:inline-block;';
+            const tip = document.createElement('span');
+            tip.style.cssText = 'position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;background:#1f2937;color:#fff;font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:20;';
+            tip.textContent = 'Complete your first task to unlock the full library.';
+            catalogBtn.parentNode.insertBefore(wrapper, catalogBtn);
+            wrapper.appendChild(catalogBtn);
+            wrapper.appendChild(tip);
+            wrapper.addEventListener('mouseenter', () => { tip.style.opacity = '1'; });
+            wrapper.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
+          }
+        }
       } catch { /* fail silently */ }
     })();
 
@@ -313,6 +335,16 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'complete' }),
+        }).catch(() => {});
+
+        // SC4: In-app congratulatory notification
+        fetch('/.netlify/functions/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'milestone_first_task',
+            title: 'Your assistant just saved you time. Explore what else it can do.',
+          }),
         }).catch(() => {});
 
         // Hide the task screen and show the result inline

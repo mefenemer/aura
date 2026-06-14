@@ -10,9 +10,9 @@
 // SC5: Unsubscribe — skips users in win_back_opt_outs
 
 import { Handler, schedule } from '@netlify/functions';
-import { eq, and, gte, lte, isNotNull } from 'drizzle-orm';
+import { eq, and, gte, lte, isNotNull, count } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, plans, winBackOptOuts, processedWebhookEvents } from '../../db/schema';
+import { users, plans, winBackOptOuts, processedWebhookEvents, taskRuns } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 
 const BASE_URL = process.env.BASE_URL || '';
@@ -105,13 +105,27 @@ async function runWinBackEmails() {
         const pricingUrl  = `${BASE_URL}/pricing.html`;
 
         if (isDay7) {
-            // SC1/SC2: Day 7 win-back — soft nudge
+            // SC1/SC2: Day 7 win-back — soft nudge with personalised task count
+            const thirtyDaysBefore = new Date(cancelledAt.getTime() - 30 * 24 * 60 * 60 * 1000);
+            const [{ value: taskCount }] = await db
+                .select({ value: count() })
+                .from(taskRuns)
+                .where(and(
+                    eq(taskRuns.userId, userId),
+                    gte(taskRuns.createdAt, thirtyDaysBefore),
+                    lte(taskRuns.createdAt, cancelledAt),
+                ));
+
+            const taskLine = taskCount > 0
+                ? `<p>In your last month with Aura, your assistants completed <strong>${taskCount} task${taskCount === 1 ? '' : 's'}</strong> for you.</p>`
+                : '';
+
             await sendEmail({
                 to: userRecord.email,
                 subject: `We miss you — here's what your assistants have been up to`,
                 html: `<p>Hi ${name},</p>
                        <p>It's been a week since you left Aura, and we've been thinking about you.</p>
-                       <p>Your AI assistants haven't stopped — they've been patiently waiting, ready to jump straight back in to scheduling, content creation, and growing your business the moment you return.</p>
+                       ${taskLine}<p>Your AI assistants haven't stopped — they've been patiently waiting, ready to jump straight back in to scheduling, content creation, and growing your business the moment you return.</p>
                        <p>Coming back is easy. Your entire setup — assistants, brand voice, integrations — is preserved and ready.</p>
                        <p style="margin-top:24px;">
                          <a href="${pricingUrl}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">

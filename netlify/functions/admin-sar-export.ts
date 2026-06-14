@@ -21,7 +21,7 @@ import {
     aiAssistants, taskRuns, workspaceAssets, contentAssets,
     supportTickets, auditLogs, dataExportRequests, notifications,
     userNotifications, onboardingDrafts, scheduledPosts,
-    gdprErasureLog,
+    gdprErasureLog, tosAcceptances, dpaAcceptances,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 
@@ -91,6 +91,10 @@ export const handler: Handler = async (event) => {
     const scheduled   = await db.select().from(scheduledPosts).where(eq(scheduledPosts.userId, targetUserId));
     const notifs      = await db.select().from(notifications).where(eq(notifications.userId, targetUserId));
     const erasures    = await db.select().from(gdprErasureLog).where(eq(gdprErasureLog.requestedBy, adminId));
+    const tosRecords  = await db.select().from(tosAcceptances).where(eq(tosAcceptances.userId, targetUserId));
+    const dpaRecords  = user.organisationId
+        ? await db.select().from(dpaAcceptances).where(eq(dpaAcceptances.organisationId, user.organisationId))
+        : [];
 
     // ── 4. Build the SAR package ───────────────────────────────────────────
     const sarData = {
@@ -124,8 +128,19 @@ export const handler: Handler = async (event) => {
         auditLog:          auditEntries,
         gdprErasureLog:    erasures,
         consentLog: {
-            note: 'ToS and privacy consent is captured at account creation. See profile.legalConsents for detailed consent records.',
-            legalConsents: profile?.legalConsents ?? null,
+            tosAcceptances: tosRecords.map(r => ({
+                version:    r.version,
+                acceptedAt: r.acceptedAt,
+                ipAddress:  r.ipAddress,
+                userAgent:  r.userAgent,
+            })),
+            dpaAcceptances: dpaRecords.map(r => ({
+                version:    r.version,
+                acceptedAt: r.acceptedAt,
+                ipAddress:  r.ipAddress,
+                userAgent:  r.userAgent,
+                email:      r.email,
+            })),
         },
     };
 

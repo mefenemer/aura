@@ -13,6 +13,23 @@ node_bundler = "esbuild"
   function = "auth-guard"
   path = "/"
 
+# US-GAP-7.1.1: In-memory rate limiting for sensitive endpoints
+[[edge_functions]]
+  function = "rate-limit"
+  path = "/.netlify/functions/register"
+
+[[edge_functions]]
+  function = "rate-limit"
+  path = "/.netlify/functions/login"
+
+[[edge_functions]]
+  function = "rate-limit"
+  path = "/.netlify/functions/onboarding"
+
+[[edge_functions]]
+  function = "rate-limit"
+  path = "/.netlify/functions/support-tickets"
+
 # SC3: Daily task-volume threshold check — 08:00 UTC every day
 [functions.task-volume-check]
   schedule = "0 8 * * *"
@@ -24,3 +41,26 @@ node_bundler = "esbuild"
 # US-SALES-1.1 Part 4: Nightly lead identification — 03:00 UTC every day
 [functions.identify-leads]
   schedule = "0 3 * * *"
+# US-GOV-2.1.1: Daily digest for stale pending HITL actions — 09:00 UTC every day
+[functions.pending-actions-digest]
+  schedule = "0 9 * * *"
+
+# US-GOV-3.3.1: Monthly bias statistical sampling — 1st of month at 06:00 UTC
+[functions.bias-sampling]
+  schedule = "0 6 1 * *"
+
+# US-GOV-3.3.1: Quarterly bias prompt review reminder — 1st Jan/Apr/Jul/Oct at 08:00 UTC
+[functions.quarterly-bias-reminder]
+  schedule = "0 8 1 1,4,7,10 *"
+
+# US-SMM-2.4.1: Daily draft horizon gap-fill — 06:00 UTC every day
+[functions.draft-horizon-fill]
+  schedule = "0 6 * * *"
+
+# US-SMM-2.4.2: Review urgency check (red-zone alerts + missed post detection) — every 15 minutes
+[functions.check-review-urgency]
+  schedule = "*/15 * * * *"
+
+# US-LEGAL-1.5: 14-day pre-renewal email reminder — 07:00 UTC every day
+[functions.renewal-reminder]
+  schedule = "0 7 * * *"

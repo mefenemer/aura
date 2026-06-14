@@ -32,11 +32,12 @@ import {
     organisations, billingReconciliationLog, masterPlans, platformConfig, featureFlags,
     billingOverrides, payments, assistantVersions,
     agentAnomalies, agentAnomalyThresholds, taskRuns,
-    legalHolds,
+    legalHolds, jwtBlocklist, stripeDisputes,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { isAdminRole, hasPermission, requirePermission } from '../../src/utils/rbac';
+import { checkImpersonationBlock } from '../../src/utils/impersonation';
 import { SPECIAL_CATEGORY_CLAUSE } from './get-dpa-content';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -447,6 +448,16 @@ export const handler: Handler = async (event) => {
                 ipAddress: getAdminIp(event.headers as any),
             });
 
+            // Invalidate all active JWTs for the user by adding to blocklist
+            if (lockAction === 'lock') {
+                await db.insert(jwtBlocklist).values({
+                    userId: uid,
+                    blockType: 'userId',
+                    reason: 'admin_revoke',
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // JWT max lifetime
+                }).catch(() => {});
+            }
+
             // Notify the user by email
             if (targetUser.email && resend && lockAction === 'lock') {
                 await resend.emails.send({
@@ -468,6 +479,8 @@ export const handler: Handler = async (event) => {
         // ── POST: Initiate email address change — US-ADM-1.1.1 ───────────────
         // Requires billing_admin or above. Sends double-opt-in confirmation links.
         if (event.httpMethod === 'POST' && resource === 'email-change') {
+            const impersonationErr = checkImpersonationBlock(event);
+            if (impersonationErr) return impersonationErr;
             const permErr = requirePermission(adminRole, 'email_change');
             if (permErr) return permErr;
 
@@ -903,6 +916,9 @@ export const handler: Handler = async (event) => {
         // per-workspace MRR vs cost for margin calculation, model distribution,
         // and 30-day daily spend.
         if (event.httpMethod === 'GET' && resource === 'cogs-dashboard') {
+            const cogsPermErr = requirePermission(adminRole, 'view_cogs');
+            if (cogsPermErr) return cogsPermErr;
+
             const now = new Date();
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
             const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -983,6 +999,60 @@ export const handler: Handler = async (event) => {
                 .groupBy(sql`DATE(created_at)`)
                 .orderBy(sql`DATE(created_at)`);
 
+            // (5) US-GDPR-4.2.2: Data category breakdown — unnest the array, count per category
+            const dataCategoryRows = await db.execute(sql`
+                SELECT
+                    category,
+                    COUNT(*) AS call_count
+                FROM ai_usage_log, unnest(data_categories) AS category
+                WHERE created_at >= ${thirtyDaysAgo}
+                GROUP BY category
+                ORDER BY call_count DESC
+            `);
+
+            const totalCallsLast30d = await db
+                .select({ total: count() })
+                .from(aiUsageLog)
+                .where(gte(aiUsageLog.createdAt, thirtyDaysAgo));
+            const totalCalls = Number(totalCallsLast30d[0]?.total ?? 0);
+
+            // Count of special_category_suspected calls — should be near zero
+            const specialCatRows = await db.execute(sql`
+                SELECT COUNT(*) AS cnt
+                FROM ai_usage_log
+                WHERE created_at >= ${thirtyDaysAgo}
+                  AND 'special_category_suspected' = ANY(data_categories)
+            `);
+            const specialCatCount = Number((specialCatRows.rows?.[0] as any)?.cnt ?? 0);
+
+            // 30-day daily trend for special_category_suspected
+            const specialCatTrend = await db.execute(sql`
+                SELECT DATE(created_at) AS day, COUNT(*) AS cnt
+                FROM ai_usage_log
+                WHERE created_at >= ${thirtyDaysAgo}
+                  AND 'special_category_suspected' = ANY(data_categories)
+                GROUP BY DATE(created_at)
+                ORDER BY day
+            `);
+
+            // Alert if special_category_suspected > 1% of calls in the last 30 days
+            const specialCatAlertThreshold = Math.max(1, Math.floor(totalCalls * 0.01));
+            const specialCatAlert = specialCatCount > specialCatAlertThreshold
+                ? { triggered: true, count: specialCatCount, threshold: specialCatAlertThreshold }
+                : { triggered: false };
+
+            const dataCategoryBreakdown = {
+                totalCalls,
+                byCategory: (dataCategoryRows.rows as any[]).map(r => ({
+                    category: r.category,
+                    callCount: Number(r.call_count),
+                    pct: totalCalls > 0 ? +((Number(r.call_count) / totalCalls) * 100).toFixed(1) : 0,
+                })),
+                specialCategoryCount: specialCatCount,
+                specialCategoryTrend: (specialCatTrend.rows as any[]).map(r => ({ day: r.day, count: Number(r.cnt) })),
+                alert: specialCatAlert,
+            };
+
             const platformTotalGbp = +(platformTotalUsd * (fxRates.USD ?? 0.787)).toFixed(2);
 
             return {
@@ -993,6 +1063,7 @@ export const handler: Handler = async (event) => {
                     topWorkspaces: workspacesWithMargin,
                     modelDist,
                     dailySpend,
+                    dataCategoryBreakdown,
                     monthStart: monthStart.toISOString(),
                     fxRates,
                 }),
@@ -1374,6 +1445,40 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        // ── GET: Disputes tab — US-ADM-2.2.1 ─────────────────────────────────────
+        if (event.httpMethod === 'GET' && resource === 'disputes') {
+            const permErr = requirePermission(adminRole, 'view_billing_history');
+            if (permErr) return permErr;
+
+            const rows = await db
+                .select({
+                    id: stripeDisputes.id,
+                    stripeDisputeId: stripeDisputes.stripeDisputeId,
+                    stripeChargeId: stripeDisputes.stripeChargeId,
+                    userId: stripeDisputes.userId,
+                    organisationId: stripeDisputes.organisationId,
+                    amount: stripeDisputes.amount,
+                    currency: stripeDisputes.currency,
+                    reason: stripeDisputes.reason,
+                    status: stripeDisputes.status,
+                    evidenceDeadline: stripeDisputes.evidenceDeadline,
+                    createdAt: stripeDisputes.createdAt,
+                    userEmail: users.email,
+                    orgName: organisations.name,
+                })
+                .from(stripeDisputes)
+                .leftJoin(users, eq(users.id, stripeDisputes.userId))
+                .leftJoin(organisations, eq(organisations.id, stripeDisputes.organisationId))
+                .orderBy(desc(stripeDisputes.createdAt))
+                .limit(100);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ disputes: rows }),
+            };
+        }
+
         // ── US-SALES-1.1 Part 5: Sales Pipeline ──────────────────────────────
         if (event.httpMethod === 'GET' && resource === 'sales-pipeline') {
             const denied = requirePermission(adminRole, 'view_billing_history');
@@ -1479,7 +1584,7 @@ export const handler: Handler = async (event) => {
                 .where(eq(masterAssistants.id, uid2));
 
             await insertAdminAuditLog({
-                adminId, action: 'feature_flag_toggle' as any, // reusing closest type; real type would be 'assistant_state_change'
+                adminId, action: 'assistant_state_change',
                 targetType: 'assistant', targetId: uid2,
                 previousState: { lifecycleState: assistant.lifecycleState },
                 newState: { lifecycleState: newState },
@@ -1530,7 +1635,7 @@ export const handler: Handler = async (event) => {
             for (const item of items) {
                 const assistant = rows.find(r => r.id === item.id)!;
                 await insertAdminAuditLog({
-                    adminId, action: 'feature_flag_toggle' as any,
+                    adminId, action: 'assistant_state_change',
                     targetType: 'assistant', targetId: item.id,
                     previousState: { lifecycleState: 'beta' },
                     newState: { lifecycleState: 'live' },
@@ -1671,7 +1776,7 @@ export const handler: Handler = async (event) => {
                 .where(eq(masterAssistants.id, uid2));
 
             await insertAdminAuditLog({
-                adminId, action: 'feature_flag_toggle' as any,
+                adminId, action: 'assistant_state_change',
                 targetType: 'assistant', targetId: uid2,
                 previousState: { versionId },
                 newState: { rolledBackToVersion: targetVersion.versionNumber, newVersionId: rollbackVersion.id },
@@ -1839,6 +1944,80 @@ export const handler: Handler = async (event) => {
                 await audit(db, adminId, 'UPDATE', 'legal_holds', holdId, { liftedAt: lifted.liftedAt });
                 return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hold: lifted }) };
             }
+        }
+
+        // ── GET: ropa-export — US-GDPR-4.2.2 Article 30 RoPA export ────────────
+        if (event.httpMethod === 'GET' && resource === 'ropa-export') {
+            const permErr = requirePermission(adminRole, 'view_cogs');
+            if (permErr) return permErr;
+
+            const from = event.queryStringParameters?.from;
+            const to   = event.queryStringParameters?.to;
+            const periodStart = from ? new Date(from) : (() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; })();
+            const periodEnd   = to   ? new Date(to)   : new Date();
+
+            // Category breakdown
+            const catRows = await db.execute(sql`
+                SELECT category, COUNT(*) AS call_count
+                FROM ai_usage_log, unnest(data_categories) AS category
+                WHERE created_at >= ${periodStart} AND created_at <= ${periodEnd}
+                GROUP BY category ORDER BY call_count DESC
+            `);
+            const totalRes = await db.select({ total: count() }).from(aiUsageLog)
+                .where(and(gte(aiUsageLog.createdAt, periodStart), lte(aiUsageLog.createdAt, periodEnd)));
+            const totalCalls = Number(totalRes[0]?.total ?? 0);
+
+            const specialRes = await db.execute(sql`
+                SELECT COUNT(*) AS cnt FROM ai_usage_log
+                WHERE created_at >= ${periodStart} AND created_at <= ${periodEnd}
+                  AND 'special_category_suspected' = ANY(data_categories)
+            `);
+            const specialCount = Number((specialRes.rows?.[0] as any)?.cnt ?? 0);
+
+            // Pseudonymised log: userId hashed, no email
+            const logRows = await db.select({
+                id: aiUsageLog.id,
+                model: aiUsageLog.model,
+                feature: aiUsageLog.feature,
+                promptTokens: aiUsageLog.promptTokens,
+                completionTokens: aiUsageLog.completionTokens,
+                dataCategories: aiUsageLog.dataCategories,
+                createdAt: aiUsageLog.createdAt,
+            }).from(aiUsageLog)
+              .where(and(gte(aiUsageLog.createdAt, periodStart), lte(aiUsageLog.createdAt, periodEnd)))
+              .limit(10000);
+
+            const byCategory = (catRows.rows as any[]).map(r => ({
+                category: r.category,
+                callCount: Number(r.call_count),
+                pct: totalCalls > 0 ? +((Number(r.call_count) / totalCalls) * 100).toFixed(1) : 0,
+            }));
+
+            const report = {
+                meta: {
+                    exportedAt: new Date().toISOString(),
+                    exportedByAdminId: adminId,
+                    periodStart: periodStart.toISOString(),
+                    periodEnd: periodEnd.toISOString(),
+                    reportType: 'Article30_RoPA_LLM_Transfer_Log',
+                },
+                summary: {
+                    totalLlmCalls: totalCalls,
+                    byDataCategory: byCategory,
+                    specialCategorySuspectedCount: specialCount,
+                    zeroSpecialCategoryTransferred: specialCount === 0,
+                },
+                pseudonymisedLog: logRows,
+            };
+
+            return {
+                statusCode: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Disposition': `attachment; filename="aura-ropa-article30-${new Date().toISOString().slice(0,10)}.json"`,
+                },
+                body: JSON.stringify(report, null, 2),
+            };
         }
 
         return { statusCode: 404, body: JSON.stringify({ error: `Unknown resource: ${resource}` }) };

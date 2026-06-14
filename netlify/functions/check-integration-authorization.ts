@@ -76,6 +76,12 @@ export const handler: Handler = async (event) => {
         };
     }
 
+    // US-GOV-4.2.3: stamp lastUsedAt on each check (fire-and-forget)
+    db.update(integrationAuthorizations)
+        .set({ lastUsedAt: new Date() })
+        .where(eq(integrationAuthorizations.id, auth.id))
+        .catch(() => {});
+
     return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
