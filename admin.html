@@ -1406,15 +1406,20 @@
 
   /* On desktop, bottom-sheet-triggered dialogs fall back to centred modal */
   @media (min-width: 768px) {
-    .bottom-sheet-backdrop.open { display: flex; align-items: center; justify-content: center; }
+    .bottom-sheet-backdrop.open { display: block; }
     .bottom-sheet {
-      position: static;
+      position: fixed;
+      bottom: auto;
+      top: 50%;
+      left: 50%;
+      right: auto;
       border-radius: 12px;
-      transform: none !important;
+      transform: translate(-50%, -150%);
       max-width: 460px;
       width: 100%;
       padding: 24px;
     }
+    .bottom-sheet.open { transform: translate(-50%, -50%); }
   }
 </style>
 
