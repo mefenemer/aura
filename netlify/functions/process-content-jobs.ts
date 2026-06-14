@@ -1,15 +1,14 @@
 // netlify/functions/process-content-jobs.ts
-// US-SMM-3.1.1: Drains the content_generation_jobs queue every minute.
+// US-SMM-3.1.1 + US-SMM-3.4.1: Drains the content_generation_jobs queue every minute.
 // Uses FOR UPDATE SKIP LOCKED to safely handle concurrent cron ticks.
-// Calls Claude with the assembled blueprint, stores draft in scheduled_posts.
 
 import { Handler } from '@netlify/functions';
 import Anthropic from '@anthropic-ai/sdk';
-import { eq, and, lte, or, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
-    contentGenerationJobs, aiBlueprints, aiAssistants, organisations,
-    scheduledPosts, notifications, users, auditLogs,
+    contentGenerationJobs, aiBlueprints, aiAssistants,
+    scheduledPosts, notifications, auditLogs,
 } from '../../db/schema';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -21,12 +20,14 @@ export const handler: Handler = async () => {
     const db = getDb();
     const now = new Date();
 
-    // Claim queued jobs (or ones whose retry window has passed) — SKIP LOCKED prevents double-processing
     const jobs = await db.execute<{
         id: number; job_id: string; blueprint_id: number; assistant_id: number;
         organisation_id: number; user_id: number; attempt: number; max_attempts: number;
+        context_prompt: string | null; trigger_type: string | null; platform: string | null;
+        admin_id: number | null;
     }>(
-        `SELECT id, job_id, blueprint_id, assistant_id, organisation_id, user_id, attempt, max_attempts
+        `SELECT id, job_id, blueprint_id, assistant_id, organisation_id, user_id, attempt, max_attempts,
+                context_prompt, trigger_type, platform, admin_id
          FROM content_generation_jobs
          WHERE status = 'queued'
            AND (next_retry_at IS NULL OR next_retry_at <= now())
@@ -45,14 +46,14 @@ export const handler: Handler = async () => {
 async function processJob(db: ReturnType<typeof getDb>, job: {
     id: number; job_id: string; blueprint_id: number; assistant_id: number;
     organisation_id: number; user_id: number; attempt: number; max_attempts: number;
+    context_prompt: string | null; trigger_type: string | null; platform: string | null;
+    admin_id: number | null;
 }, now: Date) {
-    // Mark as processing
     await db.execute(
         `UPDATE content_generation_jobs SET status = 'processing', attempt = attempt + 1, updated_at = now() WHERE id = ${job.id}`
     );
 
     try {
-        // Fetch blueprint
         const [bp] = await db
             .select({ sections: aiBlueprints.sections })
             .from(aiBlueprints)
@@ -62,16 +63,21 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
 
         const sections = bp.sections as Record<string, { content: Record<string, unknown> }>;
 
-        // Derive user instruction from blueprint sections 1 + 6
         const identity = sections['1-identity']?.content || {};
         const onboarding = sections['6-onboarding']?.content || {};
         const businessName = identity['businessName'] ?? 'this business';
         const audience = onboarding['targetAudience'] ?? 'their audience';
         const tone = onboarding['brandVoice'] ?? 'professional';
+        const platform = job.platform || 'instagram';
 
-        const userInstruction = `Generate an Instagram post for ${businessName} targeting ${audience} in a ${tone} voice, following all strict and content rules in the system prompt. Return JSON: { "caption": "...", "hashtags": "...", "suggestedMediaDescription": "..." }`;
+        const baseInstruction = `Generate a ${platform} post for ${businessName} targeting ${audience} in a ${tone} voice, following all strict and content rules in the system prompt. Return JSON: { "caption": "...", "hashtags": "...", "suggestedMediaDescription": "..." }`;
 
-        // Build system prompt from blueprint sections
+        const messages: Anthropic.MessageParam[] = [{ role: 'user', content: baseInstruction }];
+        if (job.context_prompt) {
+            messages.push({ role: 'assistant', content: '{"status":"understood"}' });
+            messages.push({ role: 'user', content: `Additional context from the user: ${job.context_prompt}` });
+        }
+
         let systemPrompt = `You are an expert social media copywriter.\n`;
         for (const [key, sec] of Object.entries(sections)) {
             systemPrompt += `\n--- ${key.toUpperCase()} ---\n`;
@@ -84,8 +90,11 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             model: GEN_MODEL,
             max_tokens: 1024,
             system: systemPrompt,
-            messages: [{ role: 'user', content: userInstruction }],
+            messages,
         });
+
+        const tokensInput = response.usage?.input_tokens ?? null;
+        const tokensOutput = response.usage?.output_tokens ?? null;
 
         const rawText = response.content.find(b => b.type === 'text')?.text || '';
         let generated: { caption?: string; hashtags?: string; suggestedMediaDescription?: string } = {};
@@ -96,37 +105,44 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             generated = { caption: rawText };
         }
 
-        // Store draft in scheduled_posts
+        const isAdminTest = job.trigger_type === 'admin_test';
+
         const [post] = await db.insert(scheduledPosts).values({
             userId: job.user_id,
             organisationId: job.organisation_id,
             assistantId: job.assistant_id,
             blueprintId: job.blueprint_id,
             jobId: job.job_id,
-            platform: 'instagram',
+            platform,
             postFormat: 'image',
-            publishDate: new Date(now.getTime() + 24 * 60 * 60 * 1000), // default: tomorrow
+            publishDate: new Date(now.getTime() + 24 * 60 * 60 * 1000),
             caption: generated.caption ?? null,
             hashtags: generated.hashtags ?? null,
             suggestedMediaDescription: generated.suggestedMediaDescription ?? null,
-            status: 'pending_approval',
+            status: isAdminTest ? 'admin_test' : 'pending_approval',
             generatedAt: now,
+            triggerType: job.trigger_type ?? 'scheduled',
         }).returning({ id: scheduledPosts.id });
 
-        // Mark job completed
+        const tokenCols = tokensInput != null ? `, tokens_input = ${tokensInput}, tokens_output = ${tokensOutput ?? 0}` : '';
         await db.execute(
-            `UPDATE content_generation_jobs SET status = 'completed', result_post_id = ${post.id}, updated_at = now() WHERE id = ${job.id}`
+            `UPDATE content_generation_jobs SET status = 'completed', result_post_id = ${post.id}${tokenCols}, updated_at = now() WHERE id = ${job.id}`
         );
 
-        // Notify user
-        const [asst] = await db.select({ name: aiAssistants.name }).from(aiAssistants).where(eq(aiAssistants.id, job.assistant_id)).limit(1);
-        await db.insert(notifications).values({
-            userId: job.user_id,
-            type: 'post_draft_ready',
-            title: `${asst?.name ?? 'Your assistant'}: Instagram post draft ready`,
-            message: 'Your Instagram post draft is ready to review.',
-            metadata: { jobId: job.job_id, postId: post.id },
-        });
+        // Admin test jobs do not notify the consumer
+        if (!isAdminTest) {
+            const [asst] = await db.select({ name: aiAssistants.name }).from(aiAssistants).where(eq(aiAssistants.id, job.assistant_id)).limit(1);
+            const platformLabel = platform.charAt(0).toUpperCase() + platform.slice(1);
+            await db.insert(notifications).values({
+                userId: job.user_id,
+                type: 'post_draft_ready',
+                title: `${asst?.name ?? 'Your assistant'}: ${platformLabel} post draft ready`,
+                message: job.trigger_type === 'on_demand'
+                    ? 'Your on-demand post draft is ready to review.'
+                    : `Your ${platformLabel} post draft is ready to review.`,
+                metadata: { jobId: job.job_id, postId: post.id },
+            });
+        }
 
     } catch (err) {
         const attempt = job.attempt + 1;
@@ -134,7 +150,6 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
         console.error(`[process-content-jobs] job ${job.job_id} attempt ${attempt} failed:`, errorMessage);
 
         if (attempt >= job.max_attempts) {
-            // Final failure
             await db.execute(
                 `UPDATE content_generation_jobs SET status = 'failed', error_message = '${errorMessage.replace(/'/g, "''")}', updated_at = now() WHERE id = ${job.id}`
             );
@@ -147,7 +162,6 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             });
             await db.insert(auditLogs).values({ actionType: 'post_generation_failed', resourceType: 'content_generation_jobs', resourceId: job.job_id, userId: job.user_id, newState: { errorMessage, attempt } });
         } else {
-            // Schedule retry with exponential backoff
             const backoffSecs = BACKOFF_SECS[attempt - 1] ?? 90;
             const nextRetryAt = new Date(Date.now() + backoffSecs * 1000).toISOString();
             await db.execute(

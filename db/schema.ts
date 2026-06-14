@@ -856,6 +856,8 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   blueprintId: integer("blueprint_id").references(() => aiBlueprints.id, { onDelete: "set null" }),
   suggestedMediaDescription: text("suggested_media_description"),
   generatedAt: timestamp("generated_at"),
+  // US-SMM-3.4.1: On-demand generation trigger type
+  triggerType: text("trigger_type"),                       // 'on_demand' | 'scheduled' | null
 
   // US-SMM-3.2.1: Instagram connection
   connectionId: integer("connection_id").references(() => systemConnections.id, { onDelete: "set null" }),
@@ -1516,6 +1518,14 @@ export const contentGenerationJobs = pgTable("content_generation_jobs", {
   nextRetryAt: timestamp("next_retry_at"),
   errorMessage: text("error_message"),
   resultPostId: integer("result_post_id"),                 // scheduledPosts.id once created
+  // US-SMM-3.4.1: On-demand generation fields
+  contextPrompt: text("context_prompt"),                   // optional user-supplied context (≤500 chars)
+  triggerType: text("trigger_type").default("scheduled"),  // 'on_demand' | 'scheduled' | 'admin_test'
+  platform: text("platform"),                              // overrides blueprint default platform
+  // US-ADM-4.3.3: Admin test generation fields
+  adminId: integer("admin_id").references(() => users.id, { onDelete: "set null" }),
+  tokensInput: integer("tokens_input"),                    // Anthropic input token count
+  tokensOutput: integer("tokens_output"),                  // Anthropic output token count
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [

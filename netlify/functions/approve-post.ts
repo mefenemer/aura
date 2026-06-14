@@ -44,13 +44,37 @@ export const handler: Handler = async (event) => {
         return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON.' }) };
     }
 
-    const { postId, action = 'approve', rescheduleAt } = body;
+    const { postId, action = 'approve', rescheduleAt, rejectionReason } = body;
     if (!postId) {
         return { statusCode: 400, body: JSON.stringify({ error: 'postId is required.' }) };
     }
 
     const db  = getDb();
     const now = new Date();
+
+    // ── Reject ─────────────────────────────────────────────────────────────────
+    if (action === 'reject') {
+        if (!rejectionReason?.trim()) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'rejectionReason is required when rejecting.' }) };
+        }
+        const [rejected] = await db.update(scheduledPosts)
+            .set({ status: 'rejected', rejectedAt: now, rejectionReason: rejectionReason.trim(), updatedAt: now })
+            .where(and(eq(scheduledPosts.id, postId), eq(scheduledPosts.userId, userId)))
+            .returning();
+        if (!rejected) return { statusCode: 404, body: JSON.stringify({ error: 'Post not found.' }) };
+        await db.insert(auditLogs).values({
+            userId,
+            actionType: 'POST_REJECTED',
+            resourceType: 'scheduled_posts',
+            resourceId: String(postId),
+            newState: { rejectionReason: rejectionReason.trim(), rejectedAt: now.toISOString() },
+        }).catch(() => {});
+        return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rejected: true, post: rejected }),
+        };
+    }
 
     // Load post and verify ownership (via userId on the post)
     const [post] = await db
@@ -63,7 +87,7 @@ export const handler: Handler = async (event) => {
         return { statusCode: 404, body: JSON.stringify({ error: 'Post not found.' }) };
     }
 
-    if (!['draft', 'in_review'].includes(post.status)) {
+    if (!['draft', 'in_review', 'pending_approval'].includes(post.status)) {
         return {
             statusCode: 409,
             body: JSON.stringify({ error: `Post is already in '${post.status}' state and cannot be approved.` }),

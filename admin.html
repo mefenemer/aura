@@ -1019,6 +1019,7 @@
           <div class="flex gap-2">
             <button onclick="bpDryRun()" class="px-3 py-1.5 text-sm font-semibold border border-gray-300 rounded-lg hover:bg-gray-50 transition">Dry Run</button>
             <button onclick="bpPreviewPayload()" id="bp-preview-btn" class="px-3 py-1.5 text-sm font-semibold border border-emerald-600 text-emerald-700 rounded-lg hover:bg-emerald-50 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>Preview LLM Payload</button>
+            <button onclick="bpOpenTestPanel()" id="bp-test-btn" class="px-3 py-1.5 text-sm font-semibold border border-violet-600 text-violet-700 rounded-lg hover:bg-violet-50 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>Test Generation</button>
             <button onclick="bpSendToLlm()" id="bp-send-btn" class="px-3 py-1.5 text-sm font-semibold bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>Send to LLM</button>
           </div>
         </div>
@@ -1072,6 +1073,87 @@
 
         <!-- Accordion sections -->
         <div id="bp-sections" class="space-y-2"></div>
+
+        <!-- US-ADM-4.3.3: Test Generation Panel -->
+        <div id="bp-test-panel" class="hidden mt-4 bg-violet-50 border border-violet-200 rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-extrabold text-gray-900">Test Generation</h3>
+              <p class="text-xs font-bold text-violet-700 mt-0.5 uppercase tracking-wide">TEST ONLY — This output will not be published or visible to the consumer</p>
+            </div>
+            <button onclick="bpCloseTestPanel()" class="text-gray-400 hover:text-gray-600 cursor-pointer">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <!-- Config -->
+          <div id="bp-test-config" class="space-y-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1.5">Platform</label>
+              <div class="flex flex-wrap gap-2" id="bp-test-platforms">
+                <button type="button" class="bp-test-plat px-3 py-1.5 text-sm rounded-lg border border-violet-400 bg-violet-100 text-violet-800 font-semibold cursor-pointer" data-platform="instagram" onclick="bpTestSelectPlatform(this)">Instagram</button>
+                <button type="button" class="bp-test-plat px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600 hover:border-violet-400 cursor-pointer" data-platform="linkedin" onclick="bpTestSelectPlatform(this)">LinkedIn</button>
+                <button type="button" class="bp-test-plat px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600 hover:border-violet-400 cursor-pointer" data-platform="x" onclick="bpTestSelectPlatform(this)">X</button>
+                <button type="button" class="bp-test-plat px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600 hover:border-violet-400 cursor-pointer" data-platform="facebook" onclick="bpTestSelectPlatform(this)">Facebook</button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1.5">Test context prompt <span class="font-normal text-gray-400">(optional)</span></label>
+              <div class="relative">
+                <textarea id="bp-test-context" maxlength="500" rows="2" placeholder="e.g. Write a post about a product launch" class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2 pr-16 resize-none focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"></textarea>
+                <span class="absolute bottom-2 right-3 text-xs text-gray-400"><span id="bp-test-ctx-count">0</span>/500</span>
+              </div>
+            </div>
+            <button id="bp-test-run-btn" onclick="bpRunTest()" class="px-5 py-2 bg-violet-700 hover:bg-violet-800 text-white text-sm font-bold rounded-xl transition cursor-pointer">Run Test</button>
+          </div>
+
+          <!-- Status / progress -->
+          <div id="bp-test-status" class="hidden">
+            <div class="flex items-center gap-3 text-sm text-violet-800">
+              <svg class="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+              <span id="bp-test-status-text">Calling LLM…</span>
+              <span id="bp-test-elapsed" class="text-gray-500 text-xs ml-auto"></span>
+            </div>
+          </div>
+
+          <!-- Error -->
+          <div id="bp-test-error" class="hidden text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3"></div>
+
+          <!-- Result -->
+          <div id="bp-test-result" class="hidden space-y-4">
+            <!-- Platform preview -->
+            <div id="bp-test-preview-wrap" class="bg-white border border-gray-200 rounded-xl p-4">
+              <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Platform Preview — <span id="bp-test-preview-platform"></span></p>
+              <div id="bp-test-preview-body" class="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed"></div>
+              <p id="bp-test-preview-hashtags" class="text-violet-700 text-sm mt-2"></p>
+              <p id="bp-test-preview-media" class="text-gray-400 text-xs mt-2 italic"></p>
+            </div>
+
+            <!-- Compliance check -->
+            <div class="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+              <h4 class="text-sm font-extrabold text-gray-900">Compliance Check</h4>
+              <div id="bp-test-char-count" class="text-xs text-gray-600"></div>
+              <div id="bp-test-disclosure" class="text-xs text-gray-600"></div>
+              <div id="bp-test-content-rules" class="space-y-1.5"></div>
+              <div id="bp-test-strict-rules" class="space-y-1.5 mt-2"></div>
+              <div id="bp-test-compliance-note" class="hidden text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
+                <strong>Compliance failure detected.</strong> Consider refining the system prompt or strict rules for this assistant.
+                <a id="bp-test-edit-link" href="#" onclick="adminCatNav('master-data')" class="ml-1 underline font-semibold">Navigate to Master Data → Assistants to edit.</a>
+              </div>
+            </div>
+
+            <!-- Token / cost -->
+            <div id="bp-test-tokens" class="text-xs text-gray-500 bg-white border border-gray-200 rounded-xl px-4 py-3 flex gap-6 flex-wrap"></div>
+
+            <!-- Actions -->
+            <div class="flex flex-wrap gap-2">
+              <button onclick="bpTestRerun()" class="px-4 py-2 text-sm font-bold border border-violet-600 text-violet-700 hover:bg-violet-50 rounded-xl transition cursor-pointer">Re-run</button>
+              <button onclick="bpTestCopy()" class="px-4 py-2 text-sm font-bold border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-xl transition cursor-pointer">Copy Output</button>
+              <button onclick="bpTestSaveReference()" class="px-4 py-2 text-sm font-bold border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-xl transition cursor-pointer">Save as Reference</button>
+              <button onclick="bpCloseTestPanel()" class="px-4 py-2 text-sm font-bold text-gray-400 hover:text-gray-700 rounded-xl transition cursor-pointer">Close</button>
+            </div>
+          </div>
+        </div>
 
         <!-- History panel -->
         <div class="mt-6">
@@ -1670,6 +1752,7 @@ async function initBlueprintInspector() {
   document.getElementById('bp-stale-notice').classList.add('hidden');
   document.getElementById('bp-preview-btn').disabled = true;
   document.getElementById('bp-send-btn').disabled = true;
+  document.getElementById('bp-test-btn').disabled = true;
 
   // Load orgs into selector
   try {
@@ -1881,6 +1964,7 @@ function bpRenderResult(result, isDryRun = false) {
   // Enable/disable action buttons + "Send with warnings" label
   const sendBtn = document.getElementById('bp-send-btn');
   document.getElementById('bp-preview-btn').disabled = false;
+  document.getElementById('bp-test-btn').disabled = false;
   sendBtn.disabled = blocking.length > 0 || isDryRun;
   if (blocking.length > 0) {
     sendBtn.textContent = 'Send to LLM';
@@ -1994,14 +2078,16 @@ async function bpLoadHistory() {
   el.innerHTML = '<p class="text-gray-400 text-xs animate-pulse">Loading…</p>';
   el.classList.remove('hidden');
   try {
-    const res = await fetch(`/.netlify/functions/assemble-blueprint?assistantId=${asstId}&history=1`);
-    _bpHistoryRows = await res.json();
-    if (!_bpHistoryRows.length) { el.innerHTML = '<p class="text-gray-400 text-xs">No history yet.</p>'; return; }
-    el.innerHTML = `<div class="flex items-center justify-between mb-2">
-        <p class="text-xs text-gray-500 font-semibold">Select two versions to compare</p>
-        <button onclick="bpCompareSelected()" class="px-3 py-1 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40" id="bp-compare-btn" disabled>Compare selected</button>
-      </div>` +
-      _bpHistoryRows.map((r, i) => `<div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 flex items-center gap-3 hover:bg-gray-100 cursor-pointer" onclick="bpViewHistorySnapshot(${i})">
+    const [bpRes, testRes] = await Promise.all([
+      fetch(`/.netlify/functions/assemble-blueprint?assistantId=${asstId}&history=1`),
+      fetch(`/.netlify/functions/admin-test-generate?assistantId=${asstId}&history=1`),
+    ]);
+    _bpHistoryRows = bpRes.ok ? await bpRes.json() : [];
+    const testRuns = testRes.ok ? await testRes.json() : [];
+
+    if (!_bpHistoryRows.length && !testRuns.length) { el.innerHTML = '<p class="text-gray-400 text-xs">No history yet.</p>'; return; }
+
+    const bpRowsHtml = _bpHistoryRows.map((r, i) => `<div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 flex items-center gap-3 hover:bg-gray-100 cursor-pointer" onclick="bpViewHistorySnapshot(${i})">
         <input type="checkbox" class="bp-hist-chk shrink-0" data-idx="${i}" onclick="event.stopPropagation(); bpUpdateCompareBtn()" />
         <div class="flex-1 min-w-0">
           <span class="font-mono text-xs text-gray-500">${r.blueprintVersion?.slice(0,12) ?? '?'}…</span>
@@ -2009,6 +2095,19 @@ async function bpLoadHistory() {
           ${r.sentAt ? `<span class="ml-2 text-xs text-emerald-600 font-semibold">Sent ${fmt(r.sentAt)}</span>` : ''}
         </div>
       </div>`).join('');
+
+    const testRowsHtml = testRuns.map(r => `<div class="bg-gray-100 border border-gray-300 rounded-lg px-4 py-2 flex items-start gap-3 cursor-pointer hover:bg-gray-200" onclick='bpViewTestSnapshot(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
+        <div class="flex-1 min-w-0">
+          <span class="inline-block text-xs font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 border border-gray-400 mr-2">Admin Test</span>
+          <span class="text-xs text-gray-600">${fmt(r.createdAt)} — ${r.platform || 'instagram'} — by ${r.adminName || 'Admin'}</span>
+          ${r.caption ? `<p class="mt-1 text-xs text-gray-500 truncate">${r.caption.slice(0,80)}…</p>` : ''}
+        </div>
+      </div>`).join('');
+
+    el.innerHTML = `<div class="flex items-center justify-between mb-2">
+        <p class="text-xs text-gray-500 font-semibold">Select two blueprint versions to compare</p>
+        <button onclick="bpCompareSelected()" class="px-3 py-1 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40" id="bp-compare-btn" disabled>Compare selected</button>
+      </div>` + bpRowsHtml + (testRowsHtml ? `<p class="text-xs font-semibold text-gray-400 mt-3 mb-1">Test Runs</p>` + testRowsHtml : '');
   } catch { el.innerHTML = '<p class="text-red-500 text-xs">Failed to load history.</p>'; }
 }
 
@@ -2086,6 +2185,258 @@ function bpCompareSelected() {
       </div>`;
     }).join('')
   }</div>`;
+}
+
+// ── US-ADM-4.3.3: Test Generation panel ──────────────────────────────────────
+let _bpTestPlatform = 'instagram';
+let _bpTestJobId = null;
+let _bpTestPollInterval = null;
+let _bpTestStartTime = null;
+let _bpTestLastResult = null;
+
+function bpOpenTestPanel() {
+  if (!_bpCurrentResult || !_bpCurrentAssistantId) return;
+  const panel = document.getElementById('bp-test-panel');
+  if (!panel) return;
+  // Reset
+  _bpTestJobId = null;
+  _bpTestLastResult = null;
+  clearInterval(_bpTestPollInterval);
+  const ctx = document.getElementById('bp-test-context');
+  if (ctx) ctx.value = '';
+  const ctxCount = document.getElementById('bp-test-ctx-count');
+  if (ctxCount) ctxCount.textContent = '0';
+  document.getElementById('bp-test-config').classList.remove('hidden');
+  document.getElementById('bp-test-status').classList.add('hidden');
+  document.getElementById('bp-test-error').classList.add('hidden');
+  document.getElementById('bp-test-result').classList.add('hidden');
+  panel.classList.remove('hidden');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // Wire context counter
+  if (ctx) ctx.oninput = () => { if (ctxCount) ctxCount.textContent = ctx.value.length; };
+}
+
+function bpCloseTestPanel() {
+  clearInterval(_bpTestPollInterval);
+  const panel = document.getElementById('bp-test-panel');
+  if (panel) panel.classList.add('hidden');
+}
+
+function bpTestSelectPlatform(btn) {
+  document.querySelectorAll('.bp-test-plat').forEach(b => {
+    b.classList.remove('border-violet-400', 'bg-violet-100', 'text-violet-800', 'font-semibold');
+    b.classList.add('border-gray-300', 'text-gray-600');
+  });
+  btn.classList.add('border-violet-400', 'bg-violet-100', 'text-violet-800', 'font-semibold');
+  btn.classList.remove('border-gray-300', 'text-gray-600');
+  _bpTestPlatform = btn.dataset.platform;
+}
+
+async function bpRunTest() {
+  if (!_bpCurrentAssistantId) return;
+  const contextPrompt = document.getElementById('bp-test-context')?.value?.trim() || '';
+  const runBtn = document.getElementById('bp-test-run-btn');
+  if (runBtn) runBtn.disabled = true;
+
+  document.getElementById('bp-test-config').classList.add('hidden');
+  document.getElementById('bp-test-status').classList.remove('hidden');
+  document.getElementById('bp-test-error').classList.add('hidden');
+  document.getElementById('bp-test-result').classList.add('hidden');
+
+  _bpTestStartTime = Date.now();
+  const elapsedEl = document.getElementById('bp-test-elapsed');
+  const statusText = document.getElementById('bp-test-status-text');
+  if (statusText) statusText.textContent = 'Submitting test job…';
+
+  // Elapsed timer
+  clearInterval(_bpTestPollInterval);
+  const elapsedTimer = setInterval(() => {
+    const secs = Math.floor((Date.now() - _bpTestStartTime) / 1000);
+    if (elapsedEl) elapsedEl.textContent = `${secs}s elapsed`;
+    if (secs >= 120) {
+      clearInterval(elapsedTimer);
+      clearInterval(_bpTestPollInterval);
+      bpTestShowError('Test timed out after 120 seconds. Please try again.');
+    }
+  }, 1000);
+
+  try {
+    const res = await fetch('/.netlify/functions/admin-test-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        assistantId: parseInt(_bpCurrentAssistantId),
+        blueprintId: _bpCurrentBlueprintId || undefined,
+        platform: _bpTestPlatform,
+        contextPrompt: contextPrompt || undefined,
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { clearInterval(elapsedTimer); bpTestShowError(d.error || 'Failed to submit test job.'); if (runBtn) runBtn.disabled = false; return; }
+    _bpTestJobId = d.jobId;
+    if (statusText) statusText.textContent = 'Calling LLM…';
+    _bpTestPollInterval = setInterval(() => bpTestPoll(elapsedTimer), 3000);
+  } catch (e) {
+    clearInterval(elapsedTimer);
+    bpTestShowError('Network error: ' + e.message);
+    if (runBtn) runBtn.disabled = false;
+  }
+}
+
+async function bpTestPoll(elapsedTimer) {
+  if (!_bpTestJobId) return;
+  try {
+    const res = await fetch(`/.netlify/functions/admin-test-generate?jobId=${_bpTestJobId}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    if (d.status === 'completed') {
+      clearInterval(_bpTestPollInterval);
+      clearInterval(elapsedTimer);
+      _bpTestLastResult = d;
+      bpTestShowResult(d);
+    } else if (d.status === 'failed') {
+      clearInterval(_bpTestPollInterval);
+      clearInterval(elapsedTimer);
+      bpTestShowError(d.errorMessage || 'Generation failed.');
+    }
+    // else still queued/processing — keep polling
+  } catch { /* poll silently */ }
+}
+
+function bpTestShowError(msg) {
+  document.getElementById('bp-test-status').classList.add('hidden');
+  document.getElementById('bp-test-config').classList.remove('hidden');
+  const errEl = document.getElementById('bp-test-error');
+  if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+  const runBtn = document.getElementById('bp-test-run-btn');
+  if (runBtn) runBtn.disabled = false;
+}
+
+const PLATFORM_CHAR_LIMITS = { instagram: 2200, linkedin: 3000, x: 280, facebook: 63206 };
+
+function bpTestShowResult(d) {
+  document.getElementById('bp-test-status').classList.add('hidden');
+  document.getElementById('bp-test-result').classList.remove('hidden');
+
+  const post = d.post || {};
+  const platformLabel = { instagram: 'Instagram', linkedin: 'LinkedIn', x: 'X / Twitter', facebook: 'Facebook' }[_bpTestPlatform] || _bpTestPlatform;
+
+  // Platform preview
+  document.getElementById('bp-test-preview-platform').textContent = platformLabel;
+  document.getElementById('bp-test-preview-body').textContent = post.caption || '(no caption generated)';
+  document.getElementById('bp-test-preview-hashtags').textContent = post.hashtags || '';
+  const mediaEl = document.getElementById('bp-test-preview-media');
+  if (mediaEl) mediaEl.textContent = post.suggestedMediaDescription ? `Media: ${post.suggestedMediaDescription}` : '';
+
+  // Char count
+  const limit = PLATFORM_CHAR_LIMITS[_bpTestPlatform] ?? 2200;
+  const captionLen = (post.caption || '').length;
+  const charEl = document.getElementById('bp-test-char-count');
+  if (charEl) {
+    const over = captionLen > limit;
+    charEl.innerHTML = `<span class="${over ? 'text-red-600 font-semibold' : 'text-gray-600'}">Caption: ${captionLen} / ${limit} characters ${over ? '⚠ EXCEEDS LIMIT' : '✓'}</span>`;
+  }
+
+  // Disclosure
+  const comp = d.compliance || {};
+  const discEl = document.getElementById('bp-test-disclosure');
+  if (discEl) {
+    discEl.innerHTML = `Disclosure text: <span class="${comp.disclosurePresent ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}">${comp.disclosurePresent ? '✓ Present' : '⚠ Absent'}</span>`;
+  }
+
+  // Content rules
+  let hasFailure = false;
+  const contentRulesEl = document.getElementById('bp-test-content-rules');
+  if (contentRulesEl && comp.contentRules?.length) {
+    contentRulesEl.innerHTML = `<p class="text-xs font-bold text-gray-600 mb-1">Content rules applied: ${comp.contentRules.length}</p>` +
+      comp.contentRules.map(r => {
+        if (!r.pass) hasFailure = true;
+        return `<div class="flex items-start gap-2 text-xs ${r.pass ? 'text-gray-600' : 'text-red-700 font-semibold'}">
+          <span class="shrink-0">${r.pass ? '✓' : '✗'}</span><span>${r.rule}</span></div>`;
+      }).join('');
+  } else if (contentRulesEl) {
+    contentRulesEl.innerHTML = '<p class="text-xs text-gray-400">No content rules defined in blueprint.</p>';
+  }
+
+  // Strict rules
+  const strictRulesEl = document.getElementById('bp-test-strict-rules');
+  if (strictRulesEl && comp.strictRules?.length) {
+    strictRulesEl.innerHTML = `<p class="text-xs font-bold text-gray-600 mb-1">Strict rules applied: ${comp.strictRules.length}</p>` +
+      comp.strictRules.map(r => {
+        if (!r.pass) hasFailure = true;
+        return `<div class="flex items-start gap-2 text-xs ${r.pass ? 'text-gray-600' : 'text-red-700 font-semibold'}">
+          <span class="shrink-0">${r.pass ? '✓' : '✗'}</span><span>${r.rule}</span></div>`;
+      }).join('');
+  } else if (strictRulesEl) {
+    strictRulesEl.innerHTML = '';
+  }
+
+  // Compliance failure note
+  const noteEl = document.getElementById('bp-test-compliance-note');
+  if (noteEl) noteEl.classList.toggle('hidden', !hasFailure);
+
+  // Tokens + cost
+  const tokEl = document.getElementById('bp-test-tokens');
+  if (tokEl) {
+    const t = d.tokens || {};
+    const costStr = d.costGbp != null ? `£${d.costGbp.toFixed(6)}` : '—';
+    tokEl.innerHTML = `<span>Input tokens: <strong>${t.input ?? '—'}</strong></span><span>Output tokens: <strong>${t.output ?? '—'}</strong></span><span>Est. cost: <strong>${costStr}</strong></span>`;
+  }
+
+  // Re-show config for re-run
+  document.getElementById('bp-test-config').classList.remove('hidden');
+  const runBtn = document.getElementById('bp-test-run-btn');
+  if (runBtn) { runBtn.disabled = false; runBtn.textContent = 'Run Test'; }
+}
+
+function bpTestRerun() {
+  document.getElementById('bp-test-result').classList.add('hidden');
+  bpRunTest();
+}
+
+function bpTestCopy() {
+  if (!_bpTestLastResult?.post) { alert('No result to copy.'); return; }
+  const { caption, hashtags } = _bpTestLastResult.post;
+  const text = [caption, hashtags].filter(Boolean).join('\n\n');
+  navigator.clipboard.writeText(text).then(() => alert('Output copied to clipboard.')).catch(() => alert('Copy failed — try manually selecting the text.'));
+}
+
+async function bpTestSaveReference() {
+  if (!_bpTestJobId) { alert('No test result to save.'); return; }
+  try {
+    const res = await fetch('/.netlify/functions/admin-test-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saveReference: true, jobId: _bpTestJobId }),
+    });
+    if (res.ok) alert('Test result saved as reference against this blueprint version.');
+    else { const d = await res.json().catch(() => ({})); alert(d.error || 'Save failed.'); }
+  } catch (e) { alert('Network error: ' + e.message); }
+}
+
+function bpViewTestSnapshot(r) {
+  const platform = r.platform || 'instagram';
+  const platformLabel = { instagram: 'Instagram', linkedin: 'LinkedIn', x: 'X / Twitter', facebook: 'Facebook' }[platform] || platform;
+  let panel = document.getElementById('bp-test-snapshot-panel');
+  if (!panel) { panel = document.createElement('div'); panel.id = 'bp-test-snapshot-panel'; panel.className = 'fixed inset-0 z-[200] bg-white flex flex-col'; document.body.appendChild(panel); }
+  panel.innerHTML = `<div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+    <div>
+      <h2 class="font-extrabold text-gray-900">Admin Test Result</h2>
+      <p class="text-xs text-gray-500 mt-0.5">${fmt(r.createdAt)} — ${platformLabel} — by ${r.adminName || 'Admin'}</p>
+    </div>
+    <button onclick="document.getElementById('bp-test-snapshot-panel').remove()" class="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-black">Close</button>
+  </div>
+  <div class="flex-1 overflow-auto p-6 space-y-4">
+    <div class="bg-white border border-gray-200 rounded-xl p-4">
+      <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Platform Preview — ${platformLabel}</p>
+      <p class="text-sm text-gray-800 whitespace-pre-wrap">${r.caption || '—'}</p>
+      <p class="text-violet-700 text-sm mt-2">${r.hashtags || ''}</p>
+      ${r.suggestedMediaDescription ? `<p class="text-gray-400 text-xs mt-2 italic">Media: ${r.suggestedMediaDescription}</p>` : ''}
+    </div>
+    ${r.contextPrompt ? `<div class="text-xs text-gray-500 bg-gray-50 rounded-xl p-3">Context prompt used: <span class="italic">"${r.contextPrompt}"</span></div>` : ''}
+    <div class="text-xs text-gray-400">Tokens in: ${r.tokensInput ?? '—'} · out: ${r.tokensOutput ?? '—'}</div>
+  </div>`;
 }
 
 async function loadPublishPipeline() {

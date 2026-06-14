@@ -218,19 +218,80 @@ async function submitTosAcceptance(btn) {
   <div class="w-full max-w-2xl bg-white flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
       <h2 id="rq-title" class="text-lg font-extrabold text-gray-900">Pending Approvals</h2>
-      <button onclick="closeReviewQueue()" class="text-gray-400 hover:text-gray-600 transition cursor-pointer">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
+      <div class="flex items-center gap-2">
+        <button onclick="openGeneratePostSheet()" class="px-3 py-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition cursor-pointer flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Generate Post
+        </button>
+        <button onclick="closeReviewQueue()" class="text-gray-400 hover:text-gray-600 transition cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
     </div>
     <!-- Tabs -->
-    <div class="flex gap-1 px-6 pt-3 border-b border-gray-100">
-      <button class="rq-tab px-4 py-2 text-sm font-semibold rounded-t border-b-2 border-emerald-600 text-emerald-700" data-status="pending" onclick="rqSetTab('pending',this)">Pending <span id="rq-pending-tab-count" class="ml-1 bg-emerald-100 text-emerald-700 text-xs px-1.5 py-0.5 rounded-full"></span></button>
-      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t" data-status="approved" onclick="rqSetTab('approved',this)">Approved</button>
-      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t" data-status="rejected" onclick="rqSetTab('rejected',this)">Rejected</button>
+    <div class="flex gap-1 px-6 pt-3 border-b border-gray-100 overflow-x-auto">
+      <button class="rq-tab px-4 py-2 text-sm font-semibold rounded-t border-b-2 border-emerald-600 text-emerald-700 whitespace-nowrap" data-tab-type="hitl" data-status="pending" onclick="rqSetTab('pending',this,'hitl')">Pending <span id="rq-pending-tab-count" class="ml-1 bg-emerald-100 text-emerald-700 text-xs px-1.5 py-0.5 rounded-full"></span></button>
+      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="hitl" data-status="approved" onclick="rqSetTab('approved',this,'hitl')">Approved</button>
+      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="hitl" data-status="rejected" onclick="rqSetTab('rejected',this,'hitl')">Rejected</button>
+      <div class="w-px bg-gray-200 mx-1 self-stretch my-1"></div>
+      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="social" data-status="pending_approval" onclick="rqSetTab('pending_approval',this,'social')">Social Drafts <span id="rq-social-tab-count" class="ml-1 bg-violet-100 text-violet-700 text-xs px-1.5 py-0.5 rounded-full hidden"></span></button>
     </div>
     <!-- List -->
     <div id="rq-list" class="flex-1 overflow-y-auto divide-y divide-gray-100 px-6 py-2"></div>
     <!-- Reject reason input (shown inline on card) -->
+  </div>
+</div>
+
+<!-- US-SMM-3.4.1: Generate Post on-demand bottom sheet -->
+<div id="gen-post-backdrop" class="hidden fixed inset-0 z-[70] bg-gray-900/60 backdrop-blur-sm" onclick="closeGeneratePostSheet()"></div>
+<div id="gen-post-sheet" class="hidden fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-2xl shadow-2xl max-h-[90vh] flex flex-col md:bottom-auto md:top-1/2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:max-w-lg md:w-full" role="dialog" aria-modal="true" aria-labelledby="gen-post-title">
+  <div class="flex items-center justify-between px-5 pt-5 pb-3">
+    <h2 id="gen-post-title" class="text-base font-extrabold text-gray-900">Generate Post Now</h2>
+    <button onclick="closeGeneratePostSheet()" class="text-gray-400 hover:text-gray-600 cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="px-5 pb-6 overflow-y-auto flex-1">
+    <!-- Platform selector -->
+    <div class="mb-4">
+      <label class="block text-xs font-semibold text-gray-700 mb-1.5">Platform</label>
+      <div id="gen-post-platforms" class="flex flex-wrap gap-2">
+        <button type="button" class="gen-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="instagram" onclick="gpSelectPlatform(this)">Instagram</button>
+        <button type="button" class="gen-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="facebook" onclick="gpSelectPlatform(this)">Facebook</button>
+        <button type="button" class="gen-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="linkedin" onclick="gpSelectPlatform(this)">LinkedIn</button>
+        <button type="button" class="gen-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="x" onclick="gpSelectPlatform(this)">X</button>
+      </div>
+    </div>
+    <!-- Context prompt -->
+    <div class="mb-4">
+      <label class="block text-xs font-semibold text-gray-700 mb-1.5">Additional context <span class="font-normal text-gray-400">(optional)</span></label>
+      <div class="relative">
+        <textarea id="gen-post-context" maxlength="500" rows="3" placeholder="e.g. Focus on our summer sale — 20% off all products this weekend only." class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2.5 pr-10 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400"></textarea>
+        <span class="absolute bottom-2 right-3 text-xs text-gray-400"><span id="gen-post-ctx-count">0</span>/500</span>
+      </div>
+    </div>
+    <!-- Status / result area -->
+    <div id="gen-post-status" class="hidden mb-4 text-sm rounded-xl p-3 bg-emerald-50 text-emerald-800 border border-emerald-200"></div>
+    <!-- Post preview (shown after generation) -->
+    <div id="gen-post-preview" class="hidden mb-4 bg-gray-50 rounded-xl p-4 text-sm text-gray-800 border border-gray-200">
+      <p class="font-semibold text-gray-700 mb-1 text-xs uppercase tracking-wide">Draft Preview</p>
+      <p id="gen-post-preview-caption" class="mb-2 whitespace-pre-wrap"></p>
+      <p id="gen-post-preview-hashtags" class="text-violet-700 text-xs"></p>
+      <p id="gen-post-preview-media" class="text-gray-500 text-xs mt-1 italic"></p>
+    </div>
+    <!-- Actions -->
+    <div id="gen-post-actions" class="flex gap-2">
+      <button id="gen-post-submit-btn" onclick="gpSubmit()" class="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded-xl transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Generate</button>
+    </div>
+    <div id="gen-post-approve-actions" class="hidden flex gap-2 mt-2">
+      <button onclick="gpApprovePost()" class="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded-xl transition cursor-pointer">Post Now</button>
+      <button onclick="gpSchedulePost()" class="flex-1 py-2.5 border border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-sm font-bold rounded-xl transition cursor-pointer">Schedule for Later</button>
+      <button onclick="gpRejectPost()" class="py-2.5 px-3 border border-red-300 text-red-600 hover:bg-red-50 text-sm font-bold rounded-xl transition cursor-pointer">Reject</button>
+    </div>
+    <div id="gen-post-reject-form" class="hidden mt-2">
+      <input id="gen-post-reject-reason" type="text" maxlength="300" placeholder="Rejection reason (required)" class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-red-300">
+      <button onclick="gpSubmitReject()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition cursor-pointer">Confirm Rejection</button>
+    </div>
   </div>
 </div>
 
@@ -2141,11 +2202,12 @@ async function refreshPendingBadge() {
 
 // ── Review Queue drawer ──────────────────────────────────────────────────────
 let _rqCurrentTab = 'pending';
+let _rqCurrentTabType = 'hitl';
 
 function openReviewQueue() {
     const el = document.getElementById('review-queue-drawer');
     if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
-    rqLoadItems('pending');
+    rqLoadItems('pending', 'hitl');
 }
 
 function closeReviewQueue() {
@@ -2153,39 +2215,123 @@ function closeReviewQueue() {
     if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
 }
 
-function rqSetTab(status, btn) {
+function rqSetTab(status, btn, tabType) {
     _rqCurrentTab = status;
+    _rqCurrentTabType = tabType || 'hitl';
     document.querySelectorAll('.rq-tab').forEach(t => {
         t.classList.remove('border-b-2', 'border-emerald-600', 'text-emerald-700');
         t.classList.add('text-gray-500');
     });
     btn.classList.add('border-b-2', 'border-emerald-600', 'text-emerald-700');
     btn.classList.remove('text-gray-500');
-    rqLoadItems(status);
+    rqLoadItems(status, _rqCurrentTabType);
 }
 
-async function rqLoadItems(status) {
+async function rqLoadItems(status, tabType) {
     const list = document.getElementById('rq-list');
     if (!list) return;
     list.innerHTML = '<p class="text-sm text-gray-400 py-8 text-center">Loading…</p>';
     try {
-        const res = await fetch(`/.netlify/functions/get-pending-actions?status=${status}`);
-        if (!res.ok) throw new Error();
-        const { items, totalPending } = await res.json();
-        const tabCount = document.getElementById('rq-pending-tab-count');
-        if (tabCount) tabCount.textContent = totalPending ? `(${totalPending})` : '';
-        document.querySelectorAll('.pending-badge').forEach(el => {
-            el.textContent = totalPending || '';
-            el.classList.toggle('hidden', !totalPending);
-        });
-        if (!items.length) {
-            list.innerHTML = '<p class="text-sm text-gray-400 py-12 text-center">Nothing here.</p>';
-            return;
+        if ((tabType || _rqCurrentTabType) === 'social') {
+            const res = await fetch(`/.netlify/functions/get-social-drafts?status=${status}`);
+            if (!res.ok) throw new Error();
+            const { drafts } = await res.json();
+            const socialCount = document.getElementById('rq-social-tab-count');
+            if (socialCount) {
+                socialCount.textContent = drafts.length || '';
+                socialCount.classList.toggle('hidden', !drafts.length);
+            }
+            if (!drafts.length) {
+                list.innerHTML = '<p class="text-sm text-gray-400 py-12 text-center">No social drafts.</p>';
+                return;
+            }
+            list.innerHTML = drafts.map(d => rqRenderSocialCard(d)).join('');
+        } else {
+            const res = await fetch(`/.netlify/functions/get-pending-actions?status=${status}`);
+            if (!res.ok) throw new Error();
+            const { items, totalPending } = await res.json();
+            const tabCount = document.getElementById('rq-pending-tab-count');
+            if (tabCount) tabCount.textContent = totalPending ? `(${totalPending})` : '';
+            document.querySelectorAll('.pending-badge').forEach(el => {
+                el.textContent = totalPending || '';
+                el.classList.toggle('hidden', !totalPending);
+            });
+            if (!items.length) {
+                list.innerHTML = '<p class="text-sm text-gray-400 py-12 text-center">Nothing here.</p>';
+                return;
+            }
+            list.innerHTML = items.map(item => rqRenderCard(item)).join('');
         }
-        list.innerHTML = items.map(item => rqRenderCard(item)).join('');
     } catch {
         list.innerHTML = '<p class="text-sm text-red-500 py-8 text-center">Failed to load items.</p>';
     }
+}
+
+function rqRenderSocialCard(draft) {
+    const ago = rqTimeAgo(draft.generatedAt);
+    const platformLabel = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X' }[draft.platform] || draft.platform;
+    const isOnDemand = draft.triggerType === 'on_demand';
+    const isPending = draft.status === 'pending_approval';
+    return `<div class="py-4" data-post-id="${draft.id}">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <p class="text-sm font-semibold text-gray-900 truncate">${_rqEsc(platformLabel)} Post Draft</p>
+            ${isOnDemand ? '<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">On Demand</span>' : ''}
+          </div>
+          <p class="text-xs text-gray-500">${_rqEsc(draft.assistantName || 'AI Assistant')} · ${ago}</p>
+        </div>
+        <span class="flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">${_rqEsc(draft.status)}</span>
+      </div>
+      ${draft.caption ? `<p class="text-sm text-gray-700 mb-2 line-clamp-3">${_rqEsc(draft.caption)}</p>` : ''}
+      ${draft.hashtags ? `<p class="text-xs text-violet-700 mb-2">${_rqEsc(draft.hashtags)}</p>` : ''}
+      ${isPending ? `
+      <div class="sdraft-reject-form-${draft.id} hidden mb-2">
+        <input type="text" id="sdraft-reason-${draft.id}" placeholder="Rejection reason (required)" maxlength="300" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-red-300">
+      </div>
+      <div class="flex gap-2">
+        <button onclick="sdApprove(${draft.id},'publish_now')" class="flex-1 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Post Now</button>
+        <button onclick="sdApprove(${draft.id},'approve')" class="flex-1 py-1.5 text-xs font-bold border border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer">Schedule</button>
+        <button onclick="sdToggleReject(${draft.id})" id="sdraft-reject-btn-${draft.id}" class="flex-1 py-1.5 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer">Reject</button>
+      </div>` : `<span class="text-xs text-gray-500">${_rqEsc(draft.status)}</span>`}
+    </div>`;
+}
+
+async function sdApprove(postId, action) {
+    try {
+        const res = await fetch('/.netlify/functions/approve-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId, action }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(d.error || 'Failed to approve post.'); return; }
+        rqLoadItems(_rqCurrentTab, 'social');
+    } catch { alert('Network error — please try again.'); }
+}
+
+function sdToggleReject(id) {
+    const form = document.querySelector(`.sdraft-reject-form-${id}`);
+    const btn  = document.getElementById(`sdraft-reject-btn-${id}`);
+    if (!form) return;
+    const hidden = form.classList.toggle('hidden');
+    if (!hidden) { btn.textContent = 'Submit'; btn.onclick = () => sdSubmitReject(id); }
+    else { btn.textContent = 'Reject'; btn.onclick = () => sdToggleReject(id); }
+}
+
+async function sdSubmitReject(postId) {
+    const reason = (document.getElementById(`sdraft-reason-${postId}`) || {}).value?.trim();
+    if (!reason) { alert('Please enter a rejection reason.'); return; }
+    try {
+        const res = await fetch('/.netlify/functions/approve-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId, action: 'reject', rejectionReason: reason }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(d.error || 'Failed to reject post.'); return; }
+        rqLoadItems(_rqCurrentTab, 'social');
+    } catch { alert('Network error — please try again.'); }
 }
 
 function rqRenderCard(item) {
@@ -2360,10 +2506,188 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('btn-autonomous-accept');
     if (cb && btn) cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
 
+    // Context counter
+    const ctx = document.getElementById('gen-post-context');
+    const ctxCount = document.getElementById('gen-post-ctx-count');
+    if (ctx && ctxCount) ctx.addEventListener('input', () => { ctxCount.textContent = ctx.value.length; });
+
     // Start badge polling
     refreshPendingBadge();
     _rqPollInterval = setInterval(refreshPendingBadge, 60_000);
 });
+
+// ── Generate Post on-demand sheet ─────────────────────────────────────────────
+let _gpCurrentAssistantId = null;
+let _gpCurrentBlueprintId = null;
+let _gpPollInterval = null;
+let _gpCurrentJobId = null;
+let _gpCurrentPostId = null;
+let _gpSelectedPlatform = 'instagram';
+
+function openGeneratePostSheet() {
+    // Pick up current assistant context if available
+    _gpCurrentAssistantId = window._currentAssistantId || null;
+    _gpCurrentJobId = null;
+    _gpCurrentPostId = null;
+    clearInterval(_gpPollInterval);
+
+    // Reset UI
+    const ctx = document.getElementById('gen-post-context');
+    if (ctx) ctx.value = '';
+    const ctxCount = document.getElementById('gen-post-ctx-count');
+    if (ctxCount) ctxCount.textContent = '0';
+    gpSetStatus('');
+    document.getElementById('gen-post-preview')?.classList.add('hidden');
+    document.getElementById('gen-post-approve-actions')?.classList.add('hidden');
+    document.getElementById('gen-post-reject-form')?.classList.add('hidden');
+    document.getElementById('gen-post-actions')?.classList.remove('hidden');
+    const submitBtn = document.getElementById('gen-post-submit-btn');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Generate'; }
+    gpSelectPlatformByValue('instagram');
+
+    document.getElementById('gen-post-backdrop')?.classList.remove('hidden');
+    document.getElementById('gen-post-sheet')?.classList.remove('hidden');
+}
+
+function closeGeneratePostSheet() {
+    clearInterval(_gpPollInterval);
+    document.getElementById('gen-post-backdrop')?.classList.add('hidden');
+    document.getElementById('gen-post-sheet')?.classList.add('hidden');
+}
+
+function gpSelectPlatform(btn) {
+    document.querySelectorAll('.gen-platform-btn').forEach(b => {
+        b.classList.remove('border-emerald-600', 'text-emerald-700', 'font-semibold');
+        b.classList.add('border-gray-300', 'text-gray-700');
+    });
+    btn.classList.add('border-emerald-600', 'text-emerald-700', 'font-semibold');
+    btn.classList.remove('border-gray-300', 'text-gray-700');
+    _gpSelectedPlatform = btn.dataset.platform;
+}
+
+function gpSelectPlatformByValue(val) {
+    const btn = document.querySelector(`.gen-platform-btn[data-platform="${val}"]`);
+    if (btn) gpSelectPlatform(btn);
+}
+
+function gpSetStatus(msg, type) {
+    const el = document.getElementById('gen-post-status');
+    if (!el) return;
+    if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+    el.classList.remove('hidden');
+    el.className = `mb-4 text-sm rounded-xl p-3 border ${type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`;
+    el.textContent = msg;
+}
+
+async function gpSubmit() {
+    if (!_gpCurrentAssistantId) {
+        gpSetStatus('No assistant selected. Open an assistant first, then click Generate Post.', 'error');
+        return;
+    }
+    const contextPrompt = document.getElementById('gen-post-context')?.value?.trim() || '';
+    const submitBtn = document.getElementById('gen-post-submit-btn');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+    gpSetStatus('Queuing generation job…');
+
+    try {
+        const res = await fetch('/.netlify/functions/generate-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                assistantId: _gpCurrentAssistantId,
+                platform: _gpSelectedPlatform,
+                triggerType: 'on_demand',
+                contextPrompt: contextPrompt || undefined,
+            }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { gpSetStatus(d.error || 'Failed to queue generation.', 'error'); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Generate'; } return; }
+        _gpCurrentJobId = d.jobId;
+        document.getElementById('gen-post-actions')?.classList.add('hidden');
+        gpSetStatus('Generating your post… (this takes ~30–60 seconds)');
+        _gpPollInterval = setInterval(gpPollJob, 4000);
+    } catch {
+        gpSetStatus('Network error — please try again.', 'error');
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Generate'; }
+    }
+}
+
+async function gpPollJob() {
+    if (!_gpCurrentJobId) return;
+    try {
+        const res = await fetch(`/.netlify/functions/generate-post?jobId=${_gpCurrentJobId}`);
+        if (!res.ok) return;
+        const { status, resultPostId, errorMessage } = await res.json();
+        if (status === 'completed' && resultPostId) {
+            clearInterval(_gpPollInterval);
+            _gpCurrentPostId = resultPostId;
+            await gpLoadPreview(resultPostId);
+        } else if (status === 'failed') {
+            clearInterval(_gpPollInterval);
+            gpSetStatus(errorMessage || 'Generation failed. Please try again.', 'error');
+            document.getElementById('gen-post-actions')?.classList.remove('hidden');
+            const submitBtn = document.getElementById('gen-post-submit-btn');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Try Again'; }
+        }
+    } catch { /* poll silently */ }
+}
+
+async function gpLoadPreview(postId) {
+    try {
+        const res = await fetch(`/.netlify/functions/get-social-drafts?status=pending_approval`);
+        if (!res.ok) return;
+        const { drafts } = await res.json();
+        const draft = drafts.find(d => d.id === postId);
+        if (!draft) return;
+        document.getElementById('gen-post-preview-caption').textContent = draft.caption || '';
+        document.getElementById('gen-post-preview-hashtags').textContent = draft.hashtags || '';
+        document.getElementById('gen-post-preview-media').textContent = draft.suggestedMediaDescription ? `Media suggestion: ${draft.suggestedMediaDescription}` : '';
+        document.getElementById('gen-post-preview')?.classList.remove('hidden');
+        document.getElementById('gen-post-approve-actions')?.classList.remove('hidden');
+        gpSetStatus('Draft ready — review and approve or reject below.');
+    } catch { gpSetStatus('Post generated but preview failed to load. Check Social Drafts tab.'); }
+}
+
+async function gpApprovePost() {
+    if (!_gpCurrentPostId) return;
+    await sdApprove(_gpCurrentPostId, 'publish_now');
+    gpSetStatus('Post approved and queued to publish now.');
+    document.getElementById('gen-post-approve-actions')?.classList.add('hidden');
+    document.getElementById('gen-post-preview')?.classList.add('hidden');
+    setTimeout(closeGeneratePostSheet, 1500);
+}
+
+async function gpSchedulePost() {
+    if (!_gpCurrentPostId) return;
+    await sdApprove(_gpCurrentPostId, 'approve');
+    gpSetStatus('Post approved and scheduled.');
+    document.getElementById('gen-post-approve-actions')?.classList.add('hidden');
+    document.getElementById('gen-post-preview')?.classList.add('hidden');
+    setTimeout(closeGeneratePostSheet, 1500);
+}
+
+function gpRejectPost() {
+    document.getElementById('gen-post-reject-form')?.classList.remove('hidden');
+    document.getElementById('gen-post-approve-actions')?.classList.add('hidden');
+}
+
+async function gpSubmitReject() {
+    const reason = document.getElementById('gen-post-reject-reason')?.value?.trim();
+    if (!reason) { alert('Please enter a rejection reason.'); return; }
+    if (!_gpCurrentPostId) return;
+    try {
+        const res = await fetch('/.netlify/functions/approve-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: _gpCurrentPostId, action: 'reject', rejectionReason: reason }),
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || 'Failed to reject post.'); return; }
+        gpSetStatus('Post rejected.');
+        document.getElementById('gen-post-reject-form')?.classList.add('hidden');
+        document.getElementById('gen-post-preview')?.classList.add('hidden');
+        setTimeout(closeGeneratePostSheet, 1500);
+    } catch { alert('Network error — please try again.'); }
+}
 </script>
 </body>
 </html>
