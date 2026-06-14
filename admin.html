@@ -4484,7 +4484,7 @@ function closeCascadeDeleteSheet() {
 }
 
 // Sync bottom tab bar active state with the primary nav
-const _origAdminCatNav = adminCatNav;
+var _origAdminCatNav = adminCatNav;
 function adminCatNav(cat) {
   _origAdminCatNav(cat);
   document.querySelectorAll('.admin-bottom-tab-btn').forEach(btn => {
