@@ -458,7 +458,7 @@ export const taskRuns = pgTable("task_runs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   // US-DB-1.5.1: Partial index for O(claimable) queue polling — scans only pending/expired-lease rows
-  index("task_runs_claimable_idx").on(t.createdAt).where(sql`status = 'pending' OR (status = 'running' AND lease_expires_at < now())`),
+  index("task_runs_claimable_idx").on(t.createdAt).where(sql`status = 'pending' OR status = 'running'`),
   // US-DB-1.1.1: Monthly usage aggregation and per-assistant run history
   index("task_runs_user_created_idx").on(t.userId, t.createdAt),
   index("task_runs_org_created_idx").on(t.organisationId, t.createdAt),
@@ -851,12 +851,30 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   // US-GOV-3.2.1: C2PA provenance — FK set at publish time
   provenanceContentId: text("provenance_content_id"),      // references contentProvenance.contentId
 
+  // US-SMM-3.1.1: LLM generation job linkage
+  jobId: text("job_id"),                                   // FK to contentGenerationJobs.jobId
+  blueprintId: integer("blueprint_id").references(() => aiBlueprints.id, { onDelete: "set null" }),
+  suggestedMediaDescription: text("suggested_media_description"),
+  generatedAt: timestamp("generated_at"),
+
+  // US-SMM-3.2.1: Instagram connection
+  connectionId: integer("connection_id").references(() => systemConnections.id, { onDelete: "set null" }),
+
+  // US-SMM-3.3.1/3.3.2: Publishing pipeline
+  // Status extensions: 'publishing' | 'paused' | 'failed' in addition to existing statuses
+  containerId: text("container_id"),                       // Instagram step-1 media container ID
+  attemptCount: integer("attempt_count").notNull().default(0),
+  retryAt: timestamp("retry_at"),
+  failureReason: jsonb("failure_reason"),                  // { errorCode, errorMessage, errorSubcode, isRetryable }
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   // US-DB-1.1.1: Org-level and user-level scheduled post lookups
   index("scheduled_posts_org_idx").on(t.organisationId),
   index("scheduled_posts_user_idx").on(t.userId),
+  // US-SMM-3.3.1: Partial index for publish queue polling
+  index("scheduled_posts_publish_queue_idx").on(t.publishDate).where(sql`status = 'scheduled' AND platform = 'instagram'`),
 ]);
 
 // US-DB-1.2.1: Junction table replacing scheduledPosts.contentAssetIds JSONB array.
@@ -1482,4 +1500,47 @@ export const aiBlueprints = pgTable("ai_blueprints", {
 }, (t) => [
   index("ai_blueprints_assistant_idx").on(t.assistantId, t.compiledAt),
   index("ai_blueprints_version_idx").on(t.blueprintVersion),
+]);
+
+// US-SMM-3.1.1: Async content generation job queue
+export const contentGenerationJobs = pgTable("content_generation_jobs", {
+  id: serial().primaryKey(),
+  jobId: text("job_id").notNull().unique(),                // UUID assigned at request time
+  blueprintId: integer("blueprint_id").references(() => aiBlueprints.id, { onDelete: "set null" }),
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("queued"),      // queued | processing | completed | failed
+  attempt: integer("attempt").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(3),
+  nextRetryAt: timestamp("next_retry_at"),
+  errorMessage: text("error_message"),
+  resultPostId: integer("result_post_id"),                 // scheduledPosts.id once created
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("content_jobs_status_idx").on(t.status, t.createdAt),
+  index("content_jobs_org_idx").on(t.organisationId, t.status),
+]);
+
+// US-SMM-3.3.1: Per-tick cron execution log
+export const publishCronLog = pgTable("publish_cron_log", {
+  id: serial().primaryKey(),
+  tickAt: timestamp("tick_at").defaultNow().notNull(),
+  postsProcessed: integer("posts_processed").notNull().default(0),
+  postsSucceeded: integer("posts_succeeded").notNull().default(0),
+  postsFailed: integer("posts_failed").notNull().default(0),
+  durationMs: integer("duration_ms"),
+  overrunAlert: boolean("overrun_alert").notNull().default(false),
+});
+
+// US-SMM-3.3.2: Per-org/platform rate limit state
+export const rateLimitStates = pgTable("rate_limit_states", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  platform: text("platform").notNull(),                    // 'instagram' | 'facebook' etc.
+  rateLimitedUntil: timestamp("rate_limited_until").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  unique("rate_limit_states_org_platform_unique").on(t.organisationId, t.platform),
 ]);

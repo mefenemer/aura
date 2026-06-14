@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { systemConnections, users } from '../../db/schema';
+import { systemConnections, scheduledPosts, notifications, users } from '../../db/schema';
 import { storeSecret, deleteSecret, buildRefKey } from '../../src/utils/vault';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -168,28 +168,53 @@ export const handler: Handler = async (event) => {
         if (event.httpMethod === 'DELETE') {
             const connectionId = event.queryStringParameters?.id;
             if (!connectionId) return { statusCode: 400, body: JSON.stringify({ error: 'Connection ID required.' }) };
+            const connIdInt = parseInt(connectionId);
 
-            // Fetch vaultRefKey before deleting so we can purge the secret
+            // Fetch vaultRefKey + serviceName before deleting
             const [conn] = await db
-                .select({ vaultRefKey: systemConnections.vaultRefKey })
+                .select({
+                    vaultRefKey: systemConnections.vaultRefKey,
+                    serviceName: systemConnections.serviceName,
+                    organisationId: systemConnections.organisationId,
+                })
                 .from(systemConnections)
                 .where(and(
-                    eq(systemConnections.id, parseInt(connectionId)),
+                    eq(systemConnections.id, connIdInt),
                     eq(systemConnections.userId, currentUserId),
                 ))
                 .limit(1);
 
-            await db.delete(systemConnections)
-                .where(and(
-                    eq(systemConnections.id, parseInt(connectionId)),
-                    eq(systemConnections.userId, currentUserId)
-                ));
+            // US-SMM-3.2.2: Mark disconnected rather than hard-delete, pause scheduled posts
+            await db.update(systemConnections).set({ status: 'disconnected', isActive: false, updatedAt: new Date() })
+                .where(and(eq(systemConnections.id, connIdInt), eq(systemConnections.userId, currentUserId)));
 
             if (conn?.vaultRefKey) {
                 await deleteSecret(conn.vaultRefKey).catch(() => {});
             }
 
-            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+            // Pause scheduled posts linked to this connection (Instagram)
+            let pausedCount = 0;
+            if (conn?.serviceName === 'instagram') {
+                const result = await db.update(scheduledPosts)
+                    .set({ status: 'paused', updatedAt: new Date() })
+                    .where(and(
+                        eq(scheduledPosts.connectionId, connIdInt),
+                        eq(scheduledPosts.status, 'scheduled'),
+                    ));
+                pausedCount = (result as unknown as { rowCount: number })?.rowCount ?? 0;
+
+                if (pausedCount > 0) {
+                    await db.insert(notifications).values({
+                        userId: currentUserId,
+                        type: 'instagram_disconnected',
+                        title: 'Instagram disconnected',
+                        message: `${pausedCount} scheduled post${pausedCount !== 1 ? 's have' : ' has'} been paused. Reconnect your Instagram account to resume publishing.`,
+                        metadata: { connectionId: connIdInt, pausedCount },
+                    });
+                }
+            }
+
+            return { statusCode: 200, body: JSON.stringify({ success: true, pausedCount }) };
         }
 
         return { statusCode: 405, body: 'Method Not Allowed' };
