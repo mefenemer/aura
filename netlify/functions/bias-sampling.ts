@@ -6,7 +6,7 @@
 // the previous calendar month, strips PII tokens, runs distribution analysis, stores
 // a biasSamplingReport row, and raises biasIncidents for any anomaly > 15% skew.
 
-import { schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { and, eq, gte, lt, sql, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
