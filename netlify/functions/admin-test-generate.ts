@@ -36,9 +36,10 @@ async function requireAdmin(event: any): Promise<{ userId: number; name: string 
     try { userId = (jwt.verify(match[1], JWT_SECRET) as { userId: number }).userId; }
     catch (_e) { return null; }
     const db = getDb();
-    const [row] = await db.select({ role: users.role, name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
+    const [row] = await db.select({ role: users.role, firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, userId)).limit(1);
     if (!row || !isAdminRole(row.role)) return null;
-    return { userId, name: row.name || `Admin #${userId}` };
+    const name = [row.firstName, row.lastName].filter(Boolean).join(' ') || `Admin #${userId}`;
+    return { userId, name };
 }
 
 function checkCompliance(caption: string, hashtags: string, sections: Record<string, any>, platform: string) {
