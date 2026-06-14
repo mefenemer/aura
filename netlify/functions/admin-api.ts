@@ -2020,6 +2020,86 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        // ── US-SMM-3.3.2: Publishing Pipeline resources ───────────────────────
+        if (event.httpMethod === 'GET' && resource === 'publish-pipeline-stats') {
+            const now = new Date();
+            const ago24h = new Date(now.getTime() - 86_400_000);
+            const ago7d  = new Date(now.getTime() - 7 * 86_400_000);
+            const [pub24h] = await db.execute<{ c: number }>(`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='published' AND published_at >= '${ago24h.toISOString()}'`);
+            const [pub7d]  = await db.execute<{ c: number }>(`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='published' AND published_at >= '${ago7d.toISOString()}'`);
+            const [queue]  = await db.execute<{ c: number }>(`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='scheduled' AND publish_date <= now()`);
+            const [failed] = await db.execute<{ c: number }>(`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='failed'`);
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+                published24h: pub24h.rows[0]?.c ?? 0,
+                published7d:  pub7d.rows[0]?.c ?? 0,
+                queueDepth:   queue.rows[0]?.c ?? 0,
+                failedCount:  failed.rows[0]?.c ?? 0,
+            }) };
+        }
+
+        if (event.httpMethod === 'GET' && resource === 'publish-cron-log') {
+            const { publishCronLog } = await import('../../db/schema');
+            const rows = await db.select().from(publishCronLog).orderBy(desc(publishCronLog.tickAt)).limit(20);
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows) };
+        }
+
+        if (event.httpMethod === 'GET' && resource === 'rate-limit-states') {
+            const { rateLimitStates } = await import('../../db/schema');
+            const rows = await db.execute<{ organisation_id: number; platform: string; rate_limited_until: string; name: string }>(
+                `SELECT r.organisation_id, r.platform, r.rate_limited_until, o.name
+                 FROM rate_limit_states r
+                 JOIN organisations o ON o.id = r.organisation_id
+                 WHERE r.rate_limited_until > now()
+                 ORDER BY r.rate_limited_until DESC`
+            );
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows.rows.map(r => ({
+                organisationId: r.organisation_id,
+                organisationName: r.name,
+                platform: r.platform,
+                rateLimitedUntil: r.rate_limited_until,
+            }))) };
+        }
+
+        if (event.httpMethod === 'GET' && resource === 'expiring-tokens') {
+            const in14d = new Date(Date.now() + 14 * 86_400_000).toISOString();
+            const rows = await db.execute<{ id: number; organisation_id: number; external_user_id: string; token_expires_at: string; name: string }>(
+                `SELECT sc.id, sc.organisation_id, sc.external_user_id, sc.token_expires_at, o.name
+                 FROM system_connections sc
+                 JOIN organisations o ON o.id = sc.organisation_id
+                 WHERE sc.service_name = 'instagram'
+                   AND sc.status = 'active'
+                   AND sc.token_expires_at < '${in14d}'
+                 ORDER BY sc.token_expires_at ASC`
+            );
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows.rows.map(r => ({
+                id: r.id,
+                organisationId: r.organisation_id,
+                organisationName: r.name,
+                externalUserId: r.external_user_id,
+                tokenExpiresAt: r.token_expires_at,
+            }))) };
+        }
+
+        if (event.httpMethod === 'GET' && resource === 'failed-posts') {
+            const platform = event.queryStringParameters?.platform ?? 'instagram';
+            const rows = await db.execute<{ id: number; publish_date: string; attempt_count: number; failure_reason: unknown; organisation_id: number }>(
+                `SELECT id, publish_date, attempt_count, failure_reason, organisation_id
+                 FROM scheduled_posts
+                 WHERE platform = '${platform}' AND status = 'failed'
+                 ORDER BY updated_at DESC
+                 LIMIT 50`
+            );
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows.rows) };
+        }
+
+        if (event.httpMethod === 'POST' && resource === 'retry-post') {
+            const postId = event.queryStringParameters?.postId;
+            if (!postId) return { statusCode: 400, body: JSON.stringify({ error: 'postId required' }) };
+            await db.execute(`UPDATE scheduled_posts SET status = 'scheduled', attempt_count = 0, retry_at = NULL, failure_reason = NULL, updated_at = now() WHERE id = ${parseInt(postId)} AND status = 'failed'`);
+            await insertAdminAuditLog(db, { adminId: currentUserId, action: 'retry_failed_post', resourceType: 'scheduled_posts', resourceId: postId });
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
+        }
+
         return { statusCode: 404, body: JSON.stringify({ error: `Unknown resource: ${resource}` }) };
 
     } catch (err: any) {

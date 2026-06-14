@@ -49,10 +49,10 @@ export const handler: Handler = async () => {
     const posts = await db.execute<{
         id: number; user_id: number; organisation_id: number; caption: string | null;
         hashtags: string | null; platform_post_id: string | null; connection_id: number | null;
-        attempt_count: number; publish_date: string;
+        attempt_count: number; publish_date: string; post_format: string;
     }>(
         `SELECT id, user_id, organisation_id, caption, hashtags, platform_post_id,
-                connection_id, attempt_count, publish_date
+                connection_id, attempt_count, publish_date, post_format
          FROM scheduled_posts
          WHERE status = 'scheduled'
            AND platform = 'instagram'
@@ -107,20 +107,25 @@ export const handler: Handler = async () => {
 
             // Build caption with hashtags
             const fullCaption = [post.caption, post.hashtags].filter(Boolean).join('\n\n');
+            const isVideo = ['reel', 'video'].includes(post.post_format?.toLowerCase() ?? '');
+            const mediaProxyBase = `${process.env.URL}/.netlify/functions/media-proxy?postId=${post.id}`;
 
-            // Step 1: create media container (image only for now; video handled below)
+            // Step 1: create media container (image or video)
+            const containerBody: Record<string, string> = {
+                caption: fullCaption,
+                access_token: token,
+            };
+            if (isVideo) {
+                containerBody.video_url = mediaProxyBase;
+                containerBody.media_type = 'REELS';
+            } else {
+                containerBody.image_url = mediaProxyBase;
+                containerBody.media_type = 'IMAGE';
+            }
+
             const mediaRes = await fetch(
                 `https://graph.facebook.com/${GRAPH_VERSION}/${igUserId}/media`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        caption: fullCaption,
-                        image_url: `${process.env.URL}/.netlify/functions/media-proxy?postId=${post.id}`, // signed URL proxy
-                        media_type: 'IMAGE',
-                        access_token: token,
-                    }),
-                }
+                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(containerBody) }
             );
             const mediaData: { id?: string; error?: { code: number; message: string; error_subcode?: number } } = await mediaRes.json();
 
@@ -135,6 +140,34 @@ export const handler: Handler = async () => {
 
             const containerId = mediaData.id;
             await db.execute(`UPDATE scheduled_posts SET container_id = '${containerId}', updated_at = now() WHERE id = ${post.id}`);
+
+            // Video-only: poll container status until FINISHED (or ERROR)
+            if (isVideo) {
+                const POLL_INTERVAL_MS = 5_000;
+                const POLL_TIMEOUT_MS  = 120_000;
+                const pollStart = Date.now();
+                let statusCode = 'IN_PROGRESS';
+                while (statusCode !== 'FINISHED') {
+                    if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
+                        const reason: FailureReason = { errorCode: null, errorMessage: 'Video processing timed out after 120s', isRetryable: true };
+                        await handlePublishFailure(db, post, reason, now);
+                        return;
+                    }
+                    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+                    const pollRes = await fetch(
+                        `https://graph.facebook.com/${GRAPH_VERSION}/${containerId}?fields=status_code&access_token=${token}`
+                    );
+                    const pollData: { status_code?: string; error?: { code: number; message: string; error_subcode?: number } } = await pollRes.json();
+                    statusCode = pollData.status_code ?? 'ERROR';
+                    if (statusCode === 'ERROR') {
+                        const err = pollData.error;
+                        const reason: FailureReason = { errorCode: err?.code ?? null, errorMessage: err?.message ?? 'Video processing failed', errorSubcode: err?.error_subcode, isRetryable: false };
+                        await handlePublishFailure(db, post, reason, now);
+                        failed++;
+                        return;
+                    }
+                }
+            }
 
             // Step 2: publish the container
             const publishRes = await fetch(
