@@ -2276,6 +2276,12 @@ async function bpRunTest() {
     if (!res.ok) { clearInterval(elapsedTimer); bpTestShowError(d.error || 'Failed to submit test job.'); if (runBtn) runBtn.disabled = false; return; }
     _bpTestJobId = d.jobId;
     if (statusText) statusText.textContent = 'Calling LLM…';
+    // Fire background function to process the job directly (bypasses cron, works on deploy previews)
+    fetch('/.netlify/functions/admin-test-generate-background', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId: d.jobId }),
+    }).catch(() => {});
     _bpTestPollInterval = setInterval(() => bpTestPoll(elapsedTimer), 3000);
   } catch (e) {
     clearInterval(elapsedTimer);
