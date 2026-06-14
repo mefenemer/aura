@@ -101,7 +101,9 @@ export const handler: Handler = async () => {
                 .limit(1);
             if (!conn?.vaultRefKey) throw new Error('No vault token for connection.');
 
-            const token = await getSecret(conn.vaultRefKey);
+            const secretData = await getSecret(db, conn.vaultRefKey);
+            const token = secretData?.token as string | undefined;
+            if (!token) throw new Error('No token in vault for connection.');
             const igUserId = conn.externalUserId;
             if (!igUserId) throw new Error('No Instagram user ID in connection.');
 

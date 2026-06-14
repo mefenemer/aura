@@ -144,7 +144,7 @@ export const handler: Handler = async (event) => {
 
         // Store token in vault
         const refKey = `aura/org-${organisationId}/instagram-token`;
-        await storeSecret(refKey, longLivedToken);
+        await storeSecret(db, refKey, { token: longLivedToken });
 
         const tokenExpiresAt = new Date(Date.now() + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 

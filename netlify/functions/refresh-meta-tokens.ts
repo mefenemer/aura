@@ -52,7 +52,9 @@ async function refreshToken(db: ReturnType<typeof getDb>, conn: {
     if (!conn.vaultRefKey) return;
 
     try {
-        const existingToken = await getSecret(conn.vaultRefKey);
+        const tokenData = await getSecret(db, conn.vaultRefKey);
+        const existingToken = tokenData?.token as string | undefined;
+        if (!existingToken) throw new Error('No token in vault for connection.');
         const res = await fetch(
             `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${metaAppId}&client_secret=${metaSecret}&fb_exchange_token=${existingToken}`
         );
@@ -60,7 +62,7 @@ async function refreshToken(db: ReturnType<typeof getDb>, conn: {
 
         if (!data.access_token) throw new Error(data.error?.message ?? 'Token refresh failed');
 
-        await storeSecret(conn.vaultRefKey, data.access_token);
+        await storeSecret(db, conn.vaultRefKey, { token: data.access_token });
 
         const newExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
         await db.update(systemConnections).set({

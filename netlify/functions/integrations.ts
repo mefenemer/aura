@@ -23,11 +23,10 @@ export const handler: Handler = async (event) => {
 
     const db = getDb();
 
+    try {
     // US-DB-1.3.1: resolve orgId — mandatory for all system_connections queries
     const [currentUser] = await db.select({ organisationId: users.organisationId }).from(users).where(eq(users.id, currentUserId)).limit(1);
     const currentOrgId = currentUser?.organisationId ?? null;
-
-    try {
         // --- GET: FETCH INTEGRATIONS DASHBOARD ---
         if (event.httpMethod === 'GET') {
             // 1. Fetch system-wide platform definitions (userId is null)
@@ -127,12 +126,12 @@ export const handler: Handler = async (event) => {
 
             const scopeString = Array.isArray(scopes) && scopes.length ? scopes.join(' ') : null;
             const refKey = buildRefKey(currentUserId, serviceName, 'apikey');
-            await storeSecret(refKey, apiKey);
+            await storeSecret(db, refKey, { token: apiKey });
 
             if (existing.length > 0) {
                 // Delete old vault entry if the key changed
                 if (existing[0].vaultRefKey && existing[0].vaultRefKey !== refKey) {
-                    await deleteSecret(existing[0].vaultRefKey).catch(() => {});
+                    await deleteSecret(db, existing[0].vaultRefKey).catch(() => {});
                 }
                 await db.update(systemConnections)
                     .set({
@@ -189,7 +188,7 @@ export const handler: Handler = async (event) => {
                 .where(and(eq(systemConnections.id, connIdInt), eq(systemConnections.userId, currentUserId)));
 
             if (conn?.vaultRefKey) {
-                await deleteSecret(conn.vaultRefKey).catch(() => {});
+                await deleteSecret(db, conn.vaultRefKey).catch(() => {});
             }
 
             // Pause scheduled posts linked to this connection (Instagram)
