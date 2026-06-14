@@ -147,12 +147,22 @@ async function run(event: any) {
                 tokensOutput: contentGenerationJobs.tokensOutput,
                 blueprintId:  contentGenerationJobs.blueprintId,
                 platform:     contentGenerationJobs.platform,
+                updatedAt:    contentGenerationJobs.updatedAt,
             })
             .from(contentGenerationJobs)
             .where(and(eq(contentGenerationJobs.jobId, jobId), eq(contentGenerationJobs.triggerType, 'admin_test')))
             .limit(1);
 
         if (!job) return { statusCode: 404, body: JSON.stringify({ error: 'Test job not found.' }) };
+
+        // Detect stuck-processing jobs (function timed out — cron resets them, but surface error to UI immediately)
+        if (job.status === 'processing' && job.updatedAt && Date.now() - new Date(job.updatedAt).getTime() > 3 * 60 * 1000) {
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'failed', errorMessage: 'Generation timed out. The job will be retried automatically — please try again in a moment.' }),
+            };
+        }
 
         if (job.status !== 'completed' || !job.resultPostId) {
             return {

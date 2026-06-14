@@ -2254,10 +2254,10 @@ async function bpRunTest() {
   const elapsedTimer = setInterval(() => {
     const secs = Math.floor((Date.now() - _bpTestStartTime) / 1000);
     if (elapsedEl) elapsedEl.textContent = `${secs}s elapsed`;
-    if (secs >= 120) {
+    if (secs >= 240) {
       clearInterval(elapsedTimer);
       clearInterval(_bpTestPollInterval);
-      bpTestShowError('Test timed out after 120 seconds. Please try again.');
+      bpTestShowError('Test timed out after 4 minutes. Please try again.');
     }
   }, 1000);
 

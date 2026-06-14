@@ -11,7 +11,7 @@ import {
     scheduledPosts, notifications, auditLogs,
 } from '../../db/schema';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 24_000 });
 const GEN_MODEL = 'claude-sonnet-4-6';
 
 const BACKOFF_SECS = [10, 30, 90];
@@ -19,6 +19,12 @@ const BACKOFF_SECS = [10, 30, 90];
 export const handler: Handler = async () => {
     const db = getDb();
     const now = new Date();
+
+    // Reset jobs stuck in 'processing' for >3 minutes (function timed out mid-run)
+    await db.execute(
+        `UPDATE content_generation_jobs SET status = 'queued', next_retry_at = now()
+         WHERE status = 'processing' AND updated_at < now() - interval '3 minutes' AND attempt < max_attempts`
+    );
 
     const jobs = await db.execute<{
         id: number; job_id: string; blueprint_id: number; assistant_id: number;
