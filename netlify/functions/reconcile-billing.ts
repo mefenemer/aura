@@ -11,7 +11,7 @@
 // Results are written to billing_reconciliation_log.
 // Mismatches trigger a superadmin in-app notification.
 
-import { schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { getDb } from '../../db/client';

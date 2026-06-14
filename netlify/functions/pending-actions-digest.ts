@@ -2,7 +2,7 @@
 // US-GOV-2.1.1: Daily digest email for pending HITL actions older than 24 h.
 // Scheduled: every day at 09:00 UTC via netlify.toml [functions.schedule]
 
-import { schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { and, eq, lt, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { pendingActions, users } from '../../db/schema';

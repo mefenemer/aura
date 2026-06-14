@@ -2,7 +2,7 @@
 // US-GOV-3.3.1: Quarterly prompt review reminder to all SuperAdmins.
 // Scheduled: 1st Jan, Apr, Jul, Oct at 08:00 UTC.
 
-import { schedule } from '@netlify/functions';
+import type { Handler } from '@netlify/functions';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, notifications } from '../../db/schema';
