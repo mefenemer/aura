@@ -105,12 +105,12 @@ async function run(event: any) {
                 job_id: string; platform: string | null; context_prompt: string | null;
                 created_at: string; tokens_input: number | null; tokens_output: number | null;
                 caption: string | null; hashtags: string | null; suggested_media_description: string | null;
-                admin_name: string | null;
+                admin_first_name: string | null; admin_last_name: string | null;
             }>(`
                 SELECT cj.job_id, cj.platform, cj.context_prompt, cj.created_at,
                        cj.tokens_input, cj.tokens_output,
                        sp.caption, sp.hashtags, sp.suggested_media_description,
-                       u.name AS admin_name
+                       u.first_name AS admin_first_name, u.last_name AS admin_last_name
                 FROM content_generation_jobs cj
                 LEFT JOIN scheduled_posts sp ON sp.job_id = cj.job_id
                 LEFT JOIN users u ON u.id = cj.admin_id
@@ -129,7 +129,7 @@ async function run(event: any) {
                 caption:                  r.caption,
                 hashtags:                 r.hashtags,
                 suggestedMediaDescription: r.suggested_media_description,
-                adminName:                r.admin_name,
+                adminName:                [r.admin_first_name, r.admin_last_name].filter(Boolean).join(' ') || null,
             }));
 
             return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows) };
