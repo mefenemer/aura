@@ -14,7 +14,7 @@ import { getDb } from '../../db/client';
 import { users, userReferrals } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
-const BASE_URL  = process.env.URL || 'https://aura-digital-assistant.netlify.app';
+const BASE_URL  = process.env.DEPLOY_URL || process.env.URL || 'https://aura-digital-assistant.netlify.app';
 const REWARD_GBP = 10;
 
 function getAuth(event: any): number | null {

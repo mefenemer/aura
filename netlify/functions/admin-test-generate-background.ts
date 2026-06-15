@@ -12,10 +12,10 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, aiBlueprints, contentGenerationJobs, scheduledPosts } from '../../db/schema';
 import { isAdminRole } from '../../src/utils/rbac';
+import { gatewayGenerate } from '../../src/lib/ai-gateway';
+import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const GEN_MODEL = 'claude-sonnet-4-6';
 
 const PLATFORM_CHAR_LIMITS: Record<string, number> = {
     instagram: 2200,
@@ -128,17 +128,10 @@ export const handler: Handler = async (event) => {
             }
         }
 
-        const response = await anthropic.messages.create({
-            model: GEN_MODEL,
-            max_tokens: 1024,
-            system: systemPrompt,
-            messages,
-        });
+        systemPrompt += `\n\n${AURA_SAFE_CONTENT_BENCHMARK}`;
 
-        const tokensInput  = response.usage?.input_tokens  ?? null;
-        const tokensOutput = response.usage?.output_tokens ?? null;
-
-        const rawText = response.content.find(b => b.type === 'text')?.text || '';
+        const gwResponse = await gatewayGenerate({ system: systemPrompt, messages });
+        const { text: rawText, tokensInput, tokensOutput } = gwResponse;
         let generated: { caption?: string; hashtags?: string; suggestedMediaDescription?: string; conflictNotice?: string | null } = {};
         try {
             const m = rawText.match(/\{[\s\S]*\}/);

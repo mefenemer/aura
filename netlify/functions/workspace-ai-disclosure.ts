@@ -11,6 +11,7 @@ import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, organisations, plans } from '../../db/schema';
+import { and } from 'drizzle-orm';
 import Stripe from 'stripe';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -74,14 +75,22 @@ export const handler: Handler = async (event) => {
 
         if (!org) return { statusCode: 404, body: JSON.stringify({ error: 'Organisation not found.' }) };
 
-        // Check EU jurisdiction via Stripe billing country
+        // Check EU jurisdiction via Stripe billing country — query by org, not userId (userId nullable on org-level plans)
         const [plan] = await db.select({ stripeCustomerId: plans.stripeCustomerId })
             .from(plans)
-            .where(eq(plans.userId, userId))
+            .where(and(eq(plans.organisationId, orgId), eq(plans.status, 'active')))
             .limit(1);
 
         const billingCountry = await getOrgBillingCountry(plan?.stripeCustomerId);
         const isEuJurisdiction = billingCountry ? EU_COUNTRY_CODES.has(billingCountry.toUpperCase()) : false;
+
+        // Auto-enable disclosure footer for EU orgs that haven't explicitly opted in yet
+        if (isEuJurisdiction && !org.aiDisclosureFooterEnabled) {
+            await db.update(organisations)
+                .set({ aiDisclosureFooterEnabled: true })
+                .where(eq(organisations.id, orgId));
+            org.aiDisclosureFooterEnabled = true;
+        }
 
         return {
             statusCode: 200,

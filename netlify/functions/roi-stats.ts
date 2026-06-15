@@ -90,7 +90,7 @@ export const handler = async (event: HandlerEvent) => {
         let currency = 'GBP';
         if (user?.organisationId) {
             const [plan] = await db
-                .select({ monthlyPriceGbp: masterPlans.monthlyPriceGbp, currency: plans.currency })
+                .select({ monthlyPriceGbp: masterPlans.monthlyPriceGbp })
                 .from(plans)
                 .innerJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
                 .where(and(eq(plans.organisationId, user.organisationId), eq(plans.status, 'active')))

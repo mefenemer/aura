@@ -70,7 +70,7 @@ export const handler: Handler = async (event) => {
                     membershipId: userOrganisations.id,
                     userId: userOrganisations.userId,
                     role: userOrganisations.role,
-                    joinedAt: userOrganisations.createdAt,
+                    joinedAt: userOrganisations.joinedAt,
                     firstName: users.firstName,
                     lastName: users.lastName,
                     email: users.email,
@@ -78,7 +78,7 @@ export const handler: Handler = async (event) => {
                 .from(userOrganisations)
                 .leftJoin(users, eq(userOrganisations.userId, users.id))
                 .where(eq(userOrganisations.organisationId, orgId))
-                .orderBy(userOrganisations.createdAt);
+                .orderBy(userOrganisations.joinedAt);
 
             // Resolve seat limit from the org owner's active plan
             const [ownerPlanRow] = await db

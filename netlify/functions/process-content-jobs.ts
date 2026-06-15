@@ -8,11 +8,10 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     contentGenerationJobs, aiBlueprints, aiAssistants,
-    scheduledPosts, notifications, auditLogs,
+    scheduledPosts, notifications, auditLogs, organisations,
 } from '../../db/schema';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 24_000 });
-const GEN_MODEL = 'claude-sonnet-4-6';
+import { gatewayGenerate } from '../../src/lib/ai-gateway';
+import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
 
 const BACKOFF_SECS = [10, 30, 90];
 
@@ -78,7 +77,18 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
         const businessName  = (onboarding['businessName'] as string) ?? 'this business';
         const audience      = (onboarding['targetAudience'] as string) ?? (answers['target_audience'] as string) ?? 'their audience';
         const tone          = (onboarding['brandVoice'] as string) ?? (answers['tone_of_voice'] as string) ?? 'professional';
-        const disclosureText = (compliance['disclosureText'] as string) ?? null;
+        const perAssistantDisclosure = (compliance['disclosureText'] as string) ?? null;
+
+        // Org-level disclosure flag takes precedence (EU AI Act Art. 50)
+        const [orgRow] = await db
+            .select({ aiDisclosureFooterEnabled: organisations.aiDisclosureFooterEnabled, aiDisclosureFooterText: organisations.aiDisclosureFooterText })
+            .from(organisations)
+            .where(eq(organisations.id, job.organisation_id))
+            .limit(1);
+        const orgDisclosureEnabled = orgRow?.aiDisclosureFooterEnabled ?? false;
+        const orgDisclosureText    = orgRow?.aiDisclosureFooterText ?? 'This message was composed with AI assistance.';
+        const disclosureText = orgDisclosureEnabled ? orgDisclosureText : perAssistantDisclosure;
+
         const platform      = job.platform || 'instagram';
 
         const ctaLine         = answers['cta']          ? `Call to action: ${answers['cta']}` : '';
@@ -109,18 +119,10 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
                 if (v != null) systemPrompt += `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}\n`;
             }
         }
+        systemPrompt += `\n\n${AURA_SAFE_CONTENT_BENCHMARK}`;
 
-        const response = await anthropic.messages.create({
-            model: GEN_MODEL,
-            max_tokens: 1024,
-            system: systemPrompt,
-            messages,
-        });
-
-        const tokensInput = response.usage?.input_tokens ?? null;
-        const tokensOutput = response.usage?.output_tokens ?? null;
-
-        const rawText = response.content.find(b => b.type === 'text')?.text || '';
+        const gwResponse = await gatewayGenerate({ system: systemPrompt, messages });
+        const { text: rawText, tokensInput, tokensOutput } = gwResponse;
         let generated: { caption?: string; hashtags?: string; suggestedMediaDescription?: string; conflictNotice?: string | null } = {};
         try {
             const jsonMatch = rawText.match(/\{[\s\S]*\}/);

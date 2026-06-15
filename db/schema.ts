@@ -401,6 +401,7 @@ export const masterPlans = pgTable("master_plans", {
   monthlyTokenLimit: integer("monthly_token_limit"),    // max LLM tokens per calendar month; null = unlimited
   appConnectionLimit: integer("app_connection_limit"),  // max OAuth/API integrations per assistant; null = unlimited
   seatLimit: integer("seat_limit"),                     // max workspace members (users in the same org); null = solo only (1 seat)
+  storageLimitBytes: integer("storage_limit_bytes"),    // US-STOR-1.1.2: max object storage per org; null = unlimited
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -618,6 +619,13 @@ export const workspaceAssets = pgTable("workspace_assets", {
   extractedText: text("extracted_text"),
   status: text("status").notNull().default("processing"),
 
+  // US-STOR-1.1.1 AC14: R2 object storage fields
+  r2Key: text("r2_key"),                               // full R2 object key — never returned in API responses (AC15)
+  mimeType: text("mime_type"),
+  fileSizeBytes: integer("file_size_bytes"),
+  originalFilename: text("original_filename"),
+  deletedAt: timestamp("deleted_at"),                  // soft-delete timestamp; null = not deleted
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
@@ -625,6 +633,15 @@ export const workspaceAssets = pgTable("workspace_assets", {
   index("workspace_assets_org_idx").on(t.organisationId),
   index("workspace_assets_uploader_idx").on(t.uploaderId),
 ]);
+
+// US-STOR-1.1.2 AC1: Storage usage tracker — one row per org, updated atomically on upload/delete
+export const storageUsage = pgTable("storage_usage", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().unique()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+  usedBytes: integer("used_bytes").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 // Support Tickets Table — For user help requests and issue tracking
 export const supportTickets = pgTable("support_tickets", {
   id: serial("id").primaryKey(),

@@ -975,11 +975,12 @@ export const handler: Handler = async (event) => {
             let planMrrMap: Record<number, { amount: number; currency: string }> = {};
             if (workspaceIds.length > 0) {
                 const planRows = await db
-                    .select({ orgId: plans.organisationId, amount: plans.amount, currency: plans.currency })
+                    .select({ orgId: plans.organisationId, monthlyPriceGbp: masterPlans.monthlyPriceGbp })
                     .from(plans)
-                    .where(and(eq(plans.status, 'active'), sql`organisation_id = ANY(${workspaceIds})`));
+                    .leftJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
+                    .where(and(eq(plans.status, 'active'), sql`plans.organisation_id = ANY(${workspaceIds})`));
                 planRows.forEach(p => {
-                    if (p.orgId) planMrrMap[p.orgId] = { amount: parseFloat(String(p.amount || '0')), currency: p.currency || 'GBP' };
+                    if (p.orgId) planMrrMap[p.orgId] = { amount: parseFloat(String(p.monthlyPriceGbp || '0')), currency: 'GBP' };
                 });
             }
 

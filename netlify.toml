@@ -70,6 +70,10 @@ node_bundler = "esbuild"
 [functions.refresh-meta-tokens]
   schedule = "0 2 * * *"
 
+# US-STOR-1.1.2 AC7: Nightly orphaned file cleanup — 03:00 UTC every day
+[functions.storage-lifecycle-cleanup]
+  schedule = "0 3 * * *"
+
 # US-SMM-3.3.1/3.3.2: Publish due Instagram posts — every minute
 [functions.publish-instagram]
   schedule = "* * * * *"

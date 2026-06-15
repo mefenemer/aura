@@ -30,6 +30,7 @@ import {
     assistantVersions,
     featureFlags,
     platformConfig,
+    supportedLanguages,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { isAdminRole } from '../../src/utils/rbac';
@@ -269,12 +270,9 @@ async function handleAssistantVersions(event: any, adminId: number, ip?: string,
     const assistantId = event.queryStringParameters?.assistantId ? Number(event.queryStringParameters.assistantId) : null;
 
     if (method === 'GET') {
-        if (!assistantId) return badRequest('assistantId required.');
-        const rows = await db
-            .select()
-            .from(assistantVersions)
-            .where(eq(assistantVersions.assistantId, assistantId))
-            .orderBy(desc(assistantVersions.versionNumber));
+        const rows = assistantId
+            ? await db.select().from(assistantVersions).where(eq(assistantVersions.assistantId, assistantId)).orderBy(desc(assistantVersions.versionNumber))
+            : await db.select().from(assistantVersions).orderBy(desc(assistantVersions.versionNumber)).limit(200);
         return { statusCode: 200, body: JSON.stringify(rows) };
     }
 
@@ -398,6 +396,51 @@ async function handlePlatformConfig(event: any, adminId: number, ip?: string, ua
     return { statusCode: 405, body: 'Method Not Allowed' };
 }
 
+// ── Supported Languages ────────────────────────────────────────────────────────
+
+async function handleSupportedLanguages(event: any, adminId: number, ip?: string, ua?: string) {
+    const db = getDb();
+    const method = event.httpMethod;
+
+    if (method === 'GET') {
+        const rows = await db.select().from(supportedLanguages).orderBy(supportedLanguages.sortOrder);
+        return { statusCode: 200, body: JSON.stringify(rows) };
+    }
+
+    if (method === 'POST') {
+        const body = JSON.parse(event.body || '{}');
+        const { code, name, nativeName, isActive, sortOrder } = body;
+        if (!code || !name) return badRequest('code and name required.');
+        const [row] = await db.insert(supportedLanguages).values({ code, name, nativeName, isActive: isActive ?? true, sortOrder: sortOrder ?? 0 }).returning();
+        void insertAdminAuditLog({ adminId, action: 'create', targetType: 'supported_language', targetId: code, newState: row, ipAddress: ip, userAgent: ua });
+        return { statusCode: 201, body: JSON.stringify(row) };
+    }
+
+    if (method === 'PATCH') {
+        const code = event.queryStringParameters?.code;
+        if (!code) return badRequest('code required.');
+        const body = JSON.parse(event.body || '{}');
+        const updates: Partial<typeof supportedLanguages.$inferInsert> = {};
+        if (body.name       !== undefined) updates.name       = body.name;
+        if (body.nativeName !== undefined) updates.nativeName = body.nativeName;
+        if (body.isActive   !== undefined) updates.isActive   = body.isActive;
+        if (body.sortOrder  !== undefined) updates.sortOrder  = body.sortOrder;
+        const [row] = await db.update(supportedLanguages).set(updates).where(eq(supportedLanguages.code, code)).returning();
+        void insertAdminAuditLog({ adminId, action: 'update', targetType: 'supported_language', targetId: code, newState: row, ipAddress: ip, userAgent: ua });
+        return { statusCode: 200, body: JSON.stringify(row) };
+    }
+
+    if (method === 'DELETE') {
+        const code = event.queryStringParameters?.code;
+        if (!code) return badRequest('code required.');
+        await db.delete(supportedLanguages).where(eq(supportedLanguages.code, code));
+        void insertAdminAuditLog({ adminId, action: 'delete', targetType: 'supported_language', targetId: code, ipAddress: ip, userAgent: ua });
+        return { statusCode: 200, body: JSON.stringify({ deleted: true }) };
+    }
+
+    return { statusCode: 405, body: 'Method Not Allowed' };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main handler
 // ─────────────────────────────────────────────────────────────────────────────
@@ -416,9 +459,10 @@ export const handler: Handler = async (event) => {
         case 'plan-prices':        return handlePlanPrices(event, adminId, role, ip, ua);
         case 'master-assistants':  return handleMasterAssistants(event, adminId, ip, ua);
         case 'assistant-versions': return handleAssistantVersions(event, adminId, ip, ua);
-        case 'feature-flags':      return handleFeatureFlags(event, adminId, role, ip, ua);
-        case 'platform-config':    return handlePlatformConfig(event, adminId, ip, ua);
+        case 'feature-flags':        return handleFeatureFlags(event, adminId, role, ip, ua);
+        case 'platform-config':      return handlePlatformConfig(event, adminId, ip, ua);
+        case 'supported-languages':  return handleSupportedLanguages(event, adminId, ip, ua);
         default:
-            return { statusCode: 400, body: JSON.stringify({ error: 'resource param required: master-plans | plan-prices | master-assistants | assistant-versions | feature-flags | platform-config' }) };
+            return { statusCode: 400, body: JSON.stringify({ error: 'resource param required: master-plans | plan-prices | master-assistants | assistant-versions | feature-flags | platform-config | supported-languages' }) };
     }
 };

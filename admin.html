@@ -20,10 +20,10 @@
   <link href="./style.css" rel="stylesheet">
   <link rel="icon" href="/favicon/favicon.ico" sizes="any">
 </head>
-<body class="font-sans text-gray-800 antialiased bg-gray-100 min-h-screen">
+<body class="font-sans text-gray-800 antialiased bg-gray-100 h-screen overflow-hidden">
 
 <!-- ── Layout ──────────────────────────────────────────────────────────── -->
-<div class="flex min-h-screen">
+<div class="flex h-screen overflow-hidden">
 
   <!-- US-ADM-1.4.1: Two-tier navigation -->
   <!-- Primary sidebar: category icons + labels -->
@@ -81,6 +81,14 @@
         class="flex flex-col items-center text-gray-500 hover:text-white transition py-2 cursor-pointer">
         <span class="text-base">←</span>
         <span class="text-[9px] font-bold hidden lg:block">Back</span>
+      </a>
+      <a href="/logout.html" title="Sign Out"
+        class="flex flex-col items-center text-gray-500 hover:text-red-400 transition py-2 cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+        </svg>
+        <span class="text-[9px] font-bold hidden lg:block">Logout</span>
       </a>
     </div>
   </aside>
@@ -576,7 +584,7 @@
           <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="plan-prices" onclick="mdSwitchTab('plan-prices')">Plan Prices</button>
           <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="assistants" onclick="mdSwitchTab('assistants')">Assistants</button>
           <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="assistant-versions" onclick="mdSwitchTab('assistant-versions')">Versions</button>
-          <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="feature-flags-md" onclick="mdSwitchTab('feature-flags-md')">Feature Flags</button>
+          <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="feature-flags-md" onclick="mdSwitchTab('feature-flags-md')">Flag Definitions</button>
           <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="languages" onclick="mdSwitchTab('languages')">Languages</button>
           <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="system-config" onclick="mdSwitchTab('system-config')">System Config</button>
         </div>
@@ -647,7 +655,7 @@
         <!-- Feature Flags tab (master-data-api view) -->
         <div id="md-pane-feature-flags-md" class="md-pane hidden">
           <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-bold text-gray-700">Feature Flags</h2>
+            <h2 class="text-sm font-bold text-gray-700">Flag Definitions</h2>
             <button onclick="mdOpenAdd('feature-flags-md')" class="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black transition">+ Add Flag</button>
           </div>
           <div class="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
@@ -3587,8 +3595,8 @@ async function loadSalesPipeline() {
       return `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
           <td class="px-4 py-3 text-sm">
-            <div class="font-semibold text-gray-900">${escHtml(l.name || l.email)}</div>
-            ${l.name ? `<div class="text-xs text-gray-400">${escHtml(l.email)}</div>` : ''}
+            <div class="font-semibold text-gray-900">${_escH(l.name || l.email)}</div>
+            ${l.name ? `<div class="text-xs text-gray-400">${_escH(l.email)}</div>` : ''}
             ${isUrgent ? '<span class="mt-1 inline-block text-xs font-bold bg-red-600 text-white px-1.5 py-0.5 rounded">Urgent</span>' : ''}
           </td>
           <td class="px-4 py-3"><span class="text-xs font-semibold px-2 py-0.5 rounded-full ${typeBadge}">${(l.leadType||'—').replace(/_/g,' ')}</span></td>
@@ -3598,7 +3606,7 @@ async function loadSalesPipeline() {
             <select onchange="updateLeadStatus(${l.id}, this.value)" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-emerald-500 focus:outline-none">${statusOpts}</select>
           </td>
           <td class="px-4 py-3 text-xs text-gray-500 max-w-xs">
-            <input type="text" value="${escHtml(l.salesNotes||'')}" placeholder="Add notes…"
+            <input type="text" value="${_escH(l.salesNotes||'')}" placeholder="Add notes…"
               onblur="saveLeadNotes(${l.id}, this.value)"
               class="w-full border border-transparent hover:border-gray-200 focus:border-gray-300 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-transparent">
           </td>

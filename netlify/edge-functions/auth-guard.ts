@@ -9,7 +9,7 @@ export default async (request: Request, context: Context) => {
     }
 
     // Always allow access to maintenance, login, and static pages
-    const ALWAYS_ALLOWED = ['/maintenance.html', '/login.html', '/logout.html', '/check-email.html'];
+    const ALWAYS_ALLOWED = ['/maintenance.html', '/login.html', '/logout.html', '/check-email.html', '/register.html'];
     if (ALWAYS_ALLOWED.includes(url.pathname)) {
         return context.next();
     }

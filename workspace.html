@@ -216,7 +216,7 @@ async function submitTosAcceptance(btn) {
   <div class="flex-1 bg-gray-900/60 backdrop-blur-sm" onclick="closeReviewQueue()"></div>
   <!-- Panel -->
   <div class="w-full max-w-2xl bg-white flex flex-col shadow-2xl">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
       <h2 id="rq-title" class="text-lg font-extrabold text-gray-900">Pending Approvals</h2>
       <div class="flex items-center gap-2">
         <button onclick="openGeneratePostSheet()" class="px-3 py-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition cursor-pointer flex items-center gap-1.5">
@@ -229,7 +229,7 @@ async function submitTosAcceptance(btn) {
       </div>
     </div>
     <!-- Tabs -->
-    <div class="flex gap-1 px-6 pt-3 border-b border-gray-100 overflow-x-auto">
+    <div class="flex gap-1 px-6 pt-3 border-b border-gray-100 overflow-x-auto shrink-0">
       <button class="rq-tab px-4 py-2 text-sm font-semibold rounded-t border-b-2 border-emerald-600 text-emerald-700 whitespace-nowrap" data-tab-type="hitl" data-status="pending" onclick="rqSetTab('pending',this,'hitl')">Pending <span id="rq-pending-tab-count" class="ml-1 bg-emerald-100 text-emerald-700 text-xs px-1.5 py-0.5 rounded-full"></span></button>
       <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="hitl" data-status="approved" onclick="rqSetTab('approved',this,'hitl')">Approved</button>
       <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="hitl" data-status="rejected" onclick="rqSetTab('rejected',this,'hitl')">Rejected</button>
@@ -2204,15 +2204,26 @@ let _rqPollInterval = null;
 
 async function refreshPendingBadge() {
     try {
-        const res = await fetch('/.netlify/functions/get-pending-actions?status=pending&limit=1');
-        if (!res.ok) return;
-        const { totalPending } = await res.json();
+        const [hitlRes, socialRes] = await Promise.all([
+            fetch('/.netlify/functions/get-pending-actions?status=pending&limit=1'),
+            fetch('/.netlify/functions/get-social-drafts?status=pending_approval'),
+        ]);
+        const { totalPending } = hitlRes.ok ? await hitlRes.json() : { totalPending: 0 };
+        const { drafts: socialDrafts } = socialRes.ok ? await socialRes.json() : { drafts: [] };
+        const socialCount = (socialDrafts || []).length;
+        const totalBadge = (totalPending || 0) + socialCount;
+
         document.querySelectorAll('.pending-badge').forEach(el => {
-            el.textContent = totalPending || '';
-            el.classList.toggle('hidden', !totalPending);
+            el.textContent = totalBadge || '';
+            el.classList.toggle('hidden', !totalBadge);
         });
         const tabCount = document.getElementById('rq-pending-tab-count');
         if (tabCount) tabCount.textContent = totalPending ? `(${totalPending})` : '';
+        const socialTabCount = document.getElementById('rq-social-tab-count');
+        if (socialTabCount) {
+            socialTabCount.textContent = socialCount || '';
+            socialTabCount.classList.toggle('hidden', !socialCount);
+        }
     } catch { /* non-blocking */ }
 }
 
@@ -2220,9 +2231,23 @@ async function refreshPendingBadge() {
 let _rqCurrentTab = 'pending';
 let _rqCurrentTabType = 'hitl';
 
-function openReviewQueue() {
+async function openReviewQueue() {
     const el = document.getElementById('review-queue-drawer');
     if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
+
+    // Fetch HITL pending count; if 0 but social drafts exist, auto-switch to Social Drafts tab
+    try {
+        const res = await fetch('/.netlify/functions/get-pending-actions?status=pending&limit=1');
+        const { totalPending } = res.ok ? await res.json() : { totalPending: 0 };
+        if (!totalPending) {
+            const socialRes = await fetch('/.netlify/functions/get-social-drafts?status=pending_approval');
+            const { drafts } = socialRes.ok ? await socialRes.json() : { drafts: [] };
+            if ((drafts || []).length > 0) {
+                const socialBtn = document.querySelector('.rq-tab[data-tab-type="social"]');
+                if (socialBtn) { rqSetTab('pending_approval', socialBtn, 'social'); return; }
+            }
+        }
+    } catch { /* fall through to default tab */ }
     rqLoadItems('pending', 'hitl');
 }
 
@@ -2273,7 +2298,10 @@ async function rqLoadItems(status, tabType) {
                 el.classList.toggle('hidden', !totalPending);
             });
             if (!items.length) {
-                list.innerHTML = '<p class="text-sm text-gray-400 py-12 text-center">Nothing here.</p>';
+                const socialHint = status === 'pending'
+                    ? `<p class="text-sm text-gray-400 mt-2">Check <button onclick="document.querySelector('.rq-tab[data-tab-type=\\'social\\']').click()" class="underline text-emerald-600 hover:text-emerald-700 cursor-pointer">Social Drafts</button> for post drafts awaiting review.</p>`
+                    : '';
+                list.innerHTML = `<div class="py-12 text-center"><p class="text-sm text-gray-400">No AI tasks awaiting approval.</p>${socialHint}</div>`;
                 return;
             }
             list.innerHTML = items.map(item => rqRenderCard(item)).join('');
