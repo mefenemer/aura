@@ -50,38 +50,38 @@ function checkCompliance(caption: string, hashtags: string, sections: Record<str
     const contentRules: Array<{ rule: string; pass: boolean }> = [];
     const strictRules: Array<{ rule: string; pass: boolean }> = [];
 
-    // Parse content rules from blueprint section 7
-    const contentRulesSection = sections['7-content-rules']?.content || {};
-    const strictRulesSection  = sections['8-strict-rules']?.content  || {};
+    // Content rules (§4) and strict rules (§3) — correct section keys
+    const contentRulesData = sections['4-content-rules']?.content?.rules as Array<{ text?: string }> | null;
+    const strictConstraints = sections['3-strict-rules']?.content?.constraints as string | null;
 
-    for (const [, v] of Object.entries(contentRulesSection)) {
-        if (!v || typeof v !== 'string') continue;
-        const rule = v.trim();
-        if (!rule) continue;
-        // Heuristic: if the rule contains a keyword found in the output, treat it as compliant
-        const keywords = rule.toLowerCase().split(/\W+/).filter(w => w.length > 4);
-        const pass = keywords.length === 0 || !keywords.some(kw => fullText.includes(kw) === false && kw.length > 6);
-        contentRules.push({ rule, pass });
-    }
-
-    for (const [, v] of Object.entries(strictRulesSection)) {
-        if (!v || typeof v !== 'string') continue;
-        const rule = v.trim();
-        if (!rule) continue;
-        // Strict rules: presence-based check — if the rule mentions something to avoid, flag if it appears
-        const lowerRule = rule.toLowerCase();
-        const isProhibition = lowerRule.includes('do not') || lowerRule.includes('never') || lowerRule.includes('avoid') || lowerRule.includes('must not') || lowerRule.includes('prohibited');
-        let pass = true;
-        if (isProhibition) {
-            const prohibitedTerms = rule.toLowerCase().split(/\W+/).filter(w => w.length > 5 && !['never', 'avoid', 'prohibited', 'donot', 'mustnot'].includes(w));
-            pass = !prohibitedTerms.some(t => fullText.includes(t));
+    if (Array.isArray(contentRulesData)) {
+        for (const r of contentRulesData) {
+            const rule = r.text?.trim();
+            if (!rule) continue;
+            const keywords = rule.toLowerCase().split(/\W+/).filter(w => w.length > 4);
+            const pass = keywords.length === 0 || !keywords.some(kw => fullText.includes(kw) === false && kw.length > 6);
+            contentRules.push({ rule, pass });
         }
-        strictRules.push({ rule, pass });
     }
 
-    // Disclosure text
-    const disclosureText = sections['9-disclosure']?.content?.disclosureText as string | null;
-    const disclosurePresent = !!disclosureText && disclosureText.trim().length > 0;
+    if (strictConstraints) {
+        for (const line of strictConstraints.split('\n')) {
+            const rule = line.trim();
+            if (!rule) continue;
+            const lowerRule = rule.toLowerCase();
+            const isProhibition = lowerRule.includes('do not') || lowerRule.includes('never') || lowerRule.includes('avoid') || lowerRule.includes('must not') || lowerRule.includes('prohibited');
+            let pass = true;
+            if (isProhibition) {
+                const prohibitedTerms = rule.toLowerCase().split(/\W+/).filter(w => w.length > 5 && !['never', 'avoid', 'prohibited', 'donot', 'mustnot'].includes(w));
+                pass = !prohibitedTerms.some(t => fullText.includes(t));
+            }
+            strictRules.push({ rule, pass });
+        }
+    }
+
+    // Disclosure text from §9 compliance
+    const disclosureText = sections['9-compliance']?.content?.disclosureText as string | null;
+    const disclosurePresent = !!disclosureText && caption.includes(disclosureText.trim().substring(0, 20));
 
     return { contentRules, strictRules, disclosurePresent, disclosureText, captionLen, platformLimit: limit };
 }

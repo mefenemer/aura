@@ -85,17 +85,33 @@ export const handler: Handler = async (event) => {
             .limit(1);
         if (!bp) throw new Error('Blueprint not found');
 
-        const sections = bp.sections as Record<string, { content: Record<string, unknown> }>;
-        const identity  = sections['1-identity']?.content  || {};
-        const onboarding = sections['6-onboarding']?.content || {};
+        const sections    = bp.sections as Record<string, { content: Record<string, unknown> }>;
+        const identity    = sections['1-identity']?.content   || {};
+        const compliance  = sections['9-compliance']?.content || {};
+        const orgContext  = sections['5-org-context']?.content || {};
+        const answers     = (sections['6-onboarding']?.content?.answers ?? {}) as Record<string, unknown>;
 
-        const businessName = (identity['businessName']    as string) ?? 'this business';
-        const audience     = (onboarding['targetAudience'] as string) ?? 'their audience';
-        const tone         = (onboarding['brandVoice']     as string) ?? 'professional';
-        const platform     = job.platform || 'instagram';
-        const platformLimit = PLATFORM_CHAR_LIMITS[platform] ?? 2200;
+        const assistantName  = (identity['assistantName']    as string) ?? 'your assistant';
+        const businessName   = (orgContext['businessName']   as string) ?? 'this business';
+        const audience       = (orgContext['targetAudience'] as string) ?? (answers['target_audience'] as string) ?? 'their audience';
+        const tone           = (orgContext['brandVoice']     as string) ?? (answers['tone_of_voice']   as string) ?? 'professional';
+        const disclosureText = (compliance['disclosureText'] as string) ?? null;
+        const platform       = job.platform || 'instagram';
+        const platformLimit  = PLATFORM_CHAR_LIMITS[platform] ?? 2200;
 
-        const baseInstruction = `Generate a ${platform} post for ${businessName} targeting ${audience} in a ${tone} voice. Platform character limit: ${platformLimit}. Follow all strict and content rules in the system prompt. Return JSON: { "caption": "...", "hashtags": "...", "suggestedMediaDescription": "..." }`;
+        const ctaLine         = answers['cta']          ? `Call to action: ${answers['cta']}` : '';
+        const incentiveLine   = answers['incentive']    ? `Incentive/offer: ${answers['incentive']}` : '';
+        const coreMessageLine = answers['core_message'] ? `Core message: ${answers['core_message']}` : '';
+        const extraLines      = [ctaLine, incentiveLine, coreMessageLine].filter(Boolean).join('\n');
+
+        const baseInstruction = [
+            `You are ${assistantName}, a social media assistant for ${businessName}.`,
+            `Generate a ${platform} post (character limit: ${platformLimit}) targeting ${audience} in a ${tone} voice.`,
+            `Follow all strict and content rules in the system prompt.`,
+            extraLines,
+            disclosureText ? `You MUST append the following disclosure verbatim at the end of the caption, on a new line: "${disclosureText}"` : '',
+            `Return JSON: { "caption": "...", "hashtags": "...", "suggestedMediaDescription": "..." }`,
+        ].filter(Boolean).join('\n');
 
         const messages: Anthropic.MessageParam[] = [{ role: 'user', content: baseInstruction }];
         if (job.contextPrompt) {

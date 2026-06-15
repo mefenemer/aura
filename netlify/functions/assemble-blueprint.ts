@@ -217,6 +217,15 @@ async function assembleBlueprint(assistantId: number, compiledBy: string, trigge
             hitlRequired: auths.find(a => a.integrationType === c.serviceName)?.humanApprovalRequired ?? true,
         })),
     };
+    // Platform/integration mismatch check
+    const platformKeyMap: Record<string, string> = { fb: 'Facebook', ig: 'Instagram', li: 'LinkedIn', x: 'X' };
+    const primaryPlatforms = ((onboardingCtx.primary_platforms as string[]) || []).map(k => platformKeyMap[k] ?? k);
+    const connectedServices = conns.map(c => c.serviceName?.toLowerCase());
+    for (const p of primaryPlatforms) {
+        const connected = connectedServices.some(s => s?.includes(p.toLowerCase()));
+        if (!connected) missing.push({ section: '7-integrations', field: `connection:${p}`, sourceTable: 'system_connections', sourceColumn: 'service_name', severity: 'warning' });
+    }
+
     sections['7-integrations'] = {
         status: conns.length > 0 ? 'complete' : 'partial',
         content: s7content,
