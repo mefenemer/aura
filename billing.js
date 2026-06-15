@@ -30,14 +30,14 @@
                 throw new Error(err.error || `HTTP ${billingRes.status}`);
             }
 
-            const { subscriptions, paymentHistory } = await billingRes.json();
+            const { subscriptions, paymentHistory, storage } = await billingRes.json();
             const invoicesData  = invoicesRes.ok  ? await invoicesRes.json().catch(() => ({}))  : {};
             const billingInfoData = billingInfoRes.ok ? await billingInfoRes.json().catch(() => ({})) : {};
 
             _subscriptions = subscriptions || [];
             _billingInfo   = billingInfoData.billingInfo || null;
 
-            _render(_subscriptions, paymentHistory || [], invoicesData.invoices || [], _billingInfo);
+            _render(_subscriptions, paymentHistory || [], invoicesData.invoices || [], _billingInfo, storage || null);
 
             // If navigated here via notification deep-link
             if (window.location.hash === '#invoice-history') {
@@ -516,14 +516,44 @@
     }
 
     // ── Main render ───────────────────────────────────────────────
-    function _render(subscriptions, paymentHistory, userInvoices, billingInfo) {
+    function _render(subscriptions, paymentHistory, userInvoices, billingInfo, storage) {
         _renderSubscriptions(subscriptions);
         _renderPaymentMethod(subscriptions, paymentHistory);
         _renderBillingDetails(billingInfo);
+        _renderStorageGauge(storage);
         _renderInvoiceHistory(userInvoices || []);
         _renderHistory(paymentHistory);
 
         _showState('content');
+    }
+
+    function _fmtBytes(b) {
+        if (b >= 1_073_741_824) return `${(b / 1_073_741_824).toFixed(1)} GB`;
+        if (b >= 1_048_576)     return `${(b / 1_048_576).toFixed(1)} MB`;
+        return `${(b / 1024).toFixed(0)} KB`;
+    }
+
+    function _renderStorageGauge(storage) {
+        const section = document.getElementById('storage-usage-section');
+        if (!section || !storage) return;
+
+        const { usedBytes, limitBytes } = storage;
+        if (limitBytes === null) return; // unlimited plan — hide gauge
+
+        const pct = Math.min(100, Math.round((usedBytes / limitBytes) * 100));
+        const label = document.getElementById('storage-label');
+        const pctEl = document.getElementById('storage-pct');
+        const bar   = document.getElementById('storage-bar');
+        const atLimitEl = document.getElementById('storage-at-limit');
+
+        if (label) label.textContent = `${_fmtBytes(usedBytes)} of ${_fmtBytes(limitBytes)} used`;
+        if (pctEl) pctEl.textContent = `${pct}%`;
+        if (bar) {
+            bar.style.width = `${pct}%`;
+            bar.className = `h-3 rounded-full transition-all duration-500 ${pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'}`;
+        }
+        if (atLimitEl) atLimitEl.classList.toggle('hidden', pct < 100);
+        section.classList.remove('hidden');
     }
 
     // ── Subscriptions ─────────────────────────────────────────────

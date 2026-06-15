@@ -18,6 +18,34 @@ const stripe    = process.env.STRIPE_SECRET_KEY
     : null;
 const BASE_URL  = process.env.BASE_URL || '';
 
+// AC13 STOR-1.1.2: Delete all R2 objects under /{orgId}/ prefix when org is closed
+async function _purgeOrgR2Prefix(orgId: number): Promise<void> {
+    const endpoint  = process.env.R2_ENDPOINT;
+    const accessKey = process.env.R2_ACCESS_KEY_ID;
+    const secretKey = process.env.R2_SECRET_ACCESS_KEY;
+    const bucket    = process.env.R2_BUCKET_NAME;
+    if (!endpoint || !accessKey || !secretKey || !bucket) return; // mock/dev mode
+
+    const { S3Client, ListObjectsV2Command, DeleteObjectsCommand } = await import('@aws-sdk/client-s3');
+    const s3 = new S3Client({ region: 'auto', endpoint, credentials: { accessKeyId: accessKey, secretAccessKey: secretKey } });
+
+    let continuationToken: string | undefined;
+    do {
+        const list = await s3.send(new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: `${orgId}/`,
+            ContinuationToken: continuationToken,
+        }));
+        const objects = list.Contents?.map(o => ({ Key: o.Key! })) ?? [];
+        if (objects.length > 0) {
+            await s3.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: objects, Quiet: true } }));
+        }
+        continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    console.log(`[account-delete-execute] R2 prefix /${orgId}/ purged.`);
+}
+
 async function executeDeleteions() {
     const db  = getDb();
     const now = new Date();
@@ -87,7 +115,7 @@ async function executeDeleteions() {
             },
         }).catch(() => {});
 
-        // Check if the user is the sole org member — if so, delete the org too
+        // Check if the user is the sole org member — if so, delete the org + R2 prefix
         if (user.organisationId) {
             const [{ memberCount }] = await db
                 .select({ memberCount: count() })
@@ -96,6 +124,10 @@ async function executeDeleteions() {
                 .catch(() => [{ memberCount: 0 }]);
 
             if (!memberCount || memberCount <= 1) {
+                // AC13 STOR-1.1.2: Queue R2 prefix deletion for /{orgId}/ — runs async, completes within 24h
+                void _purgeOrgR2Prefix(user.organisationId).catch(err =>
+                    console.warn(`[account-delete-execute] R2 prefix purge failed for org ${user.organisationId}:`, err)
+                );
                 // Sole member — delete org (cascades via ON DELETE CASCADE)
                 await db.delete(organisations).where(eq(organisations.id, user.organisationId)).catch(() => {});
             }

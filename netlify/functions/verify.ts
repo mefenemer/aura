@@ -292,11 +292,12 @@ export const handler: Handler = async (event) => {
             body: JSON.stringify({ success: true, redirect: `${baseUrl}/checkout.html?tier=${tierKey}` })
         };
     } catch (error: any) {
-        console.error('Verification/Stripe Error:', error);
+        // BUG-P1-5: Log full error server-side; never return internal detail to the client.
+        console.error('[verify] Unhandled error:', error);
         return {
             statusCode: 500,
             headers: getHeaders(),
-            body: JSON.stringify({ error: error.message || 'An internal error occurred.' })
+            body: JSON.stringify({ error: 'Verification failed. Please try again or request a new link.' }),
         };
     }
 };

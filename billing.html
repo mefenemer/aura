@@ -199,6 +199,24 @@
       </div>
     </section>
 
+    <!-- ── Storage Usage (AC3 STOR-1.1.2) ──────────────────────── -->
+    <section id="storage-usage-section" class="hidden">
+      <h2 class="text-lg font-extrabold text-gray-900 mb-1">Storage</h2>
+      <p class="text-sm text-gray-500 mb-4">Object storage used by your workspace assets.</p>
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div class="flex items-center justify-between mb-3">
+          <span id="storage-label" class="text-sm font-semibold text-gray-700"></span>
+          <span id="storage-pct" class="text-xs font-bold text-gray-500"></span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+          <div id="storage-bar" class="h-3 rounded-full transition-all duration-500 bg-emerald-500" style="width:0%"></div>
+        </div>
+        <p id="storage-at-limit" class="hidden mt-3 text-sm text-red-600 font-semibold">
+          You've reached your storage limit. New uploads are blocked. Upgrade your plan or delete unused assets to continue.
+        </p>
+      </div>
+    </section>
+
     <!-- ── Invoice History ────────────────────────────────────── -->
     <section id="invoice-history-section">
       <h2 class="text-lg font-extrabold text-gray-900 mb-1">Invoice History</h2>

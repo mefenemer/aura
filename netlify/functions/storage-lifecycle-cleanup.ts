@@ -54,7 +54,18 @@ export const handler: Handler = async () => {
     const thirtyMinsAgo = new Date(now.getTime() - 30 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // Collect candidates
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    // AC12: Soft-delete unapproved generated_content older than 14 days before hard-delete pass
+    await db.execute(
+        sql`UPDATE workspace_assets
+            SET status = 'deleted', deleted_at = now(), updated_at = now()
+            WHERE asset_type = 'generated_content'
+              AND status NOT IN ('deleted','expired','pending')
+              AND created_at < ${fourteenDaysAgo.toISOString()}::timestamptz`
+    );
+
+    // Collect candidates for hard-delete
     const candidates = await db.execute<{
         id: number; organisation_id: number; r2_key: string | null;
         file_size_bytes: number | null; status: string;

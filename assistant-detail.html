@@ -119,9 +119,8 @@
       <button data-tab="problem"      class="detail-tab-btn active-tab cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-bold text-sm">The Problem</button>
       <button data-tab="operation"    class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">How it Works</button>
       <button data-tab="strategy"     class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Creative Strategy</button>
-      <button data-tab="platforms"    class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Platforms</button>
+      <button data-tab="platforms"    class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Connections</button>
       <button data-tab="guardrails"   class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Guardrails</button>
-      <button data-tab="integrations" class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Integrations</button>
     </nav>
   </div>
 
@@ -275,13 +274,19 @@
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h3 class="text-lg font-bold text-gray-900">Platforms</h3>
-          <p class="text-sm text-gray-500 mt-1">Select which verified platform connections this assistant should post to. Connections are managed in <a href="#" onclick="window.loadView('integrations')" class="text-emerald-600 hover:underline font-medium">Connections settings</a>.</p>
+          <h3 class="text-lg font-bold text-gray-900">Connections</h3>
+          <p class="text-sm text-gray-500 mt-1">Toggle which connected platforms this assistant should post to. Platforms not yet connected will prompt you to set them up first.</p>
         </div>
         <span id="platforms-save-status" class="text-sm font-bold text-emerald-600 shrink-0 transition-all"></span>
       </div>
-      <div id="assistant-platforms-list">
-        <div class="h-12 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading platforms…</div>
+      <!-- Connected platforms with toggles -->
+      <div id="assistant-platforms-list" class="space-y-3">
+        <div class="h-12 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading connections…</div>
+      </div>
+      <!-- Platforms not yet connected -->
+      <div id="assistant-platforms-unconnected" class="hidden mt-6 space-y-3">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Not yet connected</p>
+        <div id="assistant-platforms-unconnected-list" class="space-y-2"></div>
       </div>
     </div>
   </div>
@@ -351,23 +356,7 @@
 
   </div>
 
-  <!-- ── TAB: Integrations ─────────────────────────────────────── -->
-  <div id="tab-integrations" class="detail-tab-content hidden space-y-6">
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div>
-          <h3 class="text-lg font-bold text-gray-900">Connections</h3>
-          <p class="text-sm text-gray-500">Your global connections from <a href="#" onclick="window.loadView('integrations')" class="text-emerald-600 hover:underline font-medium">Connections settings</a>. Toggle each one on or off for this assistant only.</p>
-        </div>
-        <span id="integration-save-status" class="text-sm font-bold text-emerald-600 transition-all"></span>
-      </div>
-      <div id="empty-integrations-prompt" class="hidden h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-center p-4">
-        <p class="text-sm font-medium text-gray-500 mb-2">No workspace integrations found.</p>
-        <a href="#" onclick="window.loadView('integrations')" class="text-emerald-600 font-bold text-sm hover:underline cursor-pointer">Go to Global Integrations &rarr;</a>
-      </div>
-      <div id="assistant-integrations-list" class="space-y-3 hidden"></div>
-    </div>
-  </div>
+  <!-- tab-integrations removed — merged into tab-platforms as "Connections" -->
 
 </div>
 

@@ -12,9 +12,9 @@
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { scheduledPosts, contentRules, users, notifications, aiAssistants } from '../../db/schema';
+import { scheduledPosts, contentRules, users, notifications, aiAssistants, workspaceAssets } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -109,6 +109,22 @@ export const handler: Handler = async (event) => {
         revisedFromPostId: postId,
         isRevised: true,
     }).returning({ id: scheduledPosts.id });
+
+    // AC11 STOR-1.1.2: Soft-delete associated social_image assets (30-day grace via lifecycle cleanup)
+    if (post.contentAssetIds && (post.contentAssetIds as number[]).length > 0) {
+        void (async () => {
+            try {
+                const assetIds = post.contentAssetIds as number[];
+                const now2 = new Date();
+                await db.update(workspaceAssets)
+                    .set({ status: 'deleted', deletedAt: now2, updatedAt: now2 })
+                    .where(and(
+                        inArray(workspaceAssets.id, assetIds),
+                        eq(workspaceAssets.assetType, 'social_image'),
+                    ));
+            } catch { /* non-blocking */ }
+        })();
+    }
 
     // US-SMM-2.5.1: Notify user that revised post is ready when triggered by voice feedback
     if (voiceFeedback && revised?.id) {

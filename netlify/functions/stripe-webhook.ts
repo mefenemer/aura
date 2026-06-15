@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 import { eq, and, inArray, desc, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, invoices, processedWebhookEvents, userReferrals, platformConfig, stripeDisputes } from '../../db/schema';
+import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, planPrices, invoices, processedWebhookEvents, userReferrals, platformConfig, stripeDisputes } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
@@ -96,7 +96,27 @@ export const handler: Handler = async (event) => {
                 if (isAnnual && masterPlan) {
                     // US-I18N-2.1 SC6: use pi.currency from Stripe event, not hardcoded 'gbp'
                     const piCurrency = (pi.currency || 'gbp').toLowerCase();
-                    const annualAmount = Math.round(Number(masterPlan.monthlyPriceGbp) * 12 * 0.80 * 100);
+
+                    // BUG-P0-6: Look up the per-currency price from planPrices; fall back to GBP only
+                    // if no planPrices row exists for this currency (with a warning for ops visibility).
+                    let monthlyPriceMajor = Number(masterPlan.monthlyPriceGbp);
+                    if (piCurrency !== 'gbp') {
+                        const [priceRow] = await db
+                            .select({ monthlyPriceMajorUnit: planPrices.monthlyPriceMajorUnit })
+                            .from(planPrices)
+                            .where(and(
+                                eq(planPrices.masterPlanId, masterPlan.id),
+                                eq(planPrices.currency, piCurrency.toUpperCase()),
+                                eq(planPrices.isActive, true),
+                            ))
+                            .limit(1);
+                        if (priceRow) {
+                            monthlyPriceMajor = Number(priceRow.monthlyPriceMajorUnit);
+                        } else {
+                            console.warn(`[stripe-webhook] No planPrices row for masterPlanId=${masterPlan.id} currency=${piCurrency.toUpperCase()} — falling back to GBP price`);
+                        }
+                    }
+                    const annualAmount = Math.round(monthlyPriceMajor * 12 * 0.80 * 100);
                     createdSub = await stripe.subscriptions.create({
                         customer: stripeCustomerId,
                         items: [{
@@ -128,17 +148,30 @@ export const handler: Handler = async (event) => {
             }
         }
 
-        // Create plan record — include Stripe references for future upgrade/downgrade/cancel
-        const [newPlan] = await db.insert(plans).values({
-            userId: userIdInt,
-            organisationId: orgIdInt,
-            masterPlanId: masterPlanIdInt,
-            planName,
-            planType: 'subscription',
-            status: 'active',
-            stripeCustomerId,
-            stripeSubscriptionId: createdStripeSubscriptionId,
-        }).returning();
+        // Create plan record — include Stripe references for future upgrade/downgrade/cancel.
+        // BUG-P0-4: Wrap in try-catch to handle the plans_one_active_per_org_unique violation
+        // gracefully — two concurrent checkout completions for the same org would otherwise cause
+        // an unhandled error; returning 200 tells Stripe not to retry the event.
+        let newPlan: typeof plans.$inferSelect;
+        try {
+            const [inserted] = await db.insert(plans).values({
+                userId: userIdInt,
+                organisationId: orgIdInt,
+                masterPlanId: masterPlanIdInt,
+                planName,
+                planType: 'subscription',
+                status: 'active',
+                stripeCustomerId,
+                stripeSubscriptionId: createdStripeSubscriptionId,
+            }).returning();
+            newPlan = inserted;
+        } catch (planErr: any) {
+            if (planErr?.code === '23505' || planErr?.message?.includes('plans_one_active_per_org_unique')) {
+                console.warn('[stripe-webhook] Duplicate active plan insert blocked by unique constraint — returning 200 to stop retries');
+                return { statusCode: 200, body: JSON.stringify({ received: true, duplicate_plan: true }) };
+            }
+            throw planErr;
+        }
 
         // US-GAP-8.1.1 SC7: Trial-to-paid conversion — expire any active trial plan for this user
         // so check-capacity returns the new paid plan rather than the trial
@@ -300,21 +333,23 @@ export const handler: Handler = async (event) => {
 
                 // US-LEGAL-1.5: Send pre-renewal email for annual plans (DMCCA compliance)
                 if (isAnnual) {
-                    const [userRow] = await db.select({ email: users.email, name: users.name })
+                    // BUG-P0-5: users table has firstName/lastName, not a name column
+                    const [userRow] = await db.select({ email: users.email, firstName: users.firstName })
                         .from(users).where(eq(users.id, userId)).limit(1);
                     if (userRow?.email) {
                         await sendEmail({
                             to: userRow.email,
                             subject: `Your Aura-Assist™ annual plan renews on ${renewalDay}`,
                             html: `
-                                <p>Hi ${userRow.name || 'there'},</p>
+                                <p>Hi ${userRow.firstName || 'there'},</p>
                                 <p>Your Aura-Assist annual subscription will automatically renew on <strong>${renewalDay}</strong>${amount ? ` for <strong>${amount}</strong>` : ''}.</p>
                                 <p>If you wish to cancel before this date, you can do so at any time from your <a href="https://aura-assist.com/billing.html">account settings</a>. Cancellations take effect at the end of your current billing period.</p>
                                 <p>If you have any questions, reply to this email or contact our support team.</p>
                                 <p>Thank you for being an Aura-Assist customer.</p>
                                 <p>— The Aura-Assist Team</p>
                             `,
-                        }).catch(() => {}); // non-fatal
+                        // BUG-P1-1: Log at error level so this surfaces in alerts — compliance-critical email
+                        }).catch(err => console.error('[stripe-webhook] Annual renewal compliance email failed:', { userId, err: (err as any)?.message }));
                     }
                 }
             }
@@ -366,14 +401,32 @@ export const handler: Handler = async (event) => {
                 console.warn('[stripe-webhook] Could not retrieve card for renewal:', (cardErr as any)?.message);
             }
 
-            // Record the renewal payment in our payments table
-            const planRecord = await db.select({ id: plans.id, planName: plans.planName })
-                .from(plans)
-                .where(and(eq(plans.userId, userId), eq(plans.status, 'active')))
-                .limit(1);
+            // Record the renewal payment in our payments table.
+            // BUG-P1-2: Scope plan lookup by stripeSubscriptionId so a user who belongs to
+            // multiple orgs credits the renewal against the correct org's plan.
+            // Falls back to userId+status if invoice.subscription is absent (edge case).
+            const subscriptionId = invoice.subscription as string | null;
+            const planRecord = subscriptionId
+                ? await db.select({ id: plans.id, planName: plans.planName })
+                    .from(plans)
+                    .where(and(
+                        eq(plans.userId, userId),
+                        eq(plans.status, 'active'),
+                        eq(plans.stripeSubscriptionId, subscriptionId),
+                    ))
+                    .limit(1)
+                : await (async () => {
+                    console.warn('[stripe-webhook] invoice.paid has no subscription ID — falling back to userId+status plan lookup');
+                    return db.select({ id: plans.id, planName: plans.planName })
+                        .from(plans)
+                        .where(and(eq(plans.userId, userId), eq(plans.status, 'active')))
+                        .limit(1);
+                })();
 
             if (planRecord.length > 0) {
                 const plan = planRecord[0];
+                // BUG-P1-1: Remove silent catch — a failed payment insert loses the financial record.
+                // Stripe will retry the webhook on 500, giving us a second chance to persist it.
                 await db.insert(payments).values({
                     userId,
                     planId: plan.id,
@@ -388,7 +441,7 @@ export const handler: Handler = async (event) => {
                     cardExpYear:    renewCardExpYear,
                     cardPostalCode: renewCardPostalCode,
                     paymentMethod:  renewCardBrand && renewCardLast4 ? `${renewCardBrand} ending ${renewCardLast4}` : null,
-                }).catch(err => console.warn('[stripe-webhook] Duplicate payment insert skipped:', err.message));
+                });
             }
 
             // ── Create invoice record for this renewal ────────────
@@ -581,6 +634,7 @@ export const handler: Handler = async (event) => {
                         ? `<p style="color:#dc2626;font-weight:bold;">⚠️ Your assistants have been paused due to repeated payment failures. Restore access by updating your payment details immediately.</p>`
                         : `<p>✅ Your data and assistants are safe — no changes have been made yet. We'll automatically retry the payment.</p>`;
 
+                    // BUG-P1-1: Log at error level — dunning email is a compliance-critical touchpoint
                     await sendEmail({
                         to: userRecord.email,
                         subject: `Payment failed — action required`,
@@ -598,7 +652,7 @@ export const handler: Handler = async (event) => {
                                  Questions? <a href="mailto:hello@aura-assist.com">Contact our support team</a>.
                                </p>
                                <p>The Aura Team</p>`,
-                    }).catch(err => console.warn('[stripe-webhook] Day 0 dunning email failed:', err));
+                    }).catch(err => console.error('[stripe-webhook] Day 0 dunning email failed:', { userId, invoiceId: invoice.id, err: (err as any)?.message }));
                 }
             }
         }
@@ -648,6 +702,8 @@ export const handler: Handler = async (event) => {
                 const [userRow] = await db.select({ organisationId: users.organisationId }).from(users).where(eq(users.id, affectedUserId)).limit(1);
                 affectedOrgId = userRow?.organisationId ?? null;
             }
+            // BUG-P1-1: Dispute insert must propagate — a silent swallow loses the chargeback record entirely.
+            // onConflictDoNothing handles Stripe retry duplicates; genuine failures bubble to the outer catch.
             await db.insert(stripeDisputes).values({
                 stripeDisputeId: dispute.id,
                 stripeChargeId:  chargeId ?? null,
@@ -660,7 +716,7 @@ export const handler: Handler = async (event) => {
                 evidenceDeadline: dispute.evidence_details?.due_by
                     ? new Date(dispute.evidence_details.due_by * 1000)
                     : null,
-            }).onConflictDoNothing().catch(() => {});
+            }).onConflictDoNothing();
 
             // Notify all super_admins
             const superAdmins = await db
@@ -668,6 +724,7 @@ export const handler: Handler = async (event) => {
                 .from(users)
                 .where(eq(users.role, 'super_admin'));
 
+            // BUG-P1-1: Non-critical (in-app pings) — log errors but don't return 5xx
             for (const admin of superAdmins) {
                 await db.insert(notifications).values({
                     userId:  admin.id,
@@ -676,7 +733,7 @@ export const handler: Handler = async (event) => {
                     message: `Dispute ID: ${dispute.id}. Reason: ${dispute.reason || 'unknown'}. Affected user ID: ${affectedUserId ?? 'unknown'}. Evidence deadline: ${deadline}.`,
                     isRead: false,
                     metadata: { disputeId: dispute.id, reason: dispute.reason, amountGbp, chargeId, affectedUserId, deadline },
-                }).catch(() => {});
+                }).catch(err => console.error('[stripe-webhook] Super-admin dispute notification failed:', { adminId: admin.id, disputeId: dispute.id, err: (err as any)?.message }));
             }
         } catch (dispErr) {
             console.warn('[stripe-webhook] dispute.created handling error (non-blocking):', dispErr);

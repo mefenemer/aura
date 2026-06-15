@@ -71,9 +71,8 @@ export const handler: Handler = async (event) => {
                     return { statusCode: 200, body: JSON.stringify({ message: 'If an account exists, a link was sent.' }) };
                 }
 
-                const host = event.headers?.host || 'localhost:8888';
-                const protocol = host.includes('localhost') ? 'http' : 'https';
-                const baseUrl = `${protocol}://${host}`;
+                // BUG-P1-3: Use BASE_URL env var — never trust the Host header for URL construction
+                const baseUrl = process.env.BASE_URL || 'http://localhost:8888';
                 const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}`;
 
                 // US-I18N-1.2 SC4: use user's preferred language for email subject/greeting

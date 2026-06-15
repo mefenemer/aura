@@ -110,7 +110,7 @@
   </div>
 
   <!-- Main content -->
-  <main class="flex-1 overflow-auto min-w-0">
+  <main class="flex-1 overflow-auto min-w-0 min-h-0">
     <!-- Header bar -->
     <header class="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
       <h1 id="admin-page-title" class="text-xl font-extrabold text-gray-900">Dashboard</h1>
@@ -2646,7 +2646,43 @@ async function loadDashboard() {
         <div class="divide-y divide-gray-50">${tierRows}</div>
       </div>`;
 
-    document.getElementById('kpi-grid').innerHTML = kpiCards + tierCard;
+    // AC15+AC16 STOR-1.1.2: Storage usage dashboard
+    let storageCard = '';
+    try {
+        const sd = await api('/.netlify/functions/admin-api?resource=storage-stats');
+        function _fmtB(b) {
+            if (b >= 1_073_741_824) return `${(b / 1_073_741_824).toFixed(2)} GB`;
+            if (b >= 1_048_576)     return `${(b / 1_048_576).toFixed(1)} MB`;
+            return `${(b / 1024).toFixed(0)} KB`;
+        }
+        const storageRows = (sd.topOrgs || []).map(o => {
+            const pct = o.storage_limit_bytes ? Math.min(100, Math.round((o.used_bytes / o.storage_limit_bytes) * 100)) : null;
+            const barColor = pct === null ? 'bg-gray-300' : pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-500';
+            return `<div class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-gray-800 truncate">${o.org_name}</p>
+                <p class="text-xs text-gray-400">${_fmtB(o.used_bytes)}${o.storage_limit_bytes ? ' / ' + _fmtB(o.storage_limit_bytes) : ' (unlimited)'}</p>
+              </div>
+              ${pct !== null ? `<div class="w-24 bg-gray-100 rounded-full h-2 shrink-0"><div class="${barColor} h-2 rounded-full" style="width:${pct}%"></div></div><span class="text-xs font-bold text-gray-500 w-8 text-right">${pct}%</span>` : ''}
+            </div>`;
+        }).join('') || '<p class="text-sm text-gray-400">No storage data yet.</p>';
+        storageCard = `
+          <div class="col-span-2 lg:col-span-4 bg-white rounded-2xl border border-gray-200 p-5 mt-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">🗄️</span>
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Storage Usage — Top 10 Workspaces</span>
+              </div>
+              <div class="text-right">
+                <p class="text-xs text-gray-400">Platform total: <strong class="text-gray-700">${_fmtB(sd.totalBytes || 0)}</strong></p>
+                <p class="text-xs text-gray-400">Est. monthly cost: <strong class="text-emerald-700">£${sd.estimatedCostGbp}</strong></p>
+              </div>
+            </div>
+            <div class="divide-y divide-gray-50">${storageRows}</div>
+          </div>`;
+    } catch { /* non-fatal */ }
+
+    document.getElementById('kpi-grid').innerHTML = kpiCards + tierCard + storageCard;
 
     // Recent open tickets
     const td = await api('/.netlify/functions/admin-api?resource=tickets&status=open');

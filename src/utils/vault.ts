@@ -73,9 +73,9 @@ function gcmDecrypt(key: Buffer, iv: string, authTag: string, ciphertext: string
 
 // ── DEK wrap / unwrap ─────────────────────────────────────────────────────────
 
-/** Wrap a DEK with the KEK. Stored as iv:authTag:ciphertext (all base64, colon-separated). */
+/** Wrap a DEK with the current KEK version. Stored as iv:authTag:ciphertext (all base64, colon-separated). */
 function wrapDek(dek: Buffer): string {
-    const { iv, authTag, ciphertext } = gcmEncrypt(getKek(), dek);
+    const { iv, authTag, ciphertext } = gcmEncrypt(getKekByVersion(getCurrentKekVersion()), dek);
     return `${iv}:${authTag}:${ciphertext}`;
 }
 

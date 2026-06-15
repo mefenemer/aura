@@ -111,6 +111,11 @@
                 <span id="panel-assets-hint" class="hidden text-[10px] text-gray-400 italic">Click × to detach</span>
               </div>
               <div id="panel-assets-list" class="grid grid-cols-2 gap-2"></div>
+              <!-- SC5: no-media warning shown when editable post has no assets -->
+              <div id="panel-assets-no-media-warning" class="hidden mt-2 flex items-center gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                Posts without media typically receive 38% less engagement.
+              </div>
             </div>
             <!-- Links & CTAs -->
             <div id="panel-links-wrap" class="hidden">
@@ -121,6 +126,45 @@
             <div id="panel-tags-wrap" class="hidden">
               <p class="text-xs font-bold text-gray-500 mb-1.5">Tags &amp; Hashtags</p>
               <p id="panel-tags-content" class="text-xs text-gray-700 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 leading-relaxed font-mono"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- SC1: US-CAL-5.1 Content Quality Review section (collapsible) -->
+        <div id="panel-quality-section" class="hidden">
+          <button type="button" onclick="toggleQualityPanel()" class="w-full flex items-center justify-between mb-3 group">
+            <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest group-hover:text-gray-600 transition">Content Review</h4>
+            <span id="panel-quality-chevron" class="text-gray-400 group-hover:text-gray-600 transition text-xs">▲</span>
+          </button>
+          <div id="panel-quality-body" class="space-y-3">
+            <!-- Loading state -->
+            <div id="panel-quality-loading" class="hidden flex items-center gap-2 text-xs text-gray-400 py-2">
+              <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              Analysing content quality…
+            </div>
+            <!-- SC4: Brand voice score badge -->
+            <div id="panel-quality-score-wrap" class="hidden flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+              <span class="text-xs font-bold text-gray-500">Brand Voice Score</span>
+              <span id="panel-quality-score" class="text-sm font-extrabold"></span>
+            </div>
+            <!-- SC5: Compliance warning chips -->
+            <div id="panel-quality-warnings-wrap" class="hidden space-y-1.5">
+              <p class="text-xs font-bold text-gray-500">Compliance Warnings</p>
+              <div id="panel-quality-warnings" class="flex flex-wrap gap-1.5"></div>
+              <div id="panel-quality-approve-block" class="hidden mt-1 flex items-center gap-2 text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                Approval blocked — resolve compliance warnings before publishing.
+              </div>
+            </div>
+            <!-- SC6: Suggestions list -->
+            <div id="panel-quality-suggestions-wrap" class="hidden space-y-1.5">
+              <p class="text-xs font-bold text-gray-500">Suggestions</p>
+              <ul id="panel-quality-suggestions" class="space-y-1 text-xs text-gray-700"></ul>
+            </div>
+            <!-- Tier gate message -->
+            <div id="panel-quality-tier-gate" class="hidden text-center py-4 text-xs text-gray-400">
+              <svg class="w-5 h-5 mx-auto mb-1 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+              AI Content Review is available on Pro &amp; Enterprise plans.
             </div>
           </div>
         </div>

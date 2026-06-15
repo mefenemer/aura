@@ -92,7 +92,12 @@ export const handler: Handler = async (event) => {
         return { statusCode: 413, body: JSON.stringify({ error: 'storage_quota_exceeded', usedBytes, limitBytes }) };
     }
 
-    // AC2 key format: /{orgId}/{assetType}/{uuid}.{ext} — AC13: key always has orgId prefix
+    // AC13: hard guard — key MUST begin with a valid orgId prefix; no zero/null can slip through
+    if (!Number.isInteger(orgId) || orgId <= 0) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'Invalid orgId — cannot issue key without valid tenant prefix.' }) };
+    }
+
+    // AC2 key format: /{orgId}/{assetType}/{uuid}.{ext}
     const ext = filename.split('.').pop()?.toLowerCase() || 'bin';
     const uuid = crypto.randomUUID();
     const r2Key = `${orgId}/${assetType}/${uuid}.${ext}`;

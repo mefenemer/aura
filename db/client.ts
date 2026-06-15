@@ -17,7 +17,15 @@ export function getDb() {
             throw new Error("CRITICAL: NETLIFY_DATABASE_URL is missing from environment variables.");
         }
         // Cache connections globally across serverless function invocations
-        sql = postgres(connectionString, { max: 1 });
+        // BUG-P1-6: Add timeouts to prevent silent serverless hangs on unreachable DB.
+        // connect_timeout: fail fast on cold-start; idle_timeout: release stale TCP sockets;
+        // max_lifetime: rotate connections to avoid accumulated stale state.
+        sql = postgres(connectionString, {
+            max: 1,
+            connect_timeout: 5,   // seconds — abort if DB unreachable within 5s
+            idle_timeout: 20,     // seconds — release idle connections between invocations
+            max_lifetime: 60 * 5, // seconds — rotate connections every 5 minutes
+        });
         db = drizzle({ client: sql });
     }
     return db;

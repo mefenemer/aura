@@ -9,6 +9,7 @@ import {
   decimal,
   jsonb,
   unique,
+  uniqueIndex,
   varchar,
   index,
   check,
@@ -134,7 +135,8 @@ export const plans = pgTable("plans", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   // US-DB-1.4.1: Enforces exactly one active/past_due plan per organisation at the DB level.
-  index("plans_one_active_per_org").on(t.organisationId).where(sql`status IN ('active', 'past_due')`),
+  // BUG-P0-4: Was plain index() — changed to uniqueIndex() so the DB actually enforces the constraint.
+  uniqueIndex("plans_one_active_per_org_unique").on(t.organisationId).where(sql`status IN ('active', 'past_due')`),
   // US-DB-1.1.1: Hot-path indexes for plan lookups
   index("plans_user_status_idx").on(t.userId, t.status),
   index("plans_org_idx").on(t.organisationId),
@@ -640,6 +642,8 @@ export const storageUsage = pgTable("storage_usage", {
   organisationId: integer("organisation_id").notNull().unique()
       .references(() => organisations.id, { onDelete: "cascade" }),
   usedBytes: integer("used_bytes").notNull().default(0),
+  // AC4: tracks last time an 80% quota warning email was sent (one per 7-day window)
+  quotaWarningLastSentAt: timestamp("quota_warning_last_sent_at"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 // Support Tickets Table — For user help requests and issue tracking

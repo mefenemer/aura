@@ -34,6 +34,17 @@ function sanitizeText(str: string): string {
   return str.replace(/[<>]/g, '');
 }
 
+// EU AI Act Article 50: EU-jurisdiction orgs must have aiDisclosureFooterEnabled=true by default.
+const EU_COUNTRIES = new Set([
+    'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI','FR','GR','HR',
+    'HU','IE','IT','LT','LU','LV','MT','NL','PL','PT','RO','SE','SI','SK',
+]);
+
+function isEuJurisdiction(headers: Record<string, string | undefined>): boolean {
+    const country = (headers['x-nf-country'] || headers['x-country'] || '').toUpperCase();
+    return EU_COUNTRIES.has(country);
+}
+
 // ── Direct Prompt Injection / Jailbreak defence ────────────────────────────
 // User-supplied onboarding inputs (business name, rules, workflow descriptions)
 // are embedded directly into the system prompt. Sanitise to remove common
@@ -183,8 +194,17 @@ export const handler: Handler = async (event) => {
     }
     await db.update(userProfiles).set(profileUpdate).where(eq(userProfiles.userId, existingUser.id));
 
-    if (businessName?.trim()) {
-      await db.update(organisations).set({ name: sanitizeText(businessName.trim()) })
+    const orgUpdate: Record<string, unknown> = {};
+    if (businessName?.trim()) orgUpdate.name = sanitizeText(businessName.trim());
+
+    // EU AI Act Art. 50 safety net: if register.ts missed EU detection (VPN/proxy/no header),
+    // set aiDisclosureFooterEnabled=true here before any content is ever generated.
+    if (isEuJurisdiction(event.headers as Record<string, string | undefined>)) {
+      orgUpdate.aiDisclosureFooterEnabled = true;
+    }
+
+    if (Object.keys(orgUpdate).length > 0) {
+      await db.update(organisations).set(orgUpdate)
         .where(eq(organisations.id, existingUser.organisationId!));
     }
 
@@ -263,9 +283,6 @@ export const handler: Handler = async (event) => {
     };
   } catch (error: any) {
     console.error('onboarding error:', error);
-    const errMsg = error.message?.includes('Blueprint') || error.message?.includes('Assistant')
-      ? error.message
-      : 'Failed to set up assistant.';
-    return { statusCode: 500, body: JSON.stringify({ error: errMsg }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'Failed to set up assistant.' }) };
   }
 };

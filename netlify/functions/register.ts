@@ -11,6 +11,18 @@ import { isRegistrationLocked } from '../../src/utils/platform-config';
 const slugify = (str: string) =>
     str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
+// EU AI Act Article 50: EU-jurisdiction orgs must have aiDisclosureFooterEnabled=true by default.
+const EU_COUNTRIES = new Set([
+    'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI','FR','GR','HR',
+    'HU','IE','IT','LT','LU','LV','MT','NL','PL','PT','RO','SE','SI','SK',
+]);
+
+function isEuJurisdiction(headers: Record<string, string | undefined>): boolean {
+    // Netlify edge provides x-nf-country on all requests
+    const country = (headers['x-nf-country'] || headers['x-country'] || '').toUpperCase();
+    return EU_COUNTRIES.has(country);
+}
+
 const SUPPORTED_LANGS = ['en', 'fr', 'de', 'es', 'pt'];
 
 function detectLangFromHeader(acceptLanguage: string | undefined): string {
@@ -93,9 +105,12 @@ export const handler: Handler = async (event) => {
             }).returning();
 
             // 2. Create Organization
+            // EU AI Act Art. 50: enable disclosure footer by default for EU workspaces
+            const euJurisdiction = isEuJurisdiction(event.headers as Record<string, string | undefined>);
             const [newOrg] = await tx.insert(organisations).values({
                 name: businessName,
-                slug: `${slugify(businessName)}-${crypto.randomBytes(3).toString('hex')}`
+                slug: `${slugify(businessName)}-${crypto.randomBytes(3).toString('hex')}`,
+                ...(euJurisdiction ? { aiDisclosureFooterEnabled: true } : {}),
             }).returning();
 
             // 3. Link User to Organization
@@ -170,9 +185,9 @@ export const handler: Handler = async (event) => {
         });
 
         // Send the First-Time Verification Email
-        const host = event.headers?.host || 'localhost:8888';
-        const protocol = host.includes('localhost') ? 'http' : 'https';
-        const baseUrl = `${protocol}://${host}`;
+        // BUG-P1-3: Use BASE_URL env var — never trust the Host header for URL construction
+        // (a forged Host header sends the magic link to an attacker-controlled domain).
+        const baseUrl = process.env.BASE_URL || 'http://localhost:8888';
         const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}${priceId ? `&priceId=${encodeURIComponent(priceId)}` : ''}${isTrial ? '&trial=true' : ''}`;
 
         await sendMagicLinkEmail({
@@ -242,11 +257,12 @@ export const handler: Handler = async (event) => {
             body: JSON.stringify({ success: true, message: 'Registration processed.' }),
         };
     } catch (error: any) {
-        console.error('Registration Error Details:', error);
-        // Log the actual error object, not just the string
+        // BUG-P1-5: Log full error server-side but never return internal detail to the client.
+        // DB constraint names, column names, and query fragments aid attacker reconnaissance.
+        console.error('[register] Unhandled error:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: error.message || 'Failed to process registration.' })
+            body: JSON.stringify({ error: 'Registration failed. Please try again.' }),
         };
     }
 };

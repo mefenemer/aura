@@ -378,8 +378,16 @@ window._calOpenPost = async function (postId) {
         isEditable && assets.length > 0 ? assetsHint.classList.remove('hidden') : assetsHint.classList.add('hidden');
     }
 
+    // SC2/SC4: always show Creative Assets section
+    assetsWrap.classList.remove('hidden');
+
+    // SC5: no-media warning for non-published editable posts
+    const noMediaWarning = document.getElementById('panel-assets-no-media-warning');
+    if (noMediaWarning) {
+        noMediaWarning.classList.toggle('hidden', assets.length > 0 || !isEditable);
+    }
+
     if (assets.length > 0) {
-        assetsWrap.classList.remove('hidden');
         assetsList.innerHTML = assets.map(a => {
             const detachBtn = isEditable
                 ? `<button type="button"
@@ -413,8 +421,16 @@ window._calOpenPost = async function (postId) {
             }
             return '';
         }).join('');
+    } else if (isEditable) {
+        // SC1: Attach Media CTA placeholder when no assets on an editable post
+        assetsList.innerHTML = `<div class="col-span-2 flex flex-col items-center justify-center gap-2 py-6 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 cursor-pointer hover:border-emerald-400 hover:text-emerald-600 transition" onclick="window._calOpenAssetPicker && window._calOpenAssetPicker()">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span class="text-xs font-semibold">Attach Media</span>
+            <span class="text-[10px] text-center px-4">Add an image or video to boost engagement</span>
+        </div>`;
     } else {
-        assetsWrap.classList.add('hidden');
+        // SC4: read-only empty state for published posts
+        assetsList.innerHTML = `<p class="col-span-2 text-xs text-gray-400 italic py-3 text-center">No media attached to this post.</p>`;
     }
 
     // Links
@@ -569,7 +585,93 @@ window._calOpenPost = async function (postId) {
             navEl.classList.add('hidden');
         }
     }
+
+    // SC1: Show quality review section and trigger load
+    const qualitySection = document.getElementById('panel-quality-section');
+    if (qualitySection) {
+        qualitySection.classList.remove('hidden');
+        _loadPostQuality(postId);
+    }
 };
+
+// SC1/SC7/SC8: Load quality review for a post
+async function _loadPostQuality(postId) {
+    const loadingEl = document.getElementById('panel-quality-loading');
+    const scoreWrap = document.getElementById('panel-quality-score-wrap');
+    const scoreEl = document.getElementById('panel-quality-score');
+    const warningsWrap = document.getElementById('panel-quality-warnings-wrap');
+    const warningsEl = document.getElementById('panel-quality-warnings');
+    const approveBlock = document.getElementById('panel-quality-approve-block');
+    const suggestionsWrap = document.getElementById('panel-quality-suggestions-wrap');
+    const suggestionsList = document.getElementById('panel-quality-suggestions');
+    const tierGate = document.getElementById('panel-quality-tier-gate');
+
+    // Reset
+    [scoreWrap, warningsWrap, suggestionsWrap, approveBlock, tierGate].forEach(el => el?.classList.add('hidden'));
+    if (loadingEl) loadingEl.classList.remove('hidden');
+
+    try {
+        const res = await fetch('/.netlify/functions/review-post-quality', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId }),
+        });
+        if (loadingEl) loadingEl.classList.add('hidden');
+
+        if (res.status === 403) {
+            const data = await res.json().catch(() => ({}));
+            if (data.error === 'tier_required') { tierGate?.classList.remove('hidden'); return; }
+        }
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        // SC4: Brand voice score badge with colour coding
+        if (scoreEl && scoreWrap) {
+            const score = data.brandVoiceScore ?? 0;
+            const colour = score >= 75 ? 'text-emerald-600' : score >= 50 ? 'text-amber-500' : 'text-red-500';
+            scoreEl.className = `text-sm font-extrabold ${colour}`;
+            scoreEl.textContent = `${score}/100`;
+            scoreWrap.classList.remove('hidden');
+        }
+
+        // SC5: Compliance warnings
+        if (warningsEl && warningsWrap) {
+            const warnings = data.complianceWarnings || [];
+            if (warnings.length > 0) {
+                warningsEl.innerHTML = warnings.map(w =>
+                    `<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">${_escHtml(w)}</span>`
+                ).join('');
+                warningsWrap.classList.remove('hidden');
+                if (approveBlock) approveBlock.classList.remove('hidden');
+                // Gate the approve button
+                const btn = document.getElementById('btn-panel-approve');
+                if (btn) { btn.disabled = true; btn.title = 'Resolve compliance warnings first.'; btn.classList.add('opacity-50'); }
+            }
+        }
+
+        // SC6: Suggestions
+        if (suggestionsList && suggestionsWrap) {
+            const suggestions = data.suggestions || [];
+            if (suggestions.length > 0) {
+                suggestionsList.innerHTML = suggestions.map(s =>
+                    `<li class="flex items-start gap-2"><span class="text-emerald-500 shrink-0 mt-0.5">•</span><span>${_escHtml(s)}</span></li>`
+                ).join('');
+                suggestionsWrap.classList.remove('hidden');
+            }
+        }
+    } catch {
+        if (loadingEl) loadingEl.classList.add('hidden');
+    }
+}
+
+function toggleQualityPanel() {
+    const body = document.getElementById('panel-quality-body');
+    const chevron = document.getElementById('panel-quality-chevron');
+    if (!body) return;
+    const hidden = body.classList.toggle('hidden');
+    if (chevron) chevron.textContent = hidden ? '▼' : '▲';
+}
 
 window._calNavPost = function (direction) {
     const pendingPosts = _posts

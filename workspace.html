@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
   <link rel="manifest" href="/favicon/manifest.json">
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
+<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen overflow-x-hidden">
 
 <!-- US-ADM-1.2.1: Admin Impersonation Banner — shown only during active impersonation sessions -->
 <div id="impersonation-banner" class="hidden fixed top-0 left-0 right-0 z-[100] bg-amber-400 text-amber-900 text-sm font-bold flex items-center justify-between px-4 py-2 shadow-md">
@@ -551,6 +551,17 @@ async function submitTosAcceptance(btn) {
 
   <!-- US-GAP-9.2.1: Task Volume Warning Banner (SC1–SC5) -->
   <!-- Rendered by renderTaskVolumeBanner() after check-capacity resolves. -->
+  <!-- AC5 STOR-1.1.2: Storage quota full banner -->
+  <div id="storage-full-banner" class="hidden w-full px-4 pt-3">
+    <div class="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-800">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-5a1 1 0 00-1 1v2a1 1 0 002 0V9a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        <span class="font-semibold">Storage full.</span> New uploads are blocked. Delete unused assets or upgrade your plan.
+      </div>
+      <a href="billing.html" class="shrink-0 text-xs font-bold text-red-700 hover:text-red-900 underline">Upgrade →</a>
+    </div>
+  </div>
+
   <div id="task-volume-banner" class="hidden w-full px-4 pt-3"></div>
 
   <!-- US-AUD-1.2.1: Persistent ROI Card -->
@@ -2334,9 +2345,9 @@ function rqRenderSocialCard(draft) {
         <input type="text" id="sdraft-reason-${draft.id}" placeholder="Rejection reason (required)" maxlength="300" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-red-300">
       </div>
       <div class="flex gap-2">
-        <button onclick="sdApprove(${draft.id},'publish_now')" class="flex-1 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Post Now</button>
-        <button onclick="sdApprove(${draft.id},'approve')" class="flex-1 py-1.5 text-xs font-bold border border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer">Schedule</button>
-        <button onclick="sdToggleReject(${draft.id})" id="sdraft-reject-btn-${draft.id}" class="flex-1 py-1.5 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer">Reject</button>
+        <button onclick="sdApprove(${draft.id},'publish_now')" class="flex-1 py-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Post Now</button>
+        <button onclick="sdApprove(${draft.id},'approve')" class="flex-1 py-3 text-xs font-bold border border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer">Schedule</button>
+        <button onclick="sdToggleReject(${draft.id})" id="sdraft-reject-btn-${draft.id}" class="flex-1 py-3 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer">Reject</button>
       </div>` : `<span class="text-xs text-gray-500">${_rqEsc(draft.status)}</span>`}
     </div>`;
 }
@@ -2404,8 +2415,8 @@ function rqRenderCard(item) {
         <input type="text" id="rq-reason-${item.id}" placeholder="Rejection reason (required)" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-red-300">
       </div>
       <div class="flex gap-2">
-        <button onclick="rqApprove(${item.id})" data-action="approve-output" class="flex-1 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Approve</button>
-        <button onclick="rqToggleReject(${item.id})" class="flex-1 py-1.5 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer" id="rq-reject-btn-${item.id}">Reject</button>
+        <button onclick="rqApprove(${item.id})" data-action="approve-output" class="flex-1 py-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Approve</button>
+        <button onclick="rqToggleReject(${item.id})" class="flex-1 py-3 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer" id="rq-reject-btn-${item.id}">Reject</button>
       </div>` : expired ? `<span class="text-xs text-gray-400 italic">Expired</span>` : `<span class="text-xs text-gray-500">${item.status}</span>`}
     </div>`;
 
@@ -2558,6 +2569,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start badge polling
     refreshPendingBadge();
     _rqPollInterval = setInterval(refreshPendingBadge, 60_000);
+
+    // AC5 STOR-1.1.2: Show storage-full banner if org is at 100% quota
+    (async () => {
+        try {
+            const res = await fetch('/.netlify/functions/billing-data');
+            if (!res.ok) return;
+            const { storage } = await res.json();
+            if (storage && storage.limitBytes && storage.usedBytes >= storage.limitBytes) {
+                const banner = document.getElementById('storage-full-banner');
+                if (banner) banner.classList.remove('hidden');
+            }
+        } catch { /* non-fatal */ }
+    })();
 });
 
 // ── Generate Post on-demand sheet ─────────────────────────────────────────────

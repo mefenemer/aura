@@ -13,7 +13,8 @@
  *   }
  */
 
-import { gte, and, eq, count, lt } from 'drizzle-orm';
+import { gte, and, eq, count, lt, sql } from 'drizzle-orm';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { rateLimitAttempts } from '../../db/schema';
 
 export interface RateLimitOptions {
@@ -32,13 +33,18 @@ export interface RateLimitResult {
 /**
  * Check and record a rate-limit attempt.
  *
+ * BUG-P1-4: The old count-then-insert pattern had a TOCTOU race: two concurrent
+ * requests could both read count < maxAttempts, both insert, and both be allowed —
+ * effectively doubling the limit. Fixed by wrapping in a transaction with a PostgreSQL
+ * advisory lock so the count+insert is atomic per (key, endpoint) pair.
+ *
  * @param db          Drizzle DB instance
  * @param endpoint    Short endpoint identifier ('register' | 'login' | 'onboarding' | 'support')
  * @param key         IP address or 'user:<userId>' string
  * @param opts        { maxAttempts, windowSecs }
  */
 export async function checkRateLimit(
-  db: any,
+  db: PostgresJsDatabase<any>,
   endpoint: string,
   key: string,
   opts: RateLimitOptions,
@@ -46,33 +52,48 @@ export async function checkRateLimit(
   const { maxAttempts, windowSecs } = opts;
   const windowStart = new Date(Date.now() - windowSecs * 1000);
 
-  // Count existing attempts within the window for this key+endpoint
-  const [{ value: existingCount }] = await db
-    .select({ value: count() })
-    .from(rateLimitAttempts)
-    .where(and(
-      eq(rateLimitAttempts.key, key),
-      eq(rateLimitAttempts.endpoint, endpoint),
-      gte(rateLimitAttempts.attemptedAt, windowStart),
-    ));
+  let allowed = false;
 
-  if (existingCount >= maxAttempts) {
+  await db.transaction(async (tx: any) => {
+    // Acquire a session-level advisory lock keyed on (endpoint, key).
+    // pg_advisory_xact_lock blocks until acquired and is released at transaction end.
+    // This serialises concurrent requests for the same key+endpoint, making the
+    // count+insert atomic and eliminating the TOCTOU window.
+    const lockKey = `${endpoint}:${key}`;
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`);
+
+    const [{ value: existingCount }] = await tx
+      .select({ value: count() })
+      .from(rateLimitAttempts)
+      .where(and(
+        eq(rateLimitAttempts.key, key),
+        eq(rateLimitAttempts.endpoint, endpoint),
+        gte(rateLimitAttempts.attemptedAt, windowStart),
+      ));
+
+    if (existingCount >= maxAttempts) {
+      allowed = false;
+      return;
+    }
+
+    await tx.insert(rateLimitAttempts).values({ key, endpoint });
+    allowed = true;
+  });
+
+  if (!allowed) {
     return { allowed: false, retryAfterSecs: windowSecs };
   }
 
-  // Record this attempt
-  await db.insert(rateLimitAttempts).values({ key, endpoint });
-
-  // Prune stale rows for this key+endpoint (keep DB lean — remove entries older than 24h)
+  // Prune stale rows outside transaction (non-blocking — pruning failure must never block requests)
   const pruneThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  await db
+  db
     .delete(rateLimitAttempts)
     .where(and(
       eq(rateLimitAttempts.key, key),
       eq(rateLimitAttempts.endpoint, endpoint),
       lt(rateLimitAttempts.attemptedAt, pruneThreshold),
     ))
-    .catch(() => { /* non-blocking — pruning failure should never break the request */ });
+    .catch(() => {});
 
   return { allowed: true, retryAfterSecs: 0 };
 }

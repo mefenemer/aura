@@ -32,7 +32,7 @@ import {
     organisations, billingReconciliationLog, masterPlans, platformConfig, featureFlags,
     billingOverrides, payments, assistantVersions,
     agentAnomalies, agentAnomalyThresholds, taskRuns,
-    legalHolds, jwtBlocklist, stripeDisputes,
+    legalHolds, jwtBlocklist, stripeDisputes, storageUsage,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendMagicLinkEmail } from '../../src/utils/email';
@@ -142,6 +142,37 @@ export const handler: Handler = async (event) => {
                     tierBreakdown,
                     waitlistCounts,
                 }),
+            };
+        }
+
+        // ── GET: storage stats (AC15+AC16 STOR-1.1.2) ───────────────────────
+        if (event.httpMethod === 'GET' && resource === 'storage-stats') {
+            // Top-10 orgs by storage consumption
+            const topOrgs = await db.execute<{
+                organisation_id: number; org_name: string;
+                used_bytes: number; storage_limit_bytes: number | null;
+            }>(sql`
+                SELECT su.organisation_id, o.name AS org_name,
+                       su.used_bytes, mp.storage_limit_bytes
+                FROM storage_usage su
+                JOIN organisations o ON o.id = su.organisation_id
+                LEFT JOIN plans p ON p.organisation_id = su.organisation_id AND p.status = 'active'
+                LEFT JOIN master_plans mp ON mp.id = p.master_plan_id
+                ORDER BY su.used_bytes DESC
+                LIMIT 10
+            `);
+            const [{ totalBytes }] = await db.execute<{ totalBytes: number }>(
+                sql`SELECT COALESCE(SUM(used_bytes), 0)::bigint AS "totalBytes" FROM storage_usage`
+            ).then(r => r.rows.length ? r.rows : [{ totalBytes: 0 }]);
+
+            // AC16: estimated monthly GBP cost at £0.015/GB
+            const totalGb = Number(totalBytes) / 1_073_741_824;
+            const estimatedCostGbp = (totalGb * 0.015).toFixed(2);
+
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topOrgs: topOrgs.rows, totalBytes: Number(totalBytes), estimatedCostGbp }),
             };
         }
 

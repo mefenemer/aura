@@ -271,11 +271,20 @@ async function assembleBlueprint(assistantId: number, compiledBy: string, trigge
         .limit(1);
     if (dpa) hashParts.push({ id: `dpa:${dpa.id}`, updatedAt: dpa.acceptedAt });
 
+    // Fetch org-level disclosure settings for blueprint
+    const [orgDisclosureRow] = await db
+        .select({ aiDisclosureFooterEnabled: organisations.aiDisclosureFooterEnabled, aiDisclosureFooterText: organisations.aiDisclosureFooterText })
+        .from(organisations)
+        .where(eq(organisations.id, asst.organisationId))
+        .limit(1);
+
     const s9content = {
         dpaVersion: dpa?.version ?? null,
         dpaAcceptedAt: dpa?.acceptedAt ?? null,
         riskClassification: master?.riskClassification ?? null,
         disclosureText: asst.disclosureText ?? null,
+        orgFooterEnabled: orgDisclosureRow?.aiDisclosureFooterEnabled ?? false,
+        orgFooterText: orgDisclosureRow?.aiDisclosureFooterText ?? null,
         hitlMode: (asst.configuration as Record<string, unknown> | null)?.hitlMode ?? 'require-approval',
     };
     if (!dpa) missing.push({ section: '9-compliance', field: 'dpaAcceptedAt', sourceTable: 'dpa_acceptances', sourceColumn: 'accepted_at', severity: 'blocking' });
@@ -286,6 +295,7 @@ async function assembleBlueprint(assistantId: number, compiledBy: string, trigge
         sources: [
             src('dpa_acceptances', 'accepted_at', dpa?.id ?? null, dpa?.acceptedAt),
             src('ai_assistants', 'disclosure_text', asst.id, asst.updatedAt),
+            src('organisations', 'ai_disclosure_footer_enabled', asst.organisationId, orgDisclosureRow ? new Date() : null),
         ],
     };
 

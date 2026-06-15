@@ -95,7 +95,10 @@ export const handler: Handler = async (event) => {
         const businessName   = (orgContext['businessName']   as string) ?? 'this business';
         const audience       = (orgContext['targetAudience'] as string) ?? (answers['target_audience'] as string) ?? 'their audience';
         const tone           = (orgContext['brandVoice']     as string) ?? (answers['tone_of_voice']   as string) ?? 'professional';
-        const disclosureText = (compliance['disclosureText'] as string) ?? null;
+        const perAssistantDisclosure = (compliance['disclosureText'] as string) ?? null;
+        const orgFooterEnabled = (compliance['orgFooterEnabled'] as boolean) ?? false;
+        const orgFooterText    = (compliance['orgFooterText'] as string) ?? 'This message was composed with AI assistance.';
+        const disclosureText = orgFooterEnabled ? orgFooterText : perAssistantDisclosure;
         const platform       = job.platform || 'instagram';
         const platformLimit  = PLATFORM_CHAR_LIMITS[platform] ?? 2200;
 

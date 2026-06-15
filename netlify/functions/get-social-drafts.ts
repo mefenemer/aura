@@ -5,7 +5,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { scheduledPosts, aiAssistants } from '../../db/schema';
+import { scheduledPosts, aiAssistants, userOrganisations } from '../../db/schema';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -16,9 +16,19 @@ export const handler: Handler = async (event) => {
         const cookie = event.headers.cookie || '';
         const token = cookie.match(/aura_session=([^;]+)/)?.[1];
         if (!token || !JWT_SECRET) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
-        const session = jwt.verify(token, JWT_SECRET) as { userId: number; organisationId: number };
+        const session = jwt.verify(token, JWT_SECRET) as { userId: number };
 
         const db = getDb();
+
+        // JWT only contains userId — resolve the org from userOrganisations
+        const [membership] = await db
+            .select({ organisationId: userOrganisations.organisationId })
+            .from(userOrganisations)
+            .where(eq(userOrganisations.userId, session.userId))
+            .limit(1);
+        if (!membership) return { statusCode: 403, body: JSON.stringify({ error: 'No organisation found.' }) };
+        const organisationId = membership.organisationId;
+
         const statusFilter = event.queryStringParameters?.status || 'pending_approval';
 
         const drafts = await db
@@ -41,7 +51,7 @@ export const handler: Handler = async (event) => {
             .from(scheduledPosts)
             .leftJoin(aiAssistants, eq(aiAssistants.id, scheduledPosts.assistantId))
             .where(and(
-                eq(scheduledPosts.organisationId, session.organisationId),
+                eq(scheduledPosts.organisationId, organisationId),
                 eq(scheduledPosts.status, statusFilter),
             ))
             .orderBy(desc(scheduledPosts.generatedAt))

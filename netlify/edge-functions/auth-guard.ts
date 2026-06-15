@@ -1,4 +1,5 @@
 import { Context } from "@netlify/edge-functions";
+import * as jose from 'https://deno.land/x/jose@v5.2.3/index.ts';
 
 export default async (request: Request, context: Context) => {
     const url = new URL(request.url);
@@ -13,6 +14,19 @@ export default async (request: Request, context: Context) => {
     if (ALWAYS_ALLOWED.includes(url.pathname)) {
         return context.next();
     }
+
+    const protectedPaths = ['/workspace.html', '/onboarding.html', '/dashboard.html', '/billing.html', '/admin.html'];
+
+    // BUG-P0-1: JWT_SECRET required for signature verification — fail closed if missing.
+    // Without it we cannot verify any token, so protect all protected routes.
+    const jwtSecretRaw = Deno.env.get('JWT_SECRET');
+    if (!jwtSecretRaw) {
+        if (protectedPaths.includes(url.pathname)) {
+            return Response.redirect(new URL('/login.html', request.url));
+        }
+        return context.next();
+    }
+    const jwtSecretBytes = new TextEncoder().encode(jwtSecretRaw);
 
     // ── US-ADM-3.2.1: Maintenance mode check ─────────────────────────────────
     // Fetch the lightweight config endpoint. Fails open (returns context.next())
@@ -29,18 +43,15 @@ export default async (request: Request, context: Context) => {
             };
 
             if (cfg.maintenanceMode) {
-                // Admin users (identified by aura_session cookie with adminRole) bypass maintenance
+                // Admin users bypass maintenance — verify JWT signature before trusting adminRole
                 const sessionCookie = context.cookies.get('aura_session');
                 let isAdmin = false;
                 if (sessionCookie) {
                     try {
-                        const parts = sessionCookie.split('.');
-                        if (parts.length === 3) {
-                            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                            const ADMIN_ROLES = ['admin', 'super_admin', 'platform_admin', 'billing_admin', 'support_agent'];
-                            isAdmin = !!(payload.adminRole && ADMIN_ROLES.includes(payload.adminRole));
-                        }
-                    } catch { /* ignore — non-admin */ }
+                        const { payload } = await jose.jwtVerify(sessionCookie, jwtSecretBytes);
+                        const ADMIN_ROLES = ['admin', 'super_admin', 'platform_admin', 'billing_admin', 'support_agent'];
+                        isAdmin = !!(payload.adminRole && ADMIN_ROLES.includes(payload.adminRole as string));
+                    } catch { /* invalid/forged JWT — not admin */ }
                 }
 
                 if (!isAdmin) {
@@ -65,15 +76,7 @@ export default async (request: Request, context: Context) => {
         console.warn('[auth-guard] Platform config check failed (fail open):', err);
     }
 
-    // ── Session guard — protected pages require a valid aura_session cookie ────
-    const protectedPaths = [
-        '/workspace.html',
-        '/onboarding.html',
-        '/dashboard.html',
-        '/billing.html',
-        '/admin.html',
-    ];
-
+    // ── Session guard — protected pages require a valid, signature-verified JWT ─
     if (protectedPaths.includes(url.pathname)) {
         const sessionCookie = context.cookies.get("aura_session");
         if (!sessionCookie) {
@@ -81,30 +84,37 @@ export default async (request: Request, context: Context) => {
             return Response.redirect(new URL('/login.html', request.url));
         }
 
-        // US-ADM-1.3.2: Check JWT blocklist — reject erased/revoked user sessions immediately
+        // BUG-P0-1: Verify JWT signature — forged tokens are rejected here before any claim is trusted
+        let verifiedUserId: number | null = null;
         try {
-            const parts = sessionCookie.split('.');
-            if (parts.length === 3) {
-                const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                if (payload.userId) {
-                    const revokeCheckUrl = `${url.origin}/.netlify/functions/check-token-revoked?userId=${payload.userId}`;
-                    const revokeRes = await fetch(revokeCheckUrl, { signal: AbortSignal.timeout(1500) });
-                    if (revokeRes.ok) {
-                        const { revoked } = await revokeRes.json() as { revoked: boolean };
-                        if (revoked) {
-                            console.log(`[auth-guard] Blocked revoked session for userId=${payload.userId}`);
-                            const logoutUrl = new URL('/login.html', request.url);
-                            logoutUrl.searchParams.set('error', 'session_revoked');
-                            const response = Response.redirect(logoutUrl.toString(), 302);
-                            // Clear the stale cookie
-                            response.headers.append('Set-Cookie', 'aura_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax');
-                            return response;
-                        }
+            const { payload } = await jose.jwtVerify(sessionCookie, jwtSecretBytes);
+            if (typeof payload.userId === 'number') verifiedUserId = payload.userId;
+        } catch {
+            // Invalid signature or expired token — redirect to login
+            console.log(`[auth-guard] Rejected invalid/forged JWT for ${url.pathname}`);
+            return Response.redirect(new URL('/login.html', request.url));
+        }
+
+        // US-ADM-1.3.2: Check JWT blocklist — reject erased/revoked user sessions immediately
+        if (verifiedUserId !== null) {
+            try {
+                const revokeCheckUrl = `${url.origin}/.netlify/functions/check-token-revoked?userId=${verifiedUserId}`;
+                const revokeRes = await fetch(revokeCheckUrl, { signal: AbortSignal.timeout(1500) });
+                if (revokeRes.ok) {
+                    const { revoked } = await revokeRes.json() as { revoked: boolean };
+                    if (revoked) {
+                        console.log(`[auth-guard] Blocked revoked session for userId=${verifiedUserId}`);
+                        const logoutUrl = new URL('/login.html', request.url);
+                        logoutUrl.searchParams.set('error', 'session_revoked');
+                        const response = Response.redirect(logoutUrl.toString(), 302);
+                        // Clear the stale cookie
+                        response.headers.append('Set-Cookie', 'aura_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax');
+                        return response;
                     }
                 }
+            } catch {
+                // Blocklist check failed — fail open so a DB outage doesn't lock out all users
             }
-        } catch {
-            // Blocklist check failed — fail open so a DB outage doesn't lock out all users
         }
     }
 

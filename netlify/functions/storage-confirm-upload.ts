@@ -13,7 +13,8 @@ import { S3Client, HeadObjectCommand } from '@aws-sdk/client-s3';
 import jwt from 'jsonwebtoken';
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, userOrganisations, workspaceAssets, storageUsage } from '../../db/schema';
+import { users, userOrganisations, workspaceAssets, storageUsage, organisations, plans, masterPlans } from '../../db/schema';
+import { sendMagicLinkEmail } from '../../src/utils/email';
 
 const JWT_SECRET  = process.env.JWT_SECRET;
 const R2_ENDPOINT = process.env.R2_ENDPOINT;
@@ -26,6 +27,81 @@ function getR2Client(): S3Client {
         region: 'auto',
         endpoint: R2_ENDPOINT,
         credentials: { accessKeyId: R2_ACCESS_KEY_ID!, secretAccessKey: R2_SECRET_ACCESS_KEY! },
+    });
+}
+
+function _fmtBytes(b: number): string {
+    if (b >= 1_073_741_824) return `${(b / 1_073_741_824).toFixed(1)} GB`;
+    if (b >= 1_048_576)     return `${(b / 1_048_576).toFixed(1)} MB`;
+    return `${(b / 1024).toFixed(0)} KB`;
+}
+
+async function _maybeWarnQuota(orgId: number, addedBytes: number): Promise<void> {
+    const db = getDb();
+
+    // Get current usage + limit + last warning time
+    const [usage] = await db
+        .select({ usedBytes: storageUsage.usedBytes, lastSentAt: storageUsage.quotaWarningLastSentAt })
+        .from(storageUsage).where(eq(storageUsage.organisationId, orgId)).limit(1);
+    const [planRow] = await db
+        .select({ storageLimitBytes: masterPlans.storageLimitBytes })
+        .from(plans).leftJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
+        .where(and(eq(plans.organisationId, orgId), eq(plans.status, 'active'))).limit(1);
+
+    const limitBytes = planRow?.storageLimitBytes ?? null;
+    if (!limitBytes || !usage) return;
+
+    const newUsed = (usage.usedBytes ?? 0) + addedBytes;
+    const pct = newUsed / limitBytes;
+    if (pct < 0.8) return; // below threshold — nothing to do
+
+    // Enforce 7-day window
+    if (usage.lastSentAt) {
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        if (usage.lastSentAt > sevenDaysAgo) return;
+    }
+
+    // Find workspace owner email
+    const [owner] = await db.execute<{ email: string; first_name: string }>(sql`
+        SELECT u.email, u.first_name
+        FROM users u
+        JOIN user_organisations uo ON uo.user_id = u.id
+        WHERE uo.organisation_id = ${orgId} AND uo.role = 'owner'
+        LIMIT 1
+    `).then(r => r.rows);
+    if (!owner?.email) return;
+
+    // Mark warning sent before email (prevent race)
+    await db.execute(sql`
+        UPDATE storage_usage SET quota_warning_last_sent_at = now()
+        WHERE organisation_id = ${orgId}
+    `);
+
+    const pctLabel = Math.round(pct * 100);
+    await sendMagicLinkEmail({
+        to: owner.email,
+        subject: `Aura: You've used ${pctLabel}% of your storage quota`,
+        html: `
+            <div style="font-family:sans-serif;padding:32px 20px;background:#fdfcf9;">
+              <div style="max-width:520px;margin:0 auto;background:#fff;padding:36px;border-radius:14px;border:1px solid #eae4d7;">
+                <h2 style="color:#1f1e1b;margin-top:0;">Storage quota warning</h2>
+                <p style="color:#5c564b;font-size:15px;line-height:1.6;">
+                  Hi ${owner.first_name || 'there'},<br><br>
+                  Your workspace is currently using <strong>${_fmtBytes(newUsed)}</strong> of your
+                  <strong>${_fmtBytes(limitBytes)}</strong> storage quota
+                  (<strong>${pctLabel}%</strong>).
+                </p>
+                <p style="color:#5c564b;font-size:15px;line-height:1.6;">
+                  Once you reach 100%, new uploads will be blocked. You can free up space by removing
+                  unused assets or upgrade your plan to increase your quota.
+                </p>
+                <a href="https://aura-digital-assistant.netlify.app/billing.html"
+                   style="display:inline-block;margin:16px 0;padding:12px 24px;background:#00e55c;color:#fff;font-weight:bold;border-radius:8px;text-decoration:none;">
+                  View billing &amp; upgrade →
+                </a>
+                <p style="color:#9e9689;font-size:13px;margin-bottom:0;">You'll receive this reminder at most once every 7 days.</p>
+              </div>
+            </div>`,
     });
 }
 
@@ -107,6 +183,9 @@ export const handler: Handler = async (event) => {
                 ON CONFLICT (organisation_id)
                 DO UPDATE SET used_bytes = storage_usage.used_bytes + ${asset.fileSizeBytes}, updated_at = now()`
         );
+
+        // AC4: send 80% quota warning email (once per 7-day window)
+        void _maybeWarnQuota(asset.organisationId, asset.fileSizeBytes).catch(() => {});
     }
 
     return {

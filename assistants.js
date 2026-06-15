@@ -422,144 +422,142 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
 };
 
 // ─────────────────────────────────────────────────────────────────
-// Platforms tab renderer — driven by global connections
+// Connections tab renderer — merged Platforms + Integrations
 // ─────────────────────────────────────────────────────────────────
+const PLATFORM_ICONS = {
+    facebook: '📘', instagram: '📷', linkedin: '💼',
+    x: '𝕏', twitter: '𝕏', tiktok: '🎵', youtube: '▶️', pinterest: '📌',
+};
+const PLATFORM_KEY_MAP = { facebook: 'fb', instagram: 'ig', linkedin: 'li', x: 'x', twitter: 'x', tiktok: 'tt', youtube: 'yt', pinterest: 'pin' };
+// Well-known platforms that always appear in the "not yet connected" section
+const KNOWN_PLATFORMS = ['Instagram', 'Facebook', 'LinkedIn', 'X', 'TikTok'];
+
 async function _renderPlatformsTab(assistantId, currentData) {
     const container = document.getElementById('assistant-platforms-list');
     if (!container) return;
 
-    // Platform icon map (service name → emoji / short label)
-    const PLATFORM_ICONS = {
-        'facebook':  '📘', 'instagram': '📷', 'linkedin':  '💼',
-        'x':         '𝕏',  'twitter':   '𝕏',  'tiktok':    '🎵',
-        'youtube':   '▶️', 'pinterest': '📌',
-    };
-
-    let connections = [];
+    let allConnections = [];
     try {
         const res = await fetch('/.netlify/functions/integrations');
         if (res.ok) {
             const data = await res.json();
-            // Only show connections the user has actually set up (userId is not null / has active status)
-            connections = (data.connections || []).filter(c => c.status === 'active' && c.userId);
+            allConnections = data.connections || [];
         }
     } catch (e) {
-        console.warn('Could not load connections for platforms tab:', e);
+        console.warn('Could not load connections:', e);
     }
 
-    if (connections.length === 0) {
+    // Split: active/connected vs unconnected
+    const connected = allConnections.filter(c => c.status === 'active' && c.userId);
+    const connectedNames = new Set(connected.map(c => c.serviceName.toLowerCase()));
+
+    // Selected connection IDs for this assistant (from both platforms and linked_integrations)
+    const selectedPlatformIds = new Set(
+        (currentData.configuration?.appliedDefaults?.platforms || []).map(Number)
+    );
+    const linkedIds = new Set((window.cachedContext?.linked_integrations || []).map(Number));
+    // Merge both sources — selected if in either
+    const selectedIds = new Set([...selectedPlatformIds, ...linkedIds]);
+
+    if (connected.length === 0) {
         container.innerHTML = `
             <div class="flex flex-col items-center justify-center py-10 text-center gap-3">
                 <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl">🔌</div>
-                <div>
-                    <p class="text-sm font-semibold text-gray-700">No verified connections found</p>
-                    <p class="text-sm text-gray-500 mt-1">Connect your platforms first, then return here to assign them to this assistant.</p>
-                </div>
+                <p class="text-sm font-semibold text-gray-700">No verified connections found</p>
+                <p class="text-sm text-gray-500">Connect your platforms first, then return here to enable them for this assistant.</p>
                 <a href="#" onclick="window.loadView('integrations')" class="mt-1 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer">
                     Go to Connections →
                 </a>
             </div>`;
-        return;
-    }
-
-    // Selected connection IDs for this assistant
-    const selectedIds = new Set(
-        (currentData.configuration?.appliedDefaults?.platforms || []).map(Number)
-    );
-
-    container.innerHTML = '';
-    connections.forEach(conn => {
-        const icon = PLATFORM_ICONS[conn.serviceName.toLowerCase()] || '🔗';
-        const isChecked = selectedIds.has(conn.id);
-        const handle = conn.externalUserId || '';
-        const statusClass = conn.status === 'active' ? 'bg-emerald-500' : 'bg-amber-400';
+    } else {
+        container.innerHTML = '';
+        connected.forEach(conn => {
+            const key = conn.serviceName.toLowerCase();
+            const icon = PLATFORM_ICONS[key] || '🔗';
+            const isOn = selectedIds.has(conn.id);
+            const handle = conn.externalUserId || '';
+            container.insertAdjacentHTML('beforeend', `
+                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition platform-conn-row" data-conn-id="${conn.id}" data-service="${_escapeHtml(key)}">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl shrink-0">${icon}</div>
+                        <div>
+                            <p class="font-bold text-gray-900 text-sm">${_escapeHtml(conn.serviceName)}</p>
+                            ${handle ? `<p class="text-xs text-gray-500 mt-0.5">${_escapeHtml(handle)}</p>` : '<p class="text-xs text-emerald-600 mt-0.5 font-medium">● Connected</p>'}
+                        </div>
+                    </div>
+                    <label class="flex items-center cursor-pointer relative shrink-0">
+                        <input type="checkbox" class="sr-only peer platform-conn-chk" value="${conn.id}" ${isOn ? 'checked' : ''}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                </div>`);
+        });
 
         container.insertAdjacentHTML('beforeend', `
-            <label class="flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition
-                ${isChecked ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300 bg-white'}
-                platform-connection-card" data-conn-id="${conn.id}">
-                <input type="checkbox" class="sr-only platform-conn-chk" value="${conn.id}" ${isChecked ? 'checked' : ''}>
-                <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl shrink-0">${icon}</div>
-                <div class="flex-1 min-w-0">
-                    <p class="font-bold text-gray-900 text-sm">${_escapeHtml(conn.serviceName)}</p>
-                    ${handle ? `<p class="text-xs text-gray-500 mt-0.5 truncate">${_escapeHtml(handle)}</p>` : ''}
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <span class="flex items-center gap-1.5 text-xs font-semibold ${conn.status === 'active' ? 'text-emerald-700' : 'text-amber-700'}">
-                        <span class="w-1.5 h-1.5 rounded-full ${statusClass}"></span>
-                        ${conn.status === 'active' ? 'Verified' : 'Inactive'}
-                    </span>
-                    <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0
-                        ${isChecked ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 bg-white'}
-                        platform-check-circle">
-                        ${isChecked ? '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>' : ''}
-                    </div>
-                </div>
-            </label>`);
-    });
+            <div class="pt-2 text-center">
+                <a href="#" onclick="window.loadView('integrations')" class="text-sm text-emerald-600 hover:underline font-medium cursor-pointer">+ Connect more platforms →</a>
+            </div>`);
 
-    // Add "manage connections" footer link
-    container.insertAdjacentHTML('beforeend', `
-        <div class="pt-4 text-center">
-            <a href="#" onclick="window.loadView('integrations')" class="text-sm text-emerald-600 hover:underline font-medium cursor-pointer">
-                + Connect more platforms →
-            </a>
-        </div>`);
+        // Toggle handler — saves to both platforms and linked_integrations
+        container.querySelectorAll('.platform-conn-chk').forEach(chk => {
+            chk.addEventListener('change', async () => {
+                const checkedIds = Array.from(container.querySelectorAll('.platform-conn-chk:checked')).map(c => parseInt(c.value));
+                const checkedKeys = connected.filter(c => checkedIds.includes(c.id))
+                    .map(c => PLATFORM_KEY_MAP[c.serviceName.toLowerCase()] || c.serviceName.toLowerCase());
 
-    // Handle toggle — update card style + save
-    container.querySelectorAll('.platform-conn-chk').forEach(chk => {
-        chk.addEventListener('change', async () => {
-            // Update card visual state immediately
-            const card = chk.closest('.platform-connection-card');
-            const circle = card?.querySelector('.platform-check-circle');
-            if (card) {
-                card.classList.toggle('border-emerald-500', chk.checked);
-                card.classList.toggle('bg-emerald-50', chk.checked);
-                card.classList.toggle('border-gray-200', !chk.checked);
-                card.classList.toggle('bg-white', !chk.checked);
-            }
-            if (circle) {
-                circle.className = `w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 platform-check-circle ${chk.checked ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 bg-white'}`;
-                circle.innerHTML = chk.checked ? '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>' : '';
-            }
-
-            // Collect all selected IDs
-            const selectedPlatformIds = Array.from(container.querySelectorAll('.platform-conn-chk:checked'))
-                .map(c => parseInt(c.value));
-
-            // Derive platform keys for primary_platforms (for brief generation compat)
-            const platformKeyMap = { facebook: 'fb', instagram: 'ig', linkedin: 'li', x: 'x', twitter: 'x', tiktok: 'tt', youtube: 'yt' };
-            const selectedKeys = connections
-                .filter(c => selectedPlatformIds.includes(c.id))
-                .map(c => platformKeyMap[c.serviceName.toLowerCase()] || c.serviceName.toLowerCase());
-
-            const statusEl = document.getElementById('platforms-save-status');
-            if (statusEl) statusEl.textContent = 'Saving…';
-
-            try {
-                const updatedContext = { ...window.cachedContext, primary_platforms: selectedKeys };
-                const r = await fetch('/.netlify/functions/update-assistant-context', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        assistantId: parseInt(assistantId),
-                        newContext: updatedContext,
-                        appliedDefaults: { platforms: selectedPlatformIds },
-                    }),
-                });
-                if (r.ok) {
-                    window.cachedContext = updatedContext;
-                    if (!currentData.configuration) currentData.configuration = {};
-                    if (!currentData.configuration.appliedDefaults) currentData.configuration.appliedDefaults = {};
-                    currentData.configuration.appliedDefaults.platforms = selectedPlatformIds;
-                    if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(() => statusEl.textContent = '', 2500); }
+                const statusEl = document.getElementById('platforms-save-status');
+                if (statusEl) statusEl.textContent = 'Saving…';
+                try {
+                    const updatedContext = { ...window.cachedContext, primary_platforms: checkedKeys, linked_integrations: checkedIds };
+                    const r = await fetch('/.netlify/functions/update-assistant-context', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ assistantId: parseInt(assistantId), newContext: updatedContext, appliedDefaults: { platforms: checkedIds } }),
+                    });
+                    if (r.ok) {
+                        window.cachedContext = updatedContext;
+                        if (!currentData.configuration) currentData.configuration = {};
+                        if (!currentData.configuration.appliedDefaults) currentData.configuration.appliedDefaults = {};
+                        currentData.configuration.appliedDefaults.platforms = checkedIds;
+                        if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(() => statusEl.textContent = '', 2500); }
+                    }
+                } catch {
+                    const s = document.getElementById('platforms-save-status');
+                    if (s) s.textContent = 'Error saving';
                 }
-            } catch {
-                if (document.getElementById('platforms-save-status')) document.getElementById('platforms-save-status').textContent = 'Error saving';
-            }
+            });
         });
-    });
+    }
+
+    // Show unconnected well-known platforms
+    const unconnectedWrap = document.getElementById('assistant-platforms-unconnected');
+    const unconnectedList = document.getElementById('assistant-platforms-unconnected-list');
+    if (unconnectedWrap && unconnectedList) {
+        const unconnected = KNOWN_PLATFORMS.filter(p => !connectedNames.has(p.toLowerCase()));
+        if (unconnected.length > 0) {
+            unconnectedList.innerHTML = unconnected.map(name => {
+                const icon = PLATFORM_ICONS[name.toLowerCase()] || '🔗';
+                return `<div class="flex items-center justify-between p-3 border border-dashed border-gray-200 rounded-xl bg-gray-50 opacity-75">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-gray-200 flex items-center justify-center text-lg shrink-0">${icon}</div>
+                        <div>
+                            <p class="font-semibold text-gray-600 text-sm">${name}</p>
+                            <p class="text-xs text-gray-400">Not connected</p>
+                        </div>
+                    </div>
+                    <a href="#" onclick="window.loadView('integrations')" class="text-xs font-bold text-emerald-600 hover:underline cursor-pointer shrink-0">Connect →</a>
+                </div>`;
+            }).join('');
+            unconnectedWrap.classList.remove('hidden');
+        } else {
+            unconnectedWrap.classList.add('hidden');
+        }
+    }
 }
+
+// fetchAndRenderIntegrations now delegates to the merged Connections tab
+window.fetchAndRenderIntegrations = async function() {
+    // No-op: integrations are now rendered in the Connections tab (_renderPlatformsTab)
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Workspace Defaults renderer — Brand Profile + Assistant Rules
@@ -722,89 +720,7 @@ function _escapeHtml(str) {
 }
 
 // ==========================================
-// 6. INTEGRATIONS RENDER ENGINE
-// ==========================================
-window.fetchAndRenderIntegrations = async function() {
-    try {
-        const res = await fetch('/.netlify/functions/integrations');
-        if (!res.ok) return;
-        const data = await res.json();
-
-        const container = document.getElementById('assistant-integrations-list');
-        const emptyPrompt = document.getElementById('empty-integrations-prompt');
-
-        if (!data.connections || data.connections.length === 0) {
-            if(emptyPrompt) emptyPrompt.classList.remove('hidden');
-            if(container) container.classList.add('hidden');
-            return;
-        }
-
-        if(emptyPrompt) emptyPrompt.classList.add('hidden');
-        if(container) {
-            container.classList.remove('hidden');
-            container.innerHTML = '';
-        }
-
-        const linkedIds = window.cachedContext.linked_integrations || [];
-
-        // Helper inline mapping for smart defaults
-        const mapServiceNameToKey = (name) => {
-            const m = { 'Facebook': 'fb', 'Instagram': 'ig', 'LinkedIn': 'li', 'X': 'x' };
-            return m[name] || name.toLowerCase();
-        };
-
-        data.connections.forEach(conn => {
-            const isDefaultSelected = window.cachedContext.primary_platforms?.includes(mapServiceNameToKey(conn.serviceName));
-            const isChecked = (linkedIds.includes(conn.id) || isDefaultSelected) ? 'checked' : '';
-
-            container.insertAdjacentHTML('beforeend', `
-              <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                <div class="flex items-center gap-4">
-                  <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center font-bold text-gray-700">${conn.serviceName.substring(0,2).toUpperCase()}</div>
-                  <div>
-                    <h4 class="font-bold text-gray-900">${conn.serviceName}</h4>
-                    <p class="text-xs text-gray-500 uppercase">${conn.connectionType.replace('_', ' ')}</p>
-                  </div>
-                </div>
-                <label class="flex items-center cursor-pointer relative">
-                  <input type="checkbox" class="sr-only peer integration-toggle" value="${conn.id}" ${isChecked}>
-                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                </label>
-              </div>
-            `);
-        });
-
-        // Attach Auto-Save to Integration Switches
-        document.querySelectorAll('.integration-toggle').forEach(chk => {
-            chk.addEventListener('change', async () => {
-                const selectedIds = Array.from(document.querySelectorAll('.integration-toggle:checked')).map(c => parseInt(c.value));
-                const newContext = { ...window.cachedContext, linked_integrations: selectedIds };
-                const statusEl = document.getElementById('integration-save-status');
-
-                if(statusEl) statusEl.innerText = "Updating access...";
-
-                try {
-                    const r = await fetch('/.netlify/functions/update-assistant-context', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ assistantId: parseInt(window.activeAssistantId), newContext })
-                    });
-                    if(r.ok) {
-                        window.cachedContext = newContext;
-                        if(statusEl) {
-                            statusEl.innerText = "✓ Access Updated";
-                            setTimeout(() => statusEl.innerText = "", 2000);
-                        }
-                    }
-                } catch(e) {
-                    if(statusEl) statusEl.innerText = "Error updating";
-                }
-            });
-        });
-    } catch (e) {
-        console.error("Integrations render error:", e);
-    }
-};
+// 6. INTEGRATIONS — merged into Connections tab (_renderPlatformsTab)
 
 // ── Autonomous Posting Fallback toggle (US5) ─────────────────────
 function _hydrateAutonomousToggle(data) {

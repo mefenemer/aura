@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 import { eq, desc, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, plans, payments, masterPlans } from '../../db/schema';
+import { users, plans, payments, masterPlans, storageUsage, userOrganisations } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
@@ -261,10 +261,36 @@ export const handler: Handler = async (event) => {
             };
         });
 
+        // ── 5. Storage usage (AC3 STOR-1.1.2) ───────────────────────
+        // Resolve orgId from userOrganisations
+        const [orgRow] = await db
+            .select({ organisationId: userOrganisations.organisationId })
+            .from(userOrganisations)
+            .where(eq(userOrganisations.userId, userId))
+            .limit(1);
+        let storageData: { usedBytes: number; limitBytes: number | null } | null = null;
+        if (orgRow) {
+            const [su] = await db
+                .select({ usedBytes: storageUsage.usedBytes })
+                .from(storageUsage)
+                .where(eq(storageUsage.organisationId, orgRow.organisationId))
+                .limit(1);
+            const [planLimit] = await db
+                .select({ storageLimitBytes: masterPlans.storageLimitBytes })
+                .from(plans)
+                .leftJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
+                .where(and(eq(plans.organisationId, orgRow.organisationId), eq(plans.status, 'active')))
+                .limit(1);
+            storageData = {
+                usedBytes: su?.usedBytes ?? 0,
+                limitBytes: planLimit?.storageLimitBytes ?? null,
+            };
+        }
+
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ subscriptions, paymentHistory }),
+            body: JSON.stringify({ subscriptions, paymentHistory, storage: storageData }),
         };
 
     } catch (err: any) {

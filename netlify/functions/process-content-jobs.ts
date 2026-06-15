@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     contentGenerationJobs, aiBlueprints, aiAssistants,
-    scheduledPosts, notifications, auditLogs, organisations,
+    scheduledPosts, notifications, auditLogs,
 } from '../../db/schema';
 import { gatewayGenerate } from '../../src/lib/ai-gateway';
 import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
@@ -79,14 +79,9 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
         const tone          = (onboarding['brandVoice'] as string) ?? (answers['tone_of_voice'] as string) ?? 'professional';
         const perAssistantDisclosure = (compliance['disclosureText'] as string) ?? null;
 
-        // Org-level disclosure flag takes precedence (EU AI Act Art. 50)
-        const [orgRow] = await db
-            .select({ aiDisclosureFooterEnabled: organisations.aiDisclosureFooterEnabled, aiDisclosureFooterText: organisations.aiDisclosureFooterText })
-            .from(organisations)
-            .where(eq(organisations.id, job.organisation_id))
-            .limit(1);
-        const orgDisclosureEnabled = orgRow?.aiDisclosureFooterEnabled ?? false;
-        const orgDisclosureText    = orgRow?.aiDisclosureFooterText ?? 'This message was composed with AI assistance.';
+        // Org-level disclosure flag takes precedence (EU AI Act Art. 50) — read from blueprint section
+        const orgDisclosureEnabled = (compliance['orgFooterEnabled'] as boolean) ?? false;
+        const orgDisclosureText    = (compliance['orgFooterText'] as string) ?? 'This message was composed with AI assistance.';
         const disclosureText = orgDisclosureEnabled ? orgDisclosureText : perAssistantDisclosure;
 
         const platform      = job.platform || 'instagram';
