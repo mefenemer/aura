@@ -6,24 +6,43 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:push": "drizzle-kit push",
-    "build:css": "tailwindcss -i ./input.css -o ./style.css --watch"
+    "db:seed-catalog": "npx tsx db/seed-catalog.ts",
+    "build:css": "tailwindcss -i ./input.css -o ./style.css --watch",
+    "license:check": "license-checker --excludePrivatePackages --failOn 'GPL-1.0;GPL-2.0;GPL-3.0;AGPL-1.0;AGPL-3.0;EUPL-1.0;EUPL-1.1;EUPL-1.2;CDDL-1.0;CDDL-1.1'",
+    "license:notices": "node scripts/generate-notices.js"
   },
   "private": true,
   "devDependencies": {
+    "@netlify/edge-functions": "^3.0.8",
+    "@types/busboy": "^1.5.4",
+    "@types/cheerio": "^0.22.35",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.1",
+    "@types/pdf-parse": "^1.1.5",
     "drizzle-kit": "^1.0.0-beta.22",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "tsx": "^4.22.4"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
+    "@aws-sdk/client-s3": "^3.1068.0",
+    "@aws-sdk/s3-request-presigner": "^3.1068.0",
     "@netlify/database": "^1.0.0",
     "@netlify/functions": "^5.3.0",
     "@tailwindcss/cli": "^4.3.0",
+    "busboy": "^1.6.0",
+    "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^1.0.0-beta.22",
-    "postgres": "^3.4.9"
+    "jsonwebtoken": "^9.0.3",
+    "node-fetch": "^3.3.2",
+    "pdf-parse": "^2.4.5",
+    "postgres": "^3.4.9",
+    "resend": "^6.12.4",
+    "stripe": "^22.2.0"
   }
 }

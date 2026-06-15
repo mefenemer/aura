@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Powered by Aura-Assist</title>
+    <link href="./style.css" rel="stylesheet">
+    <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
+    <link rel="manifest" href="/favicon/manifest.json">
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<div id="nav-placeholder"></div>
+
+<main class="flex-grow">
+
+    <!-- Loading state -->
+    <div id="pb-loading" class="flex items-center justify-center py-32">
+        <div class="w-10 h-10 border-4 border-gray-200 border-t-emerald-600 rounded-full animate-spin"></div>
+    </div>
+
+    <!-- Error state -->
+    <div id="pb-error" class="hidden max-w-lg mx-auto px-4 py-32 text-center">
+        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Page Not Found</h1>
+        <p class="text-gray-500 mb-6">This attribution link isn't active. The agency may have turned off their badge, or the link may be incorrect.</p>
+        <a href="/" class="inline-block bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl hover:bg-emerald-800 transition">Visit Aura-Assist</a>
+    </div>
+
+    <!-- US-AUD-5.3.1 SC3: Co-branded landing page content -->
+    <div id="pb-content" class="hidden">
+
+        <!-- Hero -->
+        <section class="bg-white border-b border-gray-100">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+                <div class="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 text-xs font-bold px-4 py-2 rounded-full border border-emerald-200 mb-6">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Powered by Aura-Assist
+                </div>
+                <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-4 leading-tight">
+                    <span id="pb-agency-name" class="text-emerald-600"></span> uses Aura-Assist<br>to deliver faster, smarter, at scale.
+                </h1>
+                <p class="text-xl text-gray-500 max-w-2xl mx-auto mb-10">
+                    The deliverable you just received was produced with the help of AI assistants — specialized digital team members that automate the hard work behind every output.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a href="/checkout.html" id="pb-trial-cta"
+                       class="inline-block bg-emerald-700 text-white font-bold px-8 py-4 rounded-xl text-lg shadow-lg hover:bg-emerald-800 transition">
+                        Start Your Free Trial
+                    </a>
+                    <a href="/assistants.html"
+                       class="inline-block bg-white text-gray-800 font-bold px-8 py-4 rounded-xl text-lg border border-gray-200 shadow-sm hover:bg-gray-50 transition">
+                        See How It Works
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Social proof strip -->
+        <section class="bg-gray-50 border-b border-gray-100 py-10">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <p class="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-6">What your AI team can do for you</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-8">
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <p class="font-bold text-gray-900">Save hours every week</p>
+                        <p class="text-sm text-gray-500">Automate repetitive tasks across content, admin, and ops.</p>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        </div>
+                        <p class="font-bold text-gray-900">Specialist AI assistants</p>
+                        <p class="text-sm text-gray-500">Hire roles built for your exact workflows — not generic chatbots.</p>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                        </div>
+                        <p class="font-bold text-gray-900">Scale your output</p>
+                        <p class="text-sm text-gray-500">Deliver more to your clients without hiring more people.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA section -->
+        <section class="bg-emerald-700 py-20">
+            <div class="max-w-3xl mx-auto px-4 text-center">
+                <h2 class="text-3xl font-extrabold text-white mb-4">Discover how your team can work this way too.</h2>
+                <p class="text-emerald-100 mb-8 text-lg">Join thousands of teams using Aura-Assist to automate the work nobody wants to do.</p>
+                <a href="/checkout.html" class="inline-block bg-white text-emerald-700 font-bold px-10 py-4 rounded-xl text-lg shadow-lg hover:bg-gray-50 transition">
+                    Start Free — No Card Required
+                </a>
+            </div>
+        </section>
+
+    </div><!-- /#pb-content -->
+
+</main>
+
+<div id="footer-placeholder"></div>
+
+<script>
+(async function () {
+    // Extract slug from URL path: /powered-by/<slug>
+    const pathParts = window.location.pathname.replace(/\/$/, '').split('/');
+    const slug = pathParts[pathParts.length - 1];
+
+    const loadingEl = document.getElementById('pb-loading');
+    const errorEl   = document.getElementById('pb-error');
+    const contentEl = document.getElementById('pb-content');
+
+    if (!slug || slug === 'powered-by') {
+        loadingEl.classList.add('hidden');
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/.netlify/functions/agency-attribution?slug=${encodeURIComponent(slug)}`);
+        if (!res.ok) throw new Error('not found');
+        const data = await res.json();
+
+        // Populate co-branded content
+        document.title = `${data.name} × Aura-Assist`;
+        document.getElementById('pb-agency-name').textContent = data.name;
+
+        // Append referral slug to CTA links for attribution tracking (SC5)
+        document.getElementById('pb-trial-cta').href = `/checkout.html?ref=${encodeURIComponent(slug)}`;
+
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+
+        // Store the referrer slug in sessionStorage — register.ts can read this on signup
+        sessionStorage.setItem('attribution_ref', slug);
+
+    } catch {
+        loadingEl.classList.add('hidden');
+        errorEl.classList.remove('hidden');
+    }
+
+    // Load shared nav/footer fragments
+    ['nav-placeholder', 'footer-placeholder'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const src = id.includes('nav') ? 'components/nav.html' : 'components/footer.html';
+        fetch(src).then(r => r.text()).then(html => { el.innerHTML = html; }).catch(() => {});
+    });
+})();
+</script>
+</body>
+</html>

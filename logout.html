@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logged Out | Aura</title>
+    <title>Logged Out | Aura-Assist</title>
     <!--    <script src="https://cdn.tailwindcss.com"></script>-->
     <link href="./style.css" rel="stylesheet">
+    <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
+    <link rel="manifest" href="/favicon/manifest.json">
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 <div id="nav-placeholder"></div>
@@ -27,7 +30,7 @@
             
             <!-- Actions -->
             <div class="space-y-3">
-                <a href="dashboard.html" class="block w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 rounded-lg shadow-sm transition">
+                <a href="login.html" class="block w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 rounded-lg shadow-sm transition">
                     Log Back In
                 </a>
                 <a href="index.html" class="block w-full bg-gray-50 hover:bg-gray-100 text-gray-600 font-semibold py-3 rounded-lg border border-gray-200 transition">
@@ -55,6 +58,10 @@
             console.error(`Error loading component ${filePath}:`, error);
         }
     }
+
+    // Expire the session cookie immediately — covers both Secure and non-Secure contexts
+    document.cookie = 'aura_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure';
+    document.cookie = 'aura_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
 
     document.addEventListener("DOMContentLoaded", async () => {
         await loadComponent("nav-placeholder", "./components/nav.html");

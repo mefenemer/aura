@@ -1,214 +1,732 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Billing | Aura</title>
-<!--    <script src="https://cdn.tailwindcss.com"></script>-->
-    <link href="./style.css" rel="stylesheet">
-</head>
-<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
-<div id="nav-placeholder"></div>
-    <header class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
-        <h1 class="text-3xl font-extrabold text-gray-900">Billing & Subscription</h1>
-        <p class="text-gray-500 mt-1">Manage your plan, compute budget, and payment details.</p>
-    </header>
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full pb-20">
 
-    <main class="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full pb-20 space-y-8">
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h2 class="text-lg font-bold text-gray-900">Current Plan</h2>
-                        <p class="text-sm text-gray-500">The Workflow Saver</p>
-                    </div>
-                    <span class="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-100">Active</span>
-                </div>
-                <div class="mb-6">
-                    <span class="text-3xl font-extrabold text-gray-900">£50.00</span>
-                    <span class="text-gray-500 text-sm">/month</span>
-                </div>
-                <ul class="space-y-2 mb-6 flex-grow">
-                    <li class="flex items-center text-sm text-gray-600">
-                        <span class="text-emerald-500 mr-2">✓</span> 1 Smart Assistant
-                    </li>
-                    <li class="flex items-center text-sm text-gray-600">
-                        <span class="text-emerald-500 mr-2">✓</span> Multi-step processes
-                    </li>
-                    <li class="flex items-center text-sm text-gray-600">
-                        <span class="text-emerald-500 mr-2">✓</span> 2 Monthly Updates
-                    </li>
-                </ul>
-                <div class="flex gap-3 mt-auto">
-                    <button class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold py-2 rounded-lg border border-gray-200 transition text-sm">Change Plan</button>
-                    <button class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-2 rounded-lg border border-red-100 transition text-sm">Cancel</button>
-                </div>
+  <div class="flex items-start justify-between mb-10 gap-4">
+    <div>
+      <h1 class="text-3xl font-extrabold text-gray-900">Billing &amp; Subscription</h1>
+      <p class="text-gray-500 mt-1">Your active plans, payment history, and invoice downloads.</p>
+    </div>
+  </div>
+
+  <!-- Loading state -->
+  <div id="billing-loading" class="flex items-center justify-center py-24 text-gray-400 gap-3">
+    <svg class="w-5 h-5 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
+      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/>
+    </svg>
+    <span class="text-sm font-medium">Loading billing data…</span>
+  </div>
+
+  <!-- Error state -->
+  <div id="billing-error" class="hidden text-center py-16">
+    <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3C7.029 3 3 7.029 3 12s4.029 9 9 9 9-4.029 9-9-4.029-9-9-9z"/></svg>
+    </div>
+    <p id="billing-error-msg" class="text-sm text-gray-500 mb-4">Unable to load billing information.</p>
+    <button onclick="window.initBilling()" class="text-sm font-bold text-emerald-600 hover:text-emerald-700 transition cursor-pointer">Try again</button>
+  </div>
+
+  <!-- Main content (hidden until loaded) -->
+  <div id="billing-content" class="hidden space-y-8">
+
+    <!-- ── Active Subscriptions ────────────────────────────────── -->
+    <section id="subscriptions-section">
+      <h2 class="text-lg font-extrabold text-gray-900 mb-4">Active Subscriptions</h2>
+
+      <!-- Empty state -->
+      <div id="subscriptions-empty" class="hidden bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
+        <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+        </div>
+        <h3 class="text-base font-bold text-gray-700 mb-1">No active subscriptions</h3>
+        <p class="text-sm text-gray-500 mb-5">You don't have any active Digital Assistants yet. Browse available roles to get started.</p>
+        <a href="#" onclick="window.loadView('catalog')"
+          class="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Browse Digital Assistants
+        </a>
+      </div>
+
+      <!-- Subscription cards (rendered by billing.js) -->
+      <div id="subscriptions-list" class="space-y-4"></div>
+    </section>
+
+    <!-- ── Payment Method ─────────────────────────────────────── -->
+    <section id="payment-method-section">
+      <h2 class="text-lg font-extrabold text-gray-900 mb-4">Payment Method</h2>
+
+      <!-- No card on file -->
+      <div id="payment-method-empty" class="hidden bg-white rounded-2xl border border-dashed border-gray-300 p-8 text-center">
+        <p class="text-sm text-gray-500 mb-4">No payment method on file.</p>
+        <button onclick="window._billingOpenCardModal()"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow transition cursor-pointer">
+          Change Card
+        </button>
+      </div>
+
+      <!-- Card details (rendered by billing.js) -->
+      <div id="payment-method-card" class="hidden bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+
+          <!-- Card visual -->
+          <div class="flex items-center gap-5">
+            <div id="pm-brand-badge" class="w-14 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+              <svg class="w-7 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
             </div>
-
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h2 class="text-lg font-bold text-gray-900">Computing Power</h2>
-                        <p class="text-sm text-gray-500">Billed at cost, pennies per task.</p>
-                    </div>
-                </div>
-                
-                <div class="mb-6">
-                    <div class="flex justify-between text-sm mb-1">
-                        <span class="font-medium text-gray-700">Used this month</span>
-                        <span class="font-bold text-gray-900">£1.42</span>
-                    </div>
-                    <div class="w-full bg-gray-100 rounded-full h-2.5 mb-2">
-                        <div class="bg-emerald-500 h-2.5 rounded-full" style="width: 28%"></div>
-                    </div>
-                    <div class="flex justify-between text-xs text-gray-500">
-                        <span>£0.00</span>
-                        <span>Cap: £5.00</span>
-                    </div>
-                </div>
-
-                <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-100 mt-auto">
-                    <p class="text-sm text-emerald-800 font-medium mb-2">Safety Cap Active</p>
-                    <p class="text-xs text-emerald-600 mb-3">If your assistants use £5.00 of raw computing power, they will pause until you approve more. No surprise bills.</p>
-                    <button class="text-sm font-bold text-emerald-700 hover:text-emerald-900 transition">Adjust Budget Cap</button>
-                </div>
+            <div>
+              <p class="text-sm font-bold text-gray-900">
+                <span id="pm-brand-label" class="capitalize"></span>
+                <span class="text-gray-400 font-normal ml-1">•••• •••• ••••</span>
+                <span id="pm-last4" class="ml-1"></span>
+              </p>
+              <p class="text-xs text-gray-500 mt-0.5">
+                Expires <span id="pm-expiry"></span>
+                <span id="pm-expiry-warn" class="hidden ml-1.5 text-amber-600 font-semibold">— expiring soon</span>
+              </p>
             </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-3 flex-wrap">
+            <button onclick="window._billingOpenCardModal()" id="btn-change-card"
+              class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 text-sm font-semibold rounded-xl transition cursor-pointer bg-white">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Change Card
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── Billing Details ───────────────────────────────────── -->
+    <section id="billing-details-section">
+      <div class="flex items-center justify-between mb-4 gap-4">
+        <div>
+          <h2 class="text-lg font-extrabold text-gray-900">Billing Details</h2>
+          <p class="text-sm text-gray-500 mt-0.5">Used on your invoices. Add your company name, address, and VAT number if applicable.</p>
+        </div>
+        <button id="btn-edit-billing-details" onclick="window._billingDetailsEdit()"
+          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-300 hover:border-gray-400 rounded-xl transition bg-white cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          Edit
+        </button>
+      </div>
+
+      <!-- Display state -->
+      <div id="billing-details-display" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <!-- Empty state -->
+        <div id="billing-details-empty" class="text-center py-4">
+          <p class="text-sm text-gray-500 mb-4">No billing details saved yet. Add your legal company name and address to appear on your invoices.</p>
+          <button onclick="window._billingDetailsEdit()"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Add Billing Details
+          </button>
+        </div>
+        <!-- Filled state -->
+        <div id="billing-details-info" class="hidden">
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+            <div><dt class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Legal Name / Company</dt><dd id="bd-name" class="font-semibold text-gray-900"></dd></div>
+            <div><dt class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Billing Email</dt><dd id="bd-email" class="text-gray-700"></dd></div>
+            <div><dt class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Address</dt><dd id="bd-address" class="text-gray-700 whitespace-pre-line"></dd></div>
+            <div><dt class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">VAT / Tax ID</dt><dd id="bd-vat" class="text-gray-700"></dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <!-- Edit form (hidden by default) -->
+      <div id="billing-details-form" class="hidden bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mt-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label for="bd-input-name" class="block text-sm font-semibold text-gray-700 mb-1.5">Legal Name / Company Name <span class="text-red-500">*</span></label>
+            <input type="text" id="bd-input-name" placeholder="Acme Ltd" autocomplete="organization"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+          </div>
+          <div>
+            <label for="bd-input-email" class="block text-sm font-semibold text-gray-700 mb-1.5">Billing Email</label>
+            <input type="email" id="bd-input-email" placeholder="billing@yourcompany.com" autocomplete="email"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+          </div>
+          <div>
+            <label for="bd-input-vat" class="block text-sm font-semibold text-gray-700 mb-1.5">VAT / Tax ID <span class="text-xs font-normal text-gray-400">(optional)</span></label>
+            <input type="text" id="bd-input-vat" placeholder="GB123456789"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition uppercase">
+          </div>
+          <div class="sm:col-span-2">
+            <label for="bd-input-addr1" class="block text-sm font-semibold text-gray-700 mb-1.5">Address Line 1</label>
+            <input type="text" id="bd-input-addr1" placeholder="123 Business Street" autocomplete="address-line1"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+          </div>
+          <div class="sm:col-span-2">
+            <label for="bd-input-addr2" class="block text-sm font-semibold text-gray-700 mb-1.5">Address Line 2 <span class="text-xs font-normal text-gray-400">(optional)</span></label>
+            <input type="text" id="bd-input-addr2" placeholder="Suite 100" autocomplete="address-line2"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+          </div>
+          <div>
+            <label for="bd-input-city" class="block text-sm font-semibold text-gray-700 mb-1.5">City</label>
+            <input type="text" id="bd-input-city" placeholder="London" autocomplete="address-level2"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+          </div>
+          <div>
+            <label for="bd-input-postal" class="block text-sm font-semibold text-gray-700 mb-1.5">Postcode / ZIP</label>
+            <input type="text" id="bd-input-postal" placeholder="EC1A 1BB" autocomplete="postal-code"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+          </div>
+          <div>
+            <label for="bd-input-state" class="block text-sm font-semibold text-gray-700 mb-1.5">County / State <span class="text-xs font-normal text-gray-400">(optional)</span></label>
+            <input type="text" id="bd-input-state" placeholder="England" autocomplete="address-level1"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+          </div>
+          <div>
+            <label for="bd-input-country" class="block text-sm font-semibold text-gray-700 mb-1.5">Country</label>
+            <input type="text" id="bd-input-country" placeholder="United Kingdom" autocomplete="country-name"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+          </div>
+        </div>
+        <div id="bd-form-error" class="hidden mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3"></div>
+        <div class="flex items-center justify-end gap-3 mt-5">
+          <button onclick="window._billingDetailsCancel()"
+            class="px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition cursor-pointer">
+            Cancel
+          </button>
+          <button id="btn-save-billing-details" onclick="window._billingDetailsSave()"
+            class="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Save Details
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Invoice History ────────────────────────────────────── -->
+    <section id="invoice-history-section">
+      <h2 class="text-lg font-extrabold text-gray-900 mb-1">Invoice History</h2>
+      <p class="text-sm text-gray-500 mb-4">Download PDF invoices for all your payments.</p>
+
+      <!-- Empty state -->
+      <div id="invoice-history-empty" class="hidden bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
+        <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <h3 class="text-base font-bold text-gray-700 mb-1">No invoices yet</h3>
+        <p class="text-sm text-gray-500">Your first invoice will appear here after your first payment is processed.</p>
+      </div>
+
+      <!-- Invoice table -->
+      <div id="invoice-history-wrap" class="hidden bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-100">
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Invoice #</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Date</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Plan</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Amount</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Download</th>
+              </tr>
+            </thead>
+            <tbody id="invoice-history-tbody" class="divide-y divide-gray-100 text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Payment History ─────────────────────────────────────── -->
+    <section id="history-section">
+      <h2 class="text-lg font-extrabold text-gray-900 mb-4">Payment History</h2>
+
+      <!-- Empty state -->
+      <div id="history-empty" class="hidden bg-white rounded-2xl border border-dashed border-gray-300 p-8 text-center">
+        <p class="text-sm text-gray-500">No payment records found.</p>
+      </div>
+
+      <!-- History table -->
+      <div id="history-wrap" class="hidden bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-100">
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Date</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Description</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Amount</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Payment Method</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                <th class="px-5 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Receipt / Invoice</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody" class="divide-y divide-gray-100 text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /billing-content -->
+
+  <!-- ── Add / Change Card Modal ──────────────────────────────── -->
+  <div id="modal-card-form" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="window._billingCloseCardModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 overflow-hidden">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+        <div>
+          <h3 class="text-base font-extrabold text-gray-900">Change Payment Card</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Your card details are encrypted and handled securely by Stripe.</p>
+        </div>
+        <button onclick="window._billingCloseCardModal()" class="text-gray-400 hover:text-gray-600 transition cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="px-6 py-6 space-y-5">
+
+        <!-- Stripe Elements loading state -->
+        <div id="card-form-loading" class="flex items-center justify-center py-8 gap-3 text-gray-400">
+          <svg class="w-5 h-5 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
+            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/>
+          </svg>
+          <span class="text-sm">Loading secure card form…</span>
         </div>
 
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <div class="bg-gray-100 p-3 rounded-md border border-gray-200">
-                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                </div>
-                <div>
-                    <h3 class="text-sm font-bold text-gray-900">Visa ending in 4242</h3>
-                    <p class="text-xs text-gray-500">Expires 12/2028</p>
-                </div>
+        <!-- Stripe Elements mount points (hidden until Elements ready) -->
+        <div id="card-form-fields" class="hidden space-y-4">
+
+          <!-- Card Number -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Card Number</label>
+            <div id="stripe-card-number"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition min-h-[46px]">
             </div>
-            <button class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition">Update</button>
+          </div>
+
+          <!-- Expiry + CVC row -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1.5">Expiry Date</label>
+              <div id="stripe-card-expiry"
+                class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition min-h-[46px]">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1.5">CVC</label>
+              <div id="stripe-card-cvc"
+                class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition min-h-[46px]">
+              </div>
+            </div>
+          </div>
+
+          <!-- Cardholder Name + Postcode row -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="card-holder-name" class="block text-sm font-semibold text-gray-700 mb-1.5">Name on Card</label>
+              <input type="text" id="card-holder-name" placeholder="Jane Smith" autocomplete="cc-name"
+                class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+            </div>
+            <div>
+              <label for="card-postal-code" class="block text-sm font-semibold text-gray-700 mb-1.5">Billing Postcode</label>
+              <input type="text" id="card-postal-code" placeholder="SW1A 1AA" autocomplete="billing postal-code"
+                class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition uppercase">
+            </div>
+          </div>
+
+          <!-- Stripe error -->
+          <div id="card-form-error" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3"></div>
+
+          <!-- Security note -->
+          <div class="flex items-center gap-2 text-xs text-gray-400">
+            <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            Card number and CVC are encrypted by Stripe and never stored on Aura's servers. Only the last 4 digits are retained.
+          </div>
+
+        </div><!-- /card-form-fields -->
+
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+        <button onclick="window._billingCloseCardModal()"
+          class="px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition cursor-pointer">
+          Cancel
+        </button>
+        <button id="btn-save-card" onclick="window._billingSaveCard()" disabled
+          class="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          Save Card
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Receipt Modal ──────────────────────────────────────────── -->
+  <div id="modal-receipt" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="window._billingCloseReceiptModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl z-10 overflow-hidden flex flex-col" style="height: min(82vh, 680px);">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <h3 class="font-extrabold text-gray-900">Payment Receipt</h3>
+        <div class="flex items-center gap-4">
+          <a id="receipt-new-tab-link" href="#" target="_blank" rel="noopener"
+             class="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition hidden sm:inline-flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17H7V7m10 0l-10 10M7 7h10"/></svg>
+            Open / Print
+          </a>
+          <button onclick="window._billingCloseReceiptModal()"
+                  class="text-gray-400 hover:text-gray-600 transition text-2xl leading-none cursor-pointer">&times;</button>
         </div>
-
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div class="p-6 border-b border-gray-100">
-                <h3 class="text-lg font-bold text-gray-900">Billing History</h3>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                            <th class="p-4 font-medium">Date</th>
-                            <th class="p-4 font-medium">Description</th>
-                            <th class="p-4 font-medium">Amount</th>
-                            <th class="p-4 font-medium">Status</th>
-                            <th class="p-4 font-medium text-right">Receipt</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-sm divide-y divide-gray-100">
-                        <tr class="hover:bg-gray-50 transition">
-                            <td class="p-4 text-gray-600">May 27, 2026</td>
-                            <td class="p-4 font-medium text-gray-900">The Workflow Saver + Compute</td>
-                            <td class="p-4 text-gray-600">£51.42</td>
-                            <td class="p-4">
-                                <span class="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-bold">Paid</span>
-                            </td>
-                            <td class="p-4 text-right">
-                                <a href="#" class="text-emerald-700 hover:text-emerald-800 font-semibold">Download</a>
-                            </td>
-                        </tr>
-                        <tr class="hover:bg-gray-50 transition">
-                            <td class="p-4 text-gray-600">Apr 27, 2026</td>
-                            <td class="p-4 font-medium text-gray-900">The Workflow Saver + Compute</td>
-                            <td class="p-4 text-gray-600">£50.95</td>
-                            <td class="p-4">
-                                <span class="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-bold">Paid</span>
-                            </td>
-                            <td class="p-4 text-right">
-                                <a href="#" class="text-emerald-700 hover:text-emerald-800 font-semibold">Download</a>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+      </div>
+      <div id="receipt-iframe-wrap" class="flex-1 relative overflow-hidden">
+        <div id="receipt-loading" class="absolute inset-0 flex items-center justify-center text-gray-400 gap-2">
+          <svg class="w-5 h-5 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
+            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/>
+          </svg>
+          <span class="text-sm">Loading receipt…</span>
         </div>
+        <iframe id="receipt-iframe" src="about:blank" title="Payment Receipt"
+                class="w-full h-full border-0 opacity-0 transition-opacity duration-200"></iframe>
+      </div>
+    </div>
+  </div>
 
-    </main>
+  <!-- ── Change Plan Modal (US-GAP-1.1.1 + US-GAP-1.2.1) ──────── -->
+  <div id="modal-change-plan" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="window._closeChangePlanModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 z-10 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-base font-extrabold text-gray-900">Change Plan</h3>
+        <button onclick="window._closeChangePlanModal()" class="text-gray-400 hover:text-gray-600 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <!-- Tier list (SC1) -->
+      <div id="change-plan-tiers" class="space-y-2 mb-5">
+        <div class="text-sm text-gray-400 animate-pulse">Loading available plans…</div>
+      </div>
+      <!-- Upgrade: proration preview -->
+      <div id="change-plan-preview" class="hidden mb-5 bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm space-y-1">
+        <p id="cpp-plan-name" class="font-bold text-gray-900"></p>
+        <p id="cpp-prorated" class="text-gray-700"></p>
+        <p id="cpp-renewal" class="text-gray-500"></p>
+        <p id="cpp-features" class="text-gray-500 text-xs"></p>
+      </div>
+      <!-- Downgrade: impact warning (SC2/SC3) -->
+      <div id="change-plan-downgrade-impact" class="hidden mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm space-y-2">
+        <p class="font-bold text-amber-800">⚠️ Downgrade Impact</p>
+        <div id="cpp-assistant-impact" class="text-amber-700"></div>
+        <div id="cpp-task-impact" class="text-amber-700"></div>
+        <p id="cpp-effective-date" class="text-gray-500 text-xs mt-1"></p>
+      </div>
+      <!-- Enterprise CTA -->
+      <div id="change-plan-enterprise" class="hidden text-center py-4">
+        <p class="text-sm text-gray-500 mb-3">You're on our highest available plan.</p>
+        <a href="mailto:hello@aura-assist.com?subject=Enterprise enquiry" class="inline-flex items-center px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-black transition">Contact us for Enterprise →</a>
+      </div>
+      <div id="change-plan-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5"></div>
+      <div id="change-plan-actions" class="hidden flex gap-3 justify-end">
+        <button onclick="window._closeChangePlanModal()" class="px-5 py-2.5 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition">Cancel</button>
+        <button id="btn-confirm-plan-change" onclick="window._confirmPlanChange()"
+          class="px-5 py-2.5 bg-emerald-700 text-white text-sm font-bold rounded-xl hover:bg-emerald-800 transition disabled:opacity-50">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
 
-</main>
+  <!-- ── US-GAP-4.1.1: Exit Survey Cancel Modal (3 steps) ─────── -->
+  <div id="modal-cancel-sub" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="window._billingCloseCancelModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 z-10">
 
-<div id="footer-placeholder"></div>
+      <!-- Step 1: Exit survey — SC1 -->
+      <div id="cancel-step-1">
+        <h3 class="text-base font-extrabold text-gray-900 mb-1">Help us improve — why are you leaving?</h3>
+        <p class="text-sm text-gray-500 mb-4">Your feedback helps us build a better product.</p>
+        <div class="space-y-2 mb-4" id="cancel-reason-list">
+          <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 has-[:checked]:border-red-400 has-[:checked]:bg-red-50">
+            <input type="radio" name="cancel-reason" value="too_expensive" class="accent-red-600"> <span class="text-sm text-gray-800">Too expensive</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 has-[:checked]:border-red-400 has-[:checked]:bg-red-50">
+            <input type="radio" name="cancel-reason" value="not_using" class="accent-red-600"> <span class="text-sm text-gray-800">Not using it enough</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 has-[:checked]:border-red-400 has-[:checked]:bg-red-50">
+            <input type="radio" name="cancel-reason" value="missing_feature" class="accent-red-600"> <span class="text-sm text-gray-800">Missing a feature I need</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 has-[:checked]:border-red-400 has-[:checked]:bg-red-50">
+            <input type="radio" name="cancel-reason" value="competitor" class="accent-red-600"> <span class="text-sm text-gray-800">Switching to a competitor</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 has-[:checked]:border-red-400 has-[:checked]:bg-red-50">
+            <input type="radio" name="cancel-reason" value="technical" class="accent-red-600"> <span class="text-sm text-gray-800">Technical issues</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 has-[:checked]:border-red-400 has-[:checked]:bg-red-50">
+            <input type="radio" name="cancel-reason" value="business_closed" class="accent-red-600"> <span class="text-sm text-gray-800">Business closed</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 has-[:checked]:border-red-400 has-[:checked]:bg-red-50">
+            <input type="radio" name="cancel-reason" value="other" class="accent-red-600"> <span class="text-sm text-gray-800">Other</span>
+          </label>
+        </div>
+        <textarea id="cancel-free-text" placeholder="Anything else you'd like to share? (optional)" rows="2"
+          class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-red-300"></textarea>
+        <div class="flex gap-3 justify-end">
+          <button onclick="window._cancelSkipToStep3()"
+            class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 cursor-pointer">Skip</button>
+          <button onclick="window._cancelStep1Next()"
+            class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow transition cursor-pointer">
+            Continue →
+          </button>
+        </div>
+      </div>
 
-<script src="./mobileMenu.js"></script>
+      <!-- Step 2: Pause offer — SC3 -->
+      <div id="cancel-step-2" class="hidden">
+        <div class="text-center mb-5">
+          <div class="text-4xl mb-2">⏸️</div>
+          <h3 class="text-base font-extrabold text-gray-900 mb-1">Before you go — pause instead of cancel?</h3>
+          <p class="text-sm text-gray-500">Pausing keeps your entire setup intact for 30 days at no charge. Come back whenever you're ready — everything will be exactly as you left it.</p>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-5 text-sm text-emerald-800 space-y-1">
+          <div class="flex items-center gap-2"><span>✅</span> All your assistants and data preserved</div>
+          <div class="flex items-center gap-2"><span>✅</span> No charge during the pause period</div>
+          <div class="flex items-center gap-2"><span>✅</span> Reactivate instantly any time</div>
+        </div>
+        <div id="cancel-pause-error" class="hidden mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5"></div>
+        <div class="flex flex-col gap-2">
+          <button id="btn-pause-account" onclick="window._cancelPauseAccount()"
+            class="w-full px-4 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow transition cursor-pointer">
+            Pause My Account
+          </button>
+          <button onclick="window._cancelShowStep3()"
+            class="w-full px-4 py-2 text-sm text-gray-500 hover:text-gray-700 cursor-pointer">
+            No, cancel my subscription
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 3: Final confirmation — SC5/SC6 -->
+      <div id="cancel-step-3" class="hidden">
+        <div class="flex items-start gap-4 mb-5">
+          <div class="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-extrabold text-gray-900">Are you sure?</h3>
+            <p id="cancel-sub-msg" class="text-sm text-gray-500 mt-1">
+              Your subscription will remain active until the end of the current billing period, then it will not renew.
+            </p>
+          </div>
+        </div>
+        <div id="cancel-sub-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5"></div>
+        <div class="flex gap-3 justify-end">
+          <button onclick="window._billingCloseCancelModal()"
+            class="px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition cursor-pointer">
+            Keep Subscription
+          </button>
+          <button id="btn-confirm-cancel" onclick="window._billingConfirmCancel()"
+            class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow transition cursor-pointer">
+            Yes, Cancel
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
 
 <script>
-    async function loadComponent(placeholderId, filePath) {
-        try {
-            const response = await fetch(filePath);
-            if (response.ok) {
-                document.getElementById(placeholderId).innerHTML = await response.text();
-            }
-        } catch (error) {
-            console.error(`Error loading component ${filePath}:`, error);
-        }
+// US-GAP-1.1.1 + US-GAP-1.2.1: Change Plan Modal (upgrade + downgrade)
+(function () {
+  let _selectedTierKey   = null;
+  let _selectedDirection = null; // 'upgrade' | 'downgrade'
+
+  function _hide(id) { document.getElementById(id)?.classList.add('hidden'); }
+  function _show(id) { document.getElementById(id)?.classList.remove('hidden'); }
+
+  window._openChangePlanModal = async function () {
+    _show('modal-change-plan');
+    document.getElementById('change-plan-tiers').innerHTML = '<div class="text-sm text-gray-400 animate-pulse">Loading available plans…</div>';
+    _hide('change-plan-preview');
+    _hide('change-plan-downgrade-impact');
+    _hide('change-plan-actions');
+    _hide('change-plan-enterprise');
+    _hide('change-plan-error');
+    _selectedTierKey = null;
+    _selectedDirection = null;
+
+    try {
+      const res  = await fetch('/.netlify/functions/billing-upgrade');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load plans');
+
+      // SC1: show higher tiers (upgrade) and lower tiers (downgrade) grouped
+      const higher     = data.higherTiers || [];
+      const lowerTiers = data.lowerTiers  || [];
+
+      let html = '';
+      if (higher.length > 0) {
+        html += `<p class="text-xs font-semibold text-gray-400 uppercase mb-2">Upgrade to</p>`;
+        html += higher.map(t => _tierRadio(t, 'upgrade')).join('');
+      }
+      if (lowerTiers.length > 0) {
+        html += `<p class="text-xs font-semibold text-gray-400 uppercase mt-4 mb-2">Downgrade to</p>`;
+        html += lowerTiers.map(t => _tierRadio(t, 'downgrade')).join('');
+      }
+      if (higher.length === 0 && lowerTiers.length === 0) {
+        _hide('change-plan-tiers');
+        _show('change-plan-enterprise');
+        return;
+      }
+      if (higher.length === 0) {
+        html += `<p class="text-xs text-gray-400 mt-3">To upgrade, <a href="mailto:hello@aura-assist.com" class="underline text-emerald-700">contact us for Enterprise</a>.</p>`;
+      }
+      document.getElementById('change-plan-tiers').innerHTML = html;
+    } catch (e) {
+      document.getElementById('change-plan-tiers').innerHTML = `<p class="text-sm text-red-600">${e.message}</p>`;
     }
+  };
 
-    document.addEventListener("DOMContentLoaded", async () => {
-        // 1. Core payload inject
-        await loadComponent("nav-placeholder", "./components/nav.html");
-        loadComponent("footer-placeholder", "./components/footer.html");
+  function _tierRadio(t, direction) {
+    const badge = direction === 'upgrade'
+      ? `<span class="text-xs text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">Upgrade</span>`
+      : `<span class="text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">Downgrade</span>`;
+    return `
+      <label class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:border-emerald-400 transition">
+        <div class="flex items-center gap-3">
+          <input type="radio" name="change-plan-tier" value="${t.tierKey}" class="text-emerald-600 focus:ring-emerald-500"
+            onchange="window._onTierSelect('${t.tierKey}', '${direction}')">
+          <div>
+            <div class="flex items-center gap-2">
+              <p class="font-bold text-gray-900 text-sm">${t.name}</p>
+              ${badge}
+            </div>
+            <p class="text-xs text-gray-500">${t.assistantLimit ? t.assistantLimit + ' assistants' : 'Unlimited'} · ${t.monthlyTaskLimit || t.taskLimit ? (t.monthlyTaskLimit || t.taskLimit) + ' tasks/mo' : 'Unlimited tasks'}</p>
+          </div>
+        </div>
+        <span class="text-sm font-extrabold text-gray-900 shrink-0">£${parseFloat(t.monthlyPriceGbp).toFixed(2)}<span class="text-xs text-gray-400 font-normal">/mo</span></span>
+      </label>`;
+  }
 
-        // 2. Initialize the mobile menu
-        setupMobileMenu();
+  window._onTierSelect = async function (tierKey, direction) {
+    _selectedTierKey   = tierKey;
+    _selectedDirection = direction;
 
-        // 3. Identify active URL path filename
-        const currentPage = window.location.pathname.split("/").pop();
+    _hide('change-plan-preview');
+    _hide('change-plan-downgrade-impact');
+    _hide('change-plan-actions');
+    _hide('change-plan-error');
 
-        // 4. Dynamic Title Routing Dictionary
-        const titleMap = {
-            "index.html": "Welcome",
-            "": "Welcome",
-            "pricing.html": "Pricing",
-            "privacy.html": "Privacy Policy",
-            "terms_of_service.html": "Terms of Service",
-            "dashboard.html": "Dashboard",
-            "billing.html": "Billing",
-            "logout.html": "See you Soon"
-        };
+    const errEl = document.getElementById('change-plan-error');
 
-        // Inject Context Title
-        const targetTitleSpan = document.getElementById("nav-page-title");
-        if (targetTitleSpan && titleMap[currentPage]) {
-            targetTitleSpan.innerText = `| ${titleMap[currentPage]}`;
+    if (direction === 'upgrade') {
+      _show('change-plan-preview');
+      document.getElementById('cpp-plan-name').textContent = 'Loading preview…';
+      try {
+        const res  = await fetch(`/.netlify/functions/billing-upgrade?preview=1&targetTierKey=${encodeURIComponent(tierKey)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Preview failed');
+        const p = data.preview;
+        document.getElementById('cpp-plan-name').textContent = `Upgrade to ${p.targetPlanName}`;
+        document.getElementById('cpp-prorated').textContent  = `Due today (prorated): £${parseFloat(p.proratedAmountGbp).toFixed(2)}`;
+        document.getElementById('cpp-renewal').textContent   = `New monthly amount: £${parseFloat(p.newMonthlyAmount).toFixed(2)}/month`;
+        document.getElementById('cpp-features').textContent  = `${p.features.assistantLimit ? p.features.assistantLimit + ' assistants' : 'Unlimited'} · ${p.features.taskLimit ? p.features.taskLimit + ' tasks/month' : 'Unlimited tasks'}`;
+        document.getElementById('btn-confirm-plan-change').textContent = 'Confirm Upgrade';
+        _show('change-plan-actions');
+      } catch (e) {
+        errEl.textContent = e.message;
+        _show('change-plan-error');
+        _hide('change-plan-preview');
+      }
+    } else {
+      // SC2/SC3: downgrade impact
+      _show('change-plan-downgrade-impact');
+      document.getElementById('cpp-assistant-impact').textContent = 'Loading impact…';
+      try {
+        const res  = await fetch(`/.netlify/functions/billing-downgrade?targetTierKey=${encodeURIComponent(tierKey)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Impact preview failed');
+        const imp = data.impact;
+
+        // SC2: assistant pause list
+        const assistantEl = document.getElementById('cpp-assistant-impact');
+        if (imp.assistantsToPause?.length > 0) {
+          assistantEl.innerHTML = `<strong>Assistants that will be paused</strong> at period end: ${imp.assistantsToPause.map(a => `<em>${a.name}</em>`).join(', ')}`;
+        } else {
+          assistantEl.textContent = `✓ All your assistants fit within the ${imp.newAssistantLimit ?? 'unlimited'}-assistant limit.`;
         }
 
-        // 5. Internal App Portal State Management
-        if (currentPage === "dashboard.html" || currentPage === "billing.html") {
-            const publicMenu = document.getElementById("nav-public-links");
-            const appMenu = document.getElementById("nav-app-links");
-
-            if (publicMenu && appMenu) {
-                // Instantly hide public links and show Dashboard/Billing/Log Out
-                publicMenu.classList.add("hidden");
-                appMenu.classList.remove("hidden");
-
-                // Active Page Highlighting
-                if (currentPage === "dashboard.html") {
-                    const dashTab = document.getElementById("nav-link-dashboard");
-                    if (dashTab) {
-                        dashTab.classList.remove("text-gray-600");
-                        dashTab.classList.add("text-emerald-700", "font-bold");
-                    }
-                } else if (currentPage === "billing.html") {
-                    const billTab = document.getElementById("nav-link-billing");
-                    if (billTab) {
-                        billTab.classList.remove("text-gray-600");
-                        billTab.classList.add("text-emerald-700", "font-bold");
-                    }
-                }
-            }
+        // SC3: task limit side-by-side
+        const taskEl = document.getElementById('cpp-task-impact');
+        if (imp.currentTaskLimit || imp.newTaskLimit) {
+          taskEl.textContent = `Monthly tasks: ${imp.currentTaskLimit ?? 'Unlimited'} → ${imp.newTaskLimit ?? 'Unlimited'}`;
+        } else {
+          taskEl.textContent = '';
         }
-    });
+
+        const dateEl = document.getElementById('cpp-effective-date');
+        dateEl.textContent = imp.effectiveDate
+          ? `Takes effect ${new Date(imp.effectiveDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}. ${imp.note}`
+          : imp.note;
+
+        document.getElementById('btn-confirm-plan-change').textContent = 'Schedule Downgrade';
+        _show('change-plan-actions');
+      } catch (e) {
+        errEl.textContent = e.message;
+        _show('change-plan-error');
+        _hide('change-plan-downgrade-impact');
+      }
+    }
+  };
+
+  window._confirmPlanChange = async function () {
+    if (!_selectedTierKey || !_selectedDirection) return;
+    const btn   = document.getElementById('btn-confirm-plan-change');
+    const errEl = document.getElementById('change-plan-error');
+    btn.disabled = true;
+    btn.textContent = _selectedDirection === 'upgrade' ? 'Upgrading…' : 'Scheduling…';
+    _hide('change-plan-error');
+
+    try {
+      const endpoint = _selectedDirection === 'upgrade'
+        ? '/.netlify/functions/billing-upgrade'
+        : '/.netlify/functions/billing-downgrade';
+      const res  = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetTierKey: _selectedTierKey }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+
+      window._closeChangePlanModal();
+      if (typeof window.initBilling === 'function') window.initBilling();
+    } catch (e) {
+      errEl.textContent = e.message || 'Something went wrong — please try again.';
+      _show('change-plan-error');
+      btn.disabled = false;
+      btn.textContent = _selectedDirection === 'upgrade' ? 'Confirm Upgrade' : 'Schedule Downgrade';
+    }
+  };
+
+  // SC6: cancel a scheduled downgrade
+  window._cancelScheduledDowngrade = async function () {
+    if (!confirm('Cancel the scheduled downgrade and stay on your current plan?')) return;
+    try {
+      const res  = await fetch('/.netlify/functions/billing-downgrade', { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      if (typeof window.initBilling === 'function') window.initBilling();
+    } catch (e) {
+      alert('Could not cancel downgrade: ' + e.message);
+    }
+  };
+
+  window._closeChangePlanModal = function () {
+    _hide('modal-change-plan');
+    _selectedTierKey = null;
+    _selectedDirection = null;
+  };
+})();
 </script>
-</body>
-</html>

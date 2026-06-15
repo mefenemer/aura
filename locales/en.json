@@ -1,0 +1,148 @@
+{
+  "nav": {
+    "how_it_works": "How it Works",
+    "assistant_library": "Assistant Library",
+    "pricing": "Pricing",
+    "faqs": "FAQs",
+    "log_in": "Log In",
+    "log_out": "Log Out",
+    "dashboard": "Dashboard",
+    "billing": "Billing"
+  },
+  "footer": {
+    "tagline": "Delegate the work you hate. We build, host, and manage your digital assistants so you can focus on what matters.",
+    "tagline_sub": "Your invisible digital team. Constantly working in the background to turn your daily chaos into complete calm.",
+    "platform": "Platform",
+    "how_it_works": "How it Works",
+    "assistant_library": "Assistant Library",
+    "pricing": "Pricing",
+    "faqs": "FAQs",
+    "get_started": "Get Started",
+    "legal": "Legal",
+    "privacy_policy": "Privacy Policy",
+    "terms_of_service": "Terms of Service",
+    "trust_security": "Trust & Security",
+    "copyright": "© 2026 Aura-Assist. All rights reserved.",
+    "language": "Language"
+  },
+  "common": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "loading": "Loading…",
+    "error_generic": "Something went wrong. Please try again.",
+    "error_email_invalid": "Please enter a valid email address.",
+    "error_required": "This field is required.",
+    "error_connection": "Connection failed. Please try again.",
+    "success": "Success!",
+    "sending": "Sending…"
+  },
+  "lang": {
+    "selector_label": "Language",
+    "en": "English",
+    "fr": "Français",
+    "de": "Deutsch",
+    "es": "Español",
+    "pt": "Português"
+  },
+  "index": {
+    "hero_title": "Delegate the Work You Hate",
+    "hero_subtitle": "We build, host and manage AI-powered digital assistants that handle your most time-consuming tasks — so you can focus on what actually moves the needle.",
+    "hero_cta_primary": "Get Started Free",
+    "hero_cta_secondary": "See How it Works",
+    "how_it_works_title": "How it Works",
+    "step1_title": "Tell us what slows you down",
+    "step1_body": "Fill in a short brief about the task you want to automate.",
+    "step2_title": "We build your assistant",
+    "step2_body": "Our team configures and deploys a dedicated AI assistant tuned to your workflow.",
+    "step3_title": "It runs in the background",
+    "step3_body": "Your assistant works 24/7 so you don't have to."
+  },
+  "pricing": {
+    "title": "Simple, Transparent Pricing",
+    "subtitle": "One assistant. One monthly fee. Cancel any time.",
+    "monthly": "Monthly",
+    "annual": "Annual",
+    "save_label": "Save 20%",
+    "per_month": "/mo",
+    "billed_monthly": "Billed monthly · cancel any time",
+    "get_started": "Get Started",
+    "talk_to_sales": "Talk to Enterprise Sales",
+    "currency_label": "Currency"
+  },
+  "assistants": {
+    "page_title": "Assistant Library",
+    "page_subtitle": "Browse our catalogue of AI assistants. Each one is purpose-built for a specific business role.",
+    "join_waitlist": "Join Waitlist",
+    "notify_me": "Notify Me",
+    "hire_assistant": "Hire This Assistant",
+    "request_role": "Request a New Role",
+    "request_role_subtitle": "Don't see the role you need? Tell us and we'll build it.",
+    "role_label": "Role / Job Title",
+    "tasks_label": "Tasks to automate",
+    "industry_label": "Your industry",
+    "urgency_label": "How urgent?",
+    "urgency_this_week": "This week",
+    "urgency_next_month": "Next month",
+    "urgency_exploring": "Just exploring",
+    "submit_request": "Submit Request"
+  },
+  "contact": {
+    "title": "Contact Us",
+    "email_label": "Your email",
+    "subject_label": "Subject",
+    "message_label": "Message",
+    "submit": "Send Message",
+    "success": "Thanks! We'll be in touch shortly."
+  },
+  "register": {
+    "title": "Create your account",
+    "first_name": "First Name",
+    "last_name": "Last Name",
+    "email": "Email Address",
+    "submit": "Create Account",
+    "login_link": "Already have an account? Log in"
+  },
+  "workspace": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "my_team": "My Team",
+      "my_content": "My Content",
+      "calendar": "Calendar",
+      "defaults_group": "Defaults",
+      "brand_profile": "Brand Profile",
+      "connections": "Connections",
+      "team_members": "Team Members",
+      "assistant_rules": "Assistant Rules",
+      "notifications": "Notifications",
+      "refer_a_friend": "Refer a Friend",
+      "help_support": "Help & Support",
+      "admin_portal": "Admin Portal",
+      "my_account": "My Account",
+      "log_out": "Log Out"
+    },
+    "settings": {
+      "title": "Account Settings",
+      "subtitle": "Changes save automatically in the background as you update your workspace.",
+      "language_label": "Language",
+      "language_hint": "Changes the language across your workspace immediately.",
+      "timezone_label": "Timezone",
+      "first_name": "First Name",
+      "last_name": "Last Name",
+      "email_label": "Email Address",
+      "your_roles": "Your Roles",
+      "roles_subtitle": "Roles are assigned by your organisation owner or a platform admin.",
+      "roles_change_hint": "To request a role change, contact your organisation owner or reach out to support.",
+      "view_billing": "View Billing"
+    }
+  },
+  "validation": {
+    "email_required": "Email address is required.",
+    "email_invalid": "Please enter a valid email address.",
+    "name_required": "Name is required.",
+    "field_required": "This field is required.",
+    "role_required": "Please enter a role name.",
+    "tasks_required": "Please describe the tasks to automate."
+  }
+}

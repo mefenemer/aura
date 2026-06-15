@@ -1,0 +1,148 @@
+{
+  "nav": {
+    "how_it_works": "Como funciona",
+    "assistant_library": "Biblioteca de assistentes",
+    "pricing": "Preços",
+    "faqs": "Perguntas frequentes",
+    "log_in": "Entrar",
+    "log_out": "Sair",
+    "dashboard": "Painel",
+    "billing": "Faturação"
+  },
+  "footer": {
+    "tagline": "Delegue o trabalho que detesta. Construímos, alojamos e gerimos os seus assistentes digitais para que se possa focar no que importa.",
+    "tagline_sub": "A sua equipa digital invisível. Trabalhando constantemente em segundo plano para transformar o caos do seu dia a dia em calma total.",
+    "platform": "Plataforma",
+    "how_it_works": "Como funciona",
+    "assistant_library": "Biblioteca de assistentes",
+    "pricing": "Preços",
+    "faqs": "Perguntas frequentes",
+    "get_started": "Começar",
+    "legal": "Legal",
+    "privacy_policy": "Política de privacidade",
+    "terms_of_service": "Termos de serviço",
+    "trust_security": "Confiança & Segurança",
+    "copyright": "© 2026 Aura-Assist. Todos os direitos reservados.",
+    "language": "Idioma"
+  },
+  "common": {
+    "submit": "Enviar",
+    "cancel": "Cancelar",
+    "close": "Fechar",
+    "save": "Guardar",
+    "loading": "A carregar…",
+    "error_generic": "Algo correu mal. Por favor, tente novamente.",
+    "error_email_invalid": "Por favor, introduza um endereço de e-mail válido.",
+    "error_required": "Este campo é obrigatório.",
+    "error_connection": "Ligação falhada. Por favor, tente novamente.",
+    "success": "Sucesso!",
+    "sending": "A enviar…"
+  },
+  "lang": {
+    "selector_label": "Idioma",
+    "en": "English",
+    "fr": "Français",
+    "de": "Deutsch",
+    "es": "Español",
+    "pt": "Português"
+  },
+  "index": {
+    "hero_title": "Delegue o Trabalho que Detesta",
+    "hero_subtitle": "Construímos, alojamos e gerimos assistentes digitais alimentados por IA que tratam das suas tarefas mais demoradas — para que se possa focar no que realmente faz diferença.",
+    "hero_cta_primary": "Começar gratuitamente",
+    "hero_cta_secondary": "Ver como funciona",
+    "how_it_works_title": "Como funciona",
+    "step1_title": "Diga-nos o que o atrasa",
+    "step1_body": "Preencha um breve formulário sobre a tarefa que pretende automatizar.",
+    "step2_title": "Construímos o seu assistente",
+    "step2_body": "A nossa equipa configura e implementa um assistente IA dedicado adaptado ao seu fluxo de trabalho.",
+    "step3_title": "Trabalha em segundo plano",
+    "step3_body": "O seu assistente trabalha 24/7 para que não precise de o fazer."
+  },
+  "pricing": {
+    "title": "Preços simples e transparentes",
+    "subtitle": "Um assistente. Uma taxa mensal. Cancele quando quiser.",
+    "monthly": "Mensal",
+    "annual": "Anual",
+    "save_label": "Poupe 20 %",
+    "per_month": "/mês",
+    "billed_monthly": "Faturado mensalmente · cancele quando quiser",
+    "get_started": "Começar",
+    "talk_to_sales": "Falar com vendas enterprise",
+    "currency_label": "Moeda"
+  },
+  "assistants": {
+    "page_title": "Biblioteca de assistentes",
+    "page_subtitle": "Explore o nosso catálogo de assistentes de IA. Cada um foi criado para um papel empresarial específico.",
+    "join_waitlist": "Juntar-se à lista de espera",
+    "notify_me": "Notificar-me",
+    "hire_assistant": "Contratar este assistente",
+    "request_role": "Solicitar um novo papel",
+    "request_role_subtitle": "Não encontra o papel de que precisa? Diga-nos e nós criamo-lo.",
+    "role_label": "Papel / Título do cargo",
+    "tasks_label": "Tarefas a automatizar",
+    "industry_label": "O seu setor",
+    "urgency_label": "Qual a urgência?",
+    "urgency_this_week": "Esta semana",
+    "urgency_next_month": "Próximo mês",
+    "urgency_exploring": "Só a explorar",
+    "submit_request": "Enviar pedido"
+  },
+  "contact": {
+    "title": "Contacte-nos",
+    "email_label": "O seu e-mail",
+    "subject_label": "Assunto",
+    "message_label": "Mensagem",
+    "submit": "Enviar mensagem",
+    "success": "Obrigado! Entraremos em contacto em breve."
+  },
+  "register": {
+    "title": "Criar a sua conta",
+    "first_name": "Nome próprio",
+    "last_name": "Apelido",
+    "email": "Endereço de e-mail",
+    "submit": "Criar conta",
+    "login_link": "Já tem uma conta? Entre"
+  },
+  "validation": {
+    "email_required": "O endereço de e-mail é obrigatório.",
+    "email_invalid": "Por favor, introduza um endereço de e-mail válido.",
+    "name_required": "O nome é obrigatório.",
+    "field_required": "Este campo é obrigatório.",
+    "role_required": "Por favor, introduza um nome de papel.",
+    "tasks_required": "Por favor, descreva as tarefas a automatizar."
+  },
+  "workspace": {
+    "nav": {
+      "dashboard": "Painel",
+      "my_team": "Minha equipa",
+      "my_content": "Meu conteúdo",
+      "calendar": "Calendário",
+      "defaults_group": "Definições",
+      "brand_profile": "Perfil da marca",
+      "connections": "Ligações",
+      "team_members": "Membros da equipa",
+      "assistant_rules": "Regras do assistente",
+      "notifications": "Notificações",
+      "refer_a_friend": "Recomendar um amigo",
+      "help_support": "Ajuda e suporte",
+      "admin_portal": "Portal de administração",
+      "my_account": "A minha conta",
+      "log_out": "Terminar sessão"
+    },
+    "settings": {
+      "title": "Definições da conta",
+      "subtitle": "As alterações são guardadas automaticamente em segundo plano.",
+      "language_label": "Idioma",
+      "language_hint": "Altera o idioma do seu espaço de trabalho imediatamente.",
+      "timezone_label": "Fuso horário",
+      "first_name": "Primeiro nome",
+      "last_name": "Apelido",
+      "email_label": "Endereço de e-mail",
+      "your_roles": "Os seus papéis",
+      "roles_subtitle": "Os papéis são atribuídos pelo proprietário da organização ou por um administrador.",
+      "roles_change_hint": "Para solicitar uma alteração de papel, contacte o proprietário da organização ou o suporte.",
+      "view_billing": "Ver faturação"
+    }
+  }
+}

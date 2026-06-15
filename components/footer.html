@@ -3,30 +3,66 @@
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
       <div>
-        <span class="font-extrabold text-xl text-white tracking-tight">Aura</span>
-        <p class="mt-4 text-sm">Delegate the work you hate. We build, host, and manage your digital assistants so you can focus on what matters.</p>
-        <p class="mt-4 text-sm italic">
+        <span class="font-extrabold text-xl text-white tracking-tight">Aura-Assist&#8482;</span>
+        <p class="mt-4 text-sm" data-i18n="footer.tagline">Delegate the work you hate. We build, host, and manage your digital assistants so you can focus on what matters.</p>
+        <p class="mt-4 text-sm italic" data-i18n="footer.tagline_sub">
           Your invisible digital team. Constantly working in the background to turn your daily chaos into complete calm.
         </p>
+
+        <!-- US-I18N-1.1 SC2: Language switcher in footer -->
+        <div class="mt-6 flex items-center gap-2">
+          <span class="text-xs text-gray-500" data-i18n="footer.language">Language</span>
+          <select class="i18n-lang-selector text-xs bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                  onchange="window.i18n && window.i18n.setLang(this.value)"
+                  aria-label="Select language">
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="es">Español</option>
+            <option value="pt">Português</option>
+          </select>
+        </div>
       </div>
       <div>
-        <h4 class="font-bold text-white mb-4">Platform</h4>
+        <h4 class="font-bold text-white mb-4" data-i18n="footer.platform">Platform</h4>
         <ul class="space-y-2 text-sm">
-          <li><a href="index.html#how-it-works" class="hover:text-emerald-400 transition">How it Works</a></li>
-          <li><a href="pricing.html" class="hover:text-emerald-400 transition">Pricing</a></li>
-          <li><a href="onboarding.html" class="hover:text-emerald-400 transition">Get Started</a></li>
+          <li><a href="index.html#how-it-works" class="hover:text-emerald-400 transition" data-i18n="footer.how_it_works">How it Works</a></li>
+          <li><a href="assistants.html" class="hover:text-emerald-400 transition" data-i18n="footer.assistant_library">Assistant Library</a></li>
+          <li><a href="pricing.html" class="hover:text-emerald-400 transition" data-i18n="footer.pricing">Pricing</a></li>
+          <li><a href="faq.html" class="hover:text-emerald-400 transition" data-i18n="footer.faqs">FAQs</a></li>
+          <li><a href="onboarding.html" class="hover:text-emerald-400 transition" data-i18n="footer.get_started">Get Started</a></li>
         </ul>
       </div>
       <div>
-        <h4 class="font-bold text-white mb-4">Legal</h4>
+        <h4 class="font-bold text-white mb-4" data-i18n="footer.legal">Legal</h4>
         <ul class="space-y-2 text-sm">
-          <li><a href="privacy.html" class="hover:text-emerald-400 transition">Privacy Policy</a></li>
-          <li><a href="terms_of_service.html" class="hover:text-emerald-400 transition">Terms of Service</a></li>
+          <li><a href="privacy.html" class="hover:text-emerald-400 transition" data-i18n="footer.privacy_policy">Privacy Policy</a></li>
+          <li><a href="terms_of_service.html" class="hover:text-emerald-400 transition" data-i18n="footer.terms_of_service">Terms of Service</a></li>
+          <li><a href="trust.html" class="hover:text-emerald-400 transition" data-i18n="footer.trust_security">Trust &amp; Security</a></li>
         </ul>
       </div>
     </div>
-    <div class="border-t border-gray-800 mt-12 pt-8 text-xs text-center">
-      &copy; 2026 Aura. All rights reserved.
+    <div class="border-t border-gray-800 mt-12 pt-8 text-xs text-center" data-i18n="footer.copyright">
+      &copy; 2026 Aura-Assist&#8482;. All rights reserved.
     </div>
   </div>
 </footer>
+
+<script>
+  // Sync the footer language selector to the active locale once i18n has initialised
+  (function syncFooterLangSelector() {
+    function sync() {
+      const lang = (typeof i18n !== 'undefined' && i18n.resolveLang) ? i18n.resolveLang() : (localStorage.getItem('aura_lang') || 'en');
+      document.querySelectorAll('.i18n-lang-selector').forEach(sel => { sel.value = lang; });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', sync);
+    } else {
+      // Slight delay to let i18n.js finish init
+      setTimeout(sync, 50);
+    }
+    window.addEventListener('i18n:changed', e => {
+      document.querySelectorAll('.i18n-lang-selector').forEach(sel => { sel.value = e.detail.lang; });
+    });
+  })();
+</script>

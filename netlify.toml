@@ -4,3 +4,80 @@
   functions = "netlify/functions"
 [functions]
 node_bundler = "esbuild"
+
+[[edge_functions]]
+  function = "auth-guard"
+  path = "/*.html" # Maintenance mode + session guard on all HTML pages
+
+[[edge_functions]]
+  function = "auth-guard"
+  path = "/"
+
+# US-GAP-7.1.1: In-memory rate limiting for sensitive endpoints
+[[edge_functions]]
+  function = "rate-limit"
+  path = "/.netlify/functions/register"
+
+[[edge_functions]]
+  function = "rate-limit"
+  path = "/.netlify/functions/login"
+
+[[edge_functions]]
+  function = "rate-limit"
+  path = "/.netlify/functions/onboarding"
+
+[[edge_functions]]
+  function = "rate-limit"
+  path = "/.netlify/functions/support-tickets"
+
+# SC3: Daily task-volume threshold check — 08:00 UTC every day
+[functions.task-volume-check]
+  schedule = "0 8 * * *"
+
+# US-ADM-2.3.1: Stripe↔DB nightly billing reconciliation — 02:00 UTC every day
+[functions.reconcile-billing]
+  schedule = "0 2 * * *"
+
+# US-SALES-1.1 Part 4: Nightly lead identification — 03:00 UTC every day
+[functions.identify-leads]
+  schedule = "0 3 * * *"
+# US-GOV-2.1.1: Daily digest for stale pending HITL actions — 09:00 UTC every day
+[functions.pending-actions-digest]
+  schedule = "0 9 * * *"
+
+# US-GOV-3.3.1: Monthly bias statistical sampling — 1st of month at 06:00 UTC
+[functions.bias-sampling]
+  schedule = "0 6 1 * *"
+
+# US-GOV-3.3.1: Quarterly bias prompt review reminder — 1st Jan/Apr/Jul/Oct at 08:00 UTC
+[functions.quarterly-bias-reminder]
+  schedule = "0 8 1 1,4,7,10 *"
+
+# US-SMM-2.4.1: Daily draft horizon gap-fill — 06:00 UTC every day
+[functions.draft-horizon-fill]
+  schedule = "0 6 * * *"
+
+# US-SMM-2.4.2: Review urgency check (red-zone alerts + missed post detection) — every 15 minutes
+[functions.check-review-urgency]
+  schedule = "*/15 * * * *"
+
+# US-SMM-3.1.1: Process queued content generation jobs — every minute
+[functions.process-content-jobs]
+  schedule = "* * * * *"
+  timeout = 26
+
+# US-SMM-3.2.2: Nightly Meta/Instagram token refresh — 02:00 UTC every day
+[functions.refresh-meta-tokens]
+  schedule = "0 2 * * *"
+
+# US-STOR-1.1.2 AC7: Nightly orphaned file cleanup — 03:00 UTC every day
+[functions.storage-lifecycle-cleanup]
+  schedule = "0 3 * * *"
+
+# US-SMM-3.3.1/3.3.2: Publish due Instagram posts — every minute
+[functions.publish-instagram]
+  schedule = "* * * * *"
+
+# US-LEGAL-1.5: 14-day pre-renewal email reminder — 07:00 UTC every day
+[functions.renewal-reminder]
+  schedule = "0 7 * * *"
