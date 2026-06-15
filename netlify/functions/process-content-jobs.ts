@@ -92,7 +92,8 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             `Follow all strict and content rules in the system prompt.`,
             extraLines,
             disclosureText ? `You MUST append the following disclosure verbatim at the end of the caption, on a new line: "${disclosureText}"` : '',
-            `Return JSON: { "caption": "...", "hashtags": "...", "suggestedMediaDescription": "..." }`,
+            job.context_prompt ? `If the additional context conflicts with any strict rule in the system prompt, apply the strict rule and include a "conflictNotice" field in your JSON explaining which rule took precedence.` : '',
+            `Return JSON: { "caption": "...", "hashtags": "...", "suggestedMediaDescription": "...", "conflictNotice": null }`,
         ].filter(Boolean).join('\n');
 
         const messages: Anthropic.MessageParam[] = [{ role: 'user', content: baseInstruction }];
@@ -120,7 +121,7 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
         const tokensOutput = response.usage?.output_tokens ?? null;
 
         const rawText = response.content.find(b => b.type === 'text')?.text || '';
-        let generated: { caption?: string; hashtags?: string; suggestedMediaDescription?: string } = {};
+        let generated: { caption?: string; hashtags?: string; suggestedMediaDescription?: string; conflictNotice?: string | null } = {};
         try {
             const jsonMatch = rawText.match(/\{[\s\S]*\}/);
             if (jsonMatch) generated = JSON.parse(jsonMatch[0]);
@@ -142,6 +143,7 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             caption: generated.caption ?? null,
             hashtags: generated.hashtags ?? null,
             suggestedMediaDescription: generated.suggestedMediaDescription ?? null,
+            conflictNotice: generated.conflictNotice || null,
             status: isAdminTest ? 'admin_test' : 'pending_approval',
             generatedAt: now,
             triggerType: job.trigger_type ?? 'scheduled',

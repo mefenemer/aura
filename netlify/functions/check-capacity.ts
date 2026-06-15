@@ -198,16 +198,20 @@ export const handler: Handler = async (event) => {
         // Returns the max connection count across all active assistants in the org,
         // so the UI can gate adding new integrations when appConnectionLimit is reached.
         let maxAppConnectionCount = 0;
-        if (orgId && appConnectionLimit !== null) {
+        let connectedPlatforms: string[] = [];
+        if (orgId) {
             const connRows = await db
-                .select({ assistantId: systemConnections.assistantId, cnt: count() })
+                .select({ assistantId: systemConnections.assistantId, cnt: count(), serviceName: systemConnections.serviceName })
                 .from(systemConnections)
                 .where(and(
                     eq(systemConnections.organisationId, orgId),
                     eq(systemConnections.isActive, true),
                 ))
-                .groupBy(systemConnections.assistantId);
-            maxAppConnectionCount = connRows.reduce((m, r) => Math.max(m, r.cnt), 0);
+                .groupBy(systemConnections.assistantId, systemConnections.serviceName);
+            if (appConnectionLimit !== null) {
+                maxAppConnectionCount = connRows.reduce((m, r) => Math.max(m, r.cnt), 0);
+            }
+            connectedPlatforms = [...new Set(connRows.map(r => r.serviceName.toLowerCase()))];
         }
 
         // ── 4. Compute percentages ──────────────────────────────────
@@ -331,6 +335,7 @@ export const handler: Handler = async (event) => {
                 pastDueAttemptCount,         // number of charge attempts (SC2)
                 stripePortalUrl,             // Stripe billing portal URL for payment update CTA (SC2)
                 nextPlan,                    // next tier up — null if already on highest plan
+                connectedPlatforms,          // lowercase service names for active connections e.g. ['instagram','facebook']
             }),
         };
 

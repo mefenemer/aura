@@ -2106,6 +2106,7 @@ async function bpLoadHistory() {
     const testRowsHtml = testRuns.map(r => `<div class="bg-gray-100 border border-gray-300 rounded-lg px-4 py-2 flex items-start gap-3 cursor-pointer hover:bg-gray-200" onclick='bpViewTestSnapshot(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
         <div class="flex-1 min-w-0">
           <span class="inline-block text-xs font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 border border-gray-400 mr-2">Admin Test</span>
+          ${r.savedAsReference ? `<span class="inline-block text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-400 mr-2">📌 Reference</span>` : ''}
           <span class="text-xs text-gray-600">${fmt(r.createdAt)} — ${r.platform || 'instagram'} — by ${r.adminName || 'Admin'}</span>
           ${r.caption ? `<p class="mt-1 text-xs text-gray-500 truncate">${r.caption.slice(0,80)}…</p>` : ''}
         </div>
@@ -2261,10 +2262,10 @@ async function bpRunTest() {
   const elapsedTimer = setInterval(() => {
     const secs = Math.floor((Date.now() - _bpTestStartTime) / 1000);
     if (elapsedEl) elapsedEl.textContent = `${secs}s elapsed`;
-    if (secs >= 240) {
+    if (secs >= 120) {
       clearInterval(elapsedTimer);
       clearInterval(_bpTestPollInterval);
-      bpTestShowError('Test timed out after 4 minutes. Please try again.');
+      bpTestShowError('Test timed out after 120 seconds. Please try again.');
     }
   }, 1000);
 

@@ -106,9 +106,10 @@ async function run(event: any) {
                 created_at: string; tokens_input: number | null; tokens_output: number | null;
                 caption: string | null; hashtags: string | null; suggested_media_description: string | null;
                 admin_first_name: string | null; admin_last_name: string | null;
+                saved_as_reference: boolean;
             }>(`
                 SELECT cj.job_id, cj.platform, cj.context_prompt, cj.created_at,
-                       cj.tokens_input, cj.tokens_output,
+                       cj.tokens_input, cj.tokens_output, cj.saved_as_reference,
                        sp.caption, sp.hashtags, sp.suggested_media_description,
                        u.first_name AS admin_first_name, u.last_name AS admin_last_name
                 FROM content_generation_jobs cj
@@ -130,6 +131,7 @@ async function run(event: any) {
                 hashtags:                 r.hashtags,
                 suggestedMediaDescription: r.suggested_media_description,
                 adminName:                [r.admin_first_name, r.admin_last_name].filter(Boolean).join(' ') || null,
+                savedAsReference:         r.saved_as_reference ?? false,
             }));
 
             return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows) };
@@ -216,8 +218,12 @@ async function run(event: any) {
     let body: { assistantId?: number; blueprintId?: number; platform?: string; contextPrompt?: string; saveReference?: boolean; jobId?: string };
     try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
 
-    // Save reference — just acknowledge; the data is already persisted in the job + scheduled_post
+    // Save reference — persist the flag against the job row so history can show which run was pinned
     if (body.saveReference && body.jobId) {
+        await db.execute(
+            `UPDATE content_generation_jobs SET saved_as_reference = true, updated_at = now()
+             WHERE job_id = '${body.jobId}' AND trigger_type = 'admin_test'`
+        );
         return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saved: true }) };
     }
 

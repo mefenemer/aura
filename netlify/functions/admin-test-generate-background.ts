@@ -110,7 +110,8 @@ export const handler: Handler = async (event) => {
             `Follow all strict and content rules in the system prompt.`,
             extraLines,
             disclosureText ? `You MUST append the following disclosure verbatim at the end of the caption, on a new line: "${disclosureText}"` : '',
-            `Return JSON: { "caption": "...", "hashtags": "...", "suggestedMediaDescription": "..." }`,
+            job.contextPrompt ? `If the additional context conflicts with any strict rule in the system prompt, apply the strict rule and include a "conflictNotice" field in your JSON explaining which rule took precedence.` : '',
+            `Return JSON: { "caption": "...", "hashtags": "...", "suggestedMediaDescription": "...", "conflictNotice": null }`,
         ].filter(Boolean).join('\n');
 
         const messages: Anthropic.MessageParam[] = [{ role: 'user', content: baseInstruction }];
@@ -138,7 +139,7 @@ export const handler: Handler = async (event) => {
         const tokensOutput = response.usage?.output_tokens ?? null;
 
         const rawText = response.content.find(b => b.type === 'text')?.text || '';
-        let generated: { caption?: string; hashtags?: string; suggestedMediaDescription?: string } = {};
+        let generated: { caption?: string; hashtags?: string; suggestedMediaDescription?: string; conflictNotice?: string | null } = {};
         try {
             const m = rawText.match(/\{[\s\S]*\}/);
             if (m) generated = JSON.parse(m[0]);
@@ -159,6 +160,7 @@ export const handler: Handler = async (event) => {
             caption:      generated.caption      ?? null,
             hashtags:     generated.hashtags     ?? null,
             suggestedMediaDescription: generated.suggestedMediaDescription ?? null,
+            conflictNotice: generated.conflictNotice || null,
             status:       'admin_test',
             generatedAt:  now,
             triggerType:  'admin_test',

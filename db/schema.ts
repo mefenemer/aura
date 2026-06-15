@@ -855,6 +855,7 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   jobId: text("job_id"),                                   // FK to contentGenerationJobs.jobId
   blueprintId: integer("blueprint_id").references(() => aiBlueprints.id, { onDelete: "set null" }),
   suggestedMediaDescription: text("suggested_media_description"),
+  conflictNotice: text("conflict_notice"),              // set when context prompt conflicted with a strict rule
   generatedAt: timestamp("generated_at"),
   // US-SMM-3.4.1: On-demand generation trigger type
   triggerType: text("trigger_type"),                       // 'on_demand' | 'scheduled' | null
@@ -1526,6 +1527,7 @@ export const contentGenerationJobs = pgTable("content_generation_jobs", {
   adminId: integer("admin_id").references(() => users.id, { onDelete: "set null" }),
   tokensInput: integer("tokens_input"),                    // Anthropic input token count
   tokensOutput: integer("tokens_output"),                  // Anthropic output token count
+  savedAsReference: boolean("saved_as_reference").default(false), // admin pinned this run as a reference snapshot
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
