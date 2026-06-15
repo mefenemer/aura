@@ -14,7 +14,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { and, eq, isNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, integrationAuthorizations, oauthScopeRegistry } from '../../db/schema';
+import { users, integrationAuthorizations, oauthScopeRegistry, userOrganisations } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -35,8 +35,8 @@ export const handler: Handler = async (event) => {
     }
 
     const db = getDb();
-    const [user] = await db.select({ role: users.role, organisationId: users.organisationId })
-        .from(users).where(eq(users.id, userId)).limit(1);
+    const [user] = await db.select({ role: users.role, organisationId: userOrganisations.organisationId })
+        .from(users).leftJoin(userOrganisations, eq(users.id, userOrganisations.userId)).where(eq(users.id, userId)).limit(1);
     if (!user) return { statusCode: 403, body: JSON.stringify({ error: 'User not found.' }) };
 
     const isSuperAdmin = user.role === 'super_admin';

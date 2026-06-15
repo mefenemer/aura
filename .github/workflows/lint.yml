@@ -1,0 +1,23 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, test]
+  pull_request:
+    branches: [main]
+
+jobs:
+  no-deprecated-encryption:
+    name: Enforce encryption.ts deprecation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check no imports of deprecated encryption.ts
+        run: |
+          if grep -rn "from.*utils/encryption" netlify src --include='*.ts'; then
+            echo "ERROR: encryption.ts is deprecated — use vault.ts instead"
+            exit 1
+          fi
+          echo "OK: no imports of deprecated encryption.ts found"

@@ -55,6 +55,7 @@ export const handler: Handler = async (event) => {
                         verificationToken: hashedToken,
                         tokenExpiresAt,
                         lastMagicLinkSentAt: now,
+                        updatedAt: now,
                     })
                     .where(and(
                         eq(users.id, user.id),

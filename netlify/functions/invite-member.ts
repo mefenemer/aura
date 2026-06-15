@@ -45,8 +45,8 @@ export const handler: Handler = async (event) => {
 
     // Resolve caller's org
     const [callerUser] = await db
-        .select({ organisationId: users.organisationId, email: users.email, firstName: users.firstName, lastName: users.lastName })
-        .from(users).where(eq(users.id, callerId)).limit(1);
+        .select({ organisationId: userOrganisations.organisationId, email: users.email, firstName: users.firstName, lastName: users.lastName })
+        .from(users).leftJoin(userOrganisations, eq(users.id, userOrganisations.userId)).where(eq(users.id, callerId)).limit(1);
 
     if (!callerUser?.organisationId) {
         return { statusCode: 403, body: JSON.stringify({ error: 'You must be part of an organisation to invite members.' }) };

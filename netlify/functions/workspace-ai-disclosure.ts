@@ -9,8 +9,8 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
-import { getDb } from '../../db/client';
-import { users, organisations, plans } from '../../db/schema';
+import { getDb, withUpdatedAt } from '../../db/client';
+import { users, organisations, plans, userOrganisations } from '../../db/schema';
 import { and } from 'drizzle-orm';
 import Stripe from 'stripe';
 
@@ -58,8 +58,8 @@ export const handler: Handler = async (event) => {
     const db = getDb();
 
     const [user] = await db.select({
-        organisationId: users.organisationId,
-    }).from(users).where(eq(users.id, userId)).limit(1);
+        organisationId: userOrganisations.organisationId,
+    }).from(userOrganisations).where(eq(userOrganisations.userId, userId)).limit(1);
 
     if (!user?.organisationId) {
         return { statusCode: 404, body: JSON.stringify({ error: 'Organisation not found.' }) };
@@ -87,7 +87,7 @@ export const handler: Handler = async (event) => {
         // Auto-enable disclosure footer for EU orgs that haven't explicitly opted in yet
         if (isEuJurisdiction && !org.aiDisclosureFooterEnabled) {
             await db.update(organisations)
-                .set({ aiDisclosureFooterEnabled: true })
+                .set(withUpdatedAt({ aiDisclosureFooterEnabled: true }))
                 .where(eq(organisations.id, orgId));
             org.aiDisclosureFooterEnabled = true;
         }
@@ -119,7 +119,7 @@ export const handler: Handler = async (event) => {
         return { statusCode: 400, body: JSON.stringify({ error: 'No fields to update.' }) };
     }
 
-    await db.update(organisations).set(updates).where(eq(organisations.id, orgId));
+    await db.update(organisations).set(withUpdatedAt(updates)).where(eq(organisations.id, orgId));
 
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
 };

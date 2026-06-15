@@ -42,9 +42,9 @@ export const handler = async (event: HandlerEvent) => {
 
     // Resolve org + check admin/owner role
     const [user] = await db
-        .select({ organisationId: users.organisationId })
-        .from(users)
-        .where(eq(users.id, userId));
+        .select({ organisationId: userOrganisations.organisationId })
+        .from(userOrganisations)
+        .where(eq(userOrganisations.userId, userId));
     if (!user?.organisationId) {
         return { statusCode: 400, body: JSON.stringify({ error: 'No organisation found for this account.' }) };
     }

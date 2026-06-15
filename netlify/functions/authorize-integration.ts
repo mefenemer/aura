@@ -15,7 +15,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { and, eq, isNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { integrationAuthorizations, aiAssistants, users } from '../../db/schema';
+import { integrationAuthorizations, aiAssistants, users, userOrganisations } from '../../db/schema';
 import { validateDisclosureText } from '../../src/utils/ai-email-footer';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -42,7 +42,7 @@ export const handler: Handler = async (event) => {
     if (!organisationId) {
         // Fall back to loading org from DB
         const db = getDb();
-        const [u] = await db.select({ organisationId: users.organisationId }).from(users).where(eq(users.id, userId)).limit(1);
+        const [u] = await db.select({ organisationId: userOrganisations.organisationId }).from(userOrganisations).where(eq(userOrganisations.userId, userId)).limit(1);
         if (!u?.organisationId) return { statusCode: 400, body: JSON.stringify({ error: 'No organisation found.' }) };
         organisationId = u.organisationId;
     }

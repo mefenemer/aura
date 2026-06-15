@@ -122,9 +122,9 @@ export const handler: Handler = async (event) => {
 
         // ── 2. Resolve orgId and count seats ─────────────────────────────
         const [userOrg] = await db
-            .select({ organisationId: users.organisationId })
-            .from(users)
-            .where(eq(users.id, userId))
+            .select({ organisationId: userOrganisations.organisationId })
+            .from(userOrganisations)
+            .where(eq(userOrganisations.userId, userId))
             .limit(1);
 
         const orgId = userOrg?.organisationId ?? null;

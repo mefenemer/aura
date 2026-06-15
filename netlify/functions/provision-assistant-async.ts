@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { and, eq } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import { aiAssistants, auditLogs, dpaAcceptances, masterAssistants, notifications, organisations, plans, riskAssessments, users, supportTickets } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 import { isGlobalAiDisabled } from '../../src/utils/platform-config';
@@ -165,7 +165,7 @@ export const handler: Handler = async (event) => {
         // Guard: only update if still 'pending' — prevents race condition where
         // two parallel invocations both try to complete the same assistant.
         const [updated] = await db.update(aiAssistants)
-            .set({ provisioningStatus: 'complete', isActive: true })
+            .set(withUpdatedAt({ provisioningStatus: 'complete', isActive: true }))
             .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.provisioningStatus, 'pending')))
             .returning();
 
@@ -225,7 +225,7 @@ export const handler: Handler = async (event) => {
         // US-GAP-6.2.1 SC4: Provisioning failure — send failure email + create support ticket
         const failedAssistant = await db
             .update(aiAssistants)
-            .set({ provisioningStatus: 'failed' })
+            .set(withUpdatedAt({ provisioningStatus: 'failed' }))
             .where(eq(aiAssistants.id, assistantId))
             .returning()
             .catch(() => []);

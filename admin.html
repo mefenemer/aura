@@ -27,7 +27,7 @@
 
   <!-- US-ADM-1.4.1: Two-tier navigation -->
   <!-- Primary sidebar: category icons + labels -->
-  <aside id="admin-primary-nav" class="admin-primary-nav w-16 lg:w-20 bg-gray-950 text-white flex flex-col flex-shrink-0 z-20">
+  <aside id="admin-primary-nav" class="admin-primary-nav w-16 lg:w-20 bg-gray-950 text-white flex flex-col flex-shrink-0 z-20 h-full min-h-screen overflow-y-auto">
     <div class="h-14 flex items-center justify-center border-b border-gray-800 shrink-0">
       <span class="text-emerald-400 font-extrabold text-lg">A</span>
     </div>
@@ -41,9 +41,9 @@
       </button>
       <button data-cat="users" onclick="adminCatNav('users')"
         class="admin-cat-btn group relative flex flex-col items-center justify-center py-3 px-1 transition-colors cursor-pointer"
-        aria-label="Users" title="Users">
+        aria-label="CRM" title="CRM">
         <span class="text-xl">👥</span>
-        <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">Users</span>
+        <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">CRM</span>
       </button>
       <button data-cat="billing" onclick="adminCatNav('billing')"
         class="admin-cat-btn group relative flex flex-col items-center justify-center py-3 px-1 transition-colors cursor-pointer"
@@ -1018,7 +1018,7 @@
       </section>
 
       <!-- US-ADM-4.3.1/4.3.2: Blueprint Inspector view -->
-      <section id="view-blueprint-inspector" class="admin-view hidden space-y-5">
+      <section id="view-blueprint-inspector" class="admin-view hidden space-y-5 overflow-y-auto" style="max-height:calc(100vh - 130px)">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h2 class="text-lg font-extrabold text-gray-900">Blueprint Inspector</h2>
@@ -4940,9 +4940,9 @@ function closeMoreDrawer() {
 <!-- US-ADM-1.5.1: Bottom tab bar (mobile <768px) — 4 tabs + More -->
 <div id="admin-bottom-tabs" role="navigation" aria-label="Admin mobile navigation">
   <nav>
-    <button class="admin-bottom-tab-btn" data-cat="users" onclick="adminCatNav('users')" aria-label="Users">
+    <button class="admin-bottom-tab-btn" data-cat="users" onclick="adminCatNav('users')" aria-label="CRM">
       <span class="tab-icon">👥</span>
-      <span>Users</span>
+      <span>CRM</span>
     </button>
     <button class="admin-bottom-tab-btn" data-cat="billing" onclick="adminCatNav('billing')" aria-label="Billing">
       <span class="tab-icon">💳</span>

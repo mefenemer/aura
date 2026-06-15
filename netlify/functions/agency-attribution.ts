@@ -4,7 +4,7 @@ import { HandlerEvent } from '@netlify/functions';
 import { eq, and } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
-import { organisations, users, plans, masterPlans, referralAttribution } from '../../db/schema';
+import { organisations, users, plans, masterPlans, referralAttribution, userOrganisations } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -24,8 +24,9 @@ async function resolveUser(event: HandlerEvent): Promise<{ userId: number; orgId
         const decoded = jwt.verify(sessionToken, jwtSecret) as { userId: number };
         const db = getDb();
         const [user] = await db
-            .select({ id: users.id, organisationId: users.organisationId })
+            .select({ id: users.id, organisationId: userOrganisations.organisationId })
             .from(users)
+            .leftJoin(userOrganisations, eq(users.id, userOrganisations.userId))
             .where(eq(users.id, decoded.userId));
         return user ? { userId: user.id, orgId: user.organisationId ?? null } : null;
     } catch {

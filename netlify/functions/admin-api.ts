@@ -23,7 +23,7 @@ import jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { Resend } from 'resend';
 import { eq, ilike, desc, and, or, count, gte, lte, sql, inArray } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import {
     users, userProfiles, plans, aiAssistants,
     supportTickets, masterAssistants, waitlist,
@@ -161,18 +161,19 @@ export const handler: Handler = async (event) => {
                 ORDER BY su.used_bytes DESC
                 LIMIT 10
             `);
-            const [{ totalBytes }] = await db.execute<{ totalBytes: number }>(
+            const totalBytesRows = await db.execute<{ totalBytes: string }>(
                 sql`SELECT COALESCE(SUM(used_bytes), 0)::bigint AS "totalBytes" FROM storage_usage`
-            ).then(r => r.rows.length ? r.rows : [{ totalBytes: 0 }]);
+            );
+            const totalBytes = Number(totalBytesRows[0]?.totalBytes ?? 0);
 
             // AC16: estimated monthly GBP cost at £0.015/GB
-            const totalGb = Number(totalBytes) / 1_073_741_824;
+            const totalGb = totalBytes / 1_073_741_824;
             const estimatedCostGbp = (totalGb * 0.015).toFixed(2);
 
             return {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ topOrgs: topOrgs.rows, totalBytes: Number(totalBytes), estimatedCostGbp }),
+                body: JSON.stringify({ topOrgs: [...topOrgs], totalBytes, estimatedCostGbp }),
             };
         }
 
@@ -862,7 +863,11 @@ export const handler: Handler = async (event) => {
 
             if (event.httpMethod === 'POST') {
                 const body = JSON.parse(event.body || '{}');
-                const { key: cfgKey, value: cfgValue, reason: cfgReason } = body;
+                const { key: cfgKey, reason: cfgReason } = body;
+                let cfgValue = body.value;
+                if (cfgKey === 'maintenance_message' && typeof cfgValue === 'string') {
+                    cfgValue = cfgValue.replace(/<[^>]*>/g, '');
+                }
                 if (!cfgKey || cfgValue === undefined) {
                     return { statusCode: 400, body: JSON.stringify({ error: 'key and value required.' }) };
                 }
@@ -1076,7 +1081,7 @@ export const handler: Handler = async (event) => {
                 WHERE created_at >= ${thirtyDaysAgo}
                   AND 'special_category_suspected' = ANY(data_categories)
             `);
-            const specialCatCount = Number((specialCatRows.rows?.[0] as any)?.cnt ?? 0);
+            const specialCatCount = Number((specialCatRows[0] as any)?.cnt ?? 0);
 
             // 30-day daily trend for special_category_suspected
             const specialCatTrend = await db.execute(sql`
@@ -1096,13 +1101,13 @@ export const handler: Handler = async (event) => {
 
             const dataCategoryBreakdown = {
                 totalCalls,
-                byCategory: (dataCategoryRows.rows as any[]).map(r => ({
+                byCategory: ([...dataCategoryRows] as any[]).map(r => ({
                     category: r.category,
                     callCount: Number(r.call_count),
                     pct: totalCalls > 0 ? +((Number(r.call_count) / totalCalls) * 100).toFixed(1) : 0,
                 })),
                 specialCategoryCount: specialCatCount,
-                specialCategoryTrend: (specialCatTrend.rows as any[]).map(r => ({ day: r.day, count: Number(r.cnt) })),
+                specialCategoryTrend: ([...specialCatTrend] as any[]).map(r => ({ day: r.day, count: Number(r.cnt) })),
                 alert: specialCatAlert,
             };
 
@@ -1990,7 +1995,7 @@ export const handler: Handler = async (event) => {
                 const holdId = parseInt(qs.id || '');
                 if (!holdId) return { statusCode: 400, body: JSON.stringify({ error: 'id required.' }) };
                 const [lifted] = await db.update(legalHolds)
-                    .set({ isActive: false, liftedAt: new Date(), liftedBy: adminId })
+                    .set(withUpdatedAt({ isActive: false, liftedAt: new Date(), liftedBy: adminId }))
                     .where(eq(legalHolds.id, holdId))
                     .returning();
                 if (!lifted) return { statusCode: 404, body: JSON.stringify({ error: 'Hold not found.' }) };
@@ -2078,15 +2083,15 @@ export const handler: Handler = async (event) => {
             const now = new Date();
             const ago24h = new Date(now.getTime() - 86_400_000);
             const ago7d  = new Date(now.getTime() - 7 * 86_400_000);
-            const [pub24h] = await db.execute<{ c: number }>(`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='published' AND published_at >= '${ago24h.toISOString()}'`);
-            const [pub7d]  = await db.execute<{ c: number }>(`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='published' AND published_at >= '${ago7d.toISOString()}'`);
-            const [queue]  = await db.execute<{ c: number }>(`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='scheduled' AND publish_date <= now()`);
-            const [failed] = await db.execute<{ c: number }>(`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='failed'`);
+            const [pub24h] = await db.execute<{ c: number }>(sql`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='published' AND published_at >= ${ago24h}`);
+            const [pub7d]  = await db.execute<{ c: number }>(sql`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='published' AND published_at >= ${ago7d}`);
+            const [queue]  = await db.execute<{ c: number }>(sql`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='scheduled' AND publish_date <= now()`);
+            const [failed] = await db.execute<{ c: number }>(sql`SELECT COUNT(*)::int AS c FROM scheduled_posts WHERE platform='instagram' AND status='failed'`);
             return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-                published24h: pub24h.rows[0]?.c ?? 0,
-                published7d:  pub7d.rows[0]?.c ?? 0,
-                queueDepth:   queue.rows[0]?.c ?? 0,
-                failedCount:  failed.rows[0]?.c ?? 0,
+                published24h: pub24h?.c ?? 0,
+                published7d:  pub7d?.c ?? 0,
+                queueDepth:   queue?.c ?? 0,
+                failedCount:  failed?.c ?? 0,
             }) };
         }
 
@@ -2097,15 +2102,14 @@ export const handler: Handler = async (event) => {
         }
 
         if (event.httpMethod === 'GET' && resource === 'rate-limit-states') {
-            const { rateLimitStates } = await import('../../db/schema');
-            const rows = await db.execute<{ organisation_id: number; platform: string; rate_limited_until: string; name: string }>(
-                `SELECT r.organisation_id, r.platform, r.rate_limited_until, o.name
-                 FROM rate_limit_states r
-                 JOIN organisations o ON o.id = r.organisation_id
-                 WHERE r.rate_limited_until > now()
-                 ORDER BY r.rate_limited_until DESC`
-            );
-            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows.rows.map(r => ({
+            const rows = await db.execute<{ organisation_id: number; platform: string; rate_limited_until: string; name: string }>(sql`
+                SELECT r.organisation_id, r.platform, r.rate_limited_until, o.name
+                FROM rate_limit_states r
+                JOIN organisations o ON o.id = r.organisation_id
+                WHERE r.rate_limited_until > now()
+                ORDER BY r.rate_limited_until DESC
+            `);
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify([...rows].map(r => ({
                 organisationId: r.organisation_id,
                 organisationName: r.name,
                 platform: r.platform,
@@ -2114,17 +2118,17 @@ export const handler: Handler = async (event) => {
         }
 
         if (event.httpMethod === 'GET' && resource === 'expiring-tokens') {
-            const in14d = new Date(Date.now() + 14 * 86_400_000).toISOString();
-            const rows = await db.execute<{ id: number; organisation_id: number; external_user_id: string; token_expires_at: string; name: string }>(
-                `SELECT sc.id, sc.organisation_id, sc.external_user_id, sc.token_expires_at, o.name
-                 FROM system_connections sc
-                 JOIN organisations o ON o.id = sc.organisation_id
-                 WHERE sc.service_name = 'instagram'
-                   AND sc.status = 'active'
-                   AND sc.token_expires_at < '${in14d}'
-                 ORDER BY sc.token_expires_at ASC`
-            );
-            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows.rows.map(r => ({
+            const in14d = new Date(Date.now() + 14 * 86_400_000);
+            const rows = await db.execute<{ id: number; organisation_id: number; external_user_id: string; token_expires_at: string; name: string }>(sql`
+                SELECT sc.id, sc.organisation_id, sc.external_user_id, sc.token_expires_at, o.name
+                FROM system_connections sc
+                JOIN organisations o ON o.id = sc.organisation_id
+                WHERE sc.service_name = 'instagram'
+                  AND sc.status = 'active'
+                  AND sc.token_expires_at < ${in14d}
+                ORDER BY sc.token_expires_at ASC
+            `);
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify([...rows].map(r => ({
                 id: r.id,
                 organisationId: r.organisation_id,
                 organisationName: r.name,

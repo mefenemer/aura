@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { createHmac, randomBytes } from 'crypto';
 import { getDb } from '../../db/client';
-import { systemConnections, notifications, users, auditLogs } from '../../db/schema';
+import { systemConnections, notifications, users, auditLogs, userOrganisations } from '../../db/schema';
 import { storeSecret } from '../../src/utils/vault';
 
 const jwtSecret   = process.env.JWT_SECRET!;
@@ -187,7 +187,7 @@ export const handler: Handler = async (event) => {
         }
 
         // Find userId from org (use first active user for notification)
-        const [orgUser] = await db.select({ id: users.id }).from(users).where(eq(users.organisationId, organisationId)).limit(1);
+        const [orgUser] = await db.select({ id: users.id }).from(users).innerJoin(userOrganisations, eq(users.id, userOrganisations.userId)).where(eq(userOrganisations.organisationId, organisationId)).limit(1);
         if (orgUser) {
             await db.insert(notifications).values({
                 userId: orgUser.id,

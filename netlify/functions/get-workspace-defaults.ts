@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, workspaceAssets, userProfiles } from '../../db/schema';
+import { users, workspaceAssets, userProfiles, userOrganisations } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -24,9 +24,9 @@ export const handler: Handler = async (event) => {
 
     // Get user's orgId
     const [user] = await db
-        .select({ organisationId: users.organisationId })
-        .from(users)
-        .where(eq(users.id, currentUserId))
+        .select({ organisationId: userOrganisations.organisationId })
+        .from(userOrganisations)
+        .where(eq(userOrganisations.userId, currentUserId))
         .limit(1);
 
     if (!user?.organisationId) {

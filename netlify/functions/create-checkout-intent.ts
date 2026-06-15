@@ -147,10 +147,10 @@ export const handler: Handler = async (event) => {
 
     // 4. DB TRANSACTION + STRIPE SUBSCRIPTION
     const result = await db.transaction(async (tx) => {
-      await tx.update(userProfiles).set({ legalConsents: consents || {} }).where(eq(userProfiles.userId, existingUser.id));
+      await tx.update(userProfiles).set({ legalConsents: consents || {}, updatedAt: new Date() }).where(eq(userProfiles.userId, existingUser.id));
 
       if (businessName?.trim()) {
-        await tx.update(organisations).set({ name: sanitizeText(businessName.trim()) }).where(eq(organisations.id, existingUser.organisationId!));
+        await tx.update(organisations).set({ name: sanitizeText(businessName.trim()), updatedAt: new Date() }).where(eq(organisations.id, existingUser.organisationId!));
       }
 
       const [newPlan] = await tx.insert(plans).values({

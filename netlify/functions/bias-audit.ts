@@ -14,7 +14,7 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, desc, and } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import {
     users, biasAuditReviews, biasIncidents, biasSamplingReports, aiAssistants, notifications,
 } from '../../db/schema';
@@ -167,7 +167,7 @@ export const handler: Handler = async (event) => {
 
         // Reactivate the assistant
         if (incident.assistantId) {
-            await db.update(aiAssistants).set({ isActive: true }).where(eq(aiAssistants.id, incident.assistantId));
+            await db.update(aiAssistants).set(withUpdatedAt({ isActive: true })).where(eq(aiAssistants.id, incident.assistantId));
         }
 
         await db.insert(notifications).values({

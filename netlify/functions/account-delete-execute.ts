@@ -57,9 +57,10 @@ async function executeDeleteions() {
             id:               users.id,
             email:            users.email,
             firstName:        users.firstName,
-            organisationId:   users.organisationId,
+            organisationId:   userOrganisations.organisationId,
         })
         .from(users)
+        .leftJoin(userOrganisations, eq(users.id, userOrganisations.userId))
         .where(and(
             eq(users.pendingDeletion, true),
             isNotNull(users.pendingDeletionAt),

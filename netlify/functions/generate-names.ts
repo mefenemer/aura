@@ -3,7 +3,7 @@ import { HandlerEvent } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users } from '../../db/schema';
+import { users, userOrganisations } from '../../db/schema';
 import { logAiUsage } from '../../src/utils/ai-usage';
 import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 
@@ -41,8 +41,9 @@ export const handler = async (event: HandlerEvent) => {
     // Fetch org context for AI metadata tagging (US12)
     const db = getDb();
     const [userRow] = await db
-        .select({ id: users.id, organisationId: users.organisationId })
+        .select({ id: users.id, organisationId: userOrganisations.organisationId })
         .from(users)
+        .leftJoin(userOrganisations, eq(users.id, userOrganisations.userId))
         .where(eq(users.id, decoded.userId))
         .limit(1);
     const orgId = userRow?.organisationId ?? null;

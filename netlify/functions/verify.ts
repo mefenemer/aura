@@ -83,7 +83,7 @@ export const handler: Handler = async (event) => {
         const isFirstLogin = user.status === 'pending_verification';
 
         await db.update(users)
-            .set({ status: 'active', verificationToken: null, tokenExpiresAt: null })
+            .set({ status: 'active', verificationToken: null, tokenExpiresAt: null, updatedAt: new Date() })
             .where(eq(users.id, user.id));
 
         // ── US3 Sc3 + US2 Sc1: Welcome + onboard prompt on first login ───────

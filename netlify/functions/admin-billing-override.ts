@@ -19,7 +19,7 @@ import { eq, and } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { getDb } from '../../db/client';
 import {
-    users, plans, masterPlans, billingOverrides, notifications,
+    users, plans, masterPlans, billingOverrides, notifications, userOrganisations,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendEmail } from '../../src/utils/email';
@@ -83,8 +83,8 @@ export const handler: Handler = async (event) => {
 
     // ── 3. Load target user + active plan ─────────────────────────────────────
     const [targetUser] = await db
-        .select({ id: users.id, email: users.email, firstName: users.firstName, organisationId: users.organisationId })
-        .from(users).where(eq(users.id, uid)).limit(1);
+        .select({ id: users.id, email: users.email, firstName: users.firstName, organisationId: userOrganisations.organisationId })
+        .from(users).leftJoin(userOrganisations, eq(users.id, userOrganisations.userId)).where(eq(users.id, uid)).limit(1);
     if (!targetUser) return { statusCode: 404, body: JSON.stringify({ error: 'User not found.' }) };
 
     const [activePlan] = await db

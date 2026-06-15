@@ -15,7 +15,7 @@ config({ path: path.resolve(process.cwd(), '.env') });
 
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
-import { masterAssistants } from './schema';
+import { masterAssistants, masterPlans } from './schema';
 import { sql } from 'drizzle-orm';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
@@ -262,6 +262,20 @@ async function seedCatalog() {
             });
         console.log(`  ✓ ${role.name}`);
     }
+
+    // P2-5: Seed the trial master plan so registration can look it up at runtime
+    await db.insert(masterPlans).values({
+        tierKey: 'trial',
+        name: 'Free Trial',
+        monthlyPriceGbp: '0.00',
+        assistantLimit: 1,
+        monthlyTaskLimit: 50,
+        monthlyTokenLimit: null,
+        appConnectionLimit: 2,
+        seatLimit: 1,
+        isActive: true,
+    }).onConflictDoNothing();
+    console.log('  ✓ masterPlan: trial');
 
     console.log('\n✅ Catalog seeded successfully.\n');
     await client.end();

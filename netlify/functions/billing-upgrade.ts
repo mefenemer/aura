@@ -10,7 +10,7 @@ import Stripe from 'stripe';
 import jwt from 'jsonwebtoken';
 import { eq, and, gt } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, plans, masterPlans, notifications, processedWebhookEvents } from '../../db/schema';
+import { users, plans, masterPlans, notifications, processedWebhookEvents, userOrganisations } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 import { checkImpersonationBlock } from '../../src/utils/impersonation';
 
@@ -53,7 +53,7 @@ export const handler: Handler = async (event) => {
     const db = getDb();
 
     // Get user's active plan
-    const [user] = await db.select({ organisationId: users.organisationId }).from(users).where(eq(users.id, userId)).limit(1);
+    const [user] = await db.select({ organisationId: userOrganisations.organisationId }).from(userOrganisations).where(eq(userOrganisations.userId, userId)).limit(1);
     if (!user?.organisationId) return { statusCode: 404, body: JSON.stringify({ error: 'No organisation found.' }) };
 
     const [currentPlan] = await db

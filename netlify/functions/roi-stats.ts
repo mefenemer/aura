@@ -8,7 +8,7 @@ import { HandlerEvent } from '@netlify/functions';
 import { eq, and, gte, count } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
-import { users, userProfiles, taskRuns, plans, masterPlans } from '../../db/schema';
+import { users, userProfiles, taskRuns, plans, masterPlans, userOrganisations } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -82,9 +82,9 @@ export const handler = async (event: HandlerEvent) => {
 
         // Get plan cost for break-even calculation (SC2/SC3)
         const [user] = await db
-            .select({ organisationId: users.organisationId })
-            .from(users)
-            .where(eq(users.id, userId));
+            .select({ organisationId: userOrganisations.organisationId })
+            .from(userOrganisations)
+            .where(eq(userOrganisations.userId, userId));
 
         let planCostGbp: number | null = null;
         let currency = 'GBP';

@@ -22,6 +22,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const GATED_TIERS = new Set(['pro', 'enterprise', 'agency']);
 
 export const handler: Handler = async (event) => {
+    try {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
     if (!JWT_SECRET) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
 
@@ -151,6 +152,10 @@ Return ONLY valid JSON, no markdown, no explanation.`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(result),
     };
+    } catch (err: any) {
+        console.error('[review-post-quality] Unhandled error:', err);
+        return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Quality review failed. Please try again.' }) };
+    }
 };
 
 function _hash(s: string): string {

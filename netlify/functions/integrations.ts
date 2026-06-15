@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { systemConnections, scheduledPosts, notifications, users } from '../../db/schema';
+import { systemConnections, scheduledPosts, notifications, users, userOrganisations } from '../../db/schema';
 import { storeSecret, deleteSecret, buildRefKey } from '../../src/utils/vault';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -25,7 +25,7 @@ export const handler: Handler = async (event) => {
 
     try {
     // US-DB-1.3.1: resolve orgId — mandatory for all system_connections queries
-    const [currentUser] = await db.select({ organisationId: users.organisationId }).from(users).where(eq(users.id, currentUserId)).limit(1);
+    const [currentUser] = await db.select({ organisationId: userOrganisations.organisationId }).from(userOrganisations).where(eq(userOrganisations.userId, currentUserId)).limit(1);
     const currentOrgId = currentUser?.organisationId ?? null;
         // --- GET: FETCH INTEGRATIONS DASHBOARD ---
         if (event.httpMethod === 'GET') {

@@ -71,6 +71,11 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields.' }) };
         }
 
+        // BUG-P2-9: Enforce maximum field lengths to prevent oversized DB inserts
+        if (firstName.length > 100 || lastName.length > 100 || businessName.length > 200) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'Input fields exceed maximum length.' }) };
+        }
+
         // --- SCENARIO 5: ENUMERATION PROTECTION ---
         // Check if user already exists BEFORE doing anything else
         const existingUsers = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
@@ -122,7 +127,7 @@ export const handler: Handler = async (event) => {
 
             // 4. Update User with Org ID
             await tx.update(users)
-                .set({ organisationId: newOrg.id })
+                .set({ organisationId: newOrg.id, updatedAt: new Date() })
                 .where(eq(users.id, newUser.id));
 
             // 5. Create default User Profile (Crucial for Account Settings hydration)
@@ -147,33 +152,26 @@ export const handler: Handler = async (event) => {
                 },
             });
 
-            // US-GAP-8.1.1 SC2: Create trial plan if trial registration
+            // BUG-P2-5: Trial masterPlan catalog row must exist before registration runs.
+            // The upsert was removed from here — it belongs in db/seed-catalog.ts so it
+            // only runs once at deploy time, not on every registration request.
             if (isTrial) {
-                // Ensure the 'trial' masterPlan row exists (idempotent upsert)
-                await tx.insert(masterPlans).values({
-                    tierKey: 'trial',
-                    name: 'Free Trial',
-                    monthlyPriceGbp: '0.00',
-                    assistantLimit: 1,
-                    monthlyTaskLimit: 50,
-                    monthlyTokenLimit: null,
-                    appConnectionLimit: 2,
-                    seatLimit: 1,
-                    isActive: true,
-                }).onConflictDoNothing();
-
                 const [trialMasterPlan] = await tx
                     .select({ id: masterPlans.id })
                     .from(masterPlans)
                     .where(eq(masterPlans.tierKey, 'trial'))
                     .limit(1);
 
+                if (!trialMasterPlan) {
+                    throw new Error('Trial plan not seeded. Run db/seed-catalog.ts before accepting trial registrations.');
+                }
+
                 const trialExpiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
 
                 await tx.insert(plans).values({
                     userId: newUser.id,
                     organisationId: newOrg.id,
-                    masterPlanId: trialMasterPlan?.id ?? null,
+                    masterPlanId: trialMasterPlan.id,
                     planName: 'Free Trial',
                     planType: 'trial',
                     status: 'active',

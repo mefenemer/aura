@@ -11,7 +11,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, dpaAcceptances } from '../../db/schema';
+import { users, dpaAcceptances, userOrganisations } from '../../db/schema';
 
 export const CURRENT_DPA_VERSION = '1.0';
 
@@ -36,8 +36,9 @@ export const handler: Handler = async (event) => {
 
     const db = getDb();
     const [user] = await db
-        .select({ email: users.email, organisationId: users.organisationId })
+        .select({ email: users.email, organisationId: userOrganisations.organisationId })
         .from(users)
+        .leftJoin(userOrganisations, eq(users.id, userOrganisations.userId))
         .where(eq(users.id, userId))
         .limit(1);
 

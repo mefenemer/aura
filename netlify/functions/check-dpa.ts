@@ -7,7 +7,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, dpaAcceptances } from '../../db/schema';
+import { users, dpaAcceptances, userOrganisations } from '../../db/schema';
 import { CURRENT_DPA_VERSION } from './accept-dpa';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -31,9 +31,9 @@ export const handler: Handler = async (event) => {
 
     const db = getDb();
     const [user] = await db
-        .select({ organisationId: users.organisationId })
-        .from(users)
-        .where(eq(users.id, userId))
+        .select({ organisationId: userOrganisations.organisationId })
+        .from(userOrganisations)
+        .where(eq(userOrganisations.userId, userId))
         .limit(1);
 
     if (!user?.organisationId) {

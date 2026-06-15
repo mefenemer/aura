@@ -89,9 +89,9 @@ export const handler = async (event: HandlerEvent) => {
         try {
             // Verify caller is owner or admin of the org
             const [user] = await db
-                .select({ organisationId: users.organisationId })
-                .from(users)
-                .where(eq(users.id, userId));
+                .select({ organisationId: userOrganisations.organisationId })
+                .from(userOrganisations)
+                .where(eq(userOrganisations.userId, userId));
             if (!user?.organisationId) {
                 return { statusCode: 400, body: JSON.stringify({ error: 'No organisation found for this account.' }) };
             }

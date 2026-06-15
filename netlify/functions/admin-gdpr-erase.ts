@@ -19,11 +19,11 @@ import jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { eq, and } from 'drizzle-orm';
 import Stripe from 'stripe';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import {
     users, plans, gdprErasureLog, onboardingDrafts,
     userProfiles, userNotifications, notifications, jwtBlocklist,
-    aiAssistants, aiUsageLog,
+    aiAssistants, aiUsageLog, userOrganisations,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendEmail } from '../../src/utils/email';
@@ -82,9 +82,10 @@ export const handler: Handler = async (event) => {
             email:          users.email,
             firstName:      users.firstName,
             lastName:       users.lastName,
-            organisationId: users.organisationId,
+            organisationId: userOrganisations.organisationId,
         })
         .from(users)
+        .leftJoin(userOrganisations, eq(users.id, userOrganisations.userId))
         .where(eq(users.id, targetUserId))
         .limit(1);
 
@@ -179,7 +180,7 @@ export const handler: Handler = async (event) => {
             // Must run before userId is nulled by cascade so the WHERE clause matches.
             // The assistant row itself is retained — org members may depend on it.
             await tx.update(aiAssistants)
-                .set({ onboardingContext: null, configuration: null, systemPrompt: null })
+                .set(withUpdatedAt({ onboardingContext: null, configuration: null, systemPrompt: null }))
                 .where(eq(aiAssistants.userId, targetUserId))
                 .catch(() => {});
 

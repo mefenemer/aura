@@ -6,7 +6,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 import { eq, and } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import { users, plans, leads } from '../../db/schema';
 
 const jwtSecret    = process.env.JWT_SECRET;
@@ -73,7 +73,7 @@ export const handler: Handler = async (event) => {
         // Mirror the pending-cancellation status in our DB immediately.
         // The webhook (customer.subscription.deleted) will set it to 'cancelled' at period end.
         const [activePlan] = await db.update(plans)
-            .set({ status: 'cancelling' })
+            .set(withUpdatedAt({ status: 'cancelling' }))
             .where(and(eq(plans.userId, userId), eq(plans.status, 'active')))
             .returning({ planName: plans.planName, organisationId: plans.organisationId });
 

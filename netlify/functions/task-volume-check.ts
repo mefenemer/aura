@@ -9,7 +9,7 @@
 
 import { Handler } from '@netlify/functions';
 import { eq, and, gte, count, isNotNull } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import { users, plans, masterPlans, taskRuns, notifications, aiAssistants } from '../../db/schema';
 
 export const handler: Handler = async (event) => {
@@ -83,7 +83,7 @@ export const handler: Handler = async (event) => {
                     // the user-facing signal. For immediate effect we mark assistants as paused.
                     await db
                         .update(aiAssistants)
-                        .set({ isActive: false })
+                        .set(withUpdatedAt({ isActive: false }))
                         .where(and(
                             eq(aiAssistants.userId, userId),
                             eq(aiAssistants.provisioningStatus, 'complete'),

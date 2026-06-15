@@ -44,8 +44,8 @@ export const handler: Handler = async (event) => {
     const db = getDb();
 
     // Resolve caller's org membership and role
-    const [callerUser] = await db.select({ organisationId: users.organisationId })
-        .from(users).where(eq(users.id, callerId)).limit(1);
+    const [callerUser] = await db.select({ organisationId: userOrganisations.organisationId })
+        .from(userOrganisations).where(eq(userOrganisations.userId, callerId)).limit(1);
     if (!callerUser?.organisationId) {
         return { statusCode: 403, body: JSON.stringify({ error: 'No organisation found.' }) };
     }

@@ -8,7 +8,7 @@
 
 import type { Handler } from '@netlify/functions';
 import { and, eq, gte, lt, sql, desc } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import {
     agentRunEvents, taskRuns, aiAssistants, biasIncidents, biasSamplingReports, notifications, users,
 } from '../../db/schema';
@@ -121,7 +121,7 @@ const handler = async () => {
         // Suspend the assistant
         if (anomaly.assistantId) {
             await db.update(aiAssistants)
-                .set({ isActive: false })
+                .set(withUpdatedAt({ isActive: false }))
                 .where(eq(aiAssistants.id, anomaly.assistantId));
         }
 

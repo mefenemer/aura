@@ -65,7 +65,7 @@ function signExport(payload: object): string {
 }
 
 async function getUserRole(db: any, userId: number): Promise<{ platformRole: string; organisationId: number | null; orgRole: string }> {
-    const [user] = await db.select({ role: users.role, organisationId: users.organisationId }).from(users).where(eq(users.id, userId)).limit(1);
+    const [user] = await db.select({ role: users.role, organisationId: userOrganisations.organisationId }).from(users).leftJoin(userOrganisations, eq(users.id, userOrganisations.userId)).where(eq(users.id, userId)).limit(1);
     const [orgMember] = await db.select({ role: userOrganisations.role }).from(userOrganisations).where(eq(userOrganisations.userId, userId)).limit(1);
     return {
         platformRole: user?.role || 'user',

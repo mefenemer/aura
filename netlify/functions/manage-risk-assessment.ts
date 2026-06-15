@@ -9,7 +9,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { masterAssistants, notifications, riskAssessments, users } from '../../db/schema';
+import { masterAssistants, notifications, riskAssessments, users, userOrganisations } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -32,8 +32,9 @@ export const handler: Handler = async (event) => {
     const db = getDb();
 
     const [caller] = await db
-        .select({ role: users.role, organisationId: users.organisationId })
+        .select({ role: users.role, organisationId: userOrganisations.organisationId })
         .from(users)
+        .leftJoin(userOrganisations, eq(users.id, userOrganisations.userId))
         .where(eq(users.id, auth.userId))
         .limit(1);
 

@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import { users } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 
@@ -42,10 +42,10 @@ export const handler: Handler = async (event) => {
 
         // 3. Update the user record with the HASHED token
         await db.update(users)
-            .set({
+            .set(withUpdatedAt({
                 verificationToken: hashedToken,
                 tokenExpiresAt: newTokenExpiresAt,
-            })
+            }))
             .where(eq(users.id, existingUser.id));
 
         // 4. Construct the link and send the email

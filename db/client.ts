@@ -10,6 +10,9 @@ config({ path: path.resolve(process.cwd(), '.env') });
 let sql: postgres.Sql | null = null;
 let db: PostgresJsDatabase<Record<string, never>> | null = null;
 
+export const withUpdatedAt = <T extends Record<string, unknown>>(set: T): T & { updatedAt: Date } =>
+    ({ ...set, updatedAt: new Date() });
+
 export function getDb() {
     if (!db) {
         const connectionString = process.env.NETLIFY_DATABASE_URL;

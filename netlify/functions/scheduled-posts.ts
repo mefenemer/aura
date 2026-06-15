@@ -10,7 +10,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, scheduledPosts, contentAssets, contentProvenance } from '../../db/schema';
+import { users, scheduledPosts, contentAssets, contentProvenance, userOrganisations } from '../../db/schema';
 import { createHmac, createHash, randomUUID } from 'crypto';
 import { propagateAssetStatuses } from './content-assets';
 
@@ -30,8 +30,8 @@ export const handler: Handler = async (event) => {
     if (!userId) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
 
     const db = getDb();
-    const [user] = await db.select({ id: users.id, organisationId: users.organisationId })
-        .from(users).where(eq(users.id, userId));
+    const [user] = await db.select({ id: users.id, organisationId: userOrganisations.organisationId })
+        .from(users).leftJoin(userOrganisations, eq(users.id, userOrganisations.userId)).where(eq(users.id, userId));
     if (!user) return { statusCode: 403, body: JSON.stringify({ error: 'User not found.' }) };
 
     const qs = event.queryStringParameters || {};

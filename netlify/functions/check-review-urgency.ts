@@ -7,7 +7,7 @@
 
 import { Handler } from '@netlify/functions';
 import { and, eq, gt, isNull, lt, lte, sql } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import { aiAssistants, notifications, scheduledPosts, users } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 
@@ -49,7 +49,7 @@ export const handler: Handler = async (event) => {
 
         // Mark alert sent first (fire-and-forget to avoid duplicate on retry)
         await db.update(scheduledPosts)
-            .set({ redAlertSentAt: now })
+            .set(withUpdatedAt({ redAlertSentAt: now }))
             .where(eq(scheduledPosts.id, post.id));
 
         // In-app notification

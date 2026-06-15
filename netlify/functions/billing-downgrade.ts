@@ -10,7 +10,7 @@ import Stripe from 'stripe';
 import jwt from 'jsonwebtoken';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, plans, masterPlans, aiAssistants, notifications } from '../../db/schema';
+import { users, plans, masterPlans, aiAssistants, notifications, userOrganisations } from '../../db/schema';
 import { checkImpersonationBlock } from '../../src/utils/impersonation-guard';
 
 const jwtSecret    = process.env.JWT_SECRET!;
@@ -55,9 +55,9 @@ export const handler: Handler = async (event) => {
     const db = getDb();
 
     const [user] = await db
-        .select({ organisationId: users.organisationId })
-        .from(users)
-        .where(eq(users.id, userId))
+        .select({ organisationId: userOrganisations.organisationId })
+        .from(userOrganisations)
+        .where(eq(userOrganisations.userId, userId))
         .limit(1);
     if (!user?.organisationId) return { statusCode: 404, body: JSON.stringify({ error: 'No organisation found.' }) };
 

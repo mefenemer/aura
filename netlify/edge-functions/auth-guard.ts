@@ -55,9 +55,10 @@ export default async (request: Request, context: Context) => {
                 }
 
                 if (!isAdmin) {
-                    // Redirect to maintenance page, passing the message as a query param
+                    // Strip HTML tags before reflecting into URL — prevents XSS via crafted config values
+                    const safeMsg = cfg.maintenanceMessage.replace(/<[^>]*>/g, '');
                     const maintenanceUrl = new URL('/maintenance.html', request.url);
-                    maintenanceUrl.searchParams.set('msg', cfg.maintenanceMessage);
+                    maintenanceUrl.searchParams.set('msg', safeMsg);
                     return Response.redirect(maintenanceUrl.toString(), 302);
                 }
             }

@@ -21,7 +21,7 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, desc } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import {
     users,
     masterPlans,
@@ -216,7 +216,7 @@ async function handleMasterAssistants(event: any, adminId: number, ip?: string, 
                 assistantId: assistant.id, versionNumber: 1, systemPrompt,
                 changeNote: 'Initial version', createdBy: adminId,
             }).returning();
-            await db.update(masterAssistants).set({ currentVersionId: version.id }).where(eq(masterAssistants.id, assistant.id));
+            await db.update(masterAssistants).set(withUpdatedAt({ currentVersionId: version.id })).where(eq(masterAssistants.id, assistant.id));
         }
 
         void insertAdminAuditLog({ adminId, action: 'assistant_state_change', targetType: 'master_assistant', targetId: assistant.id, newState: { ...assistant, systemPromptProvided: !!systemPrompt }, ipAddress: ip, userAgent: ua, reason: 'admin_create' });

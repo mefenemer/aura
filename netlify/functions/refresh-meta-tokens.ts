@@ -6,7 +6,7 @@
 import { Handler } from '@netlify/functions';
 import { and, eq, lt, lte, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { systemConnections, scheduledPosts, notifications, users, auditLogs } from '../../db/schema';
+import { systemConnections, scheduledPosts, notifications, users, auditLogs, userOrganisations } from '../../db/schema';
 import { storeSecret, getSecret } from '../../src/utils/vault';
 import { sendEmail } from '../../src/utils/email';
 
@@ -88,7 +88,8 @@ async function refreshToken(db: ReturnType<typeof getDb>, conn: {
 
         // Notify the user
         const [orgUser] = await db.select({ id: users.id, email: users.email }).from(users)
-            .where(eq(users.organisationId, conn.organisationId)).limit(1);
+            .innerJoin(userOrganisations, eq(users.id, userOrganisations.userId))
+            .where(eq(userOrganisations.organisationId, conn.organisationId)).limit(1);
 
         if (orgUser) {
             await db.insert(notifications).values({

@@ -255,6 +255,7 @@ export const aiAssistants = pgTable("ai_assistants", {
   // US-DB-1.1.1: Hot-path indexes for assistant lookups
   index("ai_assistants_org_active_idx").on(t.organisationId, t.isActive),
   index("ai_assistants_user_active_idx").on(t.userId, t.isActive),
+  check("ai_assistants_review_notif_pref_check", sql`${t.reviewNotifPreference} IN ('immediate', 'daily_digest', 'red_urgency_only')`),
 ]);
 
 // User profiles table — extended profile details for a user
@@ -466,6 +467,7 @@ export const taskRuns = pgTable("task_runs", {
   index("task_runs_user_created_idx").on(t.userId, t.createdAt),
   index("task_runs_org_created_idx").on(t.organisationId, t.createdAt),
   index("task_runs_assistant_idx").on(t.assistantId),
+  check("task_runs_status_check", sql`${t.status} IN ('pending', 'running', 'reviewing', 'suspended', 'completed', 'failed', 'skipped', 'terminated')`),
 ]);
 
 export const masterAssistants = pgTable("master_assistants", {
@@ -494,7 +496,9 @@ export const masterAssistants = pgTable("master_assistants", {
   riskClassification: text("risk_classification").notNull().default("limited"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  check("master_assistants_lifecycle_check", sql`${t.lifecycleState} IN ('draft', 'review', 'beta', 'live', 'deprecated', 'archived')`),
+]);
 
 // US-ADM-4.1.1: Immutable version history for master assistant prompts/config
 export const assistantVersions = pgTable("assistant_versions", {
@@ -702,7 +706,9 @@ export const aiModelConfig = pgTable("ai_model_config", {
   updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  check("ai_model_config_provider_check", sql`${t.provider} IN ('openai', 'anthropic', 'google')`),
+]);
 // User Notifications Table — Global feed for alerts, tickets, and billing
 // DEPRECATED (US-DB-1.2.1 ADR-001): userNotifications duplicates the notifications table.
 // Canonical table is notifications (above). All new writes/reads must use notifications.
@@ -899,6 +905,7 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   index("scheduled_posts_user_idx").on(t.userId),
   // US-SMM-3.3.1: Partial index for publish queue polling
   index("scheduled_posts_publish_queue_idx").on(t.publishDate).where(sql`status = 'scheduled' AND platform = 'instagram'`),
+  check("scheduled_posts_status_check", sql`${t.status} IN ('draft', 'in_review', 'approved', 'scheduled', 'published', 'rejected', 'cancelled', 'missed')`),
 ]);
 
 // US-DB-1.2.1: Junction table replacing scheduledPosts.contentAssetIds JSONB array.

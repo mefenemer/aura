@@ -6,7 +6,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, supportTickets } from '../../db/schema';
+import { users, supportTickets, userOrganisations } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -34,8 +34,8 @@ export const handler: Handler = async (event) => {
 
         const [user] = await db.select({
             id: users.id,
-            organisationId: users.organisationId,
-        }).from(users).where(eq(users.id, userId));
+            organisationId: userOrganisations.organisationId,
+        }).from(users).leftJoin(userOrganisations, eq(users.id, userOrganisations.userId)).where(eq(users.id, userId));
 
         if (!user) return { statusCode: 403, body: JSON.stringify({ error: 'User not found.' }) };
 

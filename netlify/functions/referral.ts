@@ -10,7 +10,7 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, desc } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import { users, userReferrals } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -108,7 +108,7 @@ export const handler: Handler = async (event) => {
                 const [existing] = await db.select({ id: users.id })
                     .from(users).where(eq(users.referralCode, candidate)).limit(1);
                 if (!existing) {
-                    await db.update(users).set({ referralCode: candidate }).where(eq(users.id, callerId));
+                    await db.update(users).set(withUpdatedAt({ referralCode: candidate })).where(eq(users.id, callerId));
                     code = candidate;
                     break;
                 }

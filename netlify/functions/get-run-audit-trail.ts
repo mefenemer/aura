@@ -7,7 +7,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { and, asc, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, taskRuns, agentRunEvents, agentRunSummaries } from '../../db/schema';
+import { users, taskRuns, agentRunEvents, agentRunSummaries, userOrganisations } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -48,8 +48,8 @@ export const handler: Handler = async (event) => {
     const db = getDb();
 
     // Load caller's org
-    const [caller] = await db.select({ organisationId: users.organisationId })
-        .from(users).where(eq(users.id, userId)).limit(1);
+    const [caller] = await db.select({ organisationId: userOrganisations.organisationId })
+        .from(userOrganisations).where(eq(userOrganisations.userId, userId)).limit(1);
 
     // Load run — must belong to the caller's org (or the caller directly)
     const [run] = await db.select({ id: taskRuns.id, organisationId: taskRuns.organisationId, userId: taskRuns.userId })

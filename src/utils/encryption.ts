@@ -1,3 +1,8 @@
+/**
+ * @deprecated Use vault.ts (storeSecret / getSecret) for all new encryption.
+ * This module is retained only for decrypting legacy rows written before the vault migration.
+ * Do not call encryptCredential for new data — call storeSecret from vault.ts instead.
+ */
 import * as crypto from 'crypto';
 
 // Use a 32-byte hex string stored in your Netlify Environment Variables
@@ -18,6 +23,7 @@ if (!ENCRYPTION_KEY) {
 
 const key = Buffer.from(ENCRYPTION_KEY, 'hex');
 
+/** @deprecated Use storeSecret from vault.ts instead. */
 export function encryptCredential(text: string): string {
     if (!text) return text;
     const iv = crypto.randomBytes(IV_LENGTH);
@@ -31,6 +37,7 @@ export function encryptCredential(text: string): string {
     return `${iv.toString('hex')}:${authTag}:${encrypted}`;
 }
 
+/** @deprecated Use getSecret from vault.ts instead. */
 export function decryptCredential(encryptedText: string): string {
     if (!encryptedText) return encryptedText;
     const parts = encryptedText.split(':');

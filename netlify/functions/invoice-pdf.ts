@@ -7,7 +7,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, invoices, billingInformation, organisations } from '../../db/schema';
+import { users, invoices, billingInformation, organisations, userOrganisations } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -51,8 +51,8 @@ export const handler: Handler = async (event) => {
             firstName:      users.firstName,
             lastName:       users.lastName,
             email:          users.email,
-            organisationId: users.organisationId,
-        }).from(users).where(eq(users.id, userId));
+            organisationId: userOrganisations.organisationId,
+        }).from(users).leftJoin(userOrganisations, eq(users.id, userOrganisations.userId)).where(eq(users.id, userId));
 
         // Load legal billing details
         const [billingInfo] = await db.select()

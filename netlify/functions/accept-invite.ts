@@ -121,11 +121,6 @@ export const handler: Handler = async (event) => {
         }).onConflictDoNothing();
     }
 
-    // Also update users.organisationId if not set
-    await db.update(users)
-        .set({ organisationId: orgId })
-        .where(and(eq(users.id, user.id), eq(users.organisationId, null as any)));
-
     // In-app notification: welcome to the org
     const [org] = await db
         .select({ name: organisations.name })

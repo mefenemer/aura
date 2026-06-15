@@ -12,7 +12,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { eq, and, desc, gte } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withUpdatedAt } from '../../db/client';
 import {
     users, userProfiles, aiAssistants, contentAssets, billingInformation,
     invoices, supportTickets, systemConnections, notifications, dataExportRequests, plans,
@@ -151,10 +151,10 @@ export const handler: Handler = async (event) => {
     const encodedPayload = Buffer.from(exportJson).toString('base64');
 
     await db.update(dataExportRequests)
-        .set({
+        .set(withUpdatedAt({
             status: 'ready',
             downloadUrl: encodedPayload, // stored as base64 — served by data-export-download.ts
-        })
+        }))
         .where(eq(dataExportRequests.id, exportRequest.id));
 
     const downloadUrl = `${BASE_URL}/.netlify/functions/data-export-download?token=${downloadToken}`;

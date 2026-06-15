@@ -1,9 +1,9 @@
 import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 import { eq, and, inArray, desc, sql } from 'drizzle-orm';
-import { getDb } from '../../db/client';
-import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, planPrices, invoices, processedWebhookEvents, userReferrals, platformConfig, stripeDisputes } from '../../db/schema';
-import { sendEmail } from '../../src/utils/email';
+import { getDb, withUpdatedAt } from '../../db/client';
+import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, planPrices, invoices, processedWebhookEvents, userReferrals, platformConfig, stripeDisputes, userOrganisations } from '../../db/schema';
+import { sendEmail, buildAnnualRenewalEmail, buildDunningEmail } from '../../src/utils/email';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -176,7 +176,7 @@ export const handler: Handler = async (event) => {
         // US-GAP-8.1.1 SC7: Trial-to-paid conversion — expire any active trial plan for this user
         // so check-capacity returns the new paid plan rather than the trial
         await db.update(plans)
-            .set({ status: 'expired', updatedAt: new Date() })
+            .set(withUpdatedAt({ status: 'expired' as const }))
             .where(and(eq(plans.userId, userIdInt), eq(plans.planType, 'trial'), eq(plans.status, 'active')));
 
         // Create payment record — include card details
@@ -340,14 +340,7 @@ export const handler: Handler = async (event) => {
                         await sendEmail({
                             to: userRow.email,
                             subject: `Your Aura-Assist™ annual plan renews on ${renewalDay}`,
-                            html: `
-                                <p>Hi ${userRow.firstName || 'there'},</p>
-                                <p>Your Aura-Assist annual subscription will automatically renew on <strong>${renewalDay}</strong>${amount ? ` for <strong>${amount}</strong>` : ''}.</p>
-                                <p>If you wish to cancel before this date, you can do so at any time from your <a href="https://aura-assist.com/billing.html">account settings</a>. Cancellations take effect at the end of your current billing period.</p>
-                                <p>If you have any questions, reply to this email or contact our support team.</p>
-                                <p>Thank you for being an Aura-Assist customer.</p>
-                                <p>— The Aura-Assist Team</p>
-                            `,
+                            html: buildAnnualRenewalEmail(userRow.firstName || 'there', renewalDay, amount),
                         // BUG-P1-1: Log at error level so this surfaces in alerts — compliance-critical email
                         }).catch(err => console.error('[stripe-webhook] Annual renewal compliance email failed:', { userId, err: (err as any)?.message }));
                     }
@@ -638,20 +631,7 @@ export const handler: Handler = async (event) => {
                     await sendEmail({
                         to: userRecord.email,
                         subject: `Payment failed — action required`,
-                        html: `<p>Hi ${userRecord.firstName || 'there'},</p>
-                               <p>We were unable to process your subscription payment.</p>
-                               <p>💰 <strong>Amount:</strong> ${amount || 'see your billing page'}</p>
-                               ${nextRetryLine}
-                               ${assistantWarning}
-                               <p style="margin-top:24px;">
-                                 <a href="${portalUrl}" style="background:#dc2626;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
-                                   Update Payment Details →
-                                 </a>
-                               </p>
-                               <p style="margin-top:16px;font-size:0.875rem;color:#6b7280;">
-                                 Questions? <a href="mailto:hello@aura-assist.com">Contact our support team</a>.
-                               </p>
-                               <p>The Aura Team</p>`,
+                        html: buildDunningEmail(userRecord.firstName || 'there', amount || 'see your billing page', nextRetryLine, assistantWarning, portalUrl),
                     }).catch(err => console.error('[stripe-webhook] Day 0 dunning email failed:', { userId, invoiceId: invoice.id, err: (err as any)?.message }));
                 }
             }
@@ -682,8 +662,6 @@ export const handler: Handler = async (event) => {
                 ? new Date(dispute.evidence_details.due_by * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
                 : 'check Stripe dashboard';
 
-            const db = getDb();
-
             // Notify the affected user (if found)
             if (affectedUserId) {
                 await db.insert(notifications).values({
@@ -699,8 +677,11 @@ export const handler: Handler = async (event) => {
             // Persist dispute record to DB for admin portal disputes tab
             let affectedOrgId: number | null = null;
             if (affectedUserId) {
-                const [userRow] = await db.select({ organisationId: users.organisationId }).from(users).where(eq(users.id, affectedUserId)).limit(1);
-                affectedOrgId = userRow?.organisationId ?? null;
+                const [uoRow] = await db.select({ organisationId: userOrganisations.organisationId })
+                    .from(userOrganisations)
+                    .where(eq(userOrganisations.userId, affectedUserId))
+                    .limit(1);
+                affectedOrgId = uoRow?.organisationId ?? null;
             }
             // BUG-P1-1: Dispute insert must propagate — a silent swallow loses the chargeback record entirely.
             // onConflictDoNothing handles Stripe retry duplicates; genuine failures bubble to the outer catch.
@@ -802,7 +783,7 @@ export const handler: Handler = async (event) => {
 
             // Pause ALL active assistants — no active subscription
             await db.update(aiAssistants)
-                .set({ isActive: false, provisioningStatus: 'paused_payment', updatedAt: new Date() })
+                .set(withUpdatedAt({ isActive: false, provisioningStatus: 'paused_payment' as const }))
                 .where(and(eq(aiAssistants.userId, userId), eq(aiAssistants.isActive, true)));
 
             await db.insert(notifications).values({
