@@ -1666,6 +1666,7 @@ document.addEventListener('keydown', e => {
 
 function adminNav(view) {
   _activeView = view;
+  document.getElementById('bp-payload-panel')?.remove();
   document.querySelectorAll('.admin-view').forEach(el => el.classList.add('hidden'));
   document.getElementById('view-' + view)?.classList.remove('hidden');
   document.getElementById('admin-page-title').textContent = VIEW_LABELS[view] || view;
@@ -1998,8 +1999,14 @@ function bpPreviewPayload() {
   if (!panel) {
     panel = document.createElement('div');
     panel.id = 'bp-payload-panel';
-    panel.className = 'fixed inset-0 z-[200] bg-white flex flex-col';
-    document.body.appendChild(panel);
+    panel.className = 'absolute inset-0 z-10 bg-white flex flex-col';
+    const inspector = document.getElementById('view-blueprint-inspector');
+    if (inspector) {
+      inspector.style.position = 'relative';
+      inspector.appendChild(panel);
+    } else {
+      document.body.appendChild(panel);
+    }
   }
   panel.innerHTML = `<div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
     <div>
