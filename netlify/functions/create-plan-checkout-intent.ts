@@ -1,0 +1,135 @@
+// netlify/functions/create-plan-checkout-intent.ts
+// P0 BUG FIX: Dedicated Stripe Checkout Session endpoint for the plan gate modal.
+// Accepts only { planId, referralCode?, currency? } — no assistant payload required.
+// Returns { url } for redirect to Stripe Checkout.
+// AC3: No ai_assistants or payments rows created here; those happen post-webhook.
+
+import { Handler } from '@netlify/functions';
+import jwt from 'jsonwebtoken';
+import Stripe from 'stripe';
+import { eq, and } from 'drizzle-orm';
+import { getDb } from '../../db/client';
+import { users, masterPlans, planPrices } from '../../db/schema';
+
+const jwtSecret   = process.env.JWT_SECRET!;
+const stripeSecret = process.env.STRIPE_SECRET_KEY!;
+if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
+const baseUrl = process.env.BASE_URL;
+
+const stripe = new Stripe(stripeSecret, { apiVersion: '2026-05-27.dahlia' });
+
+const SUPPORTED_CURRENCIES = ['GBP', 'USD', 'EUR', 'AUD', 'CAD'];
+
+export const handler: Handler = async (event) => {
+    if (event.httpMethod !== 'POST') {
+        return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+    }
+
+    // Auth
+    const cookieHeader = event.headers.cookie || '';
+    const sessionToken = cookieHeader.match(/aura_session=([^;]+)/)?.[1];
+    if (!sessionToken) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
+
+    let currentUserId: number;
+    try {
+        currentUserId = (jwt.verify(sessionToken, jwtSecret) as { userId: number }).userId;
+    } catch {
+        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session' }) };
+    }
+
+    const body = JSON.parse(event.body || '{}');
+    const { planId, referralCode, currency: requestedCurrency } = body as {
+        planId: number;
+        referralCode?: string;
+        currency?: string;
+    };
+
+    if (!planId) return { statusCode: 400, body: JSON.stringify({ error: 'planId is required' }) };
+
+    const db = getDb();
+    const currency = SUPPORTED_CURRENCIES.includes((requestedCurrency ?? '').toUpperCase())
+        ? (requestedCurrency!).toUpperCase()
+        : 'GBP';
+
+    // Load user
+    const [user] = await db.select({ id: users.id, email: users.email, organisationId: users.organisationId, role: users.role })
+        .from(users).where(eq(users.id, currentUserId)).limit(1);
+    if (!user || !user.email) return { statusCode: 403, body: JSON.stringify({ error: 'User not found' }) };
+
+    // AC18: gate does not apply to admins
+    if (user.role === 'admin' || user.role === 'super_admin') {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Plan gate does not apply to admin accounts' }) };
+    }
+
+    // Load master plan
+    const [plan] = await db.select().from(masterPlans)
+        .where(and(eq(masterPlans.id, planId), eq(masterPlans.isActive, true))).limit(1);
+    if (!plan) return { statusCode: 400, body: JSON.stringify({ error: 'Plan not found or inactive' }) };
+
+    // Resolve currency pricing
+    const [planPrice] = await db.select().from(planPrices)
+        .where(and(eq(planPrices.masterPlanId, plan.id), eq(planPrices.currency, currency), eq(planPrices.isActive, true)))
+        .limit(1);
+
+    const priceAmount  = planPrice ? Number(planPrice.monthlyPriceMajorUnit) : Number(plan.monthlyPriceGbp);
+    const priceCurrency = (planPrice ? currency : 'GBP').toLowerCase();
+    const stripePriceId = planPrice?.stripePriceId ?? null;
+
+    // Build Stripe line item
+    const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = stripePriceId
+        ? { price: stripePriceId, quantity: 1 }
+        : {
+            quantity: 1,
+            price_data: {
+                currency: priceCurrency,
+                product_data: { name: `Aura-Assist ${plan.name}` },
+                unit_amount: Math.round(priceAmount * 100),
+                recurring: { interval: 'month' },
+            },
+        };
+
+    // Build Stripe Checkout Session
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
+        mode: 'subscription',
+        line_items: [lineItem],
+        customer_email: user.email,
+        success_url: `${baseUrl}/workspace.html?plan_activated=true`,
+        cancel_url: `${baseUrl}/workspace.html?plan_cancelled=true`,
+        metadata: {
+            userId: String(user.id),
+            organisationId: String(user.organisationId ?? ''),
+            masterPlanId: String(plan.id),
+            planName: plan.name,
+            ...(referralCode ? { referralCode } : {}),
+        },
+        subscription_data: {
+            metadata: {
+                userId: String(user.id),
+                masterPlanId: String(plan.id),
+                ...(referralCode ? { referralCode } : {}),
+            },
+        },
+    };
+
+    // Apply referral discount coupon if present and a matching Stripe coupon exists
+    if (referralCode) {
+        try {
+            await stripe.coupons.retrieve(referralCode);
+            sessionParams.discounts = [{ coupon: referralCode }];
+        } catch {
+            // No matching coupon — proceed without discount
+        }
+    }
+
+    try {
+        const session = await stripe.checkout.sessions.create(sessionParams);
+        return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: session.url }),
+        };
+    } catch (err: any) {
+        console.error('[create-plan-checkout-intent]', err);
+        return { statusCode: 500, body: JSON.stringify({ error: 'Failed to create checkout session' }) };
+    }
+};

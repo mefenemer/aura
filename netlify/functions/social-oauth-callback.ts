@@ -95,7 +95,7 @@ export const handler: Handler = async (event) => {
             body: JSON.stringify({ organisationId, platform: 'linkedin' }),
         }).catch(() => {});
 
-        return { statusCode: 302, headers: { Location: `/workspace.html?oauth_success=connected&platform=linkedin` }, body: '' };
+        return { statusCode: 302, headers: { Location: `/workspace.html?oauth_success=linkedin` }, body: '' };
     }
 
     // ── X (Twitter) ───────────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ export const handler: Handler = async (event) => {
         await db.insert(notifications).values({ userId, type: 'x_connected', title: existing ? 'X reconnected' : 'X connected', message: 'X (Twitter) connected successfully. Your assistant can now post on your behalf.' });
         await db.insert(auditLogs).values({ actionType: existing ? 'x_reconnected' : 'x_connected', resourceType: 'system_connections', resourceId: xUserId, newState: { organisationId, username: xUsername } });
 
-        return { statusCode: 302, headers: { Location: `/workspace.html?oauth_success=connected&platform=x` }, body: '' };
+        return { statusCode: 302, headers: { Location: `/workspace.html?oauth_success=x` }, body: '' };
     }
 
     return { statusCode: 400, body: 'Unknown platform' };

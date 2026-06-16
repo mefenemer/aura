@@ -82,7 +82,11 @@ export default async (request: Request, context: Context) => {
         const sessionCookie = context.cookies.get("aura_session");
         if (!sessionCookie) {
             console.log(`[auth-guard] Blocked unauthorized access to ${url.pathname}`);
-            return Response.redirect(new URL('/login.html', request.url));
+            // US-ONB-2.1.2 AC9: preserve current URL as post-login redirect destination
+            const loginUrl = new URL('/login.html', request.url);
+            const fullPath = url.pathname + url.search;
+            if (fullPath !== '/workspace.html') loginUrl.searchParams.set('redirect', fullPath);
+            return Response.redirect(loginUrl);
         }
 
         // BUG-P0-1: Verify JWT signature — forged tokens are rejected here before any claim is trusted
@@ -93,7 +97,10 @@ export default async (request: Request, context: Context) => {
         } catch {
             // Invalid signature or expired token — redirect to login
             console.log(`[auth-guard] Rejected invalid/forged JWT for ${url.pathname}`);
-            return Response.redirect(new URL('/login.html', request.url));
+            const loginUrl = new URL('/login.html', request.url);
+            const fullPath = url.pathname + url.search;
+            if (fullPath !== '/workspace.html') loginUrl.searchParams.set('redirect', fullPath);
+            return Response.redirect(loginUrl);
         }
 
         // US-ADM-1.3.2: Check JWT blocklist — reject erased/revoked user sessions immediately

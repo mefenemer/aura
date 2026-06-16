@@ -409,8 +409,8 @@ async function submitTosAcceptance(btn) {
 </div>
 
 <!-- US-ONB-2.1.1: Plan selection gate — non-dismissible, shows live plan cards from DB (AC5–AC18) -->
-<div id="plan-gate-modal" class="hidden fixed inset-0 z-[9998] bg-gray-950/90 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8">
+<div id="plan-gate-modal" class="hidden fixed inset-0 z-[9998] bg-gray-950/90 backdrop-blur-sm flex items-center justify-center p-4" style="padding-top:max(1rem,env(safe-area-inset-top));padding-bottom:max(1rem,env(safe-area-inset-bottom))">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-y-auto" style="max-height:calc(100vh - 2rem)">
     <div class="p-8 pb-4 text-center border-b border-gray-100">
       <!-- AC10: referral discount banner -->
       <div id="plan-gate-referral-banner" class="hidden mb-4 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-semibold text-emerald-800">
@@ -424,9 +424,6 @@ async function submitTosAcceptance(btn) {
       <div class="col-span-full text-center py-8 text-gray-400 text-sm animate-pulse">Loading plans…</div>
     </div>
     <div class="px-8 pb-6 text-center border-t border-gray-100 pt-4">
-      <button id="plan-gate-cancel-btn" class="text-sm text-gray-400 hover:text-gray-600 transition">
-        Maybe later
-      </button>
       <div id="plan-gate-polling" class="hidden mt-3 text-sm text-emerald-700 animate-pulse">Checking your subscription…</div>
     </div>
   </div>
@@ -1816,7 +1813,7 @@ function formatCurrency(amount, currency) {
               try {
                 const body = { planId: btn.dataset.planId };
                 if (referralCode) body.referralCode = referralCode;
-                const r = await fetch('/.netlify/functions/create-checkout-intent', {
+                const r = await fetch('/.netlify/functions/create-plan-checkout-intent', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(body),
@@ -1862,14 +1859,7 @@ function formatCurrency(amount, currency) {
         showGate(null);
       }
 
-      // Cancel — non-blocking toast (AC13)
-      cancelBtn?.addEventListener('click', () => {
-        gateModal.classList.add('hidden');
-        applyGateBlur(false);
-        const t = document.getElementById('oauth-error-toast');
-        const tm = document.getElementById('oauth-error-toast-msg');
-        if (t && tm) { tm.textContent = "No problem — choose a plan whenever you're ready."; t.classList.remove('hidden','opacity-0'); t.classList.add('flex'); setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 4000); }
-      });
+      // AC6: gate is non-dismissible — no cancel handler
 
       // AC12: ?plan_activated=true — poll for confirmed subscription
       if (qs.get('plan_activated') === 'true') {
@@ -1939,6 +1929,39 @@ function formatCurrency(amount, currency) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event: 'oauth_error', error: errorParam, path: window.location.pathname }),
       }).catch(() => {/* non-blocking */});
+    })();
+
+    // US-SMM-4.1.1: oauth_success toast — shown after successful social platform OAuth
+    (function handleOAuthSuccess() {
+      const platform = qs.get('oauth_success');
+      if (!platform) return;
+      const url = new URL(window.location.href);
+      url.searchParams.delete('oauth_success');
+      history.replaceState(null, '', url.toString());
+      const LABELS = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X (Twitter)' };
+      const label = LABELS[platform] || platform;
+      const toast = document.getElementById('oauth-error-toast');
+      const msgEl = document.getElementById('oauth-error-toast-msg');
+      if (!toast || !msgEl) return;
+      msgEl.textContent = `${label} connected successfully. Head to Connections to manage your account.`;
+      toast.classList.remove('hidden', 'opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => { toast.classList.remove('opacity-100'); toast.classList.add('opacity-0'); setTimeout(() => toast.classList.add('hidden'), 500); }, 6000);
+    })();
+
+    // US-ONB-2.1.1 AC13: plan_cancelled toast — user returned from Stripe without paying
+    (function handlePlanCancelled() {
+      if (qs.get('plan_cancelled') !== 'true') return;
+      const url = new URL(window.location.href);
+      url.searchParams.delete('plan_cancelled');
+      history.replaceState(null, '', url.toString());
+      const toast = document.getElementById('oauth-error-toast');
+      const msgEl = document.getElementById('oauth-error-toast-msg');
+      if (!toast || !msgEl) return;
+      msgEl.textContent = "No problem — choose a plan whenever you're ready.";
+      toast.classList.remove('hidden', 'opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => { toast.classList.remove('opacity-100'); toast.classList.add('opacity-0'); setTimeout(() => toast.classList.add('hidden'), 500); }, 5000);
     })();
 
     // Show saved-draft toast if returning from "Save & Continue Later"

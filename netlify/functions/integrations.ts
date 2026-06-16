@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { systemConnections, scheduledPosts, notifications, users, userOrganisations } from '../../db/schema';
+import { systemConnections, scheduledPosts, notifications, users, userOrganisations, auditLogs } from '../../db/schema';
 import { storeSecret, deleteSecret, buildRefKey } from '../../src/utils/vault';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -227,29 +227,41 @@ export const handler: Handler = async (event) => {
                 await deleteSecret(db, conn.vaultRefKey).catch(() => {});
             }
 
-            // Pause scheduled posts linked to this connection (Instagram)
-            let pausedCount = 0;
-            if (conn?.serviceName === 'instagram') {
+            // Cancel scheduled posts linked to this connection (AC1.2.2)
+            let cancelledCount = 0;
+            const svcForPost = conn?.serviceName?.toLowerCase() ?? '';
+            if (svcForPost === 'instagram' || svcForPost === 'facebook' || svcForPost === 'linkedin' || svcForPost === 'x') {
                 const result = await db.update(scheduledPosts)
-                    .set({ status: 'paused', updatedAt: new Date() })
+                    .set({ status: 'cancelled', cancelledAt: new Date(), rejectionReason: 'oauth_revoked', updatedAt: new Date() })
                     .where(and(
                         eq(scheduledPosts.connectionId, connIdInt),
                         eq(scheduledPosts.status, 'scheduled'),
                     ));
-                pausedCount = (result as unknown as { rowCount: number })?.rowCount ?? 0;
-
-                if (pausedCount > 0) {
-                    await db.insert(notifications).values({
-                        userId: currentUserId,
-                        type: 'instagram_disconnected',
-                        title: 'Instagram disconnected',
-                        message: `${pausedCount} scheduled post${pausedCount !== 1 ? 's have' : ' has'} been paused. Reconnect your Instagram account to resume publishing.`,
-                        metadata: { connectionId: connIdInt, pausedCount },
-                    });
-                }
+                cancelledCount = (result as unknown as { rowCount: number })?.rowCount ?? 0;
             }
 
-            return { statusCode: 200, body: JSON.stringify({ success: true, pausedCount }) };
+            // Notification for all social platforms
+            const platformLabel: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X (Twitter)' };
+            const label = platformLabel[svcForPost] ?? conn?.serviceName ?? 'Platform';
+            await db.insert(notifications).values({
+                userId: currentUserId,
+                type: 'social_oauth_revoked',
+                title: `${label} disconnected`,
+                message: cancelledCount > 0
+                    ? `${label} disconnected. ${cancelledCount} scheduled post${cancelledCount !== 1 ? 's have' : ' has'} been cancelled. Reconnect to resume publishing.`
+                    : `${label} disconnected successfully.`,
+                metadata: { connectionId: connIdInt, platform: svcForPost, cancelledCount },
+            });
+
+            // Audit log (AC1.2.2)
+            await db.insert(auditLogs).values({
+                actionType: 'social_oauth_revoked',
+                resourceType: 'system_connections',
+                resourceId: String(connIdInt),
+                newState: { userId: currentUserId, orgId: conn?.organisationId, platform: svcForPost, disconnectedAt: new Date().toISOString() },
+            });
+
+            return { statusCode: 200, body: JSON.stringify({ success: true, cancelledCount }) };
         }
 
         return { statusCode: 405, body: 'Method Not Allowed' };

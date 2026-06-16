@@ -1,7 +1,7 @@
 // src/utils/attribution.ts
 // US-AUD-5.3.1 SC2: Append "Powered by Aura-Assist" footer to exported deliverables.
 
-const BASE_URL = process.env.URL || 'https://aura-assist.com';
+const BASE_URL = process.env.BASE_URL || 'https://aura-assist.com';
 
 /**
  * Returns the attribution footer text for plain-text / markdown exports.

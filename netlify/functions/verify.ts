@@ -45,6 +45,8 @@ export const handler: Handler = async (event) => {
         const stripe = new Stripe(stripeSecret, { apiVersion: '2026-05-27.dahlia' });
         const body = JSON.parse(event.body || '{}');
         const { token: plainToken, priceId } = body;
+        // US-ONB-2.1.2 AC9: safe relative post-login redirect (must start with / to prevent open redirect)
+        const postLoginRedirect: string | undefined = typeof body.redirect === 'string' && body.redirect.startsWith('/') && !body.redirect.startsWith('//') ? body.redirect : undefined;
 
         if (!plainToken) {
             return {
@@ -258,11 +260,11 @@ export const handler: Handler = async (event) => {
                     }
                 }
 
-                // Active plan + assistants → straight to workspace
+                // Active plan + assistants → straight to workspace (honour post-login redirect if present)
                 return {
                     statusCode: 200,
                     headers: getHeaders(sessionCookie),
-                    body: JSON.stringify({ success: true, redirect: `${baseUrl}/workspace.html` })
+                    body: JSON.stringify({ success: true, redirect: postLoginRedirect ? `${baseUrl}${postLoginRedirect}` : `${baseUrl}/workspace.html` })
                 };
             }
 
@@ -274,15 +276,15 @@ export const handler: Handler = async (event) => {
                 return {
                     statusCode: 200,
                     headers: getHeaders(sessionCookie),
-                    body: JSON.stringify({ success: true, redirect: `${baseUrl}/workspace.html${suffix}` })
+                    body: JSON.stringify({ success: true, redirect: postLoginRedirect ? `${baseUrl}${postLoginRedirect}` : `${baseUrl}/workspace.html${suffix}` })
                 };
             }
 
-            // Case 6: No plan, no assistants → pricing page
+            // Case 6: No plan, no assistants → honour post-login redirect if set (e.g. action=select-plan), else pricing
             return {
                 statusCode: 200,
                 headers: getHeaders(sessionCookie),
-                body: JSON.stringify({ success: true, redirect: `${baseUrl}/pricing.html?verified=true` })
+                body: JSON.stringify({ success: true, redirect: postLoginRedirect ? `${baseUrl}${postLoginRedirect}` : `${baseUrl}/pricing.html?verified=true` })
             };
         }
 

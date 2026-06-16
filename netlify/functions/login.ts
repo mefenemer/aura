@@ -27,6 +27,8 @@ export const handler: Handler = async (event) => {
 
             const body = JSON.parse(event.body || '{}');
             const email = body.email?.trim().toLowerCase();
+            // US-ONB-2.1.2 AC9: post-login redirect destination (e.g. /workspace.html?action=select-plan)
+            const postLoginRedirect: string | undefined = typeof body.redirect === 'string' && body.redirect.startsWith('/') ? body.redirect : undefined;
 
             if (!email) return { statusCode: 400, body: JSON.stringify({ error: 'Email is required.' }) };
 
@@ -75,7 +77,7 @@ export const handler: Handler = async (event) => {
                 // BUG-P1-3: Use BASE_URL env var — never trust the Host header for URL construction
                 if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
                 const baseUrl = process.env.BASE_URL;
-                const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}`;
+                const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}${postLoginRedirect ? `&redirect=${encodeURIComponent(postLoginRedirect)}` : ''}`;
 
                 // US-I18N-1.2 SC4: use user's preferred language for email subject/greeting
                 const [profile] = await db.select({ language: userProfiles.language })

@@ -45,7 +45,8 @@ export const handler: Handler = async (event) => {
     if (platform === 'linkedin') {
         const clientId = process.env.LINKEDIN_CLIENT_ID;
         if (!clientId) return { statusCode: 500, body: 'LinkedIn OAuth not configured' };
-        const scopes = 'r_liteprofile,r_emailaddress,w_member_social,r_organization_social,w_organization_social';
+        // AC1.1.3: minimum required scopes only
+        const scopes = 'r_organization_social,w_organization_social,r_basicprofile';
         authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUri)}&scope=${encodeURIComponent(scopes)}&state=${state}`;
     } else {
         // X OAuth 2.0 with PKCE

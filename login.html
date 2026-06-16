@@ -67,7 +67,7 @@
       const response = await fetch('/.netlify/functions/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email, redirect: new URLSearchParams(window.location.search).get('redirect') || undefined })
       });
 
       // Regardless of actual DB success/fail, show the success UI

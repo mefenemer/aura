@@ -36,6 +36,8 @@
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     const priceId = urlParams.get('priceId');
+    // US-ONB-2.1.2 AC9: post-login redirect preserved through magic-link URL
+    const redirect = urlParams.get('redirect');
 
     const loadingState = document.getElementById('loading-state');
     const errorMessage = document.getElementById('error-message');
@@ -54,7 +56,8 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token: token,
-          priceId: priceId // Read from URL param — survives email client cross-tab navigation
+          priceId: priceId, // Read from URL param — survives email client cross-tab navigation
+          redirect: redirect || undefined, // US-ONB-2.1.2 AC9: post-login redirect destination
         })
       });
 

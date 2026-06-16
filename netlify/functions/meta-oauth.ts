@@ -219,7 +219,7 @@ export const handler: Handler = async (event) => {
 
         return {
             statusCode: 302,
-            headers: { Location: `/workspace.html?meta_success=${isReconnect ? 'reconnected' : 'connected'}` },
+            headers: { Location: `/workspace.html?oauth_success=instagram` },
             body: '',
         };
     }

@@ -98,12 +98,12 @@ export const handler: Handler = async (event) => {
         let referredBy: { displayName: string; joinedAt: string; referralBonusApplied: boolean } | null = null;
         if (referralRecord) {
             const [referrer] = await db
-                .select({ firstName: users.firstName, lastName: users.lastName, pendingDeletion: users.pendingDeletion })
+                .select({ firstName: users.firstName, lastName: users.lastName, deletedAt: users.deletedAt })
                 .from(users)
                 .where(eq(users.id, referralRecord.referrerId))
                 .limit(1);
-            // AC15: treat pending-deleted referrers the same as deleted — hide referrer section
-            if (referrer && !referrer.pendingDeletion) {
+            // AC3/AC15: hide referrer if their account has been soft-deleted (deletedAt IS NOT NULL)
+            if (referrer && !referrer.deletedAt) {
                 const name = [referrer.firstName, referrer.lastName].filter(Boolean).join(' ') || 'An Aura-Assist member';
                 referredBy = {
                     displayName: name,
