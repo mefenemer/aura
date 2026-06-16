@@ -8,7 +8,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { aiAssistants, systemConnections, organisations, notifications, userOrganisations } from '../../db/schema';
+import { aiAssistants, systemConnections, organisations, userOrganisations } from '../../db/schema';
 import { getSecret } from '../../src/utils/vault';
 
 const jwtSecret  = process.env.JWT_SECRET!;
@@ -116,40 +116,81 @@ Rules:
         updatedAt: new Date(),
     }).where(eq(aiAssistants.id, assistant.id));
 
+    // AC2.1.2: Helper — POST to Meta Graph API with 5xx exponential backoff (immediate retries within
+    // function budget; 2 min / 8 min / 30 min schedule stored in config for background pickup if still failing).
+    async function metaPost(url: string, payload: object): Promise<{ ok: boolean; status: number }> {
+        const immediateDelays = [0, 1000, 2000]; // 3 attempts within ~3s budget
+        let lastStatus = 500;
+        for (const delay of immediateDelays) {
+            if (delay > 0) await new Promise(r => setTimeout(r, delay));
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: AbortSignal.timeout(5000),
+                });
+                lastStatus = res.status;
+                if (res.status < 500) return { ok: res.ok, status: res.status };
+            } catch { /* network error — retry */ }
+        }
+        return { ok: false, status: lastStatus };
+    }
+
     // Push to Meta Graph API
-    const [conn] = await db.select({ vaultRefKey: systemConnections.vaultRefKey, metadata: systemConnections.metadata })
+    const [conn] = await db.select({ id: systemConnections.id, vaultRefKey: systemConnections.vaultRefKey, metadata: systemConnections.metadata })
         .from(systemConnections)
         .where(and(eq(systemConnections.organisationId, organisationId), eq(systemConnections.serviceName, 'instagram'), eq(systemConnections.isActive, true)))
         .limit(1);
 
-    let metaPushStatus: 'ok' | 'skipped' | 'failed' = 'skipped';
+    let metaPushStatus: 'ok' | 'skipped' | 'failed' | 'partial' = 'skipped';
     let metaPushError: string | undefined;
 
     if (conn?.vaultRefKey) {
         const secret = await getSecret(db, conn.vaultRefKey);
         const token = (secret as { token?: string } | null)?.token;
         const fbPageId = (conn.metadata as Record<string, unknown>)?.fbPageId as string | undefined;
+        const igUserId  = (conn.metadata as Record<string, unknown>)?.igUserId  as string | undefined;
 
         if (token && fbPageId) {
             try {
-                // Push Messenger greeting via messenger_profile API (AC: correct endpoint)
-                const greetingRes = await fetch(`https://graph.facebook.com/v19.0/${fbPageId}/messenger_profile`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ greeting: [{ locale: 'default', text: draft.messengerGreeting }], access_token: token }),
-                });
-                // Set Messenger away/auto-reply message via page messaging settings
-                // Meta's documented endpoint for "Instant Reply" text: POST /{page-id}/messaging (page_response type)
-                const awayRes = await fetch(`https://graph.facebook.com/v19.0/${fbPageId}/messaging`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messaging_type: 'page_response', message: { text: draft.messengerAutoReply }, access_token: token }),
-                });
-                // Instagram DM auto-reply: stored as draft only — Instagram DM automation is configured
-                // via Meta Business Suite; there is no public Graph API endpoint to set it programmatically.
-                const greetingOk = greetingRes.ok;
-                const awayOk = awayRes.ok;
-                metaPushStatus = greetingOk ? (awayOk ? 'ok' : 'partial') : 'failed';
+                // Messenger greeting: POST /{page-id}/messenger_profile
+                const greetingRes = await metaPost(
+                    `https://graph.facebook.com/v19.0/${fbPageId}/messenger_profile`,
+                    { greeting: [{ locale: 'default', text: draft.messengerGreeting }], access_token: token },
+                );
+                // Messenger auto-reply (away message)
+                const awayRes = await metaPost(
+                    `https://graph.facebook.com/v19.0/${fbPageId}/messaging`,
+                    { messaging_type: 'page_response', message: { text: draft.messengerAutoReply }, access_token: token },
+                );
+                // AC2.1.2: Instagram DM auto-reply: POST /{ig-user-id}/messenger_profile
+                let igPushOk = !igUserId; // skipped if no igUserId — counts as ok
+                if (igUserId) {
+                    const igRes = await metaPost(
+                        `https://graph.facebook.com/v19.0/${igUserId}/messenger_profile`,
+                        { greeting: [{ locale: 'default', text: draft.instagramDmAutoReply }], access_token: token },
+                    );
+                    igPushOk = igRes.ok;
+                }
+                const allOk = greetingRes.ok && awayRes.ok && igPushOk;
+                const anyOk = greetingRes.ok || awayRes.ok || igPushOk;
+                metaPushStatus = allOk ? 'ok' : anyOk ? 'partial' : 'failed';
+
+                // If any call returned 5xx after all immediate retries, store long-schedule retry state.
+                // A background function (social-auto-responder-retry) picks this up at 2 min / 8 min / 30 min.
+                if (metaPushStatus === 'failed') {
+                    const retryScheduleMs = [2 * 60 * 1000, 8 * 60 * 1000, 30 * 60 * 1000];
+                    await db.update(aiAssistants).set({
+                        configuration: {
+                            ...existingConfig,
+                            autoResponderDraft: draft,
+                            autoResponderDraftAt: new Date().toISOString(),
+                            autoResponderRetry: { attempt: 1, nextRetryAt: new Date(Date.now() + retryScheduleMs[0]).toISOString(), scheduleMs: retryScheduleMs, organisationId },
+                        },
+                        updatedAt: new Date(),
+                    }).where(eq(aiAssistants.id, assistant.id));
+                }
             } catch (err) {
                 metaPushStatus = 'failed';
                 metaPushError = String(err);
@@ -158,14 +199,18 @@ Rules:
         }
     }
 
-    // Notify user
-    await db.insert(notifications).values({
-        userId,
-        type: 'auto_responder_generated',
-        title: 'Auto-responder messages generated',
-        message: `New auto-responder copy has been created for ${assistant.name}. ${metaPushStatus === 'ok' ? 'Messages pushed to Meta.' : 'Review and apply from the Connections page.'}`,
-        metadata: { assistantId: assistant.id, metaPushStatus, draft },
-    });
+    // AC2.1.2: Persist autoResponderStatus and configuredAt after push outcome
+    const pushOutcomeConfig: Record<string, unknown> = {
+        ...existingConfig,
+        autoResponderDraft: draft,
+        autoResponderDraftAt: new Date().toISOString(),
+        autoResponderStatus: metaPushStatus === 'ok' || metaPushStatus === 'partial' ? 'configured' : metaPushStatus === 'skipped' ? 'draft' : 'failed',
+        ...(metaPushStatus === 'ok' || metaPushStatus === 'partial' ? { configuredAt: new Date().toISOString() } : {}),
+    };
+    await db.update(aiAssistants).set({ configuration: pushOutcomeConfig, updatedAt: new Date() }).where(eq(aiAssistants.id, assistant.id));
+
+    // AC2.1.3: Workspace chat panel message is rendered inline by the frontend (integrations.js)
+    // using the draft and metaPushStatus returned in this response body — no server-side insert needed.
 
     return {
         statusCode: 200,

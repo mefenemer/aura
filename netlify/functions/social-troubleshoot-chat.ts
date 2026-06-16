@@ -44,18 +44,22 @@ export const handler: Handler = async (event) => {
         userId = (jwt.verify(sessionToken, jwtSecret) as { userId: number }).userId;
     } catch { return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session' }) }; }
 
-    let body: { platform?: string; checkId?: string; checkLabel?: string; checkDetail?: string };
+    let body: { platform?: string; checkId?: string; checkLabel?: string; checkDetail?: string; checks?: Array<{ checkId: string; checkLabel?: string; checkDetail?: string }> };
     try { body = JSON.parse(event.body || '{}'); } catch {
         return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON' }) };
     }
 
-    const { platform, checkId, checkLabel, checkDetail } = body;
-    if (!platform || !checkId) {
-        return { statusCode: 400, body: JSON.stringify({ error: 'platform and checkId required' }) };
+    const { platform, checks } = body;
+    // Support single-check (checkId) and grouped multi-check (checks[]) modes
+    const singleCheckId = body.checkId;
+    const isGrouped = Array.isArray(checks) && checks.length > 0;
+    if (!platform || (!singleCheckId && !isGrouped)) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'platform and checkId (or checks[]) required' }) };
     }
 
-    // AC: 10-attempt rate limit per user per platform per 24h
-    const rateLimitKey = `${userId}:${platform}`;
+    // AC3.2.3: Rate limit is per user per CHECK (not per platform) — each check gets its own 10/24h budget
+    const rateLimitCheckId = isGrouped ? `grouped:${platform}` : singleCheckId!;
+    const rateLimitKey = `${userId}:${rateLimitCheckId}`;
     const { allowed, remaining } = checkRateLimit(rateLimitKey);
     if (!allowed) {
         return {
@@ -70,11 +74,28 @@ export const handler: Handler = async (event) => {
     };
     const platformLabel = platformLabels[platform.toLowerCase()] ?? platform;
 
-    const prompt = `You are a friendly social media setup assistant helping a small business owner troubleshoot their ${platformLabel} integration.
+    // AC3.2.1: Group multiple failures into a single coherent message
+    let prompt: string;
+    if (isGrouped) {
+        const checkList = checks!.map(c => `- ${c.checkId}: ${c.checkLabel ?? 'Unknown'} — ${c.checkDetail ?? 'No detail'}`).join('\n');
+        prompt = `You are a friendly social media setup assistant helping a small business owner troubleshoot their ${platformLabel} integration.
+
+The following pre-flight configuration checks have failed:
+${checkList}
+
+Write a short, conversational, encouraging message (3–4 sentences max) that:
+1. Acknowledges what was being set up
+2. Groups the issues together in plain English without technical jargon — do not list them individually
+3. Gives the single most important next step they should take right now
+4. Ends on an encouraging note
+
+Do not mention check IDs. Do not use bullet points. Write naturally as if you're a helpful colleague explaining the situation.`;
+    } else {
+        prompt = `You are a friendly social media setup assistant helping a small business owner troubleshoot their ${platformLabel} integration.
 
 The following pre-flight configuration check has failed:
-Check: ${checkId} — ${checkLabel ?? 'Unknown check'}
-Reason: ${checkDetail ?? 'No detail provided.'}
+Check: ${singleCheckId} — ${body.checkLabel ?? 'Unknown check'}
+Reason: ${body.checkDetail ?? 'No detail provided.'}
 
 Write a short, conversational, encouraging message (2–3 sentences max) that:
 1. Acknowledges the specific issue without being technical or alarming
@@ -82,6 +103,7 @@ Write a short, conversational, encouraging message (2–3 sentences max) that:
 3. Ends on an encouraging note
 
 Do not mention check IDs. Do not use bullet points. Write naturally as if you're a helpful colleague talking them through it.`;
+    }
 
     try {
         const response = await anthropic.messages.create({

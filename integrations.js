@@ -185,6 +185,8 @@ function _platformCard(platform, conn) {
     const failedChecks = preflightChecks.filter(c => c.status === 'fail');
     let troubleshootingHtml = '';
     if (isConnected && failedChecks.length > 0) {
+        // AC3.2.1: grouped LLM message shown above all failed cards (loaded async after render)
+        const groupedMsgId = `trouble-grouped-${conn?.id}`;
         const cards = failedChecks.map(chk => `
             <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col gap-2" id="trouble-card-${conn?.id}-${chk.id}">
                 <p class="text-xs font-bold text-amber-800">${chk.id}: ${chk.label}</p>
@@ -196,7 +198,12 @@ function _platformCard(platform, conn) {
                     <span id="verify-spin-${conn?.id}-${chk.id}" class="hidden text-xs text-gray-400">Checking…</span>
                 </div>
             </div>`).join('');
-        troubleshootingHtml = `<div class="flex flex-col gap-2 pt-3 border-t border-amber-100">${cards}</div>`;
+        troubleshootingHtml = `<div class="flex flex-col gap-2 pt-3 border-t border-amber-100">
+            <p class="text-xs text-amber-700 italic" id="${groupedMsgId}">Reviewing configuration issues…</p>
+            ${cards}
+        </div>`;
+        // AC3.2.1: fetch one grouped LLM message covering all failed checks (async, after DOM renders)
+        setTimeout(() => window._intLoadGroupedTroubleshoot(conn?.id, platform.id.toLowerCase(), failedChecks), 50);
     }
 
     // US-SMM-4.2.2 / 4.2.1: Sync Profile and Generate Auto-Responder for Meta/LinkedIn
@@ -238,21 +245,47 @@ function _platformCard(platform, conn) {
         </div>`;
 }
 
+// ── US-SMM-4.3.2: Load grouped LLM message for all failed checks (AC3.2.1) ──
+// Called once per connection when failed checks are present — generates a single combined message.
+window._intLoadGroupedTroubleshoot = async function (connId, platform, failedChecks) {
+    const msgEl = document.getElementById(`trouble-grouped-${connId}`);
+    if (!msgEl || !failedChecks?.length) return;
+    try {
+        const res = await fetch('/.netlify/functions/social-troubleshoot-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                platform,
+                checks: failedChecks.map(c => ({ checkId: c.id, checkLabel: c.label, checkDetail: c.detail })),
+            }),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.message) msgEl.textContent = data.message;
+            else if (data.rateLimited) msgEl.textContent = 'Daily check limit reached — try again tomorrow.';
+        } else {
+            msgEl.classList.add('hidden');
+        }
+    } catch {
+        msgEl.classList.add('hidden');
+    }
+};
+
 // ── US-SMM-4.3.2: Verify a single pre-flight check ───────────────
-// AC: 10 re-check attempts per platform per 24h (server-side) + client-side guard via localStorage
+// AC3.2.3: 10 re-check attempts per USER per CHECK per 24h (not per-platform)
 window._intVerifyCheck = async function (connId, platform, checkId, checkLabel, checkDetail) {
     const spinEl = document.getElementById(`verify-spin-${connId}-${checkId}`);
     const btnEl  = document.getElementById(`verify-btn-${connId}-${checkId}`);
     const chatEl = document.getElementById(`trouble-chat-${connId}-${checkId}`);
     if (!btnEl) return;
 
-    // Client-side rate limit guard (mirrors server-side; avoids wasting LLM calls)
-    const rlKey = `smc_rl_${platform}`;
+    // AC3.2.3: Client-side rate limit is per-check (mirrors server-side key `userId:checkId`)
+    const rlKey = `smc_rl_${checkId}`;
     const now = Date.now();
     let rlData = JSON.parse(localStorage.getItem(rlKey) || '{"count":0,"windowStart":0}');
     if (now - rlData.windowStart > 86400000) rlData = { count: 0, windowStart: now };
     if (rlData.count >= 10) {
-        if (chatEl) { chatEl.textContent = 'You\'ve reached the daily re-check limit (10 per 24h). Please try again tomorrow.'; chatEl.classList.remove('hidden'); }
+        if (chatEl) { chatEl.textContent = 'You\'ve reached the daily re-check limit for this issue (10 per 24h). Please try again tomorrow.'; chatEl.classList.remove('hidden'); }
         return;
     }
     rlData.count++;
@@ -262,7 +295,7 @@ window._intVerifyCheck = async function (connId, platform, checkId, checkLabel, 
     if (spinEl) spinEl.classList.remove('hidden');
 
     try {
-        // Fetch LLM-generated contextual troubleshooting message
+        // Fetch LLM-generated contextual troubleshooting message for this specific check
         const chatRes = await fetch('/.netlify/functions/social-troubleshoot-chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -431,19 +464,148 @@ window._intSyncProfile = async function (platform) {
 
 // ── US-SMM-4.2.1: Generate Auto-Responder ────────────────────────
 window._intGenerateAutoResponder = async function () {
-    const feedback = document.getElementById('revoke-all-feedback');
-    if (feedback) { feedback.textContent = 'Generating auto-responder messages…'; feedback.classList.remove('hidden', 'text-red-700', 'text-emerald-700', 'text-amber-700'); feedback.classList.add('text-blue-700'); }
+    const panel = document.getElementById('auto-responder-chat-panel');
+    if (panel) {
+        panel.classList.remove('hidden');
+        panel.innerHTML = `<div class="flex items-center gap-3 p-5 border-b border-emerald-100">
+            <div class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 font-bold text-sm">AI</div>
+            <p class="text-sm text-gray-500 italic">Generating your auto-responder messages…</p>
+        </div>`;
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
     try {
         const res = await fetch('/.netlify/functions/social-auto-responder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
         const data = await res.json();
-        if (feedback) {
-            feedback.textContent = data.ok ? 'Auto-responder messages generated. Check your notifications.' : (data.error ?? 'Generation failed.');
-            feedback.classList.remove('text-blue-700');
-            feedback.classList.add(data.ok ? 'text-emerald-700' : 'text-red-700');
-            setTimeout(() => feedback.classList.add('hidden'), 5000);
+        if (data.ok && data.draft) {
+            _intRenderAutoResponderChatPanel(data.draft, data.metaPushStatus);
+        } else {
+            if (panel) {
+                panel.innerHTML = `<div class="p-5 flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0 text-red-600 font-bold text-sm">AI</div>
+                    <p class="text-sm text-red-700 mt-1">${data.error ?? 'Auto-responder generation failed. Please try again.'}</p>
+                </div>`;
+            }
         }
     } catch {
-        if (feedback) { feedback.textContent = 'Auto-responder generation failed. Please try again.'; feedback.classList.add('text-red-700'); }
+        if (panel) {
+            panel.innerHTML = `<div class="p-5 flex items-start gap-3">
+                <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0 text-red-600 font-bold text-sm">AI</div>
+                <p class="text-sm text-red-700 mt-1">Auto-responder generation failed. Please try again.</p>
+            </div>`;
+        }
+    }
+};
+
+// AC2.1.3: Render the workspace chat panel with generated scripts + Edit/Undo controls
+function _intRenderAutoResponderChatPanel(draft, metaPushStatus) {
+    const panel = document.getElementById('auto-responder-chat-panel');
+    if (!panel) return;
+    const statusMsg = (metaPushStatus === 'ok' || metaPushStatus === 'partial')
+        ? `I've successfully configured your Facebook Messenger auto-responder and Instagram welcome message. Here's the copy I used:`
+        : `I generated your auto-responder copy but wasn't able to push it to Meta automatically. Here's the copy I created — you can apply it manually from Meta Business Suite:`;
+    const statusColor = (metaPushStatus === 'ok') ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : (metaPushStatus === 'partial') ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-gray-600 bg-gray-50 border-gray-200';
+    const statusLabel = { ok: '✓ Pushed to Meta', partial: '⚠ Partially pushed', failed: '— Push failed', skipped: '— Not connected' }[metaPushStatus] ?? '';
+    const undoDeadline = Date.now() + 15 * 60 * 1000;
+
+    function scriptBlock(key, label, value) {
+        const esc = v => v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return `<div class="border border-gray-200 rounded-xl p-4 flex flex-col gap-2" id="ar-block-${key}">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">${label}</p>
+            <p class="text-sm text-gray-800" id="ar-text-${key}">${esc(value)}</p>
+            <textarea class="hidden w-full text-sm border border-emerald-300 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-300" id="ar-editor-${key}" rows="3">${esc(value)}</textarea>
+            <div class="flex gap-2 mt-1">
+                <button onclick="_intEditScript('${key}')" id="ar-edit-btn-${key}" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 cursor-pointer">Edit copy</button>
+                <button onclick="_intSaveScript('${key}')" id="ar-save-btn-${key}" class="hidden text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2 py-0.5 rounded cursor-pointer">Save &amp; push</button>
+                <button onclick="_intCancelEdit('${key}')" id="ar-cancel-btn-${key}" class="hidden text-xs font-bold text-gray-500 hover:text-gray-700 cursor-pointer">Cancel</button>
+            </div>
+        </div>`;
+    }
+
+    panel.innerHTML = `
+        <div class="flex items-start gap-3 p-5 border-b border-emerald-100">
+            <div class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 font-bold text-sm">AI</div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-gray-900">${statusMsg}</p>
+                ${statusLabel ? `<span class="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full border ${statusColor}">${statusLabel}</span>` : ''}
+            </div>
+        </div>
+        <div class="p-5 flex flex-col gap-3">
+            ${scriptBlock('messengerGreeting', 'Messenger Greeting (max 160 chars)', draft.messengerGreeting)}
+            ${scriptBlock('messengerAutoReply', 'Messenger Auto-Reply', draft.messengerAutoReply)}
+            ${scriptBlock('instagramDmAutoReply', 'Instagram DM Auto-Reply', draft.instagramDmAutoReply)}
+        </div>
+        <div class="px-5 pb-5 flex items-center justify-between gap-3">
+            <button onclick="_intUndoAutoResponder(${undoDeadline})" id="ar-undo-btn" class="text-xs font-bold text-gray-400 hover:text-red-600 cursor-pointer transition">Undo (revert within 15 min)</button>
+            <button onclick="document.getElementById('auto-responder-chat-panel').classList.add('hidden')" class="text-xs text-gray-400 hover:text-gray-600 cursor-pointer">Dismiss</button>
+        </div>`;
+
+    // Store current draft on panel for edit/save operations
+    panel._arDraft = draft;
+}
+
+window._intEditScript = function (key) {
+    document.getElementById(`ar-text-${key}`)?.classList.add('hidden');
+    document.getElementById(`ar-editor-${key}`)?.classList.remove('hidden');
+    document.getElementById(`ar-edit-btn-${key}`)?.classList.add('hidden');
+    document.getElementById(`ar-save-btn-${key}`)?.classList.remove('hidden');
+    document.getElementById(`ar-cancel-btn-${key}`)?.classList.remove('hidden');
+};
+
+window._intCancelEdit = function (key) {
+    document.getElementById(`ar-text-${key}`)?.classList.remove('hidden');
+    document.getElementById(`ar-editor-${key}`)?.classList.add('hidden');
+    document.getElementById(`ar-edit-btn-${key}`)?.classList.remove('hidden');
+    document.getElementById(`ar-save-btn-${key}`)?.classList.add('hidden');
+    document.getElementById(`ar-cancel-btn-${key}`)?.classList.add('hidden');
+};
+
+window._intSaveScript = async function (key) {
+    const panel = document.getElementById('auto-responder-chat-panel');
+    const editor = document.getElementById(`ar-editor-${key}`);
+    const textEl = document.getElementById(`ar-text-${key}`);
+    const saveBtn = document.getElementById(`ar-save-btn-${key}`);
+    if (!editor || !textEl || !panel?._arDraft) return;
+    const newVal = editor.value.trim();
+    if (!newVal) return;
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    // Update draft and re-push only the edited script
+    const updatedDraft = { ...panel._arDraft, [key]: newVal };
+    try {
+        const res = await fetch('/.netlify/functions/social-auto-responder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ editedDraft: updatedDraft }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            panel._arDraft = updatedDraft;
+            textEl.textContent = newVal;
+            window._intCancelEdit(key);
+        } else {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save & push'; }
+            alert(data.error ?? 'Failed to save. Please try again.');
+        }
+    } catch {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save & push'; }
+        alert('Network error. Please try again.');
+    }
+};
+
+window._intUndoAutoResponder = async function (deadline) {
+    if (Date.now() > deadline) { alert('The 15-minute undo window has passed.'); return; }
+    if (!confirm('This will clear your Messenger greeting and auto-reply from Meta. Continue?')) return;
+    const undoBtn = document.getElementById('ar-undo-btn');
+    if (undoBtn) { undoBtn.disabled = true; undoBtn.textContent = 'Reverting…'; }
+    try {
+        await fetch('/.netlify/functions/social-auto-responder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ undo: true }),
+        });
+        document.getElementById('auto-responder-chat-panel')?.classList.add('hidden');
+    } catch {
+        if (undoBtn) { undoBtn.disabled = false; undoBtn.textContent = 'Undo (revert within 15 min)'; }
+        alert('Undo failed. Please clear the messages manually in Meta Business Suite.');
     }
 };
 

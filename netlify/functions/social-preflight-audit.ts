@@ -5,11 +5,51 @@
 // Runs within 5s of OAuth callback (fire-and-forget), nightly schedule, and manual trigger.
 
 import { Handler } from '@netlify/functions';
+import Anthropic from '@anthropic-ai/sdk';
 import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { systemConnections } from '../../db/schema';
 import { getSecret } from '../../src/utils/vault';
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const HAIKU = 'claude-haiku-4-5-20251001';
+
+// Platform-specific execution constraints for LLM blueprint assembly
+const PLATFORM_CONSTRAINTS: Record<string, Record<string, unknown>> = {
+    instagram: {
+        postsPerDay: 25,
+        storiesPerDay: 100,
+        apiRateLimitPerHour: 200,
+        mediaTypes: ['image', 'video', 'carousel', 'reel'],
+        maxCaptionChars: 2200,
+        maxHashtags: 30,
+        bestPostingWindows: ['08:00-10:00', '12:00-14:00', '18:00-21:00'],
+        restrictions: ['No adult content', 'No misleading claims', 'Must disclose ads'],
+    },
+    facebook: {
+        postsPerDay: 5,
+        apiRateLimitPerHour: 200,
+        maxPostChars: 63206,
+        bestPostingWindows: ['09:00-11:00', '13:00-16:00'],
+        restrictions: ['Community Standards apply', 'No misleading claims'],
+    },
+    linkedin: {
+        postsPerDay: 1,
+        sharesPerDay: 100,
+        maxPostChars: 3000,
+        apiRateLimitPerDay: 100,
+        bestPostingWindows: ['08:00-10:00', '17:00-18:00'],
+        restrictions: ['Professional content only', 'No spam', 'Authentic engagement required'],
+    },
+    x: {
+        tweetsPerDay: 2400,
+        tweetsPerThreeHours: 300,
+        maxTweetChars: 280,
+        bestPostingWindows: ['08:00-10:00', '12:00-13:00', '17:00-19:00'],
+        restrictions: ['Rules of the Road apply', 'No duplicate content'],
+    },
+};
 
 const jwtSecret = process.env.JWT_SECRET!;
 
@@ -249,14 +289,45 @@ export const handler: Handler = async (event) => {
             lastRunAt: auditEntry.runAt,
             failingChecks: checks.filter(c => c.status === 'fail').map(c => c.label),
         };
+        // AC3.1.3: Build executionConstraints for LLM blueprint assembly
+        const platformKey = (platform === 'instagram' || platform === 'facebook') ? platform : platform;
+        const rawConstraints = PLATFORM_CONSTRAINTS[platformKey] ?? {};
+        const failingChecks = checks.filter(c => c.status === 'fail');
+        const constraintsInput = {
+            platform,
+            preflightStatus,
+            constraints: rawConstraints,
+            blockers: failingChecks.map(c => ({ id: c.id, label: c.label, detail: c.detail })),
+        };
+
+        // Call Anthropic to format executionConstraints as LLM-ready narrative
+        let executionConstraints: Record<string, unknown> = { raw: constraintsInput };
+        try {
+            const llmRes = await anthropic.messages.create({
+                model: HAIKU,
+                max_tokens: 400,
+                messages: [{
+                    role: 'user',
+                    content: `You are assembling a social media posting blueprint for an AI assistant. Based on the platform data below, write a concise JSON object with key "narrative" (a 2-3 sentence plain-English summary of what the assistant must know before posting: rate limits, best times, restrictions, and any current blockers). Return ONLY valid JSON.\n\nData:\n${JSON.stringify(constraintsInput, null, 2)}`,
+                }],
+            });
+            const raw = (llmRes.content[0] as { text: string }).text.trim();
+            const match = raw.match(/\{[\s\S]*\}/);
+            const parsed = match ? JSON.parse(match[0]) : null;
+            if (parsed?.narrative) {
+                executionConstraints = { ...constraintsInput, narrative: parsed.narrative };
+            }
+        } catch { /* non-fatal — use raw constraints */ }
+
         await db.update(systemConnections).set({
             metadata: {
                 ...existingMeta,
-                preflightAuditResults: checks,  // latest results (backward compat)
+                preflightAuditResults: checks,
                 preflightStatus,
                 preflightAuditAt: auditEntry.runAt,
-                preflightAuditHistory,          // full append-only history
-                blueprintPreflightSummary: blueprintSummary, // available to LLM
+                preflightAuditHistory,
+                blueprintPreflightSummary: blueprintSummary,
+                executionConstraints,           // AC3.1.3: injected into LLM blueprint assembly
             },
             updatedAt: new Date(),
         }).where(eq(systemConnections.id, conn.id));
