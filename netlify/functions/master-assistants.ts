@@ -141,14 +141,14 @@ async function handlePatch(event: any): Promise<any> {
         The role you've been waiting for is ready. Hire your ${updated.name} today and put AI to work for your business.
       </p>
       <div style="text-align:center;margin-bottom:32px">
-        <a href="https://aura-assist.com/assistants.html"
+        <a href="${process.env.BASE_URL || 'https://aura-assist.com'}/assistants.html"
            style="display:inline-block;background:#10b981;color:#fff;font-weight:700;font-size:16px;padding:14px 32px;border-radius:8px;text-decoration:none">
           View ${updated.name} &rarr;
         </a>
       </div>
       <p style="margin:0;color:#9ca3af;font-size:13px;text-align:center">
         You're receiving this because you joined the waitlist for ${updated.name}.<br>
-        <a href="https://aura-assist.com/workspace.html" style="color:#10b981;text-decoration:none">Manage preferences</a>
+        <a href="${process.env.BASE_URL || 'https://aura-assist.com'}/workspace.html" style="color:#10b981;text-decoration:none">Manage preferences</a>
       </p>
     </div>
   </div>

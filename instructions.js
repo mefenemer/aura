@@ -184,6 +184,7 @@ window.initInstructions = function() {
 
             categories.forEach(cat => {
                 const tbody = document.getElementById(`tbody-${cat.id}`);
+                if (!tbody) return;
                 const savedRules = grouped[cat.id];
 
                 if (savedRules && savedRules.length > 0) {
@@ -216,7 +217,8 @@ window.initInstructions = function() {
             console.warn('Could not load saved rules:', e);
             // Fall back to empty rows
             categories.forEach(cat => {
-                document.getElementById(`tbody-${cat.id}`).appendChild(createRow(cat.placeholder));
+                const tbody = document.getElementById(`tbody-${cat.id}`);
+                if (tbody) tbody.appendChild(createRow(cat.placeholder));
             });
         }
     })();

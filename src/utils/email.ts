@@ -40,7 +40,7 @@ export function buildAnnualRenewalEmail(firstName: string, renewalDay: string, a
     return `
         <p>Hi ${firstName},</p>
         <p>Your Aura-Assist annual subscription will automatically renew on <strong>${renewalDay}</strong>${amount ? ` for <strong>${amount}</strong>` : ''}.</p>
-        <p>If you wish to cancel before this date, you can do so at any time from your <a href="https://aura-assist.com/billing.html">account settings</a>. Cancellations take effect at the end of your current billing period.</p>
+        <p>If you wish to cancel before this date, you can do so at any time from your <a href="${process.env.BASE_URL || 'https://aura-assist.com'}/billing.html">account settings</a>. Cancellations take effect at the end of your current billing period.</p>
         <p>If you have any questions, reply to this email or contact our support team.</p>
         <p>Thank you for being an Aura-Assist customer.</p>
         <p>— The Aura-Assist Team</p>

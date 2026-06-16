@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Help Center | Aura-Assist</title>
+  <link href="./style.css" rel="stylesheet">
+  <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+  <!-- marked.js for Markdown rendering (AC12) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <!-- DOMPurify for XSS sanitisation (AC13) -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a href="/" class="font-extrabold text-gray-900 text-lg tracking-tight">Aura-Assist™</a>
+        <span class="text-gray-300">|</span>
+        <span class="text-gray-500 text-sm font-medium">Help Center</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/workspace.html" class="hidden sm:inline text-sm font-medium text-emerald-700 hover:text-emerald-800">Go to Workspace →</a>
+        <a href="mailto:hello@aura-assist.com" class="text-sm text-gray-500 hover:text-gray-700">Contact Support</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Page title + search -->
+    <div class="mb-6">
+      <h1 class="text-3xl font-extrabold text-gray-900 mb-1">Help Center</h1>
+      <p class="text-gray-500 text-base">Browse articles or search for answers.</p>
+    </div>
+
+    <!-- Search bar (AC12) -->
+    <div class="relative mb-8 max-w-xl">
+      <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <input id="help-search" type="text" placeholder="Search articles…"
+        class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none shadow-sm text-sm">
+    </div>
+
+    <!-- Mobile category selector (AC3) -->
+    <div class="sm:hidden mb-6">
+      <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Category</label>
+      <select id="mobile-cat-select" class="w-full px-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+        <option value="">All Categories</option>
+      </select>
+    </div>
+
+    <div class="flex gap-8">
+
+      <!-- Left sidebar nav (AC1, AC2) — hidden on mobile -->
+      <aside class="hidden sm:block w-52 shrink-0">
+        <nav id="help-cat-nav" class="space-y-1 sticky top-24">
+          <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Categories</p>
+          <!-- Populated by JS -->
+        </nav>
+      </aside>
+
+      <!-- Main content area -->
+      <main class="flex-1 min-w-0">
+
+        <!-- Breadcrumb (AC11) -->
+        <nav id="help-breadcrumb" class="hidden text-sm text-gray-500 mb-5 flex items-center gap-1.5">
+          <a href="/help.html" class="hover:text-emerald-700 font-medium" onclick="showArticleList(); return false;">Help Center</a>
+          <span>›</span>
+          <span id="bc-category" class="text-gray-500"></span>
+          <span id="bc-sep" class="hidden">›</span>
+          <span id="bc-title" class="text-gray-700 font-medium hidden"></span>
+        </nav>
+
+        <!-- Article list view -->
+        <div id="help-article-list">
+          <div id="help-loading" class="text-center py-16 text-gray-400 animate-pulse text-sm">Loading articles…</div>
+          <div id="help-no-results" class="hidden text-center py-16 text-gray-400 text-sm">No articles found for that search.</div>
+          <div id="help-categories-container" class="hidden space-y-8"></div>
+        </div>
+
+        <!-- Single article view -->
+        <article id="help-article-view" class="hidden">
+          <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+            <h1 id="article-title" class="text-2xl font-extrabold text-gray-900 mb-6"></h1>
+            <div id="article-body"
+              class="prose prose-sm sm:prose max-w-none
+                     prose-headings:font-bold prose-headings:text-gray-900
+                     prose-a:text-emerald-700 prose-a:no-underline hover:prose-a:underline
+                     prose-table:text-sm prose-th:bg-gray-50 prose-th:font-semibold
+                     prose-blockquote:border-emerald-400 prose-blockquote:text-gray-600
+                     prose-code:bg-gray-100 prose-code:rounded prose-code:px-1">
+            </div>
+          </div>
+          <div class="mt-6 flex items-center justify-between text-sm text-gray-500">
+            <button onclick="showArticleList()" class="flex items-center gap-1.5 text-emerald-700 hover:text-emerald-800 font-medium">
+              ← Back to Help Center
+            </button>
+            <a href="mailto:hello@aura-assist.com?subject=Help%20Article%20Feedback"
+               class="hover:text-gray-700">Was this helpful? Contact us →</a>
+          </div>
+        </article>
+
+      </main>
+    </div>
+  </div>
+
+<script>
+const CATEGORY_ORDER = [
+  'Getting Started',
+  'Your Assistants',
+  'Lead Management',
+  'Integrations & Connections',
+  'Billing & Your Plan',
+  'Troubleshooting & Quick Fixes',
+];
+
+let _articles = [];
+let _activeCategory = null;
+
+async function loadArticles() {
+  try {
+    const res = await fetch('/.netlify/functions/get-help-articles');
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    _articles = data.articles || [];
+  } catch {
+    document.getElementById('help-loading').textContent = 'Could not load articles. Please try again later.';
+    document.getElementById('help-loading').classList.remove('animate-pulse');
+    return;
+  }
+  buildNav();
+  renderList();
+
+  // Handle hash-based deep-link (AC14)
+  const hash = window.location.hash.slice(1);
+  if (hash) {
+    const article = _articles.find(a => slugify(a.title) === hash);
+    if (article) { showArticle(article); return; }
+  }
+}
+
+function slugify(title) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function groupByCategory(articles) {
+  const map = {};
+  CATEGORY_ORDER.forEach(c => { map[c] = []; });
+  articles.forEach(a => {
+    if (!map[a.category]) map[a.category] = [];
+    map[a.category].push(a);
+  });
+  return map;
+}
+
+function buildNav() {
+  const nav = document.getElementById('help-cat-nav');
+  const sel = document.getElementById('mobile-cat-select');
+  const cats = CATEGORY_ORDER.filter(c => _articles.some(a => a.category === c));
+
+  cats.forEach(cat => {
+    // Desktop sidebar
+    const btn = document.createElement('button');
+    btn.className = 'w-full text-left px-3 py-2 text-sm rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition font-medium cat-nav-btn';
+    btn.dataset.cat = cat;
+    btn.textContent = cat;
+    btn.onclick = () => filterByCategory(cat, btn);
+    nav.appendChild(btn);
+
+    // Mobile select
+    const opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = cat;
+    sel.appendChild(opt);
+  });
+
+  sel.onchange = () => {
+    if (sel.value) filterByCategory(sel.value);
+    else { _activeCategory = null; renderList(); }
+  };
+}
+
+function filterByCategory(cat, btn) {
+  _activeCategory = _activeCategory === cat ? null : cat;
+  document.querySelectorAll('.cat-nav-btn').forEach(b => {
+    b.classList.toggle('bg-emerald-50', b.dataset.cat === _activeCategory);
+    b.classList.toggle('text-emerald-700', b.dataset.cat === _activeCategory);
+  });
+  renderList();
+}
+
+function renderList(searchTerm) {
+  const query = (searchTerm || document.getElementById('help-search').value || '').toLowerCase().trim();
+  showArticleList(false);
+
+  let filtered = _articles;
+  if (_activeCategory) filtered = filtered.filter(a => a.category === _activeCategory);
+  if (query) {
+    filtered = filtered.filter(a =>
+      a.title.toLowerCase().includes(query) || a.contentMd.toLowerCase().includes(query)
+    );
+  }
+
+  const container = document.getElementById('help-categories-container');
+  const grouped = groupByCategory(filtered);
+  container.innerHTML = '';
+
+  let hasAny = false;
+  CATEGORY_ORDER.forEach(cat => {
+    const articles = grouped[cat] || [];
+    if (!articles.length) return;
+    hasAny = true;
+
+    const section = document.createElement('div');
+    section.innerHTML = `
+      <h2 class="text-base font-bold text-gray-700 mb-3 pb-2 border-b border-gray-200">${cat}</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        ${articles.map(a => `
+          <button data-id="${a.id}" class="article-card text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-emerald-300 hover:shadow-sm transition group">
+            <h3 class="text-sm font-semibold text-gray-900 group-hover:text-emerald-700 transition leading-snug">${escHtml(a.title)}</h3>
+            <p class="text-xs text-gray-400 mt-1">${escHtml(cat)}</p>
+          </button>
+        `).join('')}
+      </div>`;
+    container.appendChild(section);
+  });
+
+  document.getElementById('help-loading').classList.add('hidden');
+  document.getElementById('help-no-results').classList.toggle('hidden', hasAny);
+  container.classList.toggle('hidden', !hasAny);
+
+  container.querySelectorAll('.article-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const article = _articles.find(a => a.id === btn.dataset.id);
+      if (article) showArticle(article);
+    });
+  });
+}
+
+function escHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function showArticle(article) {
+  document.getElementById('help-article-list').classList.add('hidden');
+  document.getElementById('help-article-view').classList.remove('hidden');
+
+  document.getElementById('article-title').textContent = article.title;
+
+  // Configure marked for safe output, then sanitise with DOMPurify (AC12, AC13)
+  marked.setOptions({ breaks: false, gfm: true });
+  const rawHtml = marked.parse(article.contentMd);
+  document.getElementById('article-body').innerHTML = DOMPurify.sanitize(rawHtml);
+
+  // Breadcrumb (AC11)
+  const bc = document.getElementById('help-breadcrumb');
+  bc.classList.remove('hidden');
+  bc.classList.add('flex');
+  document.getElementById('bc-category').textContent = article.category;
+  document.getElementById('bc-title').textContent = article.title;
+  document.getElementById('bc-sep').classList.remove('hidden');
+  document.getElementById('bc-title').classList.remove('hidden');
+
+  // Stable URL hash (AC14)
+  history.pushState(null, '', '/help.html#' + slugify(article.title));
+  window.scrollTo(0, 0);
+}
+
+function showArticleList(resetHash = true) {
+  document.getElementById('help-article-list').classList.remove('hidden');
+  document.getElementById('help-article-view').classList.add('hidden');
+  document.getElementById('help-breadcrumb').classList.add('hidden');
+  document.getElementById('help-breadcrumb').classList.remove('flex');
+  document.getElementById('bc-sep').classList.add('hidden');
+  document.getElementById('bc-title').classList.add('hidden');
+  if (resetHash) history.pushState(null, '', '/help.html');
+}
+
+// Real-time search (AC12)
+document.getElementById('help-search').addEventListener('input', e => {
+  if (document.getElementById('help-article-view').classList.contains('hidden')) {
+    renderList(e.target.value);
+  }
+});
+
+// Back/forward navigation
+window.addEventListener('popstate', () => {
+  const hash = window.location.hash.slice(1);
+  if (hash) {
+    const article = _articles.find(a => slugify(a.title) === hash);
+    if (article) { showArticle(article); return; }
+  }
+  showArticleList(false);
+});
+
+loadArticles();
+</script>
+</body>
+</html>

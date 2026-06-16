@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 import { eq, and, inArray, desc, sql } from 'drizzle-orm';
 import { getDb, withUpdatedAt } from '../../db/client';
-import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, planPrices, invoices, processedWebhookEvents, userReferrals, platformConfig, stripeDisputes, userOrganisations } from '../../db/schema';
+import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, planPrices, invoices, processedWebhookEvents, userReferrals, platformConfig, stripeDisputes, userOrganisations, userProfiles } from '../../db/schema';
 import { sendEmail, buildAnnualRenewalEmail, buildDunningEmail } from '../../src/utils/email';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
@@ -236,6 +236,20 @@ export const handler: Handler = async (event) => {
             message: 'Your subscription is active. Click "Resume Setup" on your dashboard to build your Digital Assistant now.',
             isRead: false,
         });
+
+        // 3. US-ONB-2.2.1: Reset firstLoginWelcomeSeen + insert persistent welcome notification (AC15/AC16)
+        await db.update(userProfiles)
+            .set({ firstLoginWelcomeSeen: false, updatedAt: new Date() })
+            .where(eq(userProfiles.userId, userIdInt))
+            .catch(() => {});
+        await db.insert(notifications).values({
+            userId: userIdInt,
+            type: 'welcome',
+            title: 'Welcome to Aura-Assist!',
+            message: 'Your workspace is ready. Open your User Guide to get started.',
+            isRead: false,
+            metadata: { ctaLabel: 'Open User Guide', ctaUrl: '/help.html' },
+        }).catch(() => {});
 
         // ── US-GAP-8.2: Referral qualification + £10 reward ──────────
         // If this new paying user was referred, mark the referral 'qualified' and

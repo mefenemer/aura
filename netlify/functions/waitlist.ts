@@ -18,7 +18,7 @@ import { getDb } from '../../db/client';
 import { masterAssistants, waitlist, waitlistReferrals, users } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
-const BASE_URL = process.env.URL || 'https://aura-assist.com';
+const BASE_URL = process.env.BASE_URL || 'https://aura-assist.com';
 
 // Stripe (for SC6 coupon generation — imported lazily)
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;

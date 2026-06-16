@@ -64,6 +64,7 @@ export const handler = async (event: HandlerEvent) => {
                     platformRole: user?.role || 'user',
                     organisationRole: orgMembership?.role || 'member',
                     language: profile?.language || 'en',
+                    firstLoginWelcomeSeen: profile?.firstLoginWelcomeSeen ?? false,
                 })
             };
         } catch (error) {
@@ -128,6 +129,15 @@ export const handler = async (event: HandlerEvent) => {
                 newState = { language: value };
                 await db.update(userProfiles)
                     .set({ language: value, updatedAt: new Date() })
+                    .where(eq(userProfiles.userId, userId));
+
+            } else if (fieldKey === 'firstLoginWelcomeSeen') {
+                // US-ONB-2.2.1: mark welcome modal as seen — client fires this on dismiss
+                targetTable = 'user_profiles';
+                oldState = { firstLoginWelcomeSeen: currentProfile?.firstLoginWelcomeSeen ?? false };
+                newState = { firstLoginWelcomeSeen: true };
+                await db.update(userProfiles)
+                    .set({ firstLoginWelcomeSeen: true, updatedAt: new Date() })
                     .where(eq(userProfiles.userId, userId));
 
             } else if (fieldKey === 'hourlyRateGbp') {

@@ -1,4 +1,4 @@
-<!-- referral-content.html — US-GAP-8.2: Workspace Referral Programme -->
+<!-- referral-content.html — US-GAP-8.2 + US-GAP-8.3.1: Workspace Referral Programme -->
 <div class="max-w-3xl mx-auto py-8 px-4 space-y-8">
 
   <!-- Header -->
@@ -7,82 +7,124 @@
     <p class="mt-1 text-gray-500">Earn <strong>£10 account credit</strong> for every friend who signs up and starts a paid subscription — it'll be applied to your next invoice automatically.</p>
   </div>
 
-  <!-- Share link card -->
-  <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-    <h2 class="font-semibold text-gray-800">Your Referral Link</h2>
-    <div id="ref-link-skeleton" class="animate-pulse h-10 bg-gray-100 rounded-lg"></div>
-    <div id="ref-link-row" class="hidden flex items-center gap-3">
-      <input id="ref-link-input" type="text" readonly
-        class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-700 focus:outline-none cursor-text select-all" />
-      <button id="ref-copy-btn"
-        class="shrink-0 px-4 py-2 bg-[#00e55c] hover:bg-[#00cc52] text-white text-sm font-semibold rounded-lg transition-colors">
-        Copy
-      </button>
+  <!-- No-plan empty state (US-GAP-BUG: shown when user has no active subscription) -->
+  <div id="ref-no-plan-state" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-8 text-center space-y-4">
+    <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+      <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+      </svg>
     </div>
-    <div id="ref-no-code-row" class="hidden">
-      <button id="ref-generate-btn"
-        class="px-4 py-2 bg-[#00e55c] hover:bg-[#00cc52] text-white text-sm font-semibold rounded-lg transition-colors">
-        Generate My Referral Link
-      </button>
-    </div>
-
-    <!-- Stats row -->
-    <div id="ref-stats" class="hidden grid grid-cols-3 gap-4 pt-2 border-t border-gray-100">
-      <div class="text-center">
-        <p id="stat-pending" class="text-2xl font-bold text-gray-900">0</p>
-        <p class="text-xs text-gray-500 mt-0.5">Signed Up</p>
-      </div>
-      <div class="text-center">
-        <p id="stat-qualified" class="text-2xl font-bold text-gray-900">0</p>
-        <p class="text-xs text-gray-500 mt-0.5">Qualified</p>
-      </div>
-      <div class="text-center">
-        <p id="stat-rewarded" class="text-2xl font-bold text-[#00b347] font-bold">0</p>
-        <p class="text-xs text-gray-500 mt-0.5">Credits Earned</p>
-      </div>
-    </div>
+    <h2 class="text-lg font-bold text-gray-900">Referral link unlocks with a subscription</h2>
+    <p class="text-gray-600 text-sm max-w-md mx-auto">Your personal referral link will be available as soon as you start a paid plan. Subscribe now and start earning £10 for every friend you refer.</p>
+    <a href="/billing.html" class="inline-block px-6 py-2.5 bg-[#00e55c] hover:bg-[#00cc52] text-white text-sm font-semibold rounded-lg transition-colors">
+      Choose a Plan →
+    </a>
   </div>
 
-  <!-- How it works -->
-  <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-    <h2 class="font-semibold text-gray-800 mb-4">How It Works</h2>
-    <ol class="space-y-3 text-sm text-gray-600">
-      <li class="flex gap-3">
-        <span class="shrink-0 w-6 h-6 rounded-full bg-[#e6faf0] text-[#00b347] font-bold flex items-center justify-center text-xs">1</span>
-        <span>Copy your unique referral link and share it with a friend, colleague, or on social media.</span>
-      </li>
-      <li class="flex gap-3">
-        <span class="shrink-0 w-6 h-6 rounded-full bg-[#e6faf0] text-[#00b347] font-bold flex items-center justify-center text-xs">2</span>
-        <span>They sign up via your link and start a paid Aura-Assist subscription.</span>
-      </li>
-      <li class="flex gap-3">
-        <span class="shrink-0 w-6 h-6 rounded-full bg-[#e6faf0] text-[#00b347] font-bold flex items-center justify-center text-xs">3</span>
-        <span>You automatically receive a <strong>£10 credit</strong> on your account, deducted from your next invoice.</span>
-      </li>
-    </ol>
-    <p class="mt-4 text-xs text-gray-400">Credits are applied automatically. There's no limit to how many friends you can refer.</p>
-  </div>
+  <!-- Plan-gated content (shown only when user has an active plan) -->
+  <div id="ref-plan-content" class="hidden space-y-8">
 
-  <!-- Activity table -->
-  <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-100">
-      <h2 class="font-semibold text-gray-800">Referral Activity</h2>
+    <!-- US-GAP-8.3.1: Who referred me (AC7–AC12) -->
+    <div id="ref-referred-by-section" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl px-6 py-4">
+      <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-3">You were referred by</p>
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold text-emerald-900" id="ref-referrer-name"></p>
+          <p class="text-xs text-emerald-700 mt-0.5">Joined via referral on <span id="ref-referrer-date"></span></p>
+        </div>
+        <!-- AC11: referral bonus badge — shown if referralBonusApplied -->
+        <span id="ref-bonus-badge" class="hidden shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-200 text-emerald-800 text-xs font-semibold">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+          </svg>
+          Your referral bonus has been applied
+        </span>
+      </div>
     </div>
-    <div id="ref-table-loading" class="px-6 py-8 text-center text-sm text-gray-400 animate-pulse">Loading activity…</div>
-    <div id="ref-table-empty" class="hidden px-6 py-8 text-center text-sm text-gray-400">
-      No referrals yet. Share your link to get started!
+
+    <!-- Share link card -->
+    <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+      <h2 class="font-semibold text-gray-800">Your Referral Link</h2>
+      <div id="ref-link-skeleton" class="animate-pulse h-10 bg-gray-100 rounded-lg"></div>
+      <div id="ref-link-row" class="hidden flex items-center gap-3">
+        <input id="ref-link-input" type="text" readonly
+          class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-700 focus:outline-none cursor-text select-all" />
+        <button id="ref-copy-btn"
+          class="shrink-0 px-4 py-2 bg-[#00e55c] hover:bg-[#00cc52] text-white text-sm font-semibold rounded-lg transition-colors">
+          Copy
+        </button>
+      </div>
+      <div id="ref-no-code-row" class="hidden">
+        <button id="ref-generate-btn"
+          class="px-4 py-2 bg-[#00e55c] hover:bg-[#00cc52] text-white text-sm font-semibold rounded-lg transition-colors">
+          Generate My Referral Link
+        </button>
+      </div>
+
+      <!-- Stats row -->
+      <div id="ref-stats" class="hidden grid grid-cols-3 gap-4 pt-2 border-t border-gray-100">
+        <div class="text-center">
+          <p id="stat-pending" class="text-2xl font-bold text-gray-900">0</p>
+          <p class="text-xs text-gray-500 mt-0.5">Signed Up</p>
+        </div>
+        <div class="text-center">
+          <p id="stat-qualified" class="text-2xl font-bold text-gray-900">0</p>
+          <p class="text-xs text-gray-500 mt-0.5">Qualified</p>
+        </div>
+        <div class="text-center">
+          <p id="stat-rewarded" class="text-2xl font-bold text-[#00b347]">0</p>
+          <p class="text-xs text-gray-500 mt-0.5">Credits Earned</p>
+        </div>
+      </div>
     </div>
-    <table id="ref-table" class="hidden w-full text-sm">
-      <thead class="bg-gray-50 border-b border-gray-100">
-        <tr>
-          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Friend</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Signed Up</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-        </tr>
-      </thead>
-      <tbody id="ref-table-body" class="divide-y divide-gray-50"></tbody>
-    </table>
-  </div>
+
+    <!-- How it works -->
+    <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+      <h2 class="font-semibold text-gray-800 mb-4">How It Works</h2>
+      <ol class="space-y-3 text-sm text-gray-600">
+        <li class="flex gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-[#e6faf0] text-[#00b347] font-bold flex items-center justify-center text-xs">1</span>
+          <span>Copy your unique referral link and share it with a friend, colleague, or on social media.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-[#e6faf0] text-[#00b347] font-bold flex items-center justify-center text-xs">2</span>
+          <span>They sign up via your link and start a paid Aura-Assist subscription.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-[#e6faf0] text-[#00b347] font-bold flex items-center justify-center text-xs">3</span>
+          <span>You automatically receive a <strong>£10 credit</strong> on your account, deducted from your next invoice.</span>
+        </li>
+      </ol>
+      <p class="mt-4 text-xs text-gray-400">Credits are applied automatically. There's no limit to how many friends you can refer.</p>
+    </div>
+
+    <!-- Activity table -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800">Referral Activity</h2>
+      </div>
+      <div id="ref-table-loading" class="px-6 py-8 text-center text-sm text-gray-400 animate-pulse">Loading activity…</div>
+      <div id="ref-table-empty" class="hidden px-6 py-8 text-center text-sm text-gray-400">
+        No referrals yet. Share your link to get started!
+      </div>
+      <table id="ref-table" class="hidden w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Friend</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Signed Up</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+          </tr>
+        </thead>
+        <tbody id="ref-table-body" class="divide-y divide-gray-50"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /ref-plan-content -->
 
 </div>
 
@@ -99,16 +141,36 @@
     } catch {
       document.getElementById('ref-link-skeleton').textContent = 'Could not load referral data.';
       document.getElementById('ref-link-skeleton').classList.remove('animate-pulse');
-      document.getElementById('ref-table-loading').textContent = '';
+      document.getElementById('ref-table-loading').classList.add('hidden');
       document.getElementById('ref-table-empty').classList.remove('hidden');
+      document.getElementById('ref-plan-content').classList.remove('hidden');
       return;
+    }
+
+    // No active plan — show locked empty state
+    if (data.hasActivePlan === false) {
+      document.getElementById('ref-no-plan-state').classList.remove('hidden');
+      return;
+    }
+
+    // Active plan — reveal plan-gated content
+    document.getElementById('ref-plan-content').classList.remove('hidden');
+
+    // US-GAP-8.3.1: Who referred me
+    if (data.referredBy) {
+      const dateStr = new Date(data.referredBy.joinedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      document.getElementById('ref-referrer-name').textContent = data.referredBy.displayName || 'An Aura-Assist member';
+      document.getElementById('ref-referrer-date').textContent = dateStr;
+      if (data.referredBy.referralBonusApplied) {
+        document.getElementById('ref-bonus-badge').classList.remove('hidden');
+      }
+      document.getElementById('ref-referred-by-section').classList.remove('hidden');
     }
 
     // Hide skeleton
     document.getElementById('ref-link-skeleton').classList.add('hidden');
 
     if (data.referralCode) {
-      // Show link row
       document.getElementById('ref-link-input').value = data.shareLink;
       document.getElementById('ref-link-row').classList.remove('hidden');
     } else {

@@ -26,7 +26,7 @@ import {
 import { sendEmail } from '../../src/utils/email';
 
 const jwtSecret  = process.env.JWT_SECRET;
-const BASE_URL   = process.env.BASE_URL || process.env.URL || 'https://aura-assist.com';
+const BASE_URL   = process.env.BASE_URL || 'https://aura-assist.com';
 
 function getAuth(event: any): number | null {
     if (!jwtSecret) return null;

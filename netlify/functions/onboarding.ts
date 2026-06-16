@@ -271,7 +271,8 @@ export const handler: Handler = async (event) => {
     });
 
     // 8. TRIGGER ASYNC PROVISIONING
-    const baseUrl = process.env.URL || 'http://localhost:8888';
+    if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
+    const baseUrl = process.env.BASE_URL;
     fetch(`${baseUrl}/.netlify/functions/provision-assistant-async`, {
       method: 'POST',
       body: JSON.stringify({ assistantId: newAssistant.id }),

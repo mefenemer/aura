@@ -49,10 +49,8 @@ export const handler: Handler = async (event) => {
             .where(eq(users.id, existingUser.id));
 
         // 4. Construct the link and send the email
-        // Dynamically determine the URL based on the incoming request headers
-        const host = event.headers?.host || 'localhost:8888';
-        const protocol = host.includes('localhost') ? 'http' : 'https';
-        const baseUrl = `${protocol}://${host}`;
+        if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
+        const baseUrl = process.env.BASE_URL;
 
         // Ensure we send the PLAIN token in the URL, not the hash
         const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}`;

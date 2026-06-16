@@ -224,17 +224,21 @@ export const handler: Handler = async (event) => {
               },
           };
 
+      const subscriptionMeta: Record<string, string> = {
+          userId: existingUser.id.toString(),
+          assistantId: newAssistant.id.toString(),
+          paymentId: newPayment.id.toString(),
+      };
+      // US-ONB-2.1.1: include referral code in metadata so webhook can correlate
+      if (existingUser.referralCode) subscriptionMeta.referralCode = existingUser.referralCode;
+
       const subscription = await stripe.subscriptions.create({
         customer: customer.id,
         items: [subscriptionItem],
         payment_behavior: 'default_incomplete',
         payment_settings: { save_default_payment_method: 'on_subscription' },
         expand: ['latest_invoice.payment_intent'],
-        metadata: {
-          userId: existingUser.id.toString(),
-          assistantId: newAssistant.id.toString(),
-          paymentId: newPayment.id.toString(),
-        },
+        metadata: subscriptionMeta,
       });
 
       const latestInvoice = subscription.latest_invoice as Stripe.Invoice;

@@ -363,25 +363,72 @@ async function submitTosAcceptance(btn) {
   </div>
 </div>
 
-<!-- Post-payment welcome modal -->
-<div id="payment-welcome-modal" class="hidden fixed inset-0 z-50 items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
-  <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 text-center">
-    <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-      <svg class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+<!-- Post-payment welcome modal (US-ONB-2.2.1: also shown on first login after plan activation) -->
+<!-- US-ONB-2.2.1: First-login welcome modal — shown once after plan activation (AC5–AC20) -->
+<div id="payment-welcome-modal" class="hidden fixed inset-0 z-50 items-end sm:items-center justify-center sm:p-4 bg-gray-900/60 backdrop-blur-sm" id="welcome-modal-backdrop">
+  <!-- Mobile: full-width bottom sheet; Desktop: centred card -->
+  <div id="welcome-modal-sheet" class="bg-white w-full sm:rounded-2xl sm:max-w-lg sm:w-full shadow-2xl relative
+       rounded-t-2xl transition-transform duration-300">
+    <!-- X close button (AC5) -->
+    <button id="welcome-modal-close-btn" aria-label="Close"
+      class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
       </svg>
-    </div>
-    <h2 class="text-2xl font-extrabold text-gray-900 mb-2">You're all set!</h2>
-    <p class="text-gray-500 mb-2">Your subscription is now active.</p>
-    <p class="text-gray-600 mb-8">Now let's build your Digital Assistant. It takes about 5 minutes — just answer a few plain-English questions and our team takes care of the rest.</p>
-    <a href="onboarding-social-media.html"
-       class="w-full inline-block text-center px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition text-base">
-      Set Up My Assistant →
-    </a>
-    <button onclick="document.getElementById('payment-welcome-modal').classList.add('hidden');"
-      class="mt-3 w-full text-sm text-gray-400 hover:text-gray-600 transition">
-      I'll do this later
     </button>
+    <div class="p-6 sm:p-8">
+      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+        <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <!-- AC6: personalised heading -->
+      <h2 class="text-2xl font-extrabold text-gray-900 mb-2">Welcome to Aura-Assist™, <span id="welcome-first-name">there</span>!</h2>
+      <p class="text-gray-500 mb-4 text-sm">Your workspace is live and ready. Here's what you can do right now:</p>
+      <!-- AC7: plan-tier bullets -->
+      <ul id="welcome-bullets" class="mb-6 space-y-2 text-sm text-gray-700">
+        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Set up your first AI Digital Assistant</li>
+        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Connect your social media accounts</li>
+        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Upload your brand assets</li>
+        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Review and approve AI-generated content</li>
+      </ul>
+      <!-- AC8: "Open User Guide" — opens in new tab, does NOT close modal (AC8) -->
+      <a id="welcome-guide-btn" href="/help.html" target="_blank" rel="noopener noreferrer"
+        class="block w-full text-center px-6 py-3 sm:py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition text-base sm:min-h-[48px] leading-normal">
+        Open User Guide
+      </a>
+      <!-- AC10: secondary dismiss link -->
+      <button id="payment-welcome-dismiss-btn"
+        class="mt-3 w-full text-sm text-gray-400 hover:text-gray-600 transition py-2">
+        I'll explore on my own
+      </button>
+      <!-- AC11: footer note -->
+      <p class="mt-3 text-xs text-gray-400 text-center">You can always find this guide in the Help section of your workspace.</p>
+    </div>
+  </div>
+</div>
+
+<!-- US-ONB-2.1.1: Plan selection gate — non-dismissible, shows live plan cards from DB (AC5–AC18) -->
+<div id="plan-gate-modal" class="hidden fixed inset-0 z-[9998] bg-gray-950/90 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8">
+    <div class="p-8 pb-4 text-center border-b border-gray-100">
+      <!-- AC10: referral discount banner -->
+      <div id="plan-gate-referral-banner" class="hidden mb-4 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-semibold text-emerald-800">
+        🎉 Referral discount applied — you'll save on your first months
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-1">Choose a plan to activate your workspace</h2>
+      <p class="text-gray-500 text-sm">You're almost there — pick a plan to unlock your assistant.</p>
+    </div>
+    <!-- AC8-9: plan cards injected from get-plans (live) -->
+    <div id="plan-gate-cards" class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="col-span-full text-center py-8 text-gray-400 text-sm animate-pulse">Loading plans…</div>
+    </div>
+    <div class="px-8 pb-6 text-center border-t border-gray-100 pt-4">
+      <button id="plan-gate-cancel-btn" class="text-sm text-gray-400 hover:text-gray-600 transition">
+        Maybe later
+      </button>
+      <div id="plan-gate-polling" class="hidden mt-3 text-sm text-emerald-700 animate-pulse">Checking your subscription…</div>
+    </div>
   </div>
 </div>
 
@@ -838,7 +885,8 @@ function formatCurrency(amount, currency) {
       'help': { file: 'help-content.html', title: '| Help & Support' },
       'my-content': { file: 'my-content.html', title: '| My Content' },
       'calendar': { file: 'calendar.html', title: '| Content Calendar' },
-      'referral': { file: 'referral-content.html', title: '| Refer a Friend' }
+      'referral': { file: 'referral-content.html', title: '| Refer a Friend' },
+      'review-queue': { file: 'review-queue.html', title: '| Review Queue' }
     };
 
     // Consolidated DOM element hooks
@@ -855,7 +903,8 @@ function formatCurrency(amount, currency) {
       'my-content': document.getElementById('nav-my-content'),
       'calendar': document.getElementById('nav-calendar'),
       'team': document.getElementById('nav-team'),
-      'referral': document.getElementById('nav-referral')
+      'referral': document.getElementById('nav-referral'),
+      'review-queue': document.getElementById('nav-review-queue')
     };
 
     async function loadView(routeKey, param = null) {
@@ -1599,6 +1648,7 @@ function formatCurrency(amount, currency) {
       const link = navLinks[key];
       if (link) {
         link.addEventListener('click', async (e) => {
+          if (key === 'help') return; // opens /help.html in new tab via href
           e.preventDefault();
           await loadView(key);
         });
@@ -1634,6 +1684,228 @@ function formatCurrency(amount, currency) {
       history.replaceState(null, '', window.location.pathname);
       await loadView('catalog');
     }
+
+    // US-ONB-2.2.1: First-login welcome modal (AC5–AC20)
+    const WELCOME_GUIDE_URL = '/help.html'; // AC9: configurable constant
+    const WELCOME_LS_KEY = 'aura_welcome_seen';
+
+    function showWelcomeModal(profileData) {
+      const modal = document.getElementById('payment-welcome-modal');
+      if (!modal) return;
+
+      // AC6: personalised heading — first name from firstName field or email local-part
+      const firstName = profileData?.firstName || (profileData?.email || '').split('@')[0] || '';
+      const nameEl = document.getElementById('welcome-first-name');
+      if (nameEl && firstName) nameEl.textContent = firstName;
+
+      // Show modal — desktop: centred flex, mobile: bottom sheet slides up
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function dismissWelcomeModal() {
+      const modal = document.getElementById('payment-welcome-modal');
+      if (!modal) return;
+      // AC12: optimistic update BEFORE closing
+      localStorage.setItem(WELCOME_LS_KEY, '1'); // AC13: localStorage fallback
+      fetch('/.netlify/functions/update-profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fieldKey: 'firstLoginWelcomeSeen', value: true }),
+      }).catch(() => {});
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    (function initWelcomeModal() {
+      const modal = document.getElementById('payment-welcome-modal');
+      if (!modal) return;
+
+      // X button, "I'll explore on my own" link (AC5, AC10)
+      document.getElementById('welcome-modal-close-btn')?.addEventListener('click', dismissWelcomeModal);
+      document.getElementById('payment-welcome-dismiss-btn')?.addEventListener('click', dismissWelcomeModal);
+
+      // Backdrop click dismiss (AC5)
+      modal.addEventListener('click', (e) => { if (e.target === modal) dismissWelcomeModal(); });
+
+      // Escape key dismiss (AC5)
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) dismissWelcomeModal();
+      });
+    })();
+
+    (async function checkAndShowWelcomeModal() {
+      // AC13: don't show if localStorage flag already set
+      if (localStorage.getItem(WELCOME_LS_KEY)) return;
+      // AC3: don't show while plan gate is active (plan gate takes priority)
+      if (qs.get('payment') === 'success') return;
+      try {
+        const profileRes = await fetch('/.netlify/functions/update-profile');
+        if (!profileRes.ok) return;
+        const profile = await profileRes.json();
+        // AC1: only show if flag is false AND plan is active
+        if (profile.firstLoginWelcomeSeen === false) {
+          const cap = await window.checkCapacity();
+          if (cap?.planStatus === 'active' || cap?.planStatus === 'trialing') {
+            showWelcomeModal(profile);
+          }
+        }
+      } catch { /* non-fatal */ }
+    })();
+
+    // US-ONB-2.1.1: Plan gate — live plan cards, blur, sidebar dim (AC1–AC18)
+    (async function initPlanGate() {
+      const gateModal  = document.getElementById('plan-gate-modal');
+      const cancelBtn  = document.getElementById('plan-gate-cancel-btn');
+      const pollingEl  = document.getElementById('plan-gate-polling');
+      const cardsEl    = document.getElementById('plan-gate-cards');
+      const refBanner  = document.getElementById('plan-gate-referral-banner');
+      if (!gateModal) return;
+
+      function applyGateBlur(active) {
+        // AC5: blur workspace content, AC14: dim sidebar
+        const main = document.getElementById('workspace-content');
+        const sidebar = document.getElementById('sidebar-container');
+        if (active) {
+          if (main) { main.style.filter = 'blur(4px)'; main.style.pointerEvents = 'none'; }
+          if (sidebar) { sidebar.style.opacity = '0.4'; sidebar.style.pointerEvents = 'none'; }
+          document.title = 'Activate your workspace — Aura-Assist'; // AC15
+        } else {
+          if (main) { main.style.filter = ''; main.style.pointerEvents = ''; }
+          if (sidebar) { sidebar.style.opacity = ''; sidebar.style.pointerEvents = ''; }
+        }
+      }
+
+      async function loadPlanCards(referralCode) {
+        if (!cardsEl) return;
+        try {
+          const res = await fetch('/.netlify/functions/get-plans');
+          if (!res.ok) throw new Error();
+          const { plans } = await res.json();
+          if (!plans?.length) {
+            cardsEl.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500 text-sm"><a href="/pricing.html" class="text-emerald-700 font-semibold underline">View plans on our pricing page →</a></div>';
+            return;
+          }
+          cardsEl.innerHTML = plans.map(p => {
+            const price = parseFloat(p.monthlyPriceGbp || 0);
+            const bullets = [
+              p.assistantLimit ? `Up to ${p.assistantLimit} AI assistant${p.assistantLimit > 1 ? 's' : ''}` : null,
+              p.monthlyTaskLimit ? `${p.monthlyTaskLimit.toLocaleString()} tasks/month` : null,
+              p.appConnectionLimit ? `${p.appConnectionLimit} app connection${p.appConnectionLimit > 1 ? 's' : ''}` : null,
+              p.seatLimit && p.seatLimit > 1 ? `${p.seatLimit} team seats` : null,
+            ].filter(Boolean).slice(0, 5);
+            return `
+              <div class="border-2 border-gray-200 hover:border-emerald-400 rounded-xl p-5 flex flex-col transition cursor-pointer plan-card" data-plan-id="${p.id}" data-plan-name="${p.name}">
+                <h3 class="font-bold text-gray-900 text-base mb-1">${p.name}</h3>
+                <p class="text-2xl font-extrabold text-gray-900 mb-1">£${price % 1 === 0 ? price.toFixed(0) : price.toFixed(2)}<span class="text-sm font-normal text-gray-500">/mo</span></p>
+                <ul class="mt-3 space-y-1.5 text-xs text-gray-600 flex-1">
+                  ${bullets.map(b => `<li class="flex items-start gap-1.5"><span class="text-emerald-500 font-bold">✓</span>${b}</li>`).join('')}
+                </ul>
+                <button data-plan-id="${p.id}" data-plan-name="${p.name}"
+                  class="choose-plan-btn mt-4 w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition">
+                  Choose ${p.name} →
+                </button>
+              </div>`;
+          }).join('');
+
+          // Attach click handlers to choose-plan buttons (AC11)
+          cardsEl.querySelectorAll('.choose-plan-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              btn.disabled = true;
+              btn.textContent = 'Redirecting…';
+              try {
+                const body = { planId: btn.dataset.planId };
+                if (referralCode) body.referralCode = referralCode;
+                const r = await fetch('/.netlify/functions/create-checkout-intent', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(body),
+                });
+                const data = await r.json();
+                if (data.url) window.location.href = data.url;
+                else throw new Error(data.error || 'Checkout failed');
+              } catch (err) {
+                btn.disabled = false;
+                btn.textContent = `Choose ${btn.dataset.planName} →`;
+                const t = document.getElementById('oauth-error-toast');
+                const tm = document.getElementById('oauth-error-toast-msg');
+                if (t && tm) { tm.textContent = 'Could not start checkout — please try again.'; t.classList.remove('hidden','opacity-0'); t.classList.add('flex'); setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 4000); }
+              }
+            });
+          });
+        } catch {
+          cardsEl.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500 text-sm"><a href="/pricing.html" class="text-emerald-700 font-semibold underline">View plans on our pricing page →</a></div>';
+        }
+      }
+
+      function showGate(referralCode) {
+        gateModal.classList.remove('hidden');
+        applyGateBlur(true);
+        if (referralCode && refBanner) refBanner.classList.remove('hidden');
+        loadPlanCards(referralCode);
+      }
+
+      // US-ONB-2.1.2 AC11: strip ?action=select-plan from URL after modal opens
+      const actionParam = qs.get('action');
+      const refParam    = qs.get('ref');
+      if (actionParam === 'select-plan') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('action');
+        url.searchParams.delete('ref');
+        history.replaceState(null, '', url.toString());
+        showGate(refParam || null);
+      }
+
+      // Show gate if user has no active plan (AC1-3)
+      const cap = await window.checkCapacity();
+      if (cap && cap.planStatus === null && actionParam !== 'select-plan') {
+        showGate(null);
+      }
+
+      // Cancel — non-blocking toast (AC13)
+      cancelBtn?.addEventListener('click', () => {
+        gateModal.classList.add('hidden');
+        applyGateBlur(false);
+        const t = document.getElementById('oauth-error-toast');
+        const tm = document.getElementById('oauth-error-toast-msg');
+        if (t && tm) { tm.textContent = "No problem — choose a plan whenever you're ready."; t.classList.remove('hidden','opacity-0'); t.classList.add('flex'); setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 4000); }
+      });
+
+      // AC12: ?plan_activated=true — poll for confirmed subscription
+      if (qs.get('plan_activated') === 'true') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('plan_activated');
+        history.replaceState(null, '', url.toString());
+        if (pollingEl) pollingEl.classList.remove('hidden');
+        let attempts = 0;
+        const poll = setInterval(async () => {
+          attempts++;
+          const fresh = await window.checkCapacity(true);
+          if (fresh?.planStatus === 'active' || fresh?.planStatus === 'trialing') {
+            clearInterval(poll);
+            gateModal.classList.add('hidden');
+            applyGateBlur(false);
+            // Show welcome modal after gate lifts (AC3)
+            try {
+              const profileRes = await fetch('/.netlify/functions/update-profile');
+              if (profileRes.ok) {
+                const profile = await profileRes.json();
+                if (!localStorage.getItem(WELCOME_LS_KEY) && profile.firstLoginWelcomeSeen === false) {
+                  showWelcomeModal(profile);
+                }
+              }
+            } catch { /* non-fatal */ }
+          } else if (attempts >= 5) {
+            clearInterval(poll);
+            if (pollingEl) {
+              pollingEl.textContent = 'Taking longer than expected — refresh the page.';
+              pollingEl.classList.remove('animate-pulse', 'text-emerald-700');
+              pollingEl.classList.add('text-amber-600');
+            }
+          }
+        }, 3000);
+      }
+    })();
 
     // Handle OAuth error redirects (e.g. ?error=access_denied from a failed app connection)
     (function handleOAuthError() {

@@ -29,7 +29,8 @@ export const handler: Handler = async (event) => {
     }
 
     const body = JSON.parse(event.body || '{}');
-    const returnUrl = body.returnUrl || `${event.headers.origin || 'https://app.aura-assist.com'}/workspace.html#billing`;
+    if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
+    const returnUrl = `${process.env.BASE_URL}/workspace.html#billing`;
 
     try {
         const db = getDb();

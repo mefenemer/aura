@@ -151,7 +151,7 @@ export const handler = async (event: HandlerEvent) => {
     </div>
     <div style="background:#f9fafb;padding:20px 32px;text-align:center;border-top:1px solid #e5e7eb">
       <p style="margin:0;color:#9ca3af;font-size:13px">Please do not reply to this email.<br>
-        To add information to your ticket, log into your <a href="https://aura-assist.com/workspace.html" style="color:#10b981;text-decoration:none">Aura workspace</a>.
+        To add information to your ticket, log into your <a href="${process.env.BASE_URL || 'https://aura-assist.com'}/workspace.html" style="color:#10b981;text-decoration:none">Aura workspace</a>.
       </p>
     </div>
   </div>

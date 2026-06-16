@@ -77,16 +77,10 @@ export const handler: Handler = async (event) => {
             };
         }
 
-        // ── Mock mode (S3 not yet configured) ────────────────────
-        const mockStorageUrl = `https://mock-storage.aura-assist.com/${storageKey}`;
+        // ── Storage not yet configured ────────────────────
         return {
-            statusCode: 200,
-            body: JSON.stringify({
-                uploadUrl: `/.netlify/functions/content-upload-url?mock=1&key=${encodeURIComponent(storageKey)}`,
-                storageKey,
-                storageUrl: mockStorageUrl,
-                mock: true,
-            }),
+            statusCode: 501,
+            body: JSON.stringify({ error: 'Content upload storage is not yet configured.' }),
         };
 
     } catch (err) {

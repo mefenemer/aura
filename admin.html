@@ -587,6 +587,7 @@
           <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="feature-flags-md" onclick="mdSwitchTab('feature-flags-md')">Flag Definitions</button>
           <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="languages" onclick="mdSwitchTab('languages')">Languages</button>
           <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="system-config" onclick="mdSwitchTab('system-config')">System Config</button>
+          <button class="md-tab px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 whitespace-nowrap" data-tab="help-articles" onclick="mdSwitchTab('help-articles')">Help Articles</button>
         </div>
 
         <!-- Plans tab -->
@@ -696,6 +697,47 @@
                 <tr><th class="px-4 py-3 text-left">Key</th><th class="px-4 py-3 text-left">Value</th><th class="px-4 py-3 text-left">Description</th><th class="px-4 py-3 text-left">Actions</th></tr>
               </thead>
               <tbody id="md-system-config-tbody"><tr><td colspan="4" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- US-HELP-1.3.1: Help Articles tab (AC14–AC17) -->
+        <div id="md-pane-help-articles" class="md-pane hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-700">Help Articles</h2>
+            <div class="flex items-center gap-3">
+              <button onclick="mdPreviewHelpSeed()" class="text-xs text-indigo-700 border border-indigo-200 hover:bg-indigo-50 font-semibold px-3 py-1.5 rounded-lg transition">Seed Preview (Dry Run)</button>
+              <a href="/help.html" target="_blank" class="text-xs text-emerald-700 hover:underline font-semibold">View public Help Center →</a>
+            </div>
+          </div>
+          <!-- Seed dry-run preview panel -->
+          <div id="md-help-seed-preview" class="hidden mb-4 bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-bold text-indigo-800">Seed Preview</h3>
+              <div class="flex gap-2">
+                <button onclick="mdApplyHelpSeed()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg transition">Apply Seed</button>
+                <button onclick="document.getElementById('md-help-seed-preview').classList.add('hidden')" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold px-2 py-1.5">Dismiss</button>
+              </div>
+            </div>
+            <table class="w-full text-xs">
+              <thead><tr class="text-left text-indigo-600 font-semibold"><th class="pb-1 pr-4">Title</th><th class="pb-1 pr-4">Category</th><th class="pb-1">Action</th></tr></thead>
+              <tbody id="md-help-seed-tbody"></tbody>
+            </table>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
+            <table class="w-full text-sm admin-responsive-table">
+              <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <tr>
+                  <th class="px-4 py-3 text-left">Title</th>
+                  <th class="px-4 py-3 text-left">Category</th>
+                  <th class="px-4 py-3 text-center">Order</th>
+                  <th class="px-4 py-3 text-center">Published</th>
+                  <th class="px-4 py-3 text-left">Updated</th>
+                </tr>
+              </thead>
+              <tbody id="md-help-articles-tbody">
+                <tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -4683,6 +4725,9 @@ function mdSwitchTab(tab) {
 }
 
 async function mdLoadTab(tab) {
+  // US-HELP-1.3.1: Help Articles tab has its own loader
+  if (tab === 'help-articles') { await mdLoadHelpArticles(); return; }
+
   const resource = MD_TAB_RESOURCE[tab];
   if (!resource) return;
   const tbodyId = 'md-' + tab + '-tbody';
@@ -4696,6 +4741,81 @@ async function mdLoadTab(tab) {
     tbody.innerHTML = rows.length ? rows.map(r => mdRenderRow(tab, r)).join('') : '<tr><td colspan="9" class="px-5 py-8 text-center text-gray-400">No records found.</td></tr>';
   } catch (e) {
     tbody.innerHTML = '<tr><td colspan="9" class="px-5 py-8 text-center text-red-400">Failed to load: ' + (e.message || e) + '</td></tr>';
+  }
+}
+
+async function mdLoadHelpArticles() {
+  const tbody = document.getElementById('md-help-articles-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr>';
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=help-articles');
+    const rows = d.articles || d.data || [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">No articles found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const pub = r.isPublished;
+      return `<tr class="border-t border-gray-100">
+        <td class="px-4 py-3 font-medium text-sm max-w-xs truncate">${escAdm(r.title||'')}</td>
+        <td class="px-4 py-3 text-gray-500 text-sm">${escAdm(r.category||'')}</td>
+        <td class="px-4 py-3 text-center text-sm font-mono">${r.sortOrder??''}</td>
+        <td class="px-4 py-3 text-center">
+          <button onclick="toggleHelpArticlePublished('${r.id}',${!pub})"
+            class="px-3 py-1 text-xs font-bold rounded-full ${pub ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
+            ${pub ? 'Published' : 'Unpublished'}
+          </button>
+        </td>
+        <td class="px-4 py-3 text-gray-400 text-xs">${r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('en-GB') : ''}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="5" class="px-5 py-8 text-center text-red-400">Failed to load: ' + (e.message || e) + '</td></tr>';
+  }
+}
+
+async function toggleHelpArticlePublished(id, newValue) {
+  try {
+    await api(`/.netlify/functions/admin-api?resource=help-articles&id=${id}`, { method: 'PATCH', body: JSON.stringify({ is_published: newValue }) });
+    await mdLoadHelpArticles();
+  } catch (e) {
+    showToast('Failed to update article: ' + (e.message || e), 'error');
+  }
+}
+
+function escAdm(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function mdPreviewHelpSeed() {
+  const panel = document.getElementById('md-help-seed-preview');
+  const tbody = document.getElementById('md-help-seed-tbody');
+  tbody.innerHTML = '<tr><td colspan="3" class="py-2 text-indigo-400 animate-pulse">Loading preview…</td></tr>';
+  panel.classList.remove('hidden');
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=help-articles-seed');
+    const actionColor = { insert: 'text-emerald-700', update: 'text-amber-600', archive: 'text-red-500' };
+    tbody.innerHTML = (d.preview || []).map(r => `
+      <tr class="border-t border-indigo-100">
+        <td class="py-1.5 pr-4 font-medium text-gray-800">${escAdm(r.title)}</td>
+        <td class="py-1.5 pr-4 text-gray-500">${escAdm(r.category)}</td>
+        <td class="py-1.5 font-bold ${actionColor[r.action] || 'text-gray-600'}">${r.action}</td>
+      </tr>`).join('');
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="3" class="py-2 text-red-400">Preview failed: ' + escAdm(e.message || e) + '</td></tr>';
+  }
+}
+
+async function mdApplyHelpSeed() {
+  if (!confirm('Apply the help article seed? Existing articles with matching titles will be updated in place.')) return;
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=help-articles-seed', { method: 'POST' });
+    showToast(`Seed applied — ${d.applied} articles upserted.`, 'success');
+    document.getElementById('md-help-seed-preview').classList.add('hidden');
+    await mdLoadHelpArticles();
+  } catch (e) {
+    showToast('Seed failed: ' + (e.message || e), 'error');
   }
 }
 

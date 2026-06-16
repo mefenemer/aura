@@ -81,7 +81,7 @@ export const handler = async (event: HandlerEvent) => {
         if (assetType === 'file') {
             if (!file) return { statusCode: 400, body: JSON.stringify({ error: 'No file detected.' }) };
             assetName = fileName;
-            finalStorageUrl = `https://mock-storage.aura-assist.com/workspaces/${user.organisationId}/${fileName}`;
+            return { statusCode: 501, body: JSON.stringify({ error: 'File upload storage is not yet configured.' }) };
         } else {
             if (!url) return { statusCode: 400, body: JSON.stringify({ error: 'No URL provided.' }) };
             assetName = url;
@@ -111,9 +111,8 @@ export const handler = async (event: HandlerEvent) => {
 
         // 6. Trigger Background Scraper/RAG Worker
         console.log(`[RAG TRIGGERED] Kicked off extraction job for Asset ID: ${newAsset.id}`);
-        const host = event.headers?.host || 'localhost:8888';
-        const protocol = host.includes('localhost') ? 'http' : 'https';
-        const backgroundEndpoint = `${protocol}://${host}/.netlify/functions/process-asset-background`;
+        if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
+        const backgroundEndpoint = `${process.env.BASE_URL}/.netlify/functions/process-asset-background`;
 
         fetch(backgroundEndpoint, {
             method: 'POST',

@@ -32,7 +32,7 @@ import {
     organisations, billingReconciliationLog, masterPlans, platformConfig, featureFlags,
     billingOverrides, payments, assistantVersions,
     agentAnomalies, agentAnomalyThresholds, taskRuns,
-    legalHolds, jwtBlocklist, stripeDisputes, storageUsage,
+    legalHolds, jwtBlocklist, stripeDisputes, storageUsage, helpArticles,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendMagicLinkEmail } from '../../src/utils/email';
@@ -424,7 +424,7 @@ export const handler: Handler = async (event) => {
                 .set({ verificationToken: token, tokenExpiresAt: expiresAt, updatedAt: new Date() })
                 .where(eq(users.id, uid));
 
-            const loginUrl = `${process.env.SITE_URL || 'https://aura-assist.com'}/verify.html?token=${token}`;
+            const loginUrl = `${process.env.BASE_URL || 'https://aura-assist.com'}/verify.html?token=${token}`;
 
             if (process.env.RESEND_API_KEY) {
                 await resend.emails.send({
@@ -568,7 +568,7 @@ export const handler: Handler = async (event) => {
                 })
                 .where(eq(users.id, uid));
 
-            const SITE_URL = process.env.SITE_URL || 'https://aura-assist.com';
+            const SITE_URL = process.env.BASE_URL || 'https://aura-assist.com';
             const confirmUrl = `${SITE_URL}/.netlify/functions/confirm-email-change?token=${confirmToken}&uid=${uid}`;
 
             if (resend) {
@@ -2155,6 +2155,69 @@ export const handler: Handler = async (event) => {
             await db.execute(`UPDATE scheduled_posts SET status = 'scheduled', attempt_count = 0, retry_at = NULL, failure_reason = NULL, updated_at = now() WHERE id = ${parseInt(postId)} AND status = 'failed'`);
             await insertAdminAuditLog(db, { adminId: currentUserId, action: 'retry_failed_post', resourceType: 'scheduled_posts', resourceId: postId });
             return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
+        }
+
+        // ── US-HELP-1.3.1: Help Articles (AC14–AC17) ─────────────────────────
+        if (resource === 'help-articles-seed') {
+            const SEED_ARTICLES = [
+                { category: 'Getting Started', sortOrder: 10, title: 'What is Aura-Assist?' },
+                { category: 'Getting Started', sortOrder: 20, title: 'Your Dashboard Overview' },
+                { category: 'Getting Started', sortOrder: 30, title: 'Setting Up Your First Assistant' },
+                { category: 'Your Assistants', sortOrder: 10, title: 'How Lead Scoring Works (And How to Trust It)' },
+                { category: 'Your Assistants', sortOrder: 20, title: 'Setting Up Lead Scoring: Simple Mode vs. Advanced Mode' },
+                { category: 'Lead Management', sortOrder: 10, title: "Why Is My Lead Stuck in 'Pending Merge'?" },
+                { category: 'Lead Management', sortOrder: 20, title: 'Understanding Email Verification' },
+                { category: 'Lead Management', sortOrder: 30, title: 'How Automated Data Enrichment Works' },
+                { category: 'Lead Management', sortOrder: 40, title: 'Exporting Leads: CRM Sync vs. CSV Download' },
+                { category: 'Integrations & Connections', sortOrder: 10, title: 'Connecting Apps & Integrations' },
+                { category: 'Billing & Your Plan', sortOrder: 10, title: 'Billing & Your Plan' },
+                { category: 'Troubleshooting & Quick Fixes', sortOrder: 10, title: 'Common Issues: Symptoms, Causes & Fixes' },
+            ];
+            const existing = await db.select({ id: helpArticles.id, title: helpArticles.title }).from(helpArticles);
+            const existingTitles = new Set(existing.map(r => r.title));
+            const preview = SEED_ARTICLES.map(a => ({
+                title: a.title,
+                category: a.category,
+                action: existingTitles.has(a.title) ? 'update' : 'insert',
+            }));
+            const archiveCandidate = existing.find(r => r.title === 'Troubleshooting' && !SEED_ARTICLES.find(s => s.title === r.title));
+            if (archiveCandidate) preview.push({ title: 'Troubleshooting', category: '—', action: 'archive' });
+
+            if (event.httpMethod === 'GET') {
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ preview }) };
+            }
+            if (event.httpMethod === 'POST') {
+                // Execute the seed SQL file via DB raw queries — articles are upserted by title
+                const fs = await import('fs');
+                const path = await import('path');
+                const sqlPath = path.join(process.cwd(), 'db', 'seed-help-articles.sql');
+                const sql = fs.readFileSync(sqlPath, 'utf8');
+                await db.execute(sql as any);
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true, applied: SEED_ARTICLES.length }) };
+            }
+        }
+
+        if (resource === 'help-articles') {
+            if (event.httpMethod === 'GET') {
+                const rows = await db
+                    .select()
+                    .from(helpArticles)
+                    .orderBy(helpArticles.category, helpArticles.sortOrder);
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articles: rows }) };
+            }
+            if (event.httpMethod === 'PATCH') {
+                const articleId = event.queryStringParameters?.id;
+                if (!articleId) return { statusCode: 400, body: JSON.stringify({ error: 'id required' }) };
+                let body: { is_published?: boolean };
+                try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
+                if (typeof body.is_published !== 'boolean') return { statusCode: 400, body: JSON.stringify({ error: 'is_published (boolean) required' }) };
+                const [updated] = await db.update(helpArticles)
+                    .set({ isPublished: body.is_published, updatedAt: new Date() })
+                    .where(eq(helpArticles.id, articleId))
+                    .returning({ id: helpArticles.id, isPublished: helpArticles.isPublished, updatedAt: helpArticles.updatedAt });
+                if (!updated) return { statusCode: 404, body: JSON.stringify({ error: 'Article not found' }) };
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true, article: updated }) };
+            }
         }
 
         return { statusCode: 404, body: JSON.stringify({ error: `Unknown resource: ${resource}` }) };

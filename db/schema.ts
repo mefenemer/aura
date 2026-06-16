@@ -13,6 +13,7 @@ import {
   varchar,
   index,
   check,
+  uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -281,6 +282,8 @@ export const userProfiles = pgTable("user_profiles", {
   language: text("language").default("en"),
   preferences: jsonb("preferences"),
   legalConsents: jsonb("legal_consents"),
+  // US-ONB-2.2.1: tracks whether the first-login welcome modal has been shown
+  firstLoginWelcomeSeen: boolean("first_login_welcome_seen").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -303,6 +306,17 @@ export const notifications = pgTable("notifications", {
 }, (t) => [
   // US-DB-1.1.1: Notification inbox query — userId + isRead + createdAt
   index("notifications_user_read_idx").on(t.userId, t.isRead, t.createdAt),
+]);
+
+// US-ONB-2.1.2: Notification log — deduplicates timed onboarding emails
+// Prevents sending the same email type (e.g. '24h_reminder') more than once per user.
+export const notificationLog = pgTable("notification_log", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+}, (t) => [
+  index("notification_log_user_type_idx").on(t.userId, t.type),
 ]);
 
 // ── Vault Secrets — US-AUD-4.2.1 SC1/SC2 ────────────────────────────────────
@@ -577,17 +591,19 @@ export const userReferrals = pgTable("user_referrals", {
   uniqueReferred: unique("user_referrals_referred_unique").on(t.referredUserId),
 }));
 
-// Add this to your existing db/schema.ts file
-
+// US-HELP-1.3.1: Help articles for the public Help Center
 export const helpArticles = pgTable('help_articles', {
-  id: serial('id').primaryKey(),
-  title: varchar('title', { length: 255 }).notNull(),
-  description: text('description').notNull(),
-  category: varchar('category', { length: 100 }).notNull(),
-  icon: varchar('icon', { length: 50 }).notNull(),
-  readTime: varchar('read_time', { length: 50 }).default('3 min read'),
-  createdAt: timestamp('created_at').defaultNow()
-});
+  id: uuid('id').defaultRandom().primaryKey(),
+  category: text('category').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  title: text('title').notNull().unique(),
+  contentMd: text('content_md').notNull(),
+  isPublished: boolean('is_published').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('idx_help_articles_category').on(t.category, t.sortOrder),
+]);
 // Audit logs table — immutable ledger for system compliance and tracking
 export const auditLogs = pgTable("audit_logs", {
   id: serial().primaryKey(),

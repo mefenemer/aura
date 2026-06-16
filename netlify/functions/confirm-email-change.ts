@@ -13,7 +13,7 @@ import { getDb } from '../../db/client';
 import { users } from '../../db/schema';
 import { insertAdminAuditLog } from '../../src/utils/admin-audit';
 
-const SITE_URL = process.env.SITE_URL || 'https://aura-assist.com';
+const SITE_URL = process.env.BASE_URL || 'https://aura-assist.com';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') {

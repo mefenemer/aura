@@ -81,3 +81,7 @@ node_bundler = "esbuild"
 # US-LEGAL-1.5: 14-day pre-renewal email reminder — 07:00 UTC every day
 [functions.renewal-reminder]
   schedule = "0 7 * * *"
+
+# US-ONB-2.1.2: Hourly onboarding reminder emails (24h + 72h after signup, no plan)
+[functions.send-onboarding-reminders]
+  schedule = "0 * * * *"

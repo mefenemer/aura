@@ -185,7 +185,8 @@ export const handler: Handler = async (event) => {
         // Send the First-Time Verification Email
         // BUG-P1-3: Use BASE_URL env var — never trust the Host header for URL construction
         // (a forged Host header sends the magic link to an attacker-controlled domain).
-        const baseUrl = process.env.BASE_URL || 'http://localhost:8888';
+        if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
+        const baseUrl = process.env.BASE_URL;
         const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}${priceId ? `&priceId=${encodeURIComponent(priceId)}` : ''}${isTrial ? '&trial=true' : ''}`;
 
         await sendMagicLinkEmail({

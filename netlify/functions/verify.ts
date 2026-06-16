@@ -109,8 +109,9 @@ export const handler: Handler = async (event) => {
 
             // US-GAP-6.1.1 SC1/SC2: Welcome email — sent exactly once (SC3: gated by isFirstLogin)
             // SC4: arrives before the 24h onboarding reminder (onboarding-reminder.ts fires at 24h)
-            const onboardingUrl = `${(event.headers['x-forwarded-proto'] || 'https')}://${event.headers.host}/onboarding.html`;
-            const helpUrl       = `${(event.headers['x-forwarded-proto'] || 'https')}://${event.headers.host}/help.html`;
+            if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
+            const onboardingUrl = `${process.env.BASE_URL}/onboarding.html`;
+            const helpUrl       = `${process.env.BASE_URL}/help.html`;
             const [verifyProfile] = await getDb().select({ language: userProfiles.language })
                 .from(userProfiles).where(eq(userProfiles.userId, user.id)).limit(1);
             const emailStr = getEmailStrings(verifyProfile?.language);
@@ -144,8 +145,8 @@ export const handler: Handler = async (event) => {
         const signedToken = jwt.sign(tokenPayload, jwtSecret, { expiresIn: '7d' });
         const sessionCookie = `aura_session=${signedToken}; Path=/; Secure; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}`;
 
-        const protocol = event.headers['x-forwarded-proto'] || 'https';
-        const baseUrl = `${protocol}://${event.headers.host}`;
+        if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
+        const baseUrl = process.env.BASE_URL;
 
         // Map Stripe price IDs → tier keys (test + live environments)
         const priceToTier: Record<string, string> = {

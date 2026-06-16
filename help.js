@@ -29,10 +29,14 @@ window.initHelpCenter = async function() {
     let allArticles = [];
 
     if (grid) {
+        const slugify = t => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const excerpt = md => md.replace(/#{1,6}\s+/g, '').replace(/[*_`[\]]/g, '').replace(/\n+/g, ' ').trim().slice(0, 140);
+
         try {
             const res = await fetch('/.netlify/functions/get-help-articles');
             if (res.ok) {
-                allArticles = await res.json();
+                const data = await res.json();
+                allArticles = data.articles || [];
                 renderArticles(allArticles);
             }
         } catch (e) {
@@ -45,13 +49,15 @@ window.initHelpCenter = async function() {
                 return;
             }
             grid.innerHTML = articles.map(article => `
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition flex flex-col h-full cursor-pointer">
+                <a href="/help.html#${slugify(article.title)}" target="_blank" rel="noopener"
+                   class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-md hover:border-emerald-300 transition flex flex-col h-full">
                     <div class="flex justify-between items-start mb-4">
                         <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">${article.category}</span>
                     </div>
                     <h3 class="text-lg font-bold text-gray-900 mb-2">${article.title}</h3>
-                    <p class="text-sm text-gray-500 mb-6 flex-grow line-clamp-3">${article.description}</p>
-                </div>
+                    <p class="text-sm text-gray-500 mb-6 flex-grow line-clamp-3">${excerpt(article.contentMd)}</p>
+                    <span class="text-xs font-semibold text-emerald-700">Read article →</span>
+                </a>
             `).join('');
         }
 
@@ -61,7 +67,7 @@ window.initHelpCenter = async function() {
         function filterData() {
             const filtered = allArticles.filter(a => {
                 const matchesCategory = currentCategory === 'All' || a.category === currentCategory;
-                const matchesSearch = a.title.toLowerCase().includes(currentSearch) || a.description.toLowerCase().includes(currentSearch);
+                const matchesSearch = a.title.toLowerCase().includes(currentSearch) || a.contentMd.toLowerCase().includes(currentSearch);
                 return matchesCategory && matchesSearch;
             });
             renderArticles(filtered);

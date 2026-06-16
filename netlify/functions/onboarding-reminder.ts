@@ -120,7 +120,7 @@ export default async (req: Request): Promise<Response> => {
         return new Response('RESEND_API_KEY missing', { status: 500 });
     }
 
-    const baseUrl = process.env.URL || 'https://aura-assist.com';
+    const baseUrl = process.env.BASE_URL || 'https://aura-assist.com';
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
         console.error('[onboarding-reminder] JWT_SECRET missing.');

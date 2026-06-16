@@ -9,12 +9,13 @@
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { getDb, withUpdatedAt } from '../../db/client';
-import { users, userReferrals } from '../../db/schema';
+import { users, userReferrals, plans } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
-const BASE_URL  = process.env.DEPLOY_URL || process.env.URL || 'https://aura-digital-assistant.netlify.app';
+if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
+const BASE_URL  = process.env.BASE_URL;
 const REWARD_GBP = 10;
 
 function getAuth(event: any): number | null {
@@ -45,9 +46,25 @@ export const handler: Handler = async (event) => {
             firstName: users.firstName,
             lastName: users.lastName,
             referralCode: users.referralCode,
+            createdAt: users.createdAt,
         }).from(users).where(eq(users.id, callerId)).limit(1);
 
         if (!user) return { statusCode: 404, body: JSON.stringify({ error: 'User not found.' }) };
+
+        // Check if caller has an active plan
+        const [activePlan] = await db
+            .select({ id: plans.id })
+            .from(plans)
+            .where(and(eq(plans.userId, callerId), eq(plans.status, 'active')))
+            .limit(1);
+        const hasActivePlan = !!activePlan;
+
+        if (!hasActivePlan) {
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ hasActivePlan: false }),
+            };
+        }
 
         // Fetch referrals made by this user
         const referrals = await db
@@ -71,15 +88,42 @@ export const handler: Handler = async (event) => {
             ? `${BASE_URL}/register.html?ref=${user.referralCode}`
             : null;
 
+        // US-GAP-8.3.1: Who referred this user?
+        const [referralRecord] = await db
+            .select({ referrerId: userReferrals.referrerId, status: userReferrals.status })
+            .from(userReferrals)
+            .where(eq(userReferrals.referredUserId, callerId))
+            .limit(1);
+
+        let referredBy: { displayName: string; joinedAt: string; referralBonusApplied: boolean } | null = null;
+        if (referralRecord) {
+            const [referrer] = await db
+                .select({ firstName: users.firstName, lastName: users.lastName, pendingDeletion: users.pendingDeletion })
+                .from(users)
+                .where(eq(users.id, referralRecord.referrerId))
+                .limit(1);
+            // AC15: treat pending-deleted referrers the same as deleted — hide referrer section
+            if (referrer && !referrer.pendingDeletion) {
+                const name = [referrer.firstName, referrer.lastName].filter(Boolean).join(' ') || 'An Aura-Assist member';
+                referredBy = {
+                    displayName: name,
+                    joinedAt: (user.createdAt as Date).toISOString(), // AC10: current user's join date
+                    referralBonusApplied: referralRecord.status === 'qualified' || referralRecord.status === 'rewarded',
+                };
+            }
+        }
+
         return {
             statusCode: 200,
             body: JSON.stringify({
+                hasActivePlan: true,
                 referralCode: user.referralCode,
                 shareLink,
                 rewardGbp: REWARD_GBP,
                 totalRewarded,
                 totalPending: referrals.filter(r => r.status === 'pending').length,
                 totalQualified: referrals.filter(r => r.status === 'qualified').length,
+                referredBy,
                 referrals: referrals.map(r => ({
                     id: r.id,
                     status: r.status,
