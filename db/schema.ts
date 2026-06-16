@@ -659,8 +659,8 @@ export const workspaceAssets = pgTable("workspace_assets", {
   index("workspace_assets_org_idx").on(t.organisationId),
   index("workspace_assets_uploader_idx").on(t.uploaderId),
   // US-STOR-1.1.1 AC14: enforce valid status values. R2 object lifecycle: pending|confirmed|deleted;
-  // RAG knowledge-base lifecycle (text/URL assets): processing|ready.
-  check("workspace_assets_status_check", sql`${t.status} IN ('pending', 'confirmed', 'deleted', 'processing', 'ready')`),
+  // RAG knowledge-base lifecycle (text/URL assets): processing|ready|failed (set in process-asset-background.ts).
+  check("workspace_assets_status_check", sql`${t.status} IN ('pending', 'confirmed', 'deleted', 'processing', 'ready', 'failed')`),
 ]);
 
 // US-STOR-1.1.2 AC1: Storage usage tracker — one row per org, updated atomically on upload/delete
