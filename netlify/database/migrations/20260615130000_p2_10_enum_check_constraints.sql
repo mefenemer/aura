@@ -2,6 +2,9 @@
 -- Prevents invalid values being inserted into columns that have a fixed set of allowed values.
 
 ALTER TABLE ai_assistants
+  ADD COLUMN IF NOT EXISTS review_notif_preference text NOT NULL DEFAULT 'immediate';
+
+ALTER TABLE ai_assistants
   ADD CONSTRAINT ai_assistants_review_notif_pref_check
   CHECK (review_notif_preference IN ('immediate', 'daily_digest', 'red_urgency_only'));
 
