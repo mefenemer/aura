@@ -46,7 +46,6 @@ export const handler: Handler = async (event) => {
     }
 
     const organisationId = parseInt(storedState.organisationId ?? '0');
-    const db = getDb();
     const callbackUri = `${baseUrl}/.netlify/functions/social-oauth-callback?platform=${platform}`;
 
     // ── LinkedIn ──────────────────────────────────────────────────────────────
