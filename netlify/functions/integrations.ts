@@ -187,7 +187,43 @@ export const handler: Handler = async (event) => {
             await db.update(systemConnections).set({ status: 'disconnected', isActive: false, updatedAt: new Date() })
                 .where(and(eq(systemConnections.id, connIdInt), eq(systemConnections.userId, currentUserId)));
 
+            // US-SMM-4.1.2: Remote token revocation — fire-and-forget; vault purge follows regardless
             if (conn?.vaultRefKey) {
+                const { getSecret } = await import('../../src/utils/vault');
+                const secret = await getSecret(db, conn.vaultRefKey).catch(() => null);
+                const token = (secret as { token?: string } | null)?.token;
+                if (token) {
+                    const svc = conn.serviceName?.toLowerCase() ?? '';
+                    if (svc === 'instagram' || svc === 'facebook') {
+                        // Meta: DELETE /{user-id}/permissions revokes all grants
+                        const metaSecret = process.env.META_APP_SECRET;
+                        const metaAppId  = process.env.META_APP_ID;
+                        if (metaSecret && metaAppId) {
+                            fetch(`https://graph.facebook.com/v19.0/me/permissions?access_token=${token}`, { method: 'DELETE' }).catch(() => {});
+                        }
+                    } else if (svc === 'linkedin') {
+                        const clientId     = process.env.LINKEDIN_CLIENT_ID;
+                        const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+                        if (clientId && clientSecret) {
+                            fetch('https://www.linkedin.com/oauth/v2/revoke', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, token }),
+                            }).catch(() => {});
+                        }
+                    } else if (svc === 'x') {
+                        const clientId     = process.env.X_CLIENT_ID;
+                        const clientSecret = process.env.X_CLIENT_SECRET;
+                        if (clientId && clientSecret) {
+                            const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+                            fetch('https://api.twitter.com/2/oauth2/revoke', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: `Basic ${credentials}` },
+                                body: new URLSearchParams({ token, token_type_hint: 'access_token' }),
+                            }).catch(() => {});
+                        }
+                    }
+                }
                 await deleteSecret(db, conn.vaultRefKey).catch(() => {});
             }
 

@@ -40,6 +40,8 @@ $$;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'master_assistants') THEN
+    ALTER TABLE master_assistants
+      ADD COLUMN IF NOT EXISTS lifecycle_state text NOT NULL DEFAULT 'draft';
     IF NOT EXISTS (
       SELECT 1 FROM information_schema.table_constraints
       WHERE constraint_name = 'master_assistants_lifecycle_check' AND table_name = 'master_assistants'

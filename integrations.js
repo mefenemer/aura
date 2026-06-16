@@ -4,6 +4,8 @@
 const PLATFORMS = [
     {
         id: 'Facebook',
+        oauthPlatform: true,
+        oauthUrl: '/.netlify/functions/meta-oauth?action=start',
         emoji: '📘',
         iconBg: 'bg-blue-600',
         iconText: 'text-white',
@@ -26,6 +28,8 @@ const PLATFORMS = [
     },
     {
         id: 'Instagram',
+        oauthPlatform: true,
+        oauthUrl: '/.netlify/functions/meta-oauth?action=start',
         emoji: '📸',
         iconBg: 'bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400',
         iconText: 'text-white',
@@ -47,6 +51,8 @@ const PLATFORMS = [
     },
     {
         id: 'LinkedIn',
+        oauthPlatform: true,
+        oauthUrl: '/.netlify/functions/social-oauth-init?platform=linkedin',
         emoji: '💼',
         iconBg: 'bg-blue-700',
         iconText: 'text-white',
@@ -68,6 +74,8 @@ const PLATFORMS = [
     },
     {
         id: 'X',
+        oauthPlatform: true,
+        oauthUrl: '/.netlify/functions/social-oauth-init?platform=x',
         emoji: '✕',
         iconBg: 'bg-gray-950',
         iconText: 'text-white',
