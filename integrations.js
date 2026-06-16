@@ -186,12 +186,13 @@ function _platformCard(platform, conn) {
     let troubleshootingHtml = '';
     if (isConnected && failedChecks.length > 0) {
         const cards = failedChecks.map(chk => `
-            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col gap-2">
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col gap-2" id="trouble-card-${conn?.id}-${chk.id}">
                 <p class="text-xs font-bold text-amber-800">${chk.id}: ${chk.label}</p>
                 <p class="text-xs text-amber-700">${chk.detail ?? ''}</p>
+                <p class="text-xs text-amber-600 italic hidden" id="trouble-chat-${conn?.id}-${chk.id}"></p>
                 <div class="flex items-center gap-2 flex-wrap">
                     ${chk.deepLink ? `<a href="${chk.deepLink}" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-amber-700 underline">Open Settings ↗</a>` : ''}
-                    <button onclick="window._intVerifyCheck('${conn?.id ?? ''}','${platform.id.toLowerCase()}','${chk.id}')" class="text-xs font-bold text-emerald-700 bg-white border border-emerald-300 rounded-lg px-2 py-0.5 cursor-pointer hover:bg-emerald-50 transition" type="button" id="verify-btn-${conn?.id}-${chk.id}">I've done this</button>
+                    <button onclick="window._intVerifyCheck('${conn?.id ?? ''}','${platform.id.toLowerCase()}','${chk.id}','${(chk.label || '').replace(/'/g, "\\'")}','${(chk.detail || '').replace(/'/g, "\\'")}',this)" class="text-xs font-bold text-emerald-700 bg-white border border-emerald-300 rounded-lg px-2 py-0.5 cursor-pointer hover:bg-emerald-50 transition" type="button" id="verify-btn-${conn?.id}-${chk.id}">I've done this</button>
                     <span id="verify-spin-${conn?.id}-${chk.id}" class="hidden text-xs text-gray-400">Checking…</span>
                 </div>
             </div>`).join('');
@@ -238,17 +239,49 @@ function _platformCard(platform, conn) {
 }
 
 // ── US-SMM-4.3.2: Verify a single pre-flight check ───────────────
-// Max 10 verifications per check per 24h enforced server-side
-window._intVerifyCheck = async function (connId, platform, checkId) {
+// AC: 10 re-check attempts per platform per 24h (server-side) + client-side guard via localStorage
+window._intVerifyCheck = async function (connId, platform, checkId, checkLabel, checkDetail) {
     const spinEl = document.getElementById(`verify-spin-${connId}-${checkId}`);
     const btnEl  = document.getElementById(`verify-btn-${connId}-${checkId}`);
+    const chatEl = document.getElementById(`trouble-chat-${connId}-${checkId}`);
     if (!btnEl) return;
+
+    // Client-side rate limit guard (mirrors server-side; avoids wasting LLM calls)
+    const rlKey = `smc_rl_${platform}`;
+    const now = Date.now();
+    let rlData = JSON.parse(localStorage.getItem(rlKey) || '{"count":0,"windowStart":0}');
+    if (now - rlData.windowStart > 86400000) rlData = { count: 0, windowStart: now };
+    if (rlData.count >= 10) {
+        if (chatEl) { chatEl.textContent = 'You\'ve reached the daily re-check limit (10 per 24h). Please try again tomorrow.'; chatEl.classList.remove('hidden'); }
+        return;
+    }
+    rlData.count++;
+    localStorage.setItem(rlKey, JSON.stringify(rlData));
+
     btnEl.disabled = true;
     if (spinEl) spinEl.classList.remove('hidden');
 
-    // Fetch the connection to get organisationId via the integrations API
     try {
-        const auditRes = await fetch(`/.netlify/functions/social-preflight-audit`, {
+        // Fetch LLM-generated contextual troubleshooting message
+        const chatRes = await fetch('/.netlify/functions/social-troubleshoot-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ platform, checkId, checkLabel, checkDetail }),
+        });
+        if (chatRes.ok) {
+            const chatData = await chatRes.json();
+            if (chatEl && chatData.message) {
+                chatEl.textContent = chatData.message;
+                chatEl.classList.remove('hidden');
+            }
+            if (chatData.rateLimited) {
+                if (chatEl) { chatEl.textContent = chatData.error; chatEl.classList.remove('hidden'); }
+                return;
+            }
+        }
+
+        // Run the actual pre-flight audit to recheck
+        const auditRes = await fetch('/.netlify/functions/social-preflight-audit', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ platform }),

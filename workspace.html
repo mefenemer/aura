@@ -1686,7 +1686,7 @@ function formatCurrency(amount, currency) {
     const WELCOME_GUIDE_URL = '/help.html'; // AC9: configurable constant
     const WELCOME_LS_KEY = 'aura_welcome_seen';
 
-    function showWelcomeModal(profileData) {
+    function showWelcomeModal(profileData, tierName) {
       const modal = document.getElementById('payment-welcome-modal');
       if (!modal) return;
 
@@ -1694,6 +1694,25 @@ function formatCurrency(amount, currency) {
       const firstName = profileData?.firstName || (profileData?.email || '').split('@')[0] || '';
       const nameEl = document.getElementById('welcome-first-name');
       if (nameEl && firstName) nameEl.textContent = firstName;
+
+      // AC9: wire guide button to WELCOME_GUIDE_URL constant
+      const guideBtn = document.getElementById('welcome-guide-btn');
+      if (guideBtn) guideBtn.setAttribute('href', WELCOME_GUIDE_URL);
+
+      // AC7: tier-specific bullets based on active plan name
+      const tier = (tierName || '').toLowerCase();
+      const TIER_BULLETS = {
+        buster:   ['Set up your first AI Digital Assistant', 'Connect your social media accounts', 'Schedule & publish posts automatically', 'Access your content library'],
+        saver:    ['Set up multiple AI Digital Assistants', 'Connect all your social platforms', 'Schedule & publish posts automatically', 'Upload brand assets & manage your library', 'Invite team members to collaborate'],
+        employee: ['Unlimited AI Digital Assistants', 'Full social platform integration', 'Advanced analytics & content insights', 'Custom brand kit & full library access', 'Team seats with role-based access', 'Priority support'],
+      };
+      const bullets = TIER_BULLETS[tier] || ['Set up your first AI Digital Assistant', 'Connect your social media accounts', 'Upload your brand assets', 'Review and approve AI-generated content'];
+      const bulletsEl = document.getElementById('welcome-bullets');
+      if (bulletsEl) {
+        bulletsEl.innerHTML = bullets.map(b =>
+          `<li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> ${b}</li>`
+        ).join('');
+      }
 
       // Show modal — desktop: centred flex, mobile: bottom sheet slides up
       modal.classList.remove('hidden');
@@ -1744,7 +1763,7 @@ function formatCurrency(amount, currency) {
         if (profile.firstLoginWelcomeSeen === false) {
           const cap = await window.checkCapacity();
           if (cap?.planStatus === 'active' || cap?.planStatus === 'trialing') {
-            showWelcomeModal(profile);
+            showWelcomeModal(profile, cap?.tierName);
           }
         }
       } catch { /* non-fatal */ }
@@ -1753,7 +1772,6 @@ function formatCurrency(amount, currency) {
     // US-ONB-2.1.1: Plan gate — live plan cards, blur, sidebar dim (AC1–AC18)
     (async function initPlanGate() {
       const gateModal  = document.getElementById('plan-gate-modal');
-      const cancelBtn  = document.getElementById('plan-gate-cancel-btn');
       const pollingEl  = document.getElementById('plan-gate-polling');
       const cardsEl    = document.getElementById('plan-gate-cards');
       const refBanner  = document.getElementById('plan-gate-referral-banner');
@@ -1835,10 +1853,22 @@ function formatCurrency(amount, currency) {
         }
       }
 
-      function showGate(referralCode) {
+      async function showGate(referralCode) {
         gateModal.classList.remove('hidden');
         applyGateBlur(true);
-        if (referralCode && refBanner) refBanner.classList.remove('hidden');
+        if (referralCode && refBanner) {
+          // AC20: fetch real discount % and months from server
+          try {
+            const discRes = await fetch(`/.netlify/functions/get-referral-discount?ref=${encodeURIComponent(referralCode)}`);
+            if (discRes.ok) {
+              const discData = await discRes.json();
+              if (discData.valid && discData.display) {
+                refBanner.textContent = `🎉 Referral discount applied — you'll save ${discData.display}`;
+              }
+            }
+          } catch { /* non-fatal — keep default text */ }
+          refBanner.classList.remove('hidden');
+        }
         loadPlanCards(referralCode);
       }
 
@@ -1881,7 +1911,7 @@ function formatCurrency(amount, currency) {
               if (profileRes.ok) {
                 const profile = await profileRes.json();
                 if (!localStorage.getItem(WELCOME_LS_KEY) && profile.firstLoginWelcomeSeen === false) {
-                  showWelcomeModal(profile);
+                  showWelcomeModal(profile, fresh?.tierName);
                 }
               }
             } catch { /* non-fatal */ }

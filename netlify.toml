@@ -1,3 +1,19 @@
+# US-HELP-1.1.1 AC14: canonical URL aliases for the help centre
+[[redirects]]
+  from = "/help"
+  to   = "/help.html"
+  status = 301
+
+[[redirects]]
+  from = "/support"
+  to   = "/help.html"
+  status = 301
+
+[[redirects]]
+  from = "/faq"
+  to   = "/help.html"
+  status = 301
+
 [build]
   functions = "netlify/functions"
 [dev]

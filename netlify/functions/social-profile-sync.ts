@@ -7,7 +7,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { systemConnections, organisations, aiAssistants } from '../../db/schema';
+import { systemConnections, organisations, aiAssistants, notifications, userOrganisations } from '../../db/schema';
 import { getSecret } from '../../src/utils/vault';
 
 const jwtSecret = process.env.JWT_SECRET!;
@@ -22,10 +22,12 @@ export const handler: Handler = async (event) => {
     const sessionToken = cookieHeader.match(/aura_session=([^;]+)/)?.[1];
 
     let organisationId: number | undefined;
+    let callerUserId: number | undefined;
 
     if (sessionToken) {
         try {
-            const p = jwt.verify(sessionToken, jwtSecret) as { organisationId: number };
+            const p = jwt.verify(sessionToken, jwtSecret) as { userId: number; organisationId: number };
+            callerUserId = p.userId;
             organisationId = p.organisationId;
         } catch { return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session' }) }; }
     }
@@ -59,10 +61,15 @@ export const handler: Handler = async (event) => {
         .limit(1);
 
     const ctx = (assistant?.onboardingContext as Record<string, unknown>) ?? {};
-    const businessBio = (ctx.target_audience as string)
-        ? `Serving ${ctx.target_audience}. ${ctx.tone_of_voice ?? ''}`
-        : `${org.name} — managed via Aura-Assist.`;
+    // AC: use stored business_bio field if set; fall back to derived value
+    const businessBio: string = (ctx.business_bio as string)
+        || ((ctx.target_audience as string) ? `Serving ${ctx.target_audience}. ${ctx.tone_of_voice ?? ''}` : `${org.name} — managed via Aura-Assist.`);
     const websiteUrl  = baseUrl;
+
+    // AC: business hours in Meta page-level format (day_of_week: { open, close })
+    const businessHours = ctx.business_hours as Record<string, { open: string; close: string }> | undefined;
+    // AC: business category mapping — stored as a human-readable string, mapped to Meta page category
+    const businessCategory = ctx.business_category as string | undefined;
 
     const results: Record<string, { status: 'ok' | 'failed' | 'skipped'; detail?: string }> = {};
 
@@ -79,7 +86,14 @@ export const handler: Handler = async (event) => {
 
         if (token && fbPageId) {
             try {
-                const params = new URLSearchParams({ website: websiteUrl, description: businessBio.slice(0, 255), access_token: token });
+                const updatePayload: Record<string, unknown> = {
+                    website: websiteUrl,
+                    description: businessBio.slice(0, 255),
+                    access_token: token,
+                };
+                if (businessCategory) updatePayload.category_list = JSON.stringify([businessCategory]);
+                if (businessHours) updatePayload.hours = JSON.stringify(businessHours);
+                const params = new URLSearchParams(Object.fromEntries(Object.entries(updatePayload).map(([k, v]) => [k, String(v)])));
                 const res = await fetch(`https://graph.facebook.com/v19.0/${fbPageId}?${params.toString()}`, { method: 'POST', signal: AbortSignal.timeout(5000) });
                 const data: { success?: boolean; error?: { message: string } } = await res.json();
                 results.meta = data.success ? { status: 'ok' } : { status: 'failed', detail: data.error?.message };
@@ -149,6 +163,37 @@ export const handler: Handler = async (event) => {
         }
     } else {
         results.linkedin = { status: 'skipped', detail: 'No active LinkedIn connection' };
+    }
+
+    // Workspace chat notification (AC)
+    const syncedPlatforms = Object.entries(results).filter(([, v]) => v.status === 'ok').map(([k]) => k);
+    const failedPlatforms  = Object.entries(results).filter(([, v]) => v.status === 'failed').map(([k]) => k);
+    if (callerUserId) {
+        const msg = syncedPlatforms.length
+            ? `Business profile synced to ${syncedPlatforms.join(', ')}.${failedPlatforms.length ? ` Sync failed for: ${failedPlatforms.join(', ')}.` : ''}`
+            : `Profile sync completed — no platforms updated.`;
+        await db.insert(notifications).values({
+            userId: callerUserId,
+            type: 'profile_sync_complete',
+            title: 'Social profile sync complete',
+            message: msg,
+            metadata: { results },
+        }).catch(() => {});
+    } else {
+        // Internal call — find org owner to notify
+        const [owner] = await db.select({ userId: userOrganisations.userId })
+            .from(userOrganisations)
+            .where(and(eq(userOrganisations.organisationId, organisationId), eq(userOrganisations.role, 'owner')))
+            .limit(1);
+        if (owner) {
+            await db.insert(notifications).values({
+                userId: owner.userId,
+                type: 'profile_sync_complete',
+                title: 'Social profile sync complete',
+                message: syncedPlatforms.length ? `Business profile synced to ${syncedPlatforms.join(', ')}.` : 'Profile sync completed.',
+                metadata: { results },
+            }).catch(() => {});
+        }
     }
 
     return {

@@ -1,26 +1,20 @@
 // netlify/functions/social-oauth-callback.ts
 // US-SMM-4.1.1: OAuth 2.0 callback/token exchange for LinkedIn and X (Twitter).
 // GET ?platform=linkedin|x&code=...&state=...
+// AC1.1.2: CSRF verified against server-side vault entry with 10-minute TTL.
 
 import { Handler } from '@netlify/functions';
-import { createHmac } from 'crypto';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { systemConnections, notifications, auditLogs, users, userOrganisations } from '../../db/schema';
-import { storeSecret } from '../../src/utils/vault';
+import { storeSecret, getSecret, deleteSecret } from '../../src/utils/vault';
 
-const jwtSecret = process.env.JWT_SECRET!;
 if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
 const baseUrl = process.env.BASE_URL;
 
 function parseState(raw: string): Record<string, string> | null {
     try { return JSON.parse(Buffer.from(raw, 'base64url').toString()); }
     catch { return null; }
-}
-
-function validateCsrf(state: Record<string, string>): boolean {
-    const expected = createHmac('sha256', jwtSecret).update(state.csrf ?? '').digest('hex');
-    return expected === state.csrfHmac;
 }
 
 export const handler: Handler = async (event) => {
@@ -35,12 +29,23 @@ export const handler: Handler = async (event) => {
     }
 
     const state = parseState(rawState);
-    if (!state || !validateCsrf(state)) {
+    if (!state || !state.userId || !state.csrf) {
         return { statusCode: 302, headers: { Location: `/workspace.html?oauth_error=csrf_fail&platform=${platform}` }, body: '' };
     }
 
-    const organisationId = parseInt(state.organisationId);
     const userId = parseInt(state.userId);
+    const db = getDb();
+
+    // AC1.1.2: verify CSRF against server-side vault entry and enforce 10-minute TTL
+    const csrfKey = `oauth_csrf:${userId}:${platform}`;
+    const storedState = await getSecret(db, csrfKey).catch(() => null) as { csrf?: string; expiresAt?: number; organisationId?: string; codeVerifier?: string } | null;
+    await deleteSecret(db, csrfKey).catch(() => {}); // consume regardless — one-time use
+
+    if (!storedState || storedState.csrf !== state.csrf || !storedState.expiresAt || Date.now() > storedState.expiresAt) {
+        return { statusCode: 302, headers: { Location: `/workspace.html?oauth_error=csrf_fail&platform=${platform}` }, body: '' };
+    }
+
+    const organisationId = parseInt(storedState.organisationId ?? '0');
     const db = getDb();
     const callbackUri = `${baseUrl}/.netlify/functions/social-oauth-callback?platform=${platform}`;
 
@@ -78,7 +83,7 @@ export const handler: Handler = async (event) => {
             .where(and(eq(systemConnections.organisationId, organisationId), eq(systemConnections.serviceName, 'linkedin')))
             .limit(1);
 
-        const scopes = 'r_liteprofile,r_emailaddress,w_member_social,r_organization_social,w_organization_social';
+        const scopes = 'r_organization_social,w_organization_social,r_basicprofile';
         if (existing) {
             await db.update(systemConnections).set({ vaultRefKey: refKey, externalUserId: linkedinId, tokenExpiresAt, status: 'active', isActive: true, scopes, updatedAt: new Date() }).where(eq(systemConnections.id, existing.id));
         } else {
@@ -102,7 +107,7 @@ export const handler: Handler = async (event) => {
     if (platform === 'x') {
         const clientId     = process.env.X_CLIENT_ID!;
         const clientSecret = process.env.X_CLIENT_SECRET!;
-        const codeVerifier = state.codeVerifier;
+        const codeVerifier = storedState.codeVerifier; // AC1.1.2: retrieved from server-side vault
 
         const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
         const tokenRes = await fetch('https://api.twitter.com/2/oauth2/token', {

@@ -23,35 +23,64 @@ interface PreflightCheck {
 
 async function runMetaChecks(token: string, metadata: Record<string, unknown>): Promise<PreflightCheck[]> {
     const fbPageId = metadata?.fbPageId as string | undefined;
-    const accountType = metadata?.accountType as string | undefined;
+    const igUserId  = metadata?.igUserId  as string | undefined;
     const checks: PreflightCheck[] = [];
 
-    // CHK-01: Facebook Page linked
-    checks.push({
-        id: 'CHK-01',
-        label: 'Facebook Page linked',
-        status: fbPageId ? 'pass' : 'fail',
-        detail: fbPageId ? `Page ID: ${fbPageId}` : 'No Facebook Page is linked to this Instagram account.',
-        deepLink: 'https://www.facebook.com/pages/',
-    });
+    // CHK-01: Facebook Page is published — live API call
+    let chk01: PreflightCheck = { id: 'CHK-01', label: 'Facebook Page linked & published', status: 'unknown', deepLink: 'https://www.facebook.com/pages/' };
+    if (fbPageId) {
+        try {
+            const pageRes = await fetch(`https://graph.facebook.com/v19.0/${fbPageId}?fields=is_published&access_token=${token}`, { signal: AbortSignal.timeout(4000) });
+            const pageData: { is_published?: boolean; error?: { message: string } } = await pageRes.json();
+            if (typeof pageData.is_published === 'boolean') {
+                chk01.status = pageData.is_published ? 'pass' : 'fail';
+                chk01.detail = pageData.is_published ? `Page ID: ${fbPageId} (published)` : 'Facebook Page exists but is not published.';
+            } else if (pageData.error) {
+                chk01.status = 'fail';
+                chk01.detail = pageData.error.message;
+            }
+        } catch { chk01.detail = 'Timeout checking Facebook Page.'; }
+    } else {
+        chk01.status = 'fail';
+        chk01.detail = 'No Facebook Page is linked to this Instagram account.';
+    }
+    checks.push(chk01);
 
-    // CHK-02: Instagram Business account connected (externalUserId present — already verified at OAuth)
-    checks.push({
-        id: 'CHK-02',
-        label: 'Instagram Business account connected',
-        status: 'pass',
-        detail: 'Instagram Business account verified during OAuth.',
-        deepLink: 'https://business.facebook.com/instagram',
-    });
+    // CHK-02: Instagram Business account connected — live API call
+    let chk02: PreflightCheck = { id: 'CHK-02', label: 'Instagram Business account connected', status: 'unknown', deepLink: 'https://business.facebook.com/instagram' };
+    if (fbPageId) {
+        try {
+            const igRes = await fetch(`https://graph.facebook.com/v19.0/${fbPageId}?fields=instagram_accounts&access_token=${token}`, { signal: AbortSignal.timeout(4000) });
+            const igData: { instagram_accounts?: { data: Array<{ id: string }> }; error?: { message: string } } = await igRes.json();
+            const hasIg = (igData.instagram_accounts?.data?.length ?? 0) > 0;
+            chk02.status = hasIg ? 'pass' : 'fail';
+            chk02.detail = hasIg ? 'Instagram account linked to Facebook Page.' : 'No Instagram account linked to this Facebook Page.';
+        } catch { chk02.detail = 'Timeout checking Instagram accounts.'; }
+    } else {
+        chk02.status = 'fail';
+        chk02.detail = 'Cannot check — no Facebook Page linked.';
+    }
+    checks.push(chk02);
 
-    // CHK-03: Account type is BUSINESS (not just CREATOR)
-    checks.push({
-        id: 'CHK-03',
-        label: 'Instagram account is Business type',
-        status: accountType?.toUpperCase() === 'BUSINESS' ? 'pass' : (accountType?.toUpperCase() === 'CREATOR' ? 'fail' : 'unknown'),
-        detail: accountType ? `Account type: ${accountType}` : 'Account type unknown.',
-        deepLink: 'https://www.instagram.com/accounts/convert_to_business/',
-    });
+    // CHK-03: Account type is BUSINESS — live API call
+    let chk03: PreflightCheck = { id: 'CHK-03', label: 'Instagram account is Business type', status: 'unknown', deepLink: 'https://www.instagram.com/accounts/convert_to_business/' };
+    if (igUserId) {
+        try {
+            const typeRes = await fetch(`https://graph.facebook.com/v19.0/${igUserId}?fields=account_type&access_token=${token}`, { signal: AbortSignal.timeout(4000) });
+            const typeData: { account_type?: string; error?: { message: string } } = await typeRes.json();
+            if (typeData.account_type) {
+                const at = typeData.account_type.toUpperCase();
+                chk03.status = at === 'BUSINESS' ? 'pass' : 'fail';
+                chk03.detail = `Account type: ${typeData.account_type}`;
+            } else if (typeData.error) {
+                chk03.detail = typeData.error.message;
+            }
+        } catch { chk03.detail = 'Timeout checking account type.'; }
+    } else {
+        chk03.status = 'unknown';
+        chk03.detail = 'Instagram User ID not available — re-connect to refresh.';
+    }
+    checks.push(chk03);
 
     // CHK-04: Messaging enabled on Facebook Page (requires page-level API call)
     let chk04: PreflightCheck = { id: 'CHK-04', label: 'Facebook Page messaging enabled', status: 'unknown', deepLink: 'https://www.facebook.com/settings/?tab=messaging' };
@@ -210,12 +239,29 @@ export const handler: Handler = async (event) => {
         const preflightStatus = failCount === 0 ? 'passed' : failCount >= checks.length ? 'blocked' : 'partial';
 
         const existingMeta = (conn.metadata as Record<string, unknown>) ?? {};
+        // Append to audit history (max 20 entries) instead of overwriting
+        const auditEntry = { runAt: new Date().toISOString(), preflightStatus, checks };
+        const existingHistory = Array.isArray(existingMeta.preflightAuditHistory) ? (existingMeta.preflightAuditHistory as unknown[]) : [];
+        const preflightAuditHistory = [...existingHistory, auditEntry].slice(-20);
+        // Blueprint summary: latest status + failing check labels for LLM context
+        const blueprintSummary = {
+            preflightStatus,
+            lastRunAt: auditEntry.runAt,
+            failingChecks: checks.filter(c => c.status === 'fail').map(c => c.label),
+        };
         await db.update(systemConnections).set({
-            metadata: { ...existingMeta, preflightAuditResults: checks, preflightStatus, preflightAuditAt: new Date().toISOString() },
+            metadata: {
+                ...existingMeta,
+                preflightAuditResults: checks,  // latest results (backward compat)
+                preflightStatus,
+                preflightAuditAt: auditEntry.runAt,
+                preflightAuditHistory,          // full append-only history
+                blueprintPreflightSummary: blueprintSummary, // available to LLM
+            },
             updatedAt: new Date(),
         }).where(eq(systemConnections.id, conn.id));
 
-        return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ preflightStatus, checks }) };
+        return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ preflightStatus, checks, auditEntry }) };
     }
 
     return { statusCode: 405, body: 'Method Not Allowed' };
