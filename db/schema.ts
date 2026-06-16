@@ -639,7 +639,11 @@ export const workspaceAssets = pgTable("workspace_assets", {
   storageUrl: text("storage_url"),
   externalUrl: text("external_url"),
   extractedText: text("extracted_text"),
-  status: text("status").notNull().default("processing"),
+  // US-STOR-1.1.1 AC14: R2 object-storage lifecycle is `pending` → `confirmed` → `deleted`
+  // (default `pending`). This table is dual-purpose: the RAG knowledge-base pipeline also uses
+  // `processing` → `ready` for text/URL assets that never touch R2. The CHECK constraint below
+  // enforces the full set of valid states for both lifecycles.
+  status: text("status").notNull().default("pending"),
 
   // US-STOR-1.1.1 AC14: R2 object storage fields
   r2Key: text("r2_key"),                               // full R2 object key — never returned in API responses (AC15)
@@ -654,6 +658,9 @@ export const workspaceAssets = pgTable("workspace_assets", {
   // US-DB-1.1.1: Org-level and uploader-level asset lookups
   index("workspace_assets_org_idx").on(t.organisationId),
   index("workspace_assets_uploader_idx").on(t.uploaderId),
+  // US-STOR-1.1.1 AC14: enforce valid status values. R2 object lifecycle: pending|confirmed|deleted;
+  // RAG knowledge-base lifecycle (text/URL assets): processing|ready.
+  check("workspace_assets_status_check", sql`${t.status} IN ('pending', 'confirmed', 'deleted', 'processing', 'ready')`),
 ]);
 
 // US-STOR-1.1.2 AC1: Storage usage tracker — one row per org, updated atomically on upload/delete

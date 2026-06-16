@@ -16,6 +16,7 @@ import crypto from 'crypto';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, userOrganisations, workspaceAssets, storageUsage, plans, masterPlans } from '../../db/schema';
+import { buildTenantKey } from '../../src/utils/storage-keys';
 
 const JWT_SECRET  = process.env.JWT_SECRET;
 const R2_ENDPOINT = process.env.R2_ENDPOINT;           // https://<accountId>.r2.cloudflarestorage.com
@@ -97,10 +98,8 @@ export const handler: Handler = async (event) => {
         return { statusCode: 400, body: JSON.stringify({ error: 'Invalid orgId — cannot issue key without valid tenant prefix.' }) };
     }
 
-    // AC2 key format: /{orgId}/{assetType}/{uuid}.{ext}
-    const ext = filename.split('.').pop()?.toLowerCase() || 'bin';
-    const uuid = crypto.randomUUID();
-    const r2Key = `${orgId}/${assetType}/${uuid}.${ext}`;
+    // AC2 key format: /{orgId}/{assetType}/{uuid}.{ext} — derived via shared tenant-key util (AC12/AC13)
+    const r2Key = buildTenantKey(orgId, assetType, filename, crypto.randomUUID());
 
     // Insert pending workspace_asset row
     const [asset] = await db.insert(workspaceAssets).values({

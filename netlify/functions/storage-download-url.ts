@@ -16,6 +16,7 @@ import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, userOrganisations, workspaceAssets } from '../../db/schema';
+import { keyBelongsToOrg } from '../../src/utils/storage-keys';
 
 const JWT_SECRET  = process.env.JWT_SECRET;
 const R2_ENDPOINT = process.env.R2_ENDPOINT;
@@ -70,6 +71,12 @@ export const handler: Handler = async (event) => {
         .where(and(eq(userOrganisations.userId, userId), eq(userOrganisations.organisationId, asset.organisationId)))
         .limit(1);
     if (!membership) return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden.' }) };
+
+    // AC12: defence-in-depth — the stored key must live under the owning org's prefix.
+    // A key that does not match the asset's org indicates tampering/corruption; never sign it.
+    if (!keyBelongsToOrg(asset.r2Key, asset.organisationId)) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden — tenant key mismatch.' }) };
+    }
 
     if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET) {
         return { statusCode: 200, body: JSON.stringify({ downloadUrl: `/.netlify/functions/storage-download-url?mock=1&assetId=${assetId}`, mock: true }) };

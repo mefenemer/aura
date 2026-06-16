@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:storage-isolation": "tsx tests/storage-tenant-isolation.test.ts",
     "db:push": "drizzle-kit push",
     "db:seed-catalog": "npx tsx db/seed-catalog.ts",
     "build:css": "tailwindcss -i ./input.css -o ./style.css --watch",
