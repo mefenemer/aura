@@ -17,7 +17,7 @@ const metaSecret  = process.env.META_APP_SECRET!;
 if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
 const baseUrl     = process.env.BASE_URL;
 const REDIRECT_URI = `${baseUrl}/.netlify/functions/meta-oauth?action=callback`;
-const SCOPES      = 'instagram_basic,instagram_content_publish,pages_read_engagement';
+const SCOPES      = 'instagram_basic,instagram_content_publish,pages_read_engagement,pages_manage_metadata,pages_messaging,pages_manage_posts';
 const TOKEN_TTL_DAYS = 60;
 
 function csrfToken(): string {
@@ -202,6 +202,13 @@ export const handler: Handler = async (event) => {
         }
 
         await db.insert(auditLogs).values({ actionType: isReconnect ? 'instagram_reconnected' : 'instagram_connected', resourceType: 'system_connections', resourceId: igUserId, newState: { organisationId, accountType, fbPageId } });
+
+        // US-SMM-4.3.1: trigger pre-flight audit fire-and-forget after successful OAuth
+        fetch(`${baseUrl}/.netlify/functions/social-preflight-audit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ organisationId, platform: 'instagram' }),
+        }).catch(() => {});
 
         return {
             statusCode: 302,
