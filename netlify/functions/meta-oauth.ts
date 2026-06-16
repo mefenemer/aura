@@ -203,6 +203,13 @@ export const handler: Handler = async (event) => {
 
         await db.insert(auditLogs).values({ actionType: isReconnect ? 'instagram_reconnected' : 'instagram_connected', resourceType: 'system_connections', resourceId: igUserId, newState: { organisationId, accountType, fbPageId } });
 
+        // US-SMM-4.2.2: trigger profile sync fire-and-forget after successful OAuth
+        fetch(`${baseUrl}/.netlify/functions/social-profile-sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ organisationId }),
+        }).catch(() => {});
+
         // US-SMM-4.3.1: trigger pre-flight audit fire-and-forget after successful OAuth
         fetch(`${baseUrl}/.netlify/functions/social-preflight-audit`, {
             method: 'POST',

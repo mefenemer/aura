@@ -108,9 +108,9 @@
   </div>
 </div>
 
-<!-- ── Disconnect confirmation modal ────────────────────────────── -->
+<!-- ── Disconnect confirmation modal (US-SMM-4.1.2: non-dismissible by clicking outside) ── -->
 <div id="modal-disconnect" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-  <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+  <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onclick="event.stopPropagation()">
     <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-red-600 text-2xl mb-4">⚠️</div>
     <h3 class="text-xl font-bold text-gray-900 mb-2">Disconnect this platform?</h3>
     <p class="text-gray-600 text-sm mb-6">This will permanently delete the stored credentials and <strong>pause any assistants</strong> currently posting to this platform. You can reconnect at any time.</p>

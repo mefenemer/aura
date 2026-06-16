@@ -83,8 +83,8 @@ export const handler: Handler = async (event) => {
             // prevent over-privileged OAuth grants (e.g., requesting write access
             // when only read is needed for the connected workflow).
             const ALLOWED_SCOPES: Record<string, string[]> = {
-                facebook:      ['pages_show_list', 'pages_read_engagement', 'pages_manage_posts', 'publish_to_groups'],
-                instagram:     ['instagram_basic', 'instagram_content_publish', 'instagram_manage_insights'],
+                facebook:      ['pages_show_list', 'pages_read_engagement', 'pages_manage_posts', 'publish_to_groups', 'pages_manage_metadata', 'pages_messaging'],
+                instagram:     ['instagram_basic', 'instagram_content_publish', 'instagram_manage_insights', 'pages_manage_metadata', 'pages_messaging', 'pages_manage_posts'],
                 linkedin:      ['r_liteprofile', 'r_emailaddress', 'w_member_social', 'r_organization_social', 'w_organization_social'],
                 twitter:       ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
                 google:        ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/spreadsheets'],

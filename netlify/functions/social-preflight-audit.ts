@@ -161,7 +161,19 @@ export const handler: Handler = async (event) => {
     // ── POST: run audit ───────────────────────────────────────────────────────
     if (event.httpMethod === 'POST') {
         const body = JSON.parse(event.body || '{}');
-        const { organisationId, platform } = body as { organisationId: number; platform: string };
+        let { organisationId, platform } = body as { organisationId: number | undefined; platform: string };
+
+        // Resolve orgId from session if not provided (user-triggered)
+        if (!organisationId) {
+            const cookieHeader = event.headers.cookie || '';
+            const sessionToken = cookieHeader.match(/aura_session=([^;]+)/)?.[1];
+            if (sessionToken) {
+                try {
+                    const p = jwt.verify(sessionToken, jwtSecret) as { organisationId: number };
+                    organisationId = p.organisationId;
+                } catch { return { statusCode: 401, body: 'Invalid session' }; }
+            }
+        }
 
         if (!organisationId || !platform) {
             return { statusCode: 400, body: JSON.stringify({ error: 'organisationId and platform required' }) };

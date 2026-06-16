@@ -160,12 +160,60 @@ function _platformCard(platform, conn) {
             : `<span class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Needs attention</span>`;
     }
 
+    // US-SMM-4.1.1 / 4.1.2: OAuth platforms use redirect; manual token entry kept for non-OAuth
+    const connectBtn = platform.oauthPlatform
+        ? `<a href="${platform.oauthUrl}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer inline-block">Connect with ${platform.label}</a>`
+        : `<button onclick="window._intOpenModal('${platform.id}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer" type="button">Connect</button>`;
+
+    const reconnectBtn = platform.oauthPlatform
+        ? `<a href="${platform.oauthUrl}" class="text-sm font-bold text-gray-500 hover:text-gray-800 transition cursor-pointer">Reconnect</a>`
+        : `<button onclick="window._intOpenModal('${platform.id}')" class="text-sm font-bold text-gray-500 hover:text-gray-800 transition cursor-pointer" type="button">Update token</button>`;
+
+    // US-SMM-4.3.2: preflight audit status badge
+    const meta = conn?.metadata ?? {};
+    const preflightStatus = meta.preflightStatus;
+    const preflightChecks = meta.preflightAuditResults ?? [];
+    let preflightBadge = '';
+    if (isConnected && preflightStatus) {
+        const colour = preflightStatus === 'passed' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : preflightStatus === 'partial' ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-red-700 bg-red-50 border-red-200';
+        const dot    = preflightStatus === 'passed' ? 'bg-emerald-500' : preflightStatus === 'partial' ? 'bg-amber-500 animate-pulse' : 'bg-red-500 animate-pulse';
+        const label  = preflightStatus === 'passed' ? 'Audit passed' : preflightStatus === 'partial' ? 'Needs attention' : 'Audit failed';
+        preflightBadge = `<span class="inline-flex items-center gap-1 text-xs font-bold ${colour} border px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full ${dot}"></span>${label}</span>`;
+    }
+
+    // US-SMM-4.3.2: failed check cards with deep links + "I've done this" verification button
+    const failedChecks = preflightChecks.filter(c => c.status === 'fail');
+    let troubleshootingHtml = '';
+    if (isConnected && failedChecks.length > 0) {
+        const cards = failedChecks.map(chk => `
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col gap-2">
+                <p class="text-xs font-bold text-amber-800">${chk.id}: ${chk.label}</p>
+                <p class="text-xs text-amber-700">${chk.detail ?? ''}</p>
+                <div class="flex items-center gap-2 flex-wrap">
+                    ${chk.deepLink ? `<a href="${chk.deepLink}" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-amber-700 underline">Open Settings ↗</a>` : ''}
+                    <button onclick="window._intVerifyCheck('${conn?.id ?? ''}','${platform.id.toLowerCase()}','${chk.id}')" class="text-xs font-bold text-emerald-700 bg-white border border-emerald-300 rounded-lg px-2 py-0.5 cursor-pointer hover:bg-emerald-50 transition" type="button" id="verify-btn-${conn?.id}-${chk.id}">I've done this</button>
+                    <span id="verify-spin-${conn?.id}-${chk.id}" class="hidden text-xs text-gray-400">Checking…</span>
+                </div>
+            </div>`).join('');
+        troubleshootingHtml = `<div class="flex flex-col gap-2 pt-3 border-t border-amber-100">${cards}</div>`;
+    }
+
+    // US-SMM-4.2.2 / 4.2.1: Sync Profile and Generate Auto-Responder for Meta/LinkedIn
+    const syncBtn = (isConnected && (platform.id === 'Instagram' || platform.id === 'Facebook' || platform.id === 'LinkedIn'))
+        ? `<button onclick="window._intSyncProfile('${platform.id.toLowerCase()}')" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition cursor-pointer" type="button">Sync Profile</button>`
+        : '';
+    const autoRespBtn = (isConnected && (platform.id === 'Instagram' || platform.id === 'Facebook'))
+        ? `<button onclick="window._intGenerateAutoResponder()" class="text-xs font-bold text-purple-600 hover:text-purple-800 transition cursor-pointer" type="button">Auto-Responder</button>`
+        : '';
+
     const action = isConnected
-        ? `<div class="flex items-center gap-3">
-               <button onclick="window._intOpenModal('${platform.id}')" class="text-sm font-bold text-gray-500 hover:text-gray-800 transition cursor-pointer" type="button">Update token</button>
+        ? `<div class="flex items-center gap-2 flex-wrap">
+               ${syncBtn}
+               ${autoRespBtn}
+               ${reconnectBtn}
                <button onclick="window._intPromptDisconnect(${conn.id})" class="text-sm font-bold text-red-500 hover:text-red-700 transition cursor-pointer" type="button">Disconnect</button>
            </div>`
-        : `<button onclick="window._intOpenModal('${platform.id}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer" type="button">Connect</button>`;
+        : connectBtn;
 
     return `
         <div class="bg-white rounded-2xl border ${isConnected ? 'border-emerald-200 shadow-md' : 'border-gray-200 shadow-sm'} p-6 flex flex-col gap-4">
@@ -179,16 +227,51 @@ function _platformCard(platform, conn) {
                 </div>
             </div>
             <div class="flex items-center justify-between pt-3 border-t border-gray-100">
-                ${statusBadge}
+                <div class="flex items-center gap-2 flex-wrap">
+                    ${statusBadge}
+                    ${preflightBadge}
+                </div>
                 ${action}
             </div>
+            ${troubleshootingHtml}
         </div>`;
 }
+
+// ── US-SMM-4.3.2: Verify a single pre-flight check ───────────────
+// Max 10 verifications per check per 24h enforced server-side
+window._intVerifyCheck = async function (connId, platform, checkId) {
+    const spinEl = document.getElementById(`verify-spin-${connId}-${checkId}`);
+    const btnEl  = document.getElementById(`verify-btn-${connId}-${checkId}`);
+    if (!btnEl) return;
+    btnEl.disabled = true;
+    if (spinEl) spinEl.classList.remove('hidden');
+
+    // Fetch the connection to get organisationId via the integrations API
+    try {
+        const auditRes = await fetch(`/.netlify/functions/social-preflight-audit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ platform }),
+        });
+        if (auditRes.ok) {
+            await _loadConnections(); // Refresh to show updated check results
+        }
+    } catch { /* ignore */ } finally {
+        if (spinEl) spinEl.classList.add('hidden');
+        if (btnEl) btnEl.disabled = false;
+    }
+};
 
 // ── Open connect modal ────────────────────────────────────────────
 window._intOpenModal = function (platformId) {
     const platform = PLATFORMS.find(p => p.id === platformId);
     if (!platform) return;
+
+    // US-SMM-4.1.1: OAuth platforms redirect instead of showing the token modal
+    if (platform.oauthPlatform) {
+        window.location.href = platform.oauthUrl;
+        return;
+    }
 
     const existing = _userConnections.find(c => c.serviceName === platformId);
 
@@ -292,6 +375,43 @@ window._intSubmit = async function (e) {
 window._intPromptDisconnect = function (connId) {
     _connToDelete = connId;
     document.getElementById('modal-disconnect').classList.remove('hidden');
+};
+
+// ── US-SMM-4.2.2: Sync Profile ───────────────────────────────────
+window._intSyncProfile = async function (platform) {
+    const feedback = document.getElementById('revoke-all-feedback');
+    if (feedback) { feedback.textContent = 'Syncing profile…'; feedback.classList.remove('hidden', 'text-red-700'); feedback.classList.add('text-blue-700'); }
+    try {
+        const res = await fetch('/.netlify/functions/social-profile-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        const data = await res.json();
+        if (feedback) {
+            const ok = Object.values(data.results ?? {}).some(r => r.status === 'ok');
+            feedback.textContent = ok ? 'Profile synced successfully.' : 'Profile sync completed (some platforms skipped).';
+            feedback.classList.remove('text-blue-700');
+            feedback.classList.add(ok ? 'text-emerald-700' : 'text-amber-700');
+            setTimeout(() => feedback.classList.add('hidden'), 4000);
+        }
+    } catch {
+        if (feedback) { feedback.textContent = 'Profile sync failed. Please try again.'; feedback.classList.add('text-red-700'); }
+    }
+};
+
+// ── US-SMM-4.2.1: Generate Auto-Responder ────────────────────────
+window._intGenerateAutoResponder = async function () {
+    const feedback = document.getElementById('revoke-all-feedback');
+    if (feedback) { feedback.textContent = 'Generating auto-responder messages…'; feedback.classList.remove('hidden', 'text-red-700', 'text-emerald-700', 'text-amber-700'); feedback.classList.add('text-blue-700'); }
+    try {
+        const res = await fetch('/.netlify/functions/social-auto-responder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        const data = await res.json();
+        if (feedback) {
+            feedback.textContent = data.ok ? 'Auto-responder messages generated. Check your notifications.' : (data.error ?? 'Generation failed.');
+            feedback.classList.remove('text-blue-700');
+            feedback.classList.add(data.ok ? 'text-emerald-700' : 'text-red-700');
+            setTimeout(() => feedback.classList.add('hidden'), 5000);
+        }
+    } catch {
+        if (feedback) { feedback.textContent = 'Auto-responder generation failed. Please try again.'; feedback.classList.add('text-red-700'); }
+    }
 };
 
 async function _doDisconnect() {
