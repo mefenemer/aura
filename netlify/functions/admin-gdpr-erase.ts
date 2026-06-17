@@ -224,7 +224,7 @@ export const handler: Handler = async (event) => {
 
         // ── 10. Purge workspace assets (US-GDPR-2.2.1) ───────────────────────
         const purgeResult = await purgeUserAssets(db, targetUserId).catch(() => ({
-            assetsPurged: 0, storageBytesFreed: 0, partialFailures: ['purge_threw'],
+            assetsPurged: 0, storageBytesFreed: 0, embeddingsDeleted: 0, partialFailures: ['purge_threw'],
         }));
 
         // ── 11. Write gdpr_erasure_log ────────────────────────────────────────

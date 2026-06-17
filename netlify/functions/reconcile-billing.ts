@@ -46,12 +46,24 @@ export interface ReconciliationMismatch {
     lastWebhookDate: string | null;
 }
 
+// US-DB-1.4.1: usage counter drift has a different shape from plan mismatches,
+// but is recorded in the same reconciliation results array.
+export interface UsageCounterDriftMismatch {
+    type: 'usage_counter_drift';
+    organisationId: number | null;
+    counterValue: number;
+    liveValue: number;
+    delta: number;
+    driftPct: number;
+    period: string;
+}
+
 async function runReconciliation(): Promise<void> {
     const db = getDb();
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2026-05-27.dahlia' });
 
     let totalChecked = 0;
-    const mismatches: ReconciliationMismatch[] = [];
+    const mismatches: (ReconciliationMismatch | UsageCounterDriftMismatch)[] = [];
     let runStatus: 'success' | 'failed' = 'success';
     let errorMessage: string | null = null;
 
@@ -137,7 +149,7 @@ async function runReconciliation(): Promise<void> {
                     stripePriceId:        priceId,
                     stripeTierKey,
                     stripeStatus:         stripeSub.status,
-                    lastWebhookDate:      new Date(stripeSub.current_period_start * 1000).toISOString(),
+                    lastWebhookDate:      new Date((stripeSub.items.data[0]?.current_period_start ?? stripeSub.created) * 1000).toISOString(),
                 });
             }
         }

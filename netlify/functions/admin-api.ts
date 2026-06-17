@@ -2072,7 +2072,7 @@ export const handler: Handler = async (event) => {
                 headers: {
                     'Content-Type': 'application/json',
                     'Content-Disposition': `attachment; filename="aura-ropa-article30-${new Date().toISOString().slice(0,10)}.json"`,
-                },
+                } as Record<string, string>,
                 body: JSON.stringify(report, null, 2),
             };
         }
@@ -2152,7 +2152,7 @@ export const handler: Handler = async (event) => {
             const postId = event.queryStringParameters?.postId;
             if (!postId) return { statusCode: 400, body: JSON.stringify({ error: 'postId required' }) };
             await db.execute(`UPDATE scheduled_posts SET status = 'scheduled', attempt_count = 0, retry_at = NULL, failure_reason = NULL, updated_at = now() WHERE id = ${parseInt(postId)} AND status = 'failed'`);
-            await insertAdminAuditLog(db, { adminId: currentUserId, action: 'retry_failed_post', resourceType: 'scheduled_posts', resourceId: postId });
+            await insertAdminAuditLog({ adminId, action: 'retry_failed_post', targetType: 'scheduled_posts', targetId: postId });
             return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
         }
 

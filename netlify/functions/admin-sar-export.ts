@@ -120,7 +120,7 @@ export const handler: Handler = async (event) => {
             createdAt: t.createdAt, completedAt: t.completedAt,
         })),
         workspaceAssets:   assets.map(a => ({ id: a.id, name: a.name, type: a.assetType, createdAt: a.createdAt })),
-        contentAssets:     content.map(c => ({ id: c.id, title: c.title, status: c.status, createdAt: c.createdAt })),
+        contentAssets:     content.map(c => ({ id: c.id, title: c.name, status: c.status, createdAt: c.createdAt })),
         scheduledPosts:    scheduled,
         supportTickets:    tickets,
         onboardingDrafts:  drafts,

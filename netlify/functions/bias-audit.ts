@@ -88,7 +88,7 @@ export const handler: Handler = async (event) => {
             headers: {
                 'Content-Type': 'text/csv',
                 'Content-Disposition': `attachment; filename="bias-report-${reportId}.csv"`,
-            },
+            } as Record<string, string>,
             body: lines.join('\n'),
         };
     }

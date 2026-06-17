@@ -250,7 +250,7 @@ async function handlePublishFailure(
         );
 
         // Only notify user if posts will be delayed >2h past scheduled time
-        const scheduledAt = new Date(post['publish_date' as keyof typeof post] as string ?? now);
+        const scheduledAt = new Date((post as any).publish_date ?? now);
         const delayHours = (rateLimitedUntil.getTime() - scheduledAt.getTime()) / 3_600_000;
         if (delayHours > 2) {
             await db.insert(notifications).values({

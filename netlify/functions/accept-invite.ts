@@ -152,7 +152,7 @@ export const handler: Handler = async (event) => {
         headers: {
             'Set-Cookie': cookieOpts,
             'Location':   `${BASE_URL}/workspace.html?joined=${encodeURIComponent(orgName)}`,
-        },
+        } as Record<string, string>,
         body: '',
     };
 };

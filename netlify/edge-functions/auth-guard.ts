@@ -1,3 +1,4 @@
+/// <reference path="./types/deno.d.ts" />
 import { Context } from "@netlify/edge-functions";
 import * as jose from 'https://deno.land/x/jose@v5.2.3/index.ts';
 

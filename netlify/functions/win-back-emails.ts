@@ -68,9 +68,8 @@ async function runWinBackEmails() {
         // SC5: Unsubscribe opt-out
         if (optOutSet.has(userId)) continue;
 
-        const cancelledAt = plan.cancelledAt instanceof Date
-            ? plan.cancelledAt
-            : new Date(plan.cancelledAt as string);
+        // Query filters isNotNull(cancelledAt); timestamp columns come back as Date.
+        const cancelledAt = plan.cancelledAt as Date;
 
         const isDay7  = cancelledAt >= day7Start  && cancelledAt <= day7End;
         const isDay30 = cancelledAt >= day30Start && cancelledAt <= day30End;

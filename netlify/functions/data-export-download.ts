@@ -3,12 +3,12 @@
 //
 // GET ?token=<downloadToken>  → streams JSON file, then marks request as expired
 
-import { Handler } from '@netlify/functions';
+import { Handler, HandlerResponse } from '@netlify/functions';
 import { eq, and, gte } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { dataExportRequests } from '../../db/schema';
 
-export const handler: Handler = async (event) => {
+export const handler: Handler = async (event): Promise<HandlerResponse> => {
     if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method Not Allowed' };
 
     const token = event.queryStringParameters?.token;

@@ -33,7 +33,8 @@ export type AdminAction =
     | 'emergency_token_revocation'
     | 'regulator_notification_submitted'
     | 'assistant_state_change'
-    | 'record_delete';
+    | 'record_delete'
+    | 'retry_failed_post';
 
 export interface AdminAuditParams {
     adminId: number;

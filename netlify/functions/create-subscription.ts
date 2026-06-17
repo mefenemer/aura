@@ -90,9 +90,9 @@ export const handler: Handler = async (event) => {
     let discountAmountGbp: number | null = null;
     if (promotionCodeId) {
         try {
-            const promoCode = await stripe.promotionCodes.retrieve(promotionCodeId);
-            const coupon    = promoCode.coupon;
-            if (coupon.valid) {
+            const promoCode = await stripe.promotionCodes.retrieve(promotionCodeId, { expand: ['promotion.coupon'] });
+            const coupon    = promoCode.promotion.coupon;
+            if (coupon && typeof coupon !== 'string' && coupon.valid) {
                 if (coupon.percent_off) {
                     discountAmountGbp = parseFloat((baseChargeGbp * coupon.percent_off / 100).toFixed(2));
                 } else if (coupon.amount_off) {

@@ -76,7 +76,7 @@ export const handler: Handler = async (event) => {
                 customer: stripeCustomerId,
                 items: [{ price: stripePriceId }],
                 default_payment_method: pi.payment_method as string,
-                billing_cycle_anchor: 'now',
+                // billing cycle anchors to subscription creation time by default
                 proration_behavior: 'none',
                 metadata: { userId: userId.toString(), organisationId, tier: tier || '', masterPlanId: masterPlanId || '' },
             }).catch(err => console.error('Subscription creation in confirm-payment failed:', err.message));

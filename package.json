@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "typecheck": "tsc --noEmit",
     "test:storage-isolation": "tsx tests/storage-tenant-isolation.test.ts",
+    "test:tenant-guard": "tsx tests/tenant-guard.test.ts",
     "db:push": "drizzle-kit push",
     "db:seed-catalog": "npx tsx db/seed-catalog.ts",
     "build:css": "tailwindcss -i ./input.css -o ./style.css --watch",
@@ -23,7 +25,8 @@
     "@types/pdf-parse": "^1.1.5",
     "drizzle-kit": "^1.0.0-beta.22",
     "tailwindcss": "^4.3.0",
-    "tsx": "^4.22.4"
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
   },
   "keywords": [],
   "author": "",

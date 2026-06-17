@@ -48,9 +48,8 @@ async function scoreOutputConfidence(taskRunId: number, outputText: string, user
         await logAiUsage({
             userId,
             model: SCORE_MODEL,
-            promptTokens: response.usage.input_tokens,
-            completionTokens: response.usage.output_tokens,
-            feature: 'confidence_scoring',
+            inputTokens: response.usage.input_tokens,
+            outputTokens: response.usage.output_tokens,
         });
 
         const db = getDb();

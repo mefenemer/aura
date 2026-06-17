@@ -159,7 +159,8 @@ export const handler: Handler = async (event) => {
         masterPlanId: masterPlan.id,
         planName: masterPlan.name,
         planType: 'subscription',
-        currency: priceCurrency, // US-I18N-2.1 SC5: store subscriber's billing currency
+        // Billing currency is persisted on the payment + plan_prices rows; the
+        // plans table has no currency column.
       }).returning();
 
       const [assistantRecord] = await tx.select().from(masterAssistants).where(eq(masterAssistants.name, assistantName || 'Social Media Manager')).limit(1);
@@ -210,19 +211,25 @@ export const handler: Handler = async (event) => {
 
       // Create Stripe Subscription (incomplete — waits for payment confirmation)
       // US-I18N-2.1 SC3: use Stripe Price ID from plan_prices if available, else price_data with resolved currency
-      const subscriptionItem: Stripe.SubscriptionCreateParams.Item = planPrice?.stripePriceId
-          ? { price: planPrice.stripePriceId }
-          : {
+      let subscriptionItem: Stripe.SubscriptionCreateParams.Item;
+      if (planPrice?.stripePriceId) {
+          subscriptionItem = { price: planPrice.stripePriceId };
+      } else {
+          // dahlia API requires price_data.product (an ID) rather than inline
+          // product_data; create the product explicitly to carry name + metadata.
+          const product = await stripe.products.create({
+              name: `Aura-Assist: ${targetName}`,
+              metadata: { assistantType: assistantName || 'Digital Assistant' },
+          });
+          subscriptionItem = {
               price_data: {
                   currency: priceCurrency.toLowerCase(),
-                  product_data: {
-                      name: `Aura-Assist: ${targetName}`,
-                      metadata: { assistantType: assistantName || 'Digital Assistant' },
-                  },
+                  product: product.id,
                   unit_amount: Math.round(priceAmount * 100),
                   recurring: { interval: 'month' },
               },
           };
+      }
 
       const subscriptionMeta: Record<string, string> = {
           userId: existingUser.id.toString(),
@@ -237,15 +244,17 @@ export const handler: Handler = async (event) => {
         items: [subscriptionItem],
         payment_behavior: 'default_incomplete',
         payment_settings: { save_default_payment_method: 'on_subscription' },
-        expand: ['latest_invoice.payment_intent'],
+        // dahlia: invoices no longer expose payment_intent; the client secret for
+        // confirming the incomplete subscription comes from confirmation_secret.
+        expand: ['latest_invoice.confirmation_secret'],
         metadata: subscriptionMeta,
       });
 
       const latestInvoice = subscription.latest_invoice as Stripe.Invoice;
-      const paymentIntent = latestInvoice.payment_intent as Stripe.PaymentIntent;
+      const clientSecret = latestInvoice.confirmation_secret?.client_secret ?? null;
 
       return {
-        clientSecret: paymentIntent.client_secret,
+        clientSecret,
         publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
         planName: masterPlan.name,
         assistantName: targetName,

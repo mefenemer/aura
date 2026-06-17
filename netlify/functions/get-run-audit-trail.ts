@@ -3,7 +3,7 @@
 // GET /.netlify/functions/get-run-audit-trail?runId=N[&eventType=tool_call][&format=json|csv]
 //   Auth: aura_session (workspace member — run must belong to same org as caller)
 
-import { Handler } from '@netlify/functions';
+import { Handler, HandlerResponse } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { and, asc, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
@@ -25,7 +25,7 @@ function toCsv(events: any[]): string {
     return [headers.join(','), ...rows].join('\n');
 }
 
-export const handler: Handler = async (event) => {
+export const handler: Handler = async (event): Promise<HandlerResponse> => {
     if (event.httpMethod !== 'GET') {
         return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }

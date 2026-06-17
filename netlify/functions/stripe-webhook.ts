@@ -8,6 +8,28 @@ import { sendEmail, buildAnnualRenewalEmail, buildDunningEmail } from '../../src
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
+// dahlia: invoices no longer expose a top-level `payment_intent` or `subscription`.
+// The PaymentIntent now lives on the invoice's `payments` list, and the subscription
+// reference moved under `parent.subscription_details`. These helpers read the new
+// shape and fall back to the legacy fields for any older event payloads.
+function getInvoicePaymentIntentId(invoice: Stripe.Invoice): string | null {
+    const legacy = (invoice as any).payment_intent;
+    if (typeof legacy === 'string') return legacy;
+    if (legacy?.id) return legacy.id;
+    for (const p of invoice.payments?.data ?? []) {
+        const pi = p.payment?.payment_intent;
+        if (typeof pi === 'string') return pi;
+        if (pi?.id) return pi.id;
+    }
+    return null;
+}
+
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+    const fromParent = invoice.parent?.subscription_details?.subscription;
+    const sub = fromParent ?? (invoice as any).subscription;
+    return typeof sub === 'string' ? sub : sub?.id ?? null;
+}
+
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
@@ -45,14 +67,15 @@ export const handler: Handler = async (event) => {
         const session = stripeEvent.data.object as Stripe.Checkout.Session;
         const { userId, organisationId, masterPlanId, planName: metaPlanName, referralCode } = session.metadata || {};
 
-        // Only our plan-gate subscription sessions carry userId in metadata
-        if (session.mode !== 'subscription' || !userId) {
+        // Only our plan-gate subscription sessions carry userId + organisationId in metadata;
+        // organisationId is required to create the plan record (plans.organisationId is NOT NULL).
+        if (session.mode !== 'subscription' || !userId || !organisationId) {
             return { statusCode: 200, body: JSON.stringify({ received: true }) };
         }
         console.log(`[stripe-webhook] checkout.session.completed activating plan for userId=${userId} org=${organisationId} masterPlan=${masterPlanId}`);
 
         const userIdInt        = parseInt(userId);
-        const orgIdInt         = organisationId ? parseInt(organisationId) : null;
+        const orgIdInt         = parseInt(organisationId);
         const masterPlanIdInt  = masterPlanId ? parseInt(masterPlanId) : null;
         const stripeCustomerId = typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
         const stripeSubscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null;
@@ -264,18 +287,20 @@ export const handler: Handler = async (event) => {
                         }
                     }
                     const annualAmount = Math.round(monthlyPriceMajor * 12 * 0.80 * 100);
+                    // dahlia API requires price_data.product (an ID); create the product
+                    // explicitly (older API auto-created one from product_data).
+                    const annualProduct = await stripe.products.create({ name: masterPlan.name });
                     createdSub = await stripe.subscriptions.create({
                         customer: stripeCustomerId,
                         items: [{
                             price_data: {
                                 currency: piCurrency,
-                                product_data: { name: masterPlan.name },
+                                product: annualProduct.id,
                                 unit_amount: annualAmount,
                                 recurring: { interval: 'year' },
                             },
                         }],
                         default_payment_method: pi.payment_method as string,
-                        billing_cycle_anchor: 'now',
                         proration_behavior: 'none',
                         metadata: subMeta,
                     });
@@ -284,7 +309,6 @@ export const handler: Handler = async (event) => {
                         customer: stripeCustomerId,
                         items: [{ price: stripePriceId }],
                         default_payment_method: pi.payment_method as string,
-                        billing_cycle_anchor: 'now',
                         proration_behavior: 'none',
                         metadata: subMeta,
                     });
@@ -536,10 +560,11 @@ export const handler: Handler = async (event) => {
             let renewCardExpYear: number | null    = null;
             let renewCardPostalCode: string | null = null;
 
+            const invoicePaymentIntentId = getInvoicePaymentIntentId(invoice);
             try {
-                // invoice.payment_intent → expand payment_method → card + billing address
-                if (invoice.payment_intent) {
-                    const pi = await stripe.paymentIntents.retrieve(invoice.payment_intent as string, {
+                // payment intent → expand payment_method → card + billing address
+                if (invoicePaymentIntentId) {
+                    const pi = await stripe.paymentIntents.retrieve(invoicePaymentIntentId, {
                         expand: ['payment_method'],
                     });
                     const pm = pi.payment_method as Stripe.PaymentMethod | null;
@@ -559,7 +584,7 @@ export const handler: Handler = async (event) => {
             // BUG-P1-2: Scope plan lookup by stripeSubscriptionId so a user who belongs to
             // multiple orgs credits the renewal against the correct org's plan.
             // Falls back to userId+status if invoice.subscription is absent (edge case).
-            const subscriptionId = invoice.subscription as string | null;
+            const subscriptionId = getInvoiceSubscriptionId(invoice);
             const planRecord = subscriptionId
                 ? await db.select({ id: plans.id, planName: plans.planName })
                     .from(plans)
@@ -587,7 +612,7 @@ export const handler: Handler = async (event) => {
                     amount: invoice.amount_paid ? (invoice.amount_paid / 100).toFixed(2) : '0.00',
                     currency: (invoice.currency || 'gbp').toUpperCase(),
                     status: 'completed',
-                    externalPaymentId: invoice.payment_intent as string || invoice.id,
+                    externalPaymentId: invoicePaymentIntentId || invoice.id,
                     description: `${plan.planName} — renewal`,
                     cardBrand:      renewCardBrand,
                     cardLast4:      renewCardLast4,
@@ -612,7 +637,7 @@ export const handler: Handler = async (event) => {
                 billingPeriodStart:   periodStart,
                 billingPeriodEnd:     periodEndDate,
                 stripeInvoiceId:      invoice.id,
-                stripePaymentIntentId: invoice.payment_intent as string || null,
+                stripePaymentIntentId: invoicePaymentIntentId || null,
             });
 
             // ── Invoice ready notification ────────────────────────
@@ -1031,8 +1056,9 @@ async function _createInvoice(params: {
  */
 async function _resolveUserId(customerId: string): Promise<number | null> {
     try {
-        const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer;
-        if (!customer || customer.deleted) return null;
+        const customerResp = await stripe.customers.retrieve(customerId);
+        if (!customerResp || (customerResp as Stripe.DeletedCustomer).deleted) return null;
+        const customer = customerResp as Stripe.Customer;
 
         // Fast path: metadata set at checkout
         if (customer.metadata?.auraUserId) {

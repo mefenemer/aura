@@ -127,7 +127,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
     let parsed: { brandVoiceScore: number; complianceWarnings: string[]; suggestions: string[] };
     try {
-        parsed = JSON.parse(gwResponse.content);
+        parsed = JSON.parse(gwResponse.text);
     } catch {
         return { statusCode: 502, body: JSON.stringify({ error: 'Quality review parsing failed.' }) };
     }

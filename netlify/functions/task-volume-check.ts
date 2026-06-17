@@ -46,6 +46,7 @@ export const handler: Handler = async (event) => {
 
         for (const plan of activePlans) {
             const limit = plan.monthlyTaskLimit!;
+            if (plan.userId == null) continue; // plans.userId is nullable; skip org-only plans
             const userId = plan.userId;
 
             // Count tasks this month

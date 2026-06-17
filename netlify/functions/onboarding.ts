@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 
 config({ path: path.resolve(process.cwd(), '.env') });
 
-import { Handler } from '@netlify/functions';
+import { Handler, HandlerResponse } from '@netlify/functions';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { eq, and, sql } from 'drizzle-orm';
@@ -116,7 +116,7 @@ ${AURA_SAFE_CONTENT_BENCHMARK}
 `.trim();
 }
 
-export const handler: Handler = async (event) => {
+export const handler: Handler = async (event): Promise<HandlerResponse> => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
   try {

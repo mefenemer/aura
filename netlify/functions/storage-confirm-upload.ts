@@ -9,7 +9,7 @@
 // AC1 (STOR-1.1.2): Atomically increments storageUsage.usedBytes
 
 import { Handler } from '@netlify/functions';
-import { S3Client, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, HeadObjectCommand, type HeadObjectCommandOutput } from '@aws-sdk/client-s3';
 import jwt from 'jsonwebtoken';
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
@@ -158,7 +158,7 @@ export const handler: Handler = async (event) => {
 
     // AC7: HEAD the object in R2
     const s3 = getR2Client();
-    let head: Awaited<ReturnType<typeof s3.send>>;
+    let head: HeadObjectCommandOutput;
     try {
         head = await s3.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: asset.r2Key! }));
     } catch (err: any) {

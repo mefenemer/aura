@@ -83,7 +83,7 @@ async function executeDeleteions() {
 
         // US-GDPR-2.2.1: Purge workspace assets (extractedText + storageUrl nulled, isActive=false)
         const purgeResult = await purgeUserAssets(db, user.id).catch(() => ({
-            assetsPurged: 0, storageBytesFreed: 0, partialFailures: ['purge_threw'],
+            assetsPurged: 0, storageBytesFreed: 0, embeddingsDeleted: 0, partialFailures: ['purge_threw'],
         }));
 
         // US-ADM-1.3.2: Blocklist all active tokens so any cached session is invalidated

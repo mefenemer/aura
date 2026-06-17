@@ -71,8 +71,6 @@ export const handler = async (event: HandlerEvent) => {
                     status: 'revoked',
                     isActive: false,
                     vaultRefKey: null,
-                    accessToken: null,
-                    refreshToken: null,
                     updatedAt: new Date(),
                 })
                 .where(eq(systemConnections.id, connectionId));
@@ -144,8 +142,6 @@ export const handler = async (event: HandlerEvent) => {
                         status: 'revoked',
                         isActive: false,
                         vaultRefKey: null,
-                        accessToken: null,
-                        refreshToken: null,
                         updatedAt: new Date(),
                     })
                     .where(inArray(systemConnections.id, orgConnections.map(c => c.id)));

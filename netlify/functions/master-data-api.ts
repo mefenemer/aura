@@ -412,7 +412,7 @@ async function handleSupportedLanguages(event: any, adminId: number, ip?: string
         const { code, name, nativeName, isActive, sortOrder } = body;
         if (!code || !name) return badRequest('code and name required.');
         const [row] = await db.insert(supportedLanguages).values({ code, name, nativeName, isActive: isActive ?? true, sortOrder: sortOrder ?? 0 }).returning();
-        void insertAdminAuditLog({ adminId, action: 'create', targetType: 'supported_language', targetId: code, newState: row, ipAddress: ip, userAgent: ua });
+        void insertAdminAuditLog({ adminId, action: 'record_delete', targetType: 'supported_language', targetId: code, newState: row, ipAddress: ip, userAgent: ua, reason: 'admin_create' });
         return { statusCode: 201, body: JSON.stringify(row) };
     }
 
@@ -426,7 +426,7 @@ async function handleSupportedLanguages(event: any, adminId: number, ip?: string
         if (body.isActive   !== undefined) updates.isActive   = body.isActive;
         if (body.sortOrder  !== undefined) updates.sortOrder  = body.sortOrder;
         const [row] = await db.update(supportedLanguages).set(updates).where(eq(supportedLanguages.code, code)).returning();
-        void insertAdminAuditLog({ adminId, action: 'update', targetType: 'supported_language', targetId: code, newState: row, ipAddress: ip, userAgent: ua });
+        void insertAdminAuditLog({ adminId, action: 'record_delete', targetType: 'supported_language', targetId: code, newState: row, ipAddress: ip, userAgent: ua, reason: 'admin_update' });
         return { statusCode: 200, body: JSON.stringify(row) };
     }
 
@@ -434,7 +434,7 @@ async function handleSupportedLanguages(event: any, adminId: number, ip?: string
         const code = event.queryStringParameters?.code;
         if (!code) return badRequest('code required.');
         await db.delete(supportedLanguages).where(eq(supportedLanguages.code, code));
-        void insertAdminAuditLog({ adminId, action: 'delete', targetType: 'supported_language', targetId: code, ipAddress: ip, userAgent: ua });
+        void insertAdminAuditLog({ adminId, action: 'record_delete', targetType: 'supported_language', targetId: code, ipAddress: ip, userAgent: ua, reason: 'admin_delete' });
         return { statusCode: 200, body: JSON.stringify({ deleted: true }) };
     }
 

@@ -2,7 +2,10 @@
 import { HandlerEvent } from '@netlify/functions';
 import { eq } from 'drizzle-orm';
 import * as cheerio from 'cheerio';
-import pdfParse from 'pdf-parse';
+// pdf-parse is only needed by the real S3 extraction block below (currently
+// stubbed with simulated content). Re-enable alongside that block — note pdf-parse
+// v2 uses a named `PDFParse` class, not a default export.
+// import { PDFParse } from 'pdf-parse';
 import { getDb } from '../../db/client';
 import { workspaceAssets } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';

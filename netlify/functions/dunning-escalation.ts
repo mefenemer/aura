@@ -52,9 +52,8 @@ async function runDunningEscalation() {
         ));
 
     for (const plan of pastDuePlans) {
-        const graceEnd = plan.gracePeriodEndsAt instanceof Date
-            ? plan.gracePeriodEndsAt
-            : new Date(plan.gracePeriodEndsAt as string);
+        // Query filters isNotNull(gracePeriodEndsAt); coerce to Date (timestamps come back as Date).
+        const graceEnd = new Date(plan.gracePeriodEndsAt!);
 
         const isDay7 = graceEnd <= day7End;  // grace period expires within 24h
         const isDay3 = !isDay7 && graceEnd >= day3Start && graceEnd <= day3End;

@@ -6,12 +6,12 @@
 // Serves the SAR JSON as a downloadable file.
 // Returns 410 Gone if the token has expired or been used.
 
-import { Handler } from '@netlify/functions';
+import { Handler, HandlerResponse } from '@netlify/functions';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { dataExportRequests } from '../../db/schema';
 
-export const handler: Handler = async (event) => {
+export const handler: Handler = async (event): Promise<HandlerResponse> => {
     if (event.httpMethod !== 'GET') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }

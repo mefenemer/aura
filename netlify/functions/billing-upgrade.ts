@@ -178,11 +178,13 @@ export const handler: Handler = async (event) => {
             if (!currentItemId) throw new Error('No subscription item found');
 
             // Preview the proration invoice
-            const upcoming = await stripe.invoices.retrieveUpcoming({
+            const upcoming = await stripe.invoices.createPreview({
                 customer: currentPlan.stripeCustomerId,
                 subscription: currentPlan.stripeSubscriptionId,
-                subscription_items: [{ id: currentItemId, price: targetPriceId }],
-                subscription_proration_behavior: 'create_prorations',
+                subscription_details: {
+                    items: [{ id: currentItemId, price: targetPriceId }],
+                    proration_behavior: 'create_prorations',
+                },
             });
 
             const proratedAmount = ((upcoming.amount_due || 0) / 100).toFixed(2);

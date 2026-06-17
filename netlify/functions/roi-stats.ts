@@ -98,7 +98,7 @@ export const handler = async (event: HandlerEvent) => {
             if (plan?.monthlyPriceGbp) {
                 planCostGbp = parseFloat(String(plan.monthlyPriceGbp));
             }
-            if (plan?.currency) currency = plan.currency;
+            // masterPlans pricing is GBP-only (monthlyPriceGbp); currency stays 'GBP'.
         }
 
         // SC2: multiplier = gbpSaved / planCostGbp (only for monthly period)

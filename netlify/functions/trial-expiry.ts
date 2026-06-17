@@ -40,9 +40,8 @@ async function runTrialExpiry() {
         ));
 
     for (const plan of trialPlans) {
-        const expiry = plan.expiresAt instanceof Date
-            ? plan.expiresAt
-            : new Date(plan.expiresAt as string);
+        // Query filters isNotNull(expiresAt); coerce to Date (timestamps come back as Date).
+        const expiry = new Date(plan.expiresAt!);
 
         const userId = plan.userId!;
 

@@ -53,6 +53,7 @@ export const handler: Handler = async (event) => {
             code: code.trim().toUpperCase(),
             active: true,
             limit: 1,
+            expand: ['data.promotion.coupon'],
         });
         promoCodes = result.data;
     } catch (err: any) {
@@ -68,10 +69,11 @@ export const handler: Handler = async (event) => {
     }
 
     const promoCode = promoCodes[0];
-    const coupon    = promoCode.coupon;
+    const coupon    = promoCode.promotion.coupon;
 
-    // Check coupon is still redeemable
-    if (!coupon.valid) {
+    // Check coupon is still redeemable (coupon is expanded above; guard the
+    // string/null cases the Stripe types allow)
+    if (!coupon || typeof coupon === 'string' || !coupon.valid) {
         return {
             statusCode: 200,
             body: JSON.stringify({ valid: false, error: 'This code is not valid or has expired.' }),

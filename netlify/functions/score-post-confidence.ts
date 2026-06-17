@@ -191,7 +191,7 @@ export const handler: Handler = async (event) => {
             factualClaims: result.factualClaims,
             assessmentDurationMs: result.assessmentDurationMs,
             timedOut: result.timedOut,
-            routedToReview,
+            routedToReview: routeToReview,
         }),
     };
 };
