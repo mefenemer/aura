@@ -1,0 +1,3186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="./auth-check.js"></script>
+  <script src="/src/i18n.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workspace | Aura-Assist</title>
+  <link href="./style.css" rel="stylesheet">
+  <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
+  <link rel="manifest" href="/favicon/manifest.json">
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen overflow-x-hidden">
+
+<!-- US-ADM-1.2.1: Admin Impersonation Banner — shown only during active impersonation sessions -->
+<div id="impersonation-banner" class="hidden fixed top-0 left-0 right-0 z-[100] bg-amber-400 text-amber-900 text-sm font-bold flex items-center justify-between px-4 py-2 shadow-md">
+  <div class="flex items-center gap-2">
+    <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+    <span id="impersonation-label">Impersonation active</span>
+  </div>
+  <button id="end-impersonation-btn" class="ml-4 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition cursor-pointer shrink-0">
+    End Session
+  </button>
+</div>
+
+<!-- US-AUD-5.2.1: Success-Triggered Upgrade Moment Modal -->
+<div id="upgrade-moment-modal" class="hidden fixed inset-0 z-[55] items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+    <div class="text-center mb-5">
+      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+        <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+        </svg>
+      </div>
+      <p id="um-savings-line" class="text-2xl font-extrabold text-gray-900 mb-1"></p>
+      <p class="text-sm text-emerald-700 font-semibold" id="um-roi-line"></p>
+    </div>
+    <div id="um-next-tier-info" class="hidden mb-5 rounded-xl bg-gray-50 border border-gray-200 p-4">
+      <p class="text-sm font-bold text-gray-900 mb-2" id="um-next-tier-name"></p>
+      <ul id="um-feature-bullets" class="space-y-1 text-sm text-gray-700 list-none"></ul>
+      <p class="mt-3 text-base font-bold text-emerald-700" id="um-next-tier-price"></p>
+    </div>
+    <a id="um-cta-btn" href="#"
+      class="block w-full text-center py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition mb-3">
+    </a>
+    <button onclick="window._dismissUpgradeMoment()"
+      class="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition cursor-pointer py-1">
+      I'm happy where I am
+    </button>
+  </div>
+</div>
+
+<!-- US-GDPR-1.1.1: DPA acceptance required modal — blocks assistant access until accepted -->
+<div id="modal-dpa-required" class="hidden fixed inset-0 z-[70] items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="dpa-modal-title">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+    <div class="flex items-start gap-3 mb-4">
+      <span class="text-2xl flex-shrink-0">📋</span>
+      <div>
+        <h2 id="dpa-modal-title" class="text-xl font-bold text-gray-900">Data Processing Agreement Required</h2>
+        <p class="text-sm text-gray-500 mt-1">Before activating your AI assistant, your organisation must accept our Data Processing Agreement (DPA) as required by UK GDPR Article 28.</p>
+      </div>
+    </div>
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-5 max-h-48 overflow-y-auto text-sm text-gray-700 leading-relaxed">
+      <p class="font-bold mb-2">Data Processing Agreement — Summary</p>
+      <p class="mb-2">By accepting this agreement, your organisation (the Data Controller) authorises Aura-Assist (the Data Processor) to process personal data on your behalf solely to provide the Aura-Assist platform services, in accordance with your instructions.</p>
+      <p class="mb-2">Aura-Assist commits to: (1) process data only on documented instructions; (2) ensure confidentiality; (3) implement appropriate technical and organisational security measures; (4) assist with data subject rights requests; (5) delete or return all personal data at contract end; (6) provide audit assistance.</p>
+      <p>Sub-processors are listed in our Privacy Policy. You will be notified of any intended changes to sub-processors. Full agreement available at <a href="/privacy.html" target="_blank" class="text-emerald-700 underline">aura-assist.com/privacy</a>.</p>
+    </div>
+    <label class="flex items-start gap-3 mb-6 cursor-pointer">
+      <input type="checkbox" id="dpa-agree-checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+      <span class="text-sm text-gray-700">I have read and agree to the <a href="/privacy.html#dpa" target="_blank" class="text-emerald-700 underline font-medium">Data Processing Agreement</a> on behalf of my organisation.</span>
+    </label>
+    <button id="btn-dpa-accept" onclick="submitDpaAcceptance(this)"
+      class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled>
+      Accept DPA &amp; Continue
+    </button>
+    <p class="text-xs text-gray-400 text-center mt-3">Your acceptance is recorded with timestamp and IP address as legally admissible evidence under UK GDPR Article 28(9).</p>
+  </div>
+</div>
+
+<script>
+// US-GDPR-1.1.1: Enable accept button only when checkbox is ticked; check DPA on load
+document.addEventListener('DOMContentLoaded', function () {
+    const cb = document.getElementById('dpa-agree-checkbox');
+    const btn = document.getElementById('btn-dpa-accept');
+    if (cb && btn) cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
+
+    checkDpaAcceptance();
+});
+
+async function checkDpaAcceptance() {
+    try {
+        const res = await fetch('/.netlify/functions/check-dpa');
+        if (!res.ok) return; // Non-blocking — don't prevent workspace loading on auth errors
+        const data = await res.json();
+        if (!data.upToDate) {
+            const modal = document.getElementById('modal-dpa-required');
+            if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+        }
+    } catch {
+        // Non-blocking
+    }
+}
+
+async function submitDpaAcceptance(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Recording acceptance…';
+    try {
+        const res = await fetch('/.netlify/functions/accept-dpa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version: '1.0' }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        // Hide modal and reload the assistant detail to retry get-assistant-context
+        const modal = document.getElementById('modal-dpa-required');
+        if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+        const assistantId = btn.dataset.assistantId;
+        if (assistantId && typeof window.loadAssistantDetail === 'function') {
+            window.loadAssistantDetail(assistantId);
+        } else {
+            window.location.reload();
+        }
+    } catch {
+        btn.disabled = false;
+        btn.textContent = 'Accept DPA & Continue';
+        alert('Failed to record acceptance. Please try again.');
+    }
+}
+</script>
+
+<!-- US-GOV-1.2.1: ToS re-acceptance modal — shown when ToS version is outdated -->
+<div id="modal-tos-required" class="hidden fixed inset-0 z-[75] items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="tos-modal-title">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+    <div class="flex items-start gap-3 mb-4">
+      <span class="text-2xl flex-shrink-0">📄</span>
+      <div>
+        <h2 id="tos-modal-title" class="text-xl font-bold text-gray-900">Updated Terms of Service</h2>
+        <p class="text-sm text-gray-500 mt-1">Our Terms of Service have been updated. Please review and accept the new terms to continue using Aura-Assist.</p>
+      </div>
+    </div>
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-5 max-h-48 overflow-y-auto text-sm text-gray-700 leading-relaxed">
+      <p class="font-bold mb-2">Key updates in Terms v2.0</p>
+      <ul class="list-disc list-inside space-y-1">
+        <li>Strengthened confidentiality protections for AI system prompts (clause 11.5)</li>
+        <li>Prohibited use clause extended — reverse engineering and prompt extraction prohibited (clause 11.4)</li>
+        <li>Human-in-the-loop mandate for Tier-2 publishing integrations (clause 10.5)</li>
+        <li>EU AI Act Article 50 compliance obligations clarified (section 13)</li>
+        <li>Liability allocation clarified for AI-generated content (section 10)</li>
+      </ul>
+      <p class="mt-3">Full terms available at <a href="/terms_of_service.html" target="_blank" class="text-emerald-700 underline">aura-assist.com/terms</a>.</p>
+    </div>
+    <label class="flex items-start gap-3 mb-6 cursor-pointer">
+      <input type="checkbox" id="tos-agree-checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+      <span class="text-sm text-gray-700">I have read and agree to the updated <a href="/terms_of_service.html" target="_blank" class="text-emerald-700 underline font-medium">Terms of Service</a> (v2.0).</span>
+    </label>
+    <button id="btn-tos-accept" onclick="submitTosAcceptance(this)"
+      class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled>
+      Accept Terms &amp; Continue
+    </button>
+    <p class="text-xs text-gray-400 text-center mt-3">Your acceptance is recorded with timestamp and IP address.</p>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Enable accept button only when checkbox is ticked
+    const cb = document.getElementById('tos-agree-checkbox');
+    const btn = document.getElementById('btn-tos-accept');
+    if (cb && btn) cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
+
+    // Check ToS acceptance on load
+    checkTosAcceptance();
+});
+
+async function checkTosAcceptance() {
+    try {
+        const res = await fetch('/.netlify/functions/check-tos');
+        if (!res.ok) return; // Don't block on auth errors
+        const data = await res.json();
+        if (!data.upToDate) {
+            const modal = document.getElementById('modal-tos-required');
+            if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+        }
+    } catch {
+        // Non-blocking — don't prevent workspace from loading if check fails
+    }
+}
+
+async function submitTosAcceptance(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Recording acceptance…';
+    try {
+        const res = await fetch('/.netlify/functions/accept-tos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version: '2.0' }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        const modal = document.getElementById('modal-tos-required');
+        if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    } catch {
+        btn.disabled = false;
+        btn.textContent = 'Accept Terms & Continue';
+        alert('Failed to record acceptance. Please try again.');
+    }
+}
+</script>
+
+<!-- US-GOV-2.1.1: Review Queue drawer -->
+<div id="review-queue-drawer" class="hidden fixed inset-0 z-[65] items-stretch" role="dialog" aria-modal="true" aria-labelledby="rq-title">
+  <!-- Backdrop -->
+  <div class="flex-1 bg-gray-900/60 backdrop-blur-sm" onclick="closeReviewQueue()"></div>
+  <!-- Panel -->
+  <div class="w-full max-w-2xl bg-white flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+      <h2 id="rq-title" class="text-lg font-extrabold text-gray-900">Pending Approvals</h2>
+      <div class="flex items-center gap-2">
+        <button onclick="openGeneratePostSheet()" class="px-3 py-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition cursor-pointer flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Generate Post
+        </button>
+        <button onclick="closeReviewQueue()" class="text-gray-400 hover:text-gray-600 transition cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+    <!-- Tabs -->
+    <div class="flex gap-1 px-6 pt-3 border-b border-gray-100 overflow-x-auto shrink-0">
+      <button class="rq-tab px-4 py-2 text-sm font-semibold rounded-t border-b-2 border-emerald-600 text-emerald-700 whitespace-nowrap" data-tab-type="hitl" data-status="pending" onclick="rqSetTab('pending',this,'hitl')">Pending <span id="rq-pending-tab-count" class="ml-1 bg-emerald-100 text-emerald-700 text-xs px-1.5 py-0.5 rounded-full"></span></button>
+      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="hitl" data-status="approved" onclick="rqSetTab('approved',this,'hitl')">Approved</button>
+      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="hitl" data-status="rejected" onclick="rqSetTab('rejected',this,'hitl')">Rejected</button>
+      <div class="w-px bg-gray-200 mx-1 self-stretch my-1"></div>
+      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="social" data-status="pending_approval" onclick="rqSetTab('pending_approval',this,'social')">Social Drafts <span id="rq-social-tab-count" class="ml-1 bg-violet-100 text-violet-700 text-xs px-1.5 py-0.5 rounded-full hidden"></span></button>
+    </div>
+    <!-- List -->
+    <div id="rq-list" class="flex-1 overflow-y-auto divide-y divide-gray-100 px-6 py-2"></div>
+    <!-- Reject reason input (shown inline on card) -->
+  </div>
+</div>
+
+<!-- US-SMM-3.4.1: Generate Post on-demand bottom sheet -->
+<div id="gen-post-backdrop" class="hidden fixed inset-0 z-[70] bg-gray-900/60 backdrop-blur-sm" onclick="closeGeneratePostSheet()"></div>
+<div id="gen-post-sheet" class="hidden fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-2xl shadow-2xl max-h-[90vh] flex flex-col md:bottom-auto md:top-1/2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:max-w-lg md:w-full" role="dialog" aria-modal="true" aria-labelledby="gen-post-title">
+  <div class="flex items-center justify-between px-5 pt-5 pb-3">
+    <h2 id="gen-post-title" class="text-base font-extrabold text-gray-900">Generate Post Now</h2>
+    <button onclick="closeGeneratePostSheet()" class="text-gray-400 hover:text-gray-600 cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="px-5 pb-6 overflow-y-auto flex-1">
+    <!-- Platform selector -->
+    <div class="mb-4">
+      <label class="block text-xs font-semibold text-gray-700 mb-1.5">Platform</label>
+      <div id="gen-post-platforms" class="flex flex-wrap gap-2">
+        <button type="button" class="gen-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="instagram" onclick="gpSelectPlatform(this)">Instagram</button>
+        <button type="button" class="gen-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="facebook" onclick="gpSelectPlatform(this)">Facebook</button>
+        <button type="button" class="gen-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="linkedin" onclick="gpSelectPlatform(this)">LinkedIn</button>
+        <button type="button" class="gen-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="x" onclick="gpSelectPlatform(this)">X</button>
+      </div>
+    </div>
+    <!-- Context prompt -->
+    <div class="mb-4">
+      <label class="block text-xs font-semibold text-gray-700 mb-1.5">Additional context <span class="font-normal text-gray-400">(optional)</span></label>
+      <div class="relative">
+        <textarea id="gen-post-context" maxlength="500" rows="3" placeholder="e.g. Write about our summer sale ending Sunday, or leave blank to let your assistant decide." class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2.5 pr-16 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400"></textarea>
+        <span class="absolute bottom-2 right-8 text-xs text-gray-400"><span id="gen-post-ctx-count">0</span>/500</span>
+        <button type="button" id="gen-post-mic-btn" onclick="gpStartVoice()" title="Dictate context" class="absolute bottom-2 right-2 text-gray-400 hover:text-emerald-600 transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4M12 3a4 4 0 014 4v4a4 4 0 01-8 0V7a4 4 0 014-4z"/></svg>
+        </button>
+      </div>
+      <p class="text-xs text-gray-400 mt-1">This context applies to this post only — it won't change your assistant's permanent settings.</p>
+    </div>
+    <!-- Status / result area -->
+    <div id="gen-post-status" class="hidden mb-4 text-sm rounded-xl p-3 bg-emerald-50 text-emerald-800 border border-emerald-200"></div>
+    <!-- Conflict notice (shown if context prompt conflicts with a strict rule) -->
+    <div id="gen-post-conflict" class="hidden mb-4 bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-800"></div>
+    <!-- Post preview (shown after generation) -->
+    <div id="gen-post-preview" class="hidden mb-4 bg-gray-50 rounded-xl p-4 text-sm text-gray-800 border border-gray-200">
+      <p class="font-semibold text-gray-700 mb-1 text-xs uppercase tracking-wide">Draft Preview</p>
+      <p id="gen-post-preview-caption" class="mb-2 whitespace-pre-wrap"></p>
+      <p id="gen-post-preview-hashtags" class="text-violet-700 text-xs"></p>
+      <p id="gen-post-preview-media" class="text-gray-500 text-xs mt-1 italic"></p>
+    </div>
+    <!-- Actions -->
+    <div id="gen-post-actions" class="flex gap-2">
+      <button id="gen-post-submit-btn" onclick="gpSubmit()" class="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded-xl transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Generate</button>
+      <button onclick="closeGeneratePostSheet()" class="px-5 py-2.5 border border-gray-300 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 transition cursor-pointer">Cancel</button>
+    </div>
+    <div id="gen-post-approve-actions" class="hidden flex gap-2 mt-2">
+      <button onclick="gpApprovePost()" class="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded-xl transition cursor-pointer">Post Now</button>
+      <button onclick="gpSchedulePost()" class="flex-1 py-2.5 border border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-sm font-bold rounded-xl transition cursor-pointer">Schedule for Later</button>
+      <button onclick="gpRejectPost()" class="py-2.5 px-3 border border-red-300 text-red-600 hover:bg-red-50 text-sm font-bold rounded-xl transition cursor-pointer">Reject</button>
+    </div>
+    <!-- Schedule for later picker (shown when Schedule for Later is clicked) -->
+    <div id="gen-post-schedule-picker" class="hidden mt-2">
+      <label class="block text-xs font-semibold text-gray-700 mb-1">Scheduled date &amp; time</label>
+      <input id="gen-post-schedule-input" type="datetime-local" class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-emerald-400">
+      <div class="flex gap-2">
+        <button onclick="gpConfirmSchedule()" class="flex-1 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded-xl transition cursor-pointer">Confirm Schedule</button>
+        <button onclick="document.getElementById('gen-post-schedule-picker').classList.add('hidden'); document.getElementById('gen-post-approve-actions').classList.remove('hidden');" class="py-2 px-3 text-sm font-semibold text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition cursor-pointer">Back</button>
+      </div>
+    </div>
+    <div id="gen-post-reject-form" class="hidden mt-2">
+      <input id="gen-post-reject-reason" type="text" maxlength="300" placeholder="Rejection reason (required)" class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-red-300">
+      <button onclick="gpSubmitReject()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition cursor-pointer">Confirm Rejection</button>
+    </div>
+  </div>
+</div>
+
+<!-- US-GOV-2.1.1: Autonomous-override acknowledgment modal -->
+<div id="modal-autonomous-override" class="hidden fixed inset-0 z-[80] items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      <h2 class="text-lg font-extrabold text-gray-900">Disable Human Review?</h2>
+    </div>
+    <p class="text-sm text-gray-700 mb-4 leading-relaxed">
+      You are about to allow this integration to <strong>publish content without human review</strong>.
+      You accept sole responsibility for all content published by this assistant.
+    </p>
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-xs text-amber-800 leading-relaxed">
+      This assistant will act autonomously. Errors, inappropriate content, or policy violations will be published immediately without a human check.
+    </div>
+    <label class="flex items-start gap-2 mb-5 cursor-pointer select-none">
+      <input type="checkbox" id="autonomous-ack-checkbox" class="mt-0.5 accent-red-600">
+      <span class="text-sm text-gray-700">I understand this assistant will publish content without human review. I accept sole responsibility for all published content.</span>
+    </label>
+    <div class="flex gap-3">
+      <button id="btn-autonomous-cancel" onclick="closeAutonomousOverrideModal()" class="flex-1 py-2 border border-gray-300 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer">Cancel</button>
+      <button id="btn-autonomous-accept" disabled onclick="confirmAutonomousOverride()" class="flex-1 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition cursor-pointer">I Accept</button>
+    </div>
+  </div>
+</div>
+
+<!-- US-AUD-4.3.1 SC5: AI Disclaimer first-time acknowledgement modal -->
+<div id="ai-disclaimer-modal" class="hidden fixed inset-0 z-[60] items-center justify-center p-4 bg-gray-900/70 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+    <div class="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <h2 class="text-xl font-extrabold text-gray-900 mb-2">A quick note before you dive in</h2>
+    <p class="text-sm text-gray-600 mb-5 leading-relaxed">
+      Aura-Assist uses AI to generate content on your behalf. AI outputs may be inaccurate, incomplete, or misleading.
+      <strong>Always review outputs before use</strong> — especially anything touching legal, medical, or financial topics.
+    </p>
+    <p class="text-xs text-gray-400 mb-5">
+      By continuing, you agree to our
+      <a href="/terms.html" class="text-emerald-600 hover:underline" target="_blank">Terms of Service</a>.
+      Aura-Assist Ltd is not liable for reliance on AI-generated content.
+    </p>
+    <button id="btn-acknowledge-disclaimer"
+      class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition cursor-pointer">
+      I understand — continue
+    </button>
+  </div>
+</div>
+
+<!-- Post-payment welcome modal (US-ONB-2.2.1: also shown on first login after plan activation) -->
+<!-- US-ONB-2.2.1: First-login welcome modal — shown once after plan activation (AC5–AC20) -->
+<div id="payment-welcome-modal" class="hidden fixed inset-0 z-50 items-end sm:items-center justify-center sm:p-4 bg-gray-900/60 backdrop-blur-sm" id="welcome-modal-backdrop">
+  <!-- Mobile: full-width bottom sheet; Desktop: centred card -->
+  <div id="welcome-modal-sheet" class="bg-white w-full sm:rounded-2xl sm:max-w-lg sm:w-full shadow-2xl relative
+       rounded-t-2xl transition-transform duration-300">
+    <!-- X close button (AC5) -->
+    <button id="welcome-modal-close-btn" aria-label="Close"
+      class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div class="p-6 sm:p-8">
+      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+        <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <!-- AC6: personalised heading -->
+      <h2 class="text-2xl font-extrabold text-gray-900 mb-2">Welcome to Aura-Assist™, <span id="welcome-first-name">there</span>!</h2>
+      <p class="text-gray-500 mb-4 text-sm">Your workspace is live and ready. Here's what you can do right now:</p>
+      <!-- AC7: plan-tier bullets -->
+      <ul id="welcome-bullets" class="mb-6 space-y-2 text-sm text-gray-700">
+        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Set up your first AI Digital Assistant</li>
+        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Connect your social media accounts</li>
+        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Upload your brand assets</li>
+        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Review and approve AI-generated content</li>
+      </ul>
+      <!-- AC8: "Open User Guide" — opens in new tab, does NOT close modal (AC8) -->
+      <a id="welcome-guide-btn" href="/help.html" target="_blank" rel="noopener noreferrer"
+        class="block w-full text-center px-6 py-3 sm:py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition text-base sm:min-h-[48px] leading-normal">
+        Open User Guide
+      </a>
+      <!-- AC10: secondary dismiss link -->
+      <button id="payment-welcome-dismiss-btn"
+        class="mt-3 w-full text-sm text-gray-400 hover:text-gray-600 transition py-2">
+        I'll explore on my own
+      </button>
+      <!-- AC11: footer note -->
+      <p class="mt-3 text-xs text-gray-400 text-center">You can always find this guide in the Help section of your workspace.</p>
+    </div>
+  </div>
+</div>
+
+<!-- US-ONB-2.1.1: Plan selection gate — non-dismissible, shows live plan cards from DB (AC5–AC18) -->
+<div id="plan-gate-modal" class="hidden fixed inset-0 z-[10000] backdrop-blur-sm flex items-center justify-center p-4" style="z-index:10000;background-color:rgba(20,18,15,0.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding-top:max(1rem,env(safe-area-inset-top));padding-bottom:max(1rem,env(safe-area-inset-bottom))">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-y-auto" style="max-height:calc(100vh - 2rem)">
+    <div class="p-8 pb-4 text-center border-b border-gray-100">
+      <!-- AC10: referral discount banner -->
+      <div id="plan-gate-referral-banner" class="hidden mb-4 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-semibold text-emerald-800">
+        🎉 Referral discount applied — you'll save on your first months
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-1">Choose a plan to activate your workspace</h2>
+      <p class="text-gray-500 text-sm">You're almost there — pick a plan to unlock your assistant.</p>
+    </div>
+    <!-- AC8-9: plan cards injected from get-plans (live) -->
+    <div id="plan-gate-cards" class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="col-span-full text-center py-8 text-gray-400 text-sm animate-pulse">Loading plans…</div>
+    </div>
+    <div class="px-8 pb-6 text-center border-t border-gray-100 pt-4">
+      <div id="plan-gate-polling" class="hidden mt-3 text-sm text-emerald-700 animate-pulse">Checking your subscription…</div>
+    </div>
+  </div>
+</div>
+
+<!-- OAuth / connection error toast -->
+<div id="oauth-error-toast"
+  class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 bg-red-600 text-white text-sm font-semibold rounded-xl shadow-2xl transition-opacity duration-500 opacity-0">
+  <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+  </svg>
+  <span id="oauth-error-toast-msg">The app connection failed. Please try again.</span>
+  <button onclick="this.closest('#oauth-error-toast').classList.add('hidden')"
+    class="ml-2 text-red-200 hover:text-white transition text-lg leading-none">&times;</button>
+</div>
+
+<!-- Draft saved toast -->
+<div id="draft-saved-toast"
+  class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 bg-gray-900 text-white text-sm font-semibold rounded-xl shadow-2xl transition-opacity duration-500 opacity-0">
+  <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+  </svg>
+  <span>Progress saved — pick up where you left off any time.</span>
+  <button onclick="this.closest('#draft-saved-toast').classList.add('hidden')"
+    class="ml-2 text-gray-400 hover:text-white transition text-lg leading-none">&times;</button>
+</div>
+
+<!-- ── SC2 / SC4: Upgrade Required Modal ─────────────────────────────── -->
+<div id="modal-upgrade" class="hidden fixed inset-0 z-50 items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+    <div class="bg-gradient-to-br from-emerald-700 to-emerald-900 px-8 py-6 text-white">
+      <div class="text-3xl mb-2">🔒</div>
+      <h2 id="upgrade-modal-title" class="text-xl font-bold mb-1">Upgrade Required</h2>
+      <p id="upgrade-modal-subtitle" class="text-emerald-200 text-sm">This feature isn't available on your current plan.</p>
+    </div>
+    <div class="px-8 py-6">
+      <p id="upgrade-modal-body" class="text-gray-600 text-sm mb-4">Upgrade your plan to unlock this feature and continue scaling your automation.</p>
+
+      <!-- Next plan preview card (SC2b) -->
+      <div id="upgrade-modal-next-plan" class="hidden mb-4 rounded-xl border-2 border-emerald-600 bg-emerald-50 p-4">
+        <div class="flex items-center justify-between mb-1">
+          <p id="upgrade-next-plan-name" class="text-sm font-bold text-emerald-900"></p>
+          <p id="upgrade-next-plan-price" class="text-sm font-semibold text-emerald-700"></p>
+        </div>
+        <p id="upgrade-next-plan-assistants" class="text-xs text-emerald-700"></p>
+      </div>
+
+      <!-- Delta: what you get on the next tier -->
+      <div id="upgrade-modal-delta" class="hidden mb-5 rounded-xl bg-emerald-50 border border-emerald-100 p-4">
+        <p class="text-xs font-bold text-emerald-700 uppercase tracking-wide mb-2">What you unlock by upgrading</p>
+        <ul id="upgrade-modal-delta-list" class="space-y-1.5 text-sm text-emerald-900"></ul>
+      </div>
+
+      <!-- Current usage bar -->
+      <div id="upgrade-modal-usage" class="hidden mb-5">
+        <div class="flex justify-between text-xs text-gray-500 mb-1">
+          <span id="upgrade-usage-label">Usage</span>
+          <span id="upgrade-usage-count"></span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-2">
+          <div id="upgrade-usage-bar" class="bg-emerald-600 h-2 rounded-full transition-all" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="flex gap-3 mb-3">
+        <button onclick="document.getElementById('modal-upgrade').classList.replace('flex','hidden');"
+                class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+          Maybe Later
+        </button>
+        <a id="upgrade-modal-cta" href="/pricing.html"
+           class="flex-1 block text-center px-4 py-2.5 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition">
+          View Plans →
+        </a>
+      </div>
+      <!-- SC2d / SC4: secondary links -->
+      <p class="text-center text-xs text-gray-400">
+        <a id="upgrade-modal-view-all" href="/pricing.html" class="underline hover:text-gray-600">View all plans</a>
+        <span id="upgrade-modal-enterprise-link" class="hidden"> · <a href="mailto:hello@aura-assist.com?subject=Enterprise%20Plan%20Enquiry" class="underline hover:text-gray-600">Contact us about Enterprise</a></span>
+      </p>
+    </div>
+  </div>
+</div>
+
+<nav class="fixed top-0 left-0 right-0 z-50 h-16 w-full bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8">
+
+  <div class="flex items-center gap-3 sm:gap-4">
+    <button id="mobile-menu-btn" class="md:hidden text-gray-500 hover:text-gray-900 focus:outline-none">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+    <a href="#" class="flex items-center">
+      <span class="font-extrabold text-xl sm:text-2xl text-emerald-700 tracking-tight">Aura-Assist</span>
+    </a>
+    <span id="header-title" class="text-sm sm:text-base font-medium text-gray-400 ml-1 sm:ml-2">| My Workspace</span>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <div class="block text-right">
+      <p id="header-user-name" class="text-sm font-bold text-gray-900 truncate max-w-[160px]"></p>
+      <p id="header-user-email" class="text-xs text-gray-500 truncate max-w-[160px]"></p>
+      <div id="header-role-badges" class="flex gap-1 justify-end mt-0.5 flex-wrap"></div>
+    </div>
+    <div id="header-user-initials" class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold shrink-0 text-sm">
+    </div>
+  </div>
+
+</nav>
+
+<div id="mobile-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-30 hidden transition-opacity duration-300 cursor-pointer"></div>
+
+<div id="sidebar-container" style="top: 64px;" class="fixed bottom-0 left-0 z-40 w-64 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out bg-white border-r border-gray-200 overflow-y-auto">
+  <div id="sidebar-placeholder" class="h-full"></div>
+</div>
+
+<div class="md:ml-64 flex flex-col min-h-screen bg-gray-50">
+  <div class="h-16 w-full shrink-0"></div>
+
+  <!-- US-GAP-3.1.1 SC1/SC2: Payment Required full-page gate — shown when planStatus==='past_due' -->
+  <!-- Non-dismissable until payment is resolved. Injected via renderPaymentRequiredGate(). -->
+  <div id="payment-required-gate" class="hidden fixed inset-0 z-[9999] backdrop-blur-sm flex items-center justify-center p-4" style="z-index:9999;background-color:rgba(20,18,15,0.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+      <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">Payment Required</h2>
+      <p class="text-gray-600 mb-4">Your payment has failed and your assistants are temporarily paused.</p>
+      <div id="payment-gate-details" class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-sm text-left space-y-1">
+        <div class="flex justify-between"><span class="text-gray-600">Amount owed:</span><span id="payment-gate-amount" class="font-semibold text-red-700">—</span></div>
+        <div class="flex justify-between"><span class="text-gray-600">Retry attempts:</span><span id="payment-gate-attempts" class="font-semibold text-red-700">—</span></div>
+      </div>
+      <a id="payment-gate-portal-btn" href="/billing.html"
+         class="block w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-xl mb-3 transition-colors">
+        Update Payment Details →
+      </a>
+      <a href="mailto:hello@aura-assist.com?subject=Payment%20Issue" class="text-sm text-gray-500 hover:text-gray-700 underline">
+        Contact Support
+      </a>
+    </div>
+  </div>
+
+  <!-- US-GAP-8.1.1 SC6c: Trial Expired Gate — full-page non-dismissable, shown after cron marks plan 'expired' -->
+  <div id="trial-expired-gate" class="hidden fixed inset-0 z-[9999] backdrop-blur-sm flex items-center justify-center p-4" style="z-index:9999;background-color:rgba(20,18,15,0.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+      <div class="flex items-center justify-center w-16 h-16 bg-amber-100 rounded-full mx-auto mb-4">
+        <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">Your Free Trial Has Ended</h2>
+      <p class="text-gray-600 mb-6">Your 14-day free trial has expired. Choose a plan to continue using your assistant — your configuration and data are safe.</p>
+      <a href="/pricing.html"
+         class="block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl mb-3 transition-colors">
+        Choose a Plan →
+      </a>
+      <a href="mailto:hello@aura-assist.com?subject=Trial%20Enquiry" class="text-sm text-gray-500 hover:text-gray-700 underline">
+        Questions? Contact us
+      </a>
+    </div>
+  </div>
+
+  <!-- US-GAP-8.1.1 SC3: Trial Countdown Badge — persistent when plan is trial -->
+  <div id="trial-badge" class="hidden w-full bg-blue-600 text-white text-sm text-center py-2 px-4 flex items-center justify-center gap-3">
+    <span id="trial-badge-text">Free Trial</span>
+    <a href="/pricing.html" class="bg-white text-blue-700 font-semibold text-xs px-3 py-1 rounded-full hover:bg-blue-50 transition">Upgrade Now →</a>
+  </div>
+
+  <!-- US-GAP-9.2.1: Task Volume Warning Banner (SC1–SC5) -->
+  <!-- Rendered by renderTaskVolumeBanner() after check-capacity resolves. -->
+  <!-- AC5 STOR-1.1.2: Storage quota full banner -->
+  <div id="storage-full-banner" class="hidden w-full px-4 pt-3">
+    <div class="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-800">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-5a1 1 0 00-1 1v2a1 1 0 002 0V9a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        <span class="font-semibold">Storage full.</span> New uploads are blocked. Delete unused assets or upgrade your plan.
+      </div>
+      <a href="billing.html" class="shrink-0 text-xs font-bold text-red-700 hover:text-red-900 underline">Upgrade →</a>
+    </div>
+  </div>
+
+  <div id="task-volume-banner" class="hidden w-full px-4 pt-3"></div>
+
+  <!-- US-AUD-1.2.1: Persistent ROI Card -->
+  <div id="roi-card" class="hidden w-full px-4 pt-3">
+    <div class="bg-white border border-gray-200 rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+      <div id="roi-card-body" class="flex-1 min-w-0">
+        <p id="roi-card-primary" class="text-base font-bold text-gray-900 truncate"></p>
+        <p id="roi-card-secondary" class="text-sm text-gray-500 mt-0.5"></p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+          <button id="roi-period-month" onclick="switchRoiPeriod('month')"
+            class="px-3 py-1.5 bg-emerald-700 text-white transition">Month</button>
+          <button id="roi-period-week" onclick="switchRoiPeriod('week')"
+            class="px-3 py-1.5 bg-white text-gray-500 hover:bg-gray-50 transition">Week</button>
+        </div>
+        <a id="roi-card-cta" href="#" class="hidden text-xs font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap transition"></a>
+      </div>
+    </div>
+  </div>
+
+  <main id="workspace-content" class="flex-1 w-full"></main>
+</div>
+
+<script>
+// US-I18N-2.1 SC5: currency-aware formatter — replaces all hardcoded £ symbols
+function formatCurrency(amount, currency) {
+  if (amount == null || isNaN(parseFloat(amount))) return '';
+  return new Intl.NumberFormat('en', {
+    style: 'currency',
+    currency: currency || 'GBP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(parseFloat(amount));
+}
+
+  async function loadSidebar(placeholderId) {
+    const paths = ["./components/sidebar.html", "./sidebar.html"];
+    for (let path of paths) {
+      try {
+        const response = await fetch(path);
+        if (response.ok) {
+          const container = document.getElementById(placeholderId);
+          container.innerHTML = await response.text();
+
+          const aside = container.querySelector('aside');
+          if (aside) {
+            aside.classList.remove('hidden', 'md:flex');
+            aside.classList.add('flex', 'w-full');
+          }
+          return;
+        }
+      } catch (e) { }
+    }
+    console.error("Error: Could not locate sidebar.html");
+  }
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    // ── P3: Post-login alert banner ──────────────────────────────
+    // verify.ts appends ?alert=<type> when routing a returning user back to workspace.
+    // Show a contextual banner so the user knows why they're here and what to do.
+    (function showAlertBanner() {
+      const alertParam = new URLSearchParams(window.location.search).get('alert');
+      const ALERTS = {
+        payment_overdue: {
+          cls: 'bg-amber-50 border-amber-300 text-amber-900',
+          icon: '⚠️',
+          msg: 'Your last payment failed. Your assistants are still active during the grace period — please <a href="/billing.html" class="font-bold underline">update your payment method</a> to avoid interruption.',
+        },
+        subscription_ended: {
+          cls: 'bg-red-50 border-red-300 text-red-900',
+          icon: '🔴',
+          msg: 'Your subscription has ended and your assistants are paused. <a href="/pricing.html" class="font-bold underline">Re-subscribe</a> to restore full access.',
+        },
+        no_plan: {
+          cls: 'bg-blue-50 border-blue-200 text-blue-900',
+          icon: 'ℹ️',
+          msg: 'You don\'t have an active plan. <a href="/pricing.html" class="font-bold underline">Choose a plan</a> to activate your assistants.',
+        },
+      };
+      const alert = alertParam ? ALERTS[alertParam] : null;
+      if (!alert) return;
+      const banner = document.createElement('div');
+      banner.className = `fixed top-16 inset-x-0 z-40 border-b ${alert.cls} px-4 py-3 text-sm flex items-center gap-3`;
+      banner.innerHTML = `<span>${alert.icon}</span><span>${alert.msg}</span>
+        <button class="ml-auto flex-shrink-0 text-lg leading-none opacity-60 hover:opacity-100" onclick="this.parentElement.remove()">×</button>`;
+      document.body.appendChild(banner);
+      // Remove the param from the URL so refreshing doesn't re-show
+      const url = new URL(window.location.href);
+      url.searchParams.delete('alert');
+      history.replaceState(null, '', url.toString());
+    })();
+
+    // 1. Force the sidebar to inject before drawing main components
+    await loadSidebar("sidebar-placeholder");
+    if (window.i18n) window.i18n.apply(document.getElementById('sidebar-placeholder'));
+
+    // US-ADM-1.2.1: Impersonation banner — detect scope='impersonate' in JWT
+    (function initImpersonationBanner() {
+      try {
+        const cookie = document.cookie.split('; ').find(r => r.startsWith('aura_session='));
+        if (!cookie) return;
+        const token = cookie.split('=')[1];
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.scope !== 'impersonate') return;
+
+        const banner = document.getElementById('impersonation-banner');
+        const label  = document.getElementById('impersonation-label');
+        const endBtn = document.getElementById('end-impersonation-btn');
+
+        const targetName  = payload.targetUserName  || payload.targetUserEmail || `User #${payload.userId}`;
+        const adminName   = payload.realAdminName   || `Admin #${payload.realUserId}`;
+        label.textContent = `⚠ Impersonating ${targetName} — ${adminName} | Session expires in 15 min`;
+        banner.classList.remove('hidden');
+        banner.classList.add('flex');
+
+        // Push body down so banner doesn't overlap content
+        document.body.style.paddingTop = '40px';
+
+        // Store the original token + session metadata in sessionStorage so end-session can restore it
+        const originalToken = sessionStorage.getItem('admin_original_token');
+        const sessionStartedAt = parseInt(sessionStorage.getItem('impersonation_started_at') || '0') || Date.now();
+
+        endBtn.addEventListener('click', async () => {
+          endBtn.disabled = true;
+          endBtn.textContent = 'Ending…';
+          try {
+            const res = await fetch('/.netlify/functions/admin-end-impersonation', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                originalToken,
+                sessionId: payload.sessionId,
+                startedAt: sessionStartedAt,
+              }),
+            });
+            const data = await res.json();
+            sessionStorage.removeItem('admin_original_token');
+            sessionStorage.removeItem('impersonation_started_at');
+            window.location.href = data.redirect || '/admin.html';
+          } catch (e) {
+            endBtn.disabled = false;
+            endBtn.textContent = 'End Session';
+            alert('Failed to end session. Please try again.');
+          }
+        });
+
+        // Auto-end on JWT expiry
+        const expiresIn = payload.exp ? (payload.exp * 1000 - Date.now()) : 900_000;
+        if (expiresIn > 0) {
+          setTimeout(() => {
+            label.textContent = '⚠ Impersonation session expired — click End Session to return';
+            banner.classList.remove('bg-amber-400', 'text-amber-900');
+            banner.classList.add('bg-red-500', 'text-white');
+          }, expiresIn);
+        }
+      } catch (e) { /* non-critical */ }
+    })();
+
+    // US-ADM-5.2.2: Reveal Admin Portal launcher for dual-role users.
+    // Read adminRole claim from the JWT stored in the aura_session cookie (client-side decode, no verify needed).
+    (function revealAdminPortalLink() {
+      try {
+        const cookie = document.cookie.split('; ').find(r => r.startsWith('aura_session='));
+        if (!cookie) return;
+        const token = cookie.split('=')[1];
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        const ADMIN_ROLES = ['admin', 'super_admin', 'platform_admin', 'billing_admin', 'support_agent'];
+        if (payload.adminRole && ADMIN_ROLES.includes(payload.adminRole)) {
+          const el = document.getElementById('nav-admin-portal');
+          if (el) el.classList.remove('hidden');
+        }
+      } catch (e) { /* non-critical */ }
+    })();
+
+    // NEW: Check for unread notifications immediately upon layout initialization
+    if (typeof window.updateNotificationBadge === 'function') {
+      window.updateNotificationBadge();
+    }
+// --- DYNAMIC HEADER HYDRATION ---
+    async function loadHeaderProfile() {
+      const nameEl = document.getElementById('header-user-name');
+      const emailEl = document.getElementById('header-user-email');
+      const initialsEl = document.getElementById('header-user-initials');
+
+      try {
+        const response = await fetch('/.netlify/functions/update-profile');
+        if (response.ok) {
+          const profileData = await response.json();
+
+          const fName = profileData.firstName || '';
+          const lName = profileData.lastName || '';
+          const fullName = `${fName} ${lName}`.trim();
+
+          // Populate text fields
+          if (nameEl) nameEl.textContent = fullName || 'Aura User';
+          if (emailEl) emailEl.textContent = profileData.email || '';
+          window._currentUserEmail = profileData.email || '';
+
+          // US-I18N-1.2 SC1/SC2: apply user's saved language preference
+          if (profileData.language && window.i18n) {
+            window.i18n.setLang(profileData.language);
+          }
+
+          // US-UX-1.1 SC2/SC3: render role badges beneath email
+          const badgesEl = document.getElementById('header-role-badges');
+          if (badgesEl) {
+            const badges = [];
+            const pRole = profileData.platformRole || 'user';
+            const oRole = profileData.organisationRole || 'member';
+            if (pRole === 'super_admin') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">Super Admin</span>');
+            else if (pRole === 'admin') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">Admin</span>');
+            if (oRole === 'owner') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Owner</span>');
+            else if (oRole === 'admin') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">Org Admin</span>');
+            badgesEl.innerHTML = badges.join('');
+            window._profileRoles = { platformRole: pRole, organisationRole: oRole };
+          }
+
+          // Generate initials dynamically for the avatar circle
+          if (initialsEl && fName) {
+            const initial1 = fName.charAt(0).toUpperCase();
+            const initial2 = lName ? lName.charAt(0).toUpperCase() : '';
+            initialsEl.textContent = `${initial1}${initial2}`;
+          } else if (initialsEl) {
+            initialsEl.textContent = 'U'; // Fallback
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load user header profile from DB:", error);
+      }
+    }
+
+    // Fire the fetch request instantly on page load
+    loadHeaderProfile();
+    const contentContainer = document.getElementById("workspace-content");
+    const headerTitle = document.getElementById("header-title");
+
+    // Mobile Layout Toggle State Controllers
+    const sidebarContainer = document.getElementById('sidebar-container');
+    const mobileOverlay = document.getElementById('mobile-overlay');
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+
+    function closeMobileMenu() {
+      if (window.innerWidth < 768) {
+        sidebarContainer.classList.add('-translate-x-full');
+        mobileOverlay.classList.add('hidden');
+      }
+    }
+
+    if(mobileMenuBtn) {
+      mobileMenuBtn.addEventListener('click', () => {
+        sidebarContainer.classList.remove('-translate-x-full');
+        mobileOverlay.classList.remove('hidden');
+      });
+    }
+
+    if(mobileOverlay) {
+      mobileOverlay.addEventListener('click', closeMobileMenu);
+    }
+
+    // Consolidated path definitions mapping navigation links to standard modular components
+    const routes = {
+      'dashboard': { file: 'dashboard-content.html', title: '| Workspace Overview' },
+      'assistants': { file: 'assistants-directory.html', title: '| My Assistants' },
+      'assistant-detail': { file: 'assistant-detail.html', title: '| Board Room' },
+      'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
+      'assets': { file: 'assets.html', title: '| Brand Assets' },
+      'integrations': { file: 'integrations.html', title: '| Integrations' },
+      'instructions': { file: 'instructions.html', title: '| Assistant Instructions' },
+      'notifications': { file: 'notifications.html', title: '| Notifications' },
+      'settings': { file: 'user-settings.html', title: '| Account Settings' },
+      'team':     { file: 'team-management-content.html', title: '| Team Members' },
+      'billing': { file: 'billing.html', title: '| Subscription & Billing' },
+      'help': { file: 'help-content.html', title: '| Help & Support' },
+      'my-content': { file: 'my-content.html', title: '| My Content' },
+      'calendar': { file: 'calendar.html', title: '| Content Calendar' },
+      'referral': { file: 'referral-content.html', title: '| Refer a Friend' },
+      'review-queue': { file: 'review-queue.html', title: '| Review Queue' }
+    };
+
+    // Consolidated DOM element hooks
+    const navLinks = {
+      'dashboard': document.getElementById('nav-dashboard'),
+      'assistants': document.getElementById('nav-assistants'),
+      'catalog': document.getElementById('nav-catalog'),
+      'assets': document.getElementById('nav-assets'),
+      'integrations': document.getElementById('nav-integrations'),
+      'instructions': document.getElementById('nav-instructions'),
+      'notifications': document.getElementById('nav-notifications'),
+      'settings': document.getElementById('nav-settings'),
+      'help': document.getElementById('nav-help'),
+      'my-content': document.getElementById('nav-my-content'),
+      'calendar': document.getElementById('nav-calendar'),
+      'team': document.getElementById('nav-team'),
+      'referral': document.getElementById('nav-referral'),
+      'review-queue': document.getElementById('nav-review-queue')
+    };
+
+    async function loadView(routeKey, param = null) {
+      const route = routes[routeKey];
+      if (!route) return;
+
+      try {
+        const response = await fetch(`./${route.file}`);
+        if (!response.ok) throw new Error('Network component not found');
+
+        contentContainer.innerHTML = await response.text();
+
+        // Re-execute any inline <script> blocks injected via innerHTML
+        // (browsers do not run scripts set through innerHTML — we must re-create them)
+        Array.from(contentContainer.querySelectorAll('script')).forEach(oldScript => {
+          const newScript = document.createElement('script');
+          Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+          newScript.textContent = oldScript.textContent;
+          oldScript.replaceWith(newScript);
+        });
+
+        // US-I18N-1.2 SC3: apply workspace translations after view injection
+        if (window.i18n) window.i18n.apply(contentContainer);
+
+        // Native window view scroll reposition cleaner
+        window.scrollTo(0, 0);
+        closeMobileMenu();
+
+        if (headerTitle) {
+          headerTitle.textContent = route.title;
+        }
+
+        // --- Active State Logic (Fix for Deep Links) ---
+        // If we are on 'assistant-detail', we still want the 'assistants' sidebar link highlighted
+        const activeNavKey = routeKey === 'assistant-detail' ? 'assistants' : routeKey;
+        updateActiveNav(activeNavKey);
+
+        // ── US-GAP-9.1.1: Capacity gate — block catalog if assistant limit reached ──
+        // SC1: Detect limit. SC2: Show next-tier info. SC3: Never show raw error. SC4: Enterprise path. SC5: Direct checkout CTA.
+        if (routeKey === 'catalog') {
+          const cap = await window.checkCapacity(true);
+          if (cap && cap.assistantLimit !== null && cap.assistantCount >= cap.assistantLimit) {
+            // Build delta: what the NEXT tier unlocks (keyed by current tierKey)
+            const TIER_DELTA = {
+              buster:   ['Up to 3 active assistants', 'Multi-step workflow support', 'Connect up to 3 apps'],
+              saver:    ['Up to 5 active assistants', 'Full process automation (up to 5 steps)', 'Connect all standard apps', '24/7 monitoring'],
+              employee: ['Unlimited assistants', 'Dedicated account manager', 'Custom SLA & priority support'],
+            };
+            const delta = TIER_DELTA[cap.tierKey] || ['More active assistants', 'Higher monthly task volume'];
+
+            // SC4: null nextPlan means already on highest plan — show enterprise contact path
+            const isHighestPlan = !cap.nextPlan;
+
+            // US-SALES-1.1 Part 3a: capture quota-hit as upgrade_intent lead
+            fetch('/.netlify/functions/capture-lead', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: window._currentUserEmail || '',
+                role: cap.tierName || 'current plan',
+                leadType: 'upgrade_intent',
+                source: 'workspace_quota',
+                opportunityReason: `Quota limit reached — ${cap.tierName || 'current plan'}`,
+                priority: 'high',
+              }),
+            }).catch(() => {});
+
+            window.openUpgradeModal(
+              'Assistant Limit Reached',
+              `You've reached your ${cap.tierName || 'current'} plan limit of ${cap.assistantLimit} assistant${cap.assistantLimit === 1 ? '' : 's'}.`,
+              isHighestPlan
+                ? `You're on our highest plan. Contact us to discuss a custom Enterprise arrangement with unlimited capacity.`
+                : `To hire a new assistant, upgrade to ${cap.nextPlan.name} or remove one you no longer need.`,
+              {
+                nextPlan:   cap.nextPlan ?? undefined,           // SC2b: next tier card
+                delta:      isHighestPlan ? [] : delta,          // SC2: feature delta
+                usage: {
+                  label:   'Active assistants',
+                  current: cap.assistantCount,
+                  limit:   cap.assistantLimit,
+                },
+                ctaHref:    isHighestPlan ? undefined : `/checkout.html?tier=${cap.nextPlan.tierKey}`,   // SC5: direct to checkout
+                enterprise: isHighestPlan,                       // SC4
+              }
+            );
+            return; // SC3: never render the catalog or expose an error — modal is always shown
+          }
+        }
+
+        // Map internal action anchors
+        const internalCatalogLink = document.getElementById('route-to-catalog');
+        if (internalCatalogLink) {
+          internalCatalogLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await loadView('catalog');
+          });
+        }
+
+        // =======================================================
+        // Initialize engine lifecycles depending on route targets
+        // =======================================================
+        if (routeKey === 'dashboard') {
+          await initDashboard();
+          // US-AUD-5.2.1: Check if upgrade moment should fire (non-blocking)
+          setTimeout(() => window._maybeShowUpgradeMoment?.(), 3000);
+        }
+        if (routeKey === 'settings') {
+          await initProfileSettingsCenter();
+        }
+
+        if (routeKey === 'help') {
+          await initHelpCenter();
+        }
+
+        if (routeKey === 'team') {
+          await initTeamManagement();
+        }
+
+        if (routeKey === 'notifications' && typeof window.initNotifications === 'function') {
+          await window.initNotifications();
+        }
+
+        if (routeKey === 'assets' && typeof window.initBrandAssets === 'function') {
+          window.initBrandAssets();
+        }
+
+        if (routeKey === 'instructions' && typeof window.initInstructions === 'function') {
+          window.initInstructions();
+        }
+        if (routeKey === 'integrations' && typeof window.initIntegrations === 'function') {
+          await window.initIntegrations();
+        }
+
+        if (routeKey === 'my-content' && typeof window.initMyContent === 'function') {
+          await window.initMyContent();
+        }
+
+        if (routeKey === 'calendar' && typeof window.initCalendar === 'function') {
+          await window.initCalendar();
+        }
+
+        if (routeKey === 'billing' && typeof window.initBilling === 'function') {
+          await window.initBilling();
+        }
+
+        // ── SC4: Feature gating — overlay locked features after render ──
+        _applyFeatureGating(routeKey);
+
+        // --- NEW: Assistants Directory & Board Room ---
+        if (routeKey === 'assistants' && typeof window.initAssistantsDirectory === 'function') {
+          await window.initAssistantsDirectory(loadView);
+        }
+
+        if (routeKey === 'assistant-detail' && typeof window.initAssistantDetail === 'function') {
+          await window.initAssistantDetail(param, loadView);
+        }
+
+      } catch (error) {
+        console.error("Routing execution error:", error);
+        contentContainer.innerHTML = `<div class="p-8 text-center text-red-600 font-medium">Failed to load requested view. Please try again.</div>`;
+      }
+    }
+
+    // ── SC2 / SC4: Capacity cache & upgrade modal helpers ─────────────────
+    // Loaded once at workspace boot; refreshed on-demand by checkCapacity().
+    window._capacityCache = null;
+
+    window.checkCapacity = async function (force = false) {
+      if (!force && window._capacityCache) return window._capacityCache;
+      try {
+        const res = await fetch('/.netlify/functions/check-capacity');
+        if (res.ok) window._capacityCache = await res.json();
+      } catch { /* non-fatal */ }
+      return window._capacityCache;
+    };
+
+    // Open the upgrade modal with context-specific copy.
+    // opts.delta      = string[] — bullet points of what the next plan unlocks
+    // opts.usage      = { label, current, limit } — shows a usage bar
+    // opts.ctaHref    = string — override the primary CTA link
+    // opts.ctaText    = string — override the primary CTA button label
+    // opts.nextPlan   = { name, monthlyPriceGbp, assistantLimit, tierKey } — show next-tier preview card (SC2b)
+    // opts.enterprise = true — show enterprise contact path instead of upgrade CTA (SC4)
+    window.openUpgradeModal = function (title, subtitle, body, opts = {}) {
+      document.getElementById('upgrade-modal-title').textContent    = title    || 'Upgrade Required';
+      document.getElementById('upgrade-modal-subtitle').textContent = subtitle || 'This feature isn\'t included in your current plan.';
+      document.getElementById('upgrade-modal-body').textContent     = body     || 'Upgrade your plan to unlock this feature.';
+
+      // Next plan preview card (SC2b)
+      const nextPlanBlock = document.getElementById('upgrade-modal-next-plan');
+      if (opts.nextPlan) {
+        const np = opts.nextPlan;
+        const _currency = opts.currency || window._capacityCache?.currency || 'GBP';
+        const price = (np.monthlyPrice || np.monthlyPriceGbp) ? `${formatCurrency(np.monthlyPrice || np.monthlyPriceGbp, _currency)}/mo` : '';
+        const slots = np.assistantLimit != null ? `${np.assistantLimit} active assistant${np.assistantLimit === 1 ? '' : 's'}` : 'Unlimited assistants';
+        document.getElementById('upgrade-next-plan-name').textContent       = np.name || '';
+        document.getElementById('upgrade-next-plan-price').textContent      = price;
+        document.getElementById('upgrade-next-plan-assistants').textContent = slots;
+        nextPlanBlock.classList.remove('hidden');
+      } else {
+        nextPlanBlock.classList.add('hidden');
+      }
+
+      // Delta block
+      const deltaBlock = document.getElementById('upgrade-modal-delta');
+      const deltaList  = document.getElementById('upgrade-modal-delta-list');
+      if (opts.delta && opts.delta.length) {
+        deltaList.innerHTML = opts.delta.map(d =>
+          `<li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span><span>${d}</span></li>`
+        ).join('');
+        deltaBlock.classList.remove('hidden');
+      } else {
+        deltaBlock.classList.add('hidden');
+      }
+
+      // Usage bar
+      const usageBlock = document.getElementById('upgrade-modal-usage');
+      if (opts.usage) {
+        const { label, current, limit } = opts.usage;
+        const pct = limit ? Math.min(100, Math.round((current / limit) * 100)) : 100;
+        document.getElementById('upgrade-usage-label').textContent = label || 'Usage';
+        document.getElementById('upgrade-usage-count').textContent = limit ? `${current} / ${limit}` : `${current}`;
+        document.getElementById('upgrade-usage-bar').style.width = pct + '%';
+        document.getElementById('upgrade-usage-bar').className =
+          'h-2 rounded-full transition-all ' + (pct >= 100 ? 'bg-red-500' : 'bg-emerald-600');
+        usageBlock.classList.remove('hidden');
+      } else {
+        usageBlock.classList.add('hidden');
+      }
+
+      // Primary CTA (SC2c / SC4 / SC5)
+      const cta = document.getElementById('upgrade-modal-cta');
+      const enterpriseLink = document.getElementById('upgrade-modal-enterprise-link');
+      if (opts.enterprise) {
+        // SC4: already on highest plan — CTA becomes enterprise contact
+        cta.href        = 'mailto:hello@aura-assist.com?subject=Enterprise%20Plan%20Enquiry';
+        cta.textContent = 'Contact us about Enterprise →';
+        enterpriseLink.classList.add('hidden');
+      } else {
+        cta.href        = opts.ctaHref || '/pricing.html';
+        cta.textContent = opts.ctaText || (opts.nextPlan ? `Upgrade to ${opts.nextPlan.name} →` : 'View Plans →');
+        enterpriseLink.classList.remove('hidden');
+      }
+
+      const m = document.getElementById('modal-upgrade');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    };
+
+    // Close on backdrop click
+    document.getElementById('modal-upgrade').addEventListener('click', function (e) {
+      if (e.target === this) this.classList.replace('flex', 'hidden');
+    });
+
+    // ── SC4: Feature gating — tier-keyed feature locks ─────────────────
+    // Each entry: { tiers: ['starter','pro_team',...], selector, title, subtitle, body }
+    const GATED_FEATURES = [
+      {
+        // Analytics dashboard — locked on Starter and Pro Team
+        tiers: ['starter', 'pro_team'],
+        selector: '[data-feature="analytics"]',
+        title: 'Analytics Dashboard',
+        subtitle: 'Available on Business Automator and above.',
+        body: (cap) => `Upgrade to the ${cap?.nextPlan?.name || 'Business Automator'} plan (${cap?.nextPlan ? formatCurrency(cap.nextPlan.monthlyPrice || cap.nextPlan.monthlyPriceGbp, cap.currency) + '/mo' : 'see pricing'}) to unlock detailed task analytics, performance trends, and assistant health reports.`,
+      },
+      {
+        // 24/7 monitoring — locked on Starter and Pro Team
+        tiers: ['starter', 'pro_team'],
+        selector: '[data-feature="monitoring"]',
+        title: '24/7 Background Monitoring',
+        subtitle: 'Available on Business Automator and above.',
+        body: 'Upgrade to Business Automator to enable around-the-clock monitoring so your assistants act on events even while you sleep.',
+      },
+      {
+        // Automated triggers — locked on Starter only
+        tiers: ['starter'],
+        selector: '[data-feature="auto-trigger"]',
+        title: 'Automated Triggers',
+        subtitle: 'Available on Pro Team and above.',
+        body: (cap) => `Upgrade to ${cap?.nextPlan?.name || 'Pro Team'} (${cap?.nextPlan ? formatCurrency(cap.nextPlan.monthlyPrice || cap.nextPlan.monthlyPriceGbp, cap.currency) + '/mo' : 'see pricing'}) to let your assistants react automatically the moment a new task arrives — no manual command needed.`,
+      },
+      {
+        // Style & memory learning — locked on Starter only
+        tiers: ['starter'],
+        selector: '[data-feature="memory"]',
+        title: 'Style & Memory Learning',
+        subtitle: 'Available on Pro Team and above.',
+        body: 'Upgrade to Pro Team so your assistant learns your voice, tone, and history — making every output feel more personal over time.',
+      },
+    ];
+
+    function _applyFeatureGating(routeKey) {
+      const cap = window._capacityCache;
+      const tierKey = cap?.tierKey || null;
+      if (!tierKey) return; // No plan info yet — skip silently
+
+      GATED_FEATURES.forEach(({ tiers, selector, title, subtitle, body }) => {
+        if (!tiers.includes(tierKey)) return; // Feature is available on this tier
+
+        document.querySelectorAll(selector).forEach(el => {
+          // Skip if already gated
+          if (el.dataset.gated) return;
+          el.dataset.gated = '1';
+
+          // Dim the element and add a padlock overlay
+          el.style.position = 'relative';
+          el.style.pointerEvents = 'none';
+          el.style.opacity = '0.45';
+
+          const overlay = document.createElement('div');
+          overlay.className = 'absolute inset-0 flex flex-col items-center justify-center bg-white/70 rounded-xl cursor-pointer z-10';
+          overlay.style.pointerEvents = 'all';
+          overlay.innerHTML = `
+            <div class="flex flex-col items-center gap-2 p-4 text-center">
+              <span class="text-3xl">🔒</span>
+              <span class="text-sm font-bold text-gray-700">${title}</span>
+              <span class="text-xs text-gray-500">${subtitle}</span>
+              <button class="mt-2 px-4 py-1.5 bg-emerald-700 text-white text-xs font-semibold rounded-lg hover:bg-emerald-800 transition">
+                Upgrade to Unlock
+              </button>
+            </div>`;
+          overlay.addEventListener('click', () => window.openUpgradeModal(title, subtitle, typeof body === 'function' ? body(window._capacityCache) : body));
+          el.appendChild(overlay);
+        });
+      });
+    }
+
+    // US-GAP-3.1.1 SC1/SC2: Show full-page non-dismissable Payment Required gate when plan is past_due.
+    function renderPaymentRequiredGate(cap) {
+      if (!cap || cap.planStatus !== 'past_due') return;
+      const gate = document.getElementById('payment-required-gate');
+      if (!gate) return;
+
+      // SC2: populate amount owed and retry count
+      const amountEl   = document.getElementById('payment-gate-amount');
+      const attemptsEl = document.getElementById('payment-gate-attempts');
+      if (amountEl)   amountEl.textContent   = cap.pastDueAmount != null ? formatCurrency(cap.pastDueAmount, cap.currency) : 'See billing page';
+      if (attemptsEl) attemptsEl.textContent = cap.pastDueAttemptCount != null ? `${cap.pastDueAttemptCount}` : '—';
+
+      // SC2: CTA links to Stripe billing portal if available, otherwise billing.html
+      const portalBtn = document.getElementById('payment-gate-portal-btn');
+      if (portalBtn && cap.stripePortalUrl) {
+        portalBtn.href = cap.stripePortalUrl;
+        portalBtn.setAttribute('target', '_blank');
+        portalBtn.setAttribute('rel', 'noopener noreferrer');
+      }
+
+      gate.classList.remove('hidden');
+    }
+
+    // Pre-fetch capacity once on workspace boot (non-blocking)
+    // After loading, render the task-volume banner if applicable (US-GAP-9.2.1).
+    // US-GAP-8.1.1 SC6c: Show full-page non-dismissable gate when trial has been marked 'expired' by cron
+    function renderTrialExpiredGate(cap) {
+      if (!cap || !cap.trialExpired) return;
+      const gate = document.getElementById('trial-expired-gate');
+      if (gate) { gate.classList.remove('hidden'); gate.classList.add('flex'); }
+    }
+
+    // US-GAP-8.1.1 SC3: Trial countdown badge
+    function renderTrialBadge(cap) {
+      if (!cap || !cap.isTrial) return;
+      const badge = document.getElementById('trial-badge');
+      const text  = document.getElementById('trial-badge-text');
+      if (!badge || !text) return;
+      const days = cap.trialDaysRemaining;
+      if (days === 0) {
+        text.textContent = '⚠️ Your free trial has expired — choose a plan to continue';
+      } else {
+        text.textContent = `⏳ Trial: ${days} day${days === 1 ? '' : 's'} remaining`;
+      }
+      badge.classList.remove('hidden');
+      badge.classList.add('flex');
+    }
+
+    window.checkCapacity().then(cap => {
+      renderPaymentRequiredGate(cap);
+      renderTrialExpiredGate(cap);
+      renderTrialBadge(cap);
+      renderTaskVolumeBanner(cap);
+    });
+
+    // US-AUD-1.2.1: Persistent ROI card
+    let _roiPeriod = 'month';
+    async function loadRoiCard(period) {
+      try {
+        const res = await fetch(`/.netlify/functions/roi-stats?period=${period}`);
+        if (!res.ok) return;
+        const roi = await res.json();
+        const card = document.getElementById('roi-card');
+        const primary = document.getElementById('roi-card-primary');
+        const secondary = document.getElementById('roi-card-secondary');
+        const cta = document.getElementById('roi-card-cta');
+        const label = period === 'week' ? 'this week' : 'this month';
+
+        cta.classList.add('hidden');
+        cta.removeAttribute('href');
+
+        if (roi.gbpSaved != null && roi.planCostGbp != null && roi.gbpSaved > 0) {
+          const saved = formatCurrency(roi.gbpSaved, roi.currency || 'GBP');
+          if (roi.gbpSaved >= roi.planCostGbp) {
+            const mult = (roi.gbpSaved / roi.planCostGbp).toFixed(1);
+            primary.textContent = `${saved} saved ${label}`;
+            secondary.textContent = `${mult}× your subscription cost — your assistants are paying for themselves.`;
+          } else {
+            const remaining = formatCurrency(roi.planCostGbp - roi.gbpSaved, roi.currency || 'GBP');
+            primary.textContent = `${saved} saved ${label}`;
+            secondary.textContent = `${remaining} more to beat your subscription cost — keep going.`;
+          }
+          card.classList.remove('hidden');
+        } else if (roi.hoursSaved != null && roi.hoursSaved > 0) {
+          const hrs = roi.hoursSaved % 1 === 0 ? roi.hoursSaved : roi.hoursSaved.toFixed(1);
+          primary.textContent = `${hrs}h saved ${label}`;
+          secondary.textContent = 'Set your hourly rate to see this as a £ value.';
+          cta.textContent = 'Set your rate →';
+          cta.href = '?view=settings';
+          cta.classList.remove('hidden');
+          card.classList.remove('hidden');
+        }
+      } catch { /* fail silently */ }
+    }
+
+    window.switchRoiPeriod = function(period) {
+      _roiPeriod = period;
+      document.getElementById('roi-period-month').className = period === 'month'
+        ? 'px-3 py-1.5 bg-emerald-700 text-white transition'
+        : 'px-3 py-1.5 bg-white text-gray-500 hover:bg-gray-50 transition';
+      document.getElementById('roi-period-week').className = period === 'week'
+        ? 'px-3 py-1.5 bg-emerald-700 text-white transition'
+        : 'px-3 py-1.5 bg-white text-gray-500 hover:bg-gray-50 transition';
+      loadRoiCard(period);
+    };
+
+    loadRoiCard('month');
+
+    // US-AUD-4.3.1 SC5: Check if user has acknowledged AI disclaimer; show modal if not.
+    (async function checkAiDisclaimerConsent() {
+      try {
+        const res = await fetch('/.netlify/functions/legal-consent');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.aiDisclaimerAccepted) {
+          const modal = document.getElementById('ai-disclaimer-modal');
+          if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+        }
+      } catch { /* fail silently — don't block the workspace */ }
+    })();
+
+    // US-AUD-5.2.1: Success-Triggered Upgrade Moment
+    // SC4: A/B test variant feature bullets
+    const UPGRADE_FEATURES_BY_VARIANT = {
+      break_even: [
+        '🤖 Hire up to 5× more AI assistants',
+        '📊 Full analytics & ROI dashboard',
+        '🎨 Brand voice deep-alignment on every output',
+      ],
+      double_value: [
+        '💰 Users at 2× ROI unlock advanced automation',
+        '⚡ Priority task processing',
+        '🔗 Unlimited integrations',
+      ],
+      triple_value: [
+        '🚀 Top performers get dedicated AI roles',
+        '🧠 Long-term memory for your assistants',
+        '👥 Invite your whole team',
+      ],
+    };
+
+    window._dismissUpgradeMoment = function () {
+      const modal = document.getElementById('upgrade-moment-modal');
+      if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+      // SC5: record dismissal timestamp so we don't show again for 30 days
+      localStorage.setItem('upgrade_moment_dismissed_at', new Date().toISOString());
+    };
+
+    window._maybeShowUpgradeMoment = async function () {
+      // SC5: Frequency cap — 30 days
+      const dismissedAt = localStorage.getItem('upgrade_moment_dismissed_at');
+      if (dismissedAt) {
+        const daysSince = (Date.now() - new Date(dismissedAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSince < 30) return;
+      }
+      // SC1: billing month shown cap
+      const monthKey = `upgrade_moment_shown_${new Date().getFullYear()}_${new Date().getMonth()}`;
+      if (localStorage.getItem(monthKey)) return;
+
+      try {
+        const [roiRes, capRes] = await Promise.all([
+          fetch('/.netlify/functions/roi-stats?period=month'),
+          fetch('/.netlify/functions/check-capacity'),
+        ]);
+        if (!roiRes.ok || !capRes.ok) return;
+        const roi = await roiRes.json();
+        const cap = await capRes.json();
+
+        // SC6: Don't show if on highest plan
+        if (!cap.nextPlan) return;
+
+        // SC4: Determine threshold from variant
+        const profileRes = await fetch('/.netlify/functions/update-profile');
+        const profileData = profileRes.ok ? await profileRes.json() : {};
+        const variant = profileData.upgradeExperimentVariant || 'break_even';
+        const thresholdMultiplier = variant === 'triple_value' ? 3 : variant === 'double_value' ? 2 : 1;
+
+        if (roi.gbpSaved === null || roi.planCostGbp === null) return;
+        const multiplier = roi.gbpSaved / roi.planCostGbp;
+        if (multiplier < thresholdMultiplier) return;
+
+        // SC1: Threshold met — show modal
+        localStorage.setItem(monthKey, '1');
+        const modal = document.getElementById('upgrade-moment-modal');
+        if (!modal) return;
+
+        document.getElementById('um-savings-line').textContent =
+          `${formatCurrency(roi.amountSaved ?? roi.gbpSaved, roi.currency || cap.currency)} saved this month`;
+        document.getElementById('um-roi-line').textContent =
+          `Your subscription has paid for itself ${Math.floor(multiplier)}× over — see what's possible next.`;
+
+        if (cap.nextPlan) {
+          document.getElementById('um-next-tier-info').classList.remove('hidden');
+          document.getElementById('um-next-tier-name').textContent = cap.nextPlan.name;
+          const _np = cap.nextPlan;
+          const _npPrice = formatCurrency(_np.monthlyPrice || _np.monthlyPriceGbp, cap.currency);
+          document.getElementById('um-next-tier-price').textContent = `${_npPrice}/month`;
+          const bullets = UPGRADE_FEATURES_BY_VARIANT[variant] || UPGRADE_FEATURES_BY_VARIANT.break_even;
+          document.getElementById('um-feature-bullets').innerHTML =
+            bullets.map(b => `<li class="flex items-center gap-2">${b}</li>`).join('');
+          const ctaBtn = document.getElementById('um-cta-btn');
+          ctaBtn.textContent = `Upgrade to ${_np.name} — ${_npPrice}/month`;
+          ctaBtn.href = `/checkout.html?tier=${cap.nextPlan.tierKey}`;
+        }
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        // US-SALES-1.1 Part 3b: capture upgrade moment engagement as upgrade_intent lead
+        fetch('/.netlify/functions/capture-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: window._currentUserEmail || '',
+            role: cap.nextPlan?.name || 'upgrade',
+            leadType: 'upgrade_intent',
+            source: 'workspace_billing',
+            opportunityReason: `Upgrade moment shown — ${cap.nextPlan?.name || 'next tier'}`,
+            priority: 'high',
+          }),
+        }).catch(() => {});
+      } catch { /* fail silently */ }
+    };
+
+    document.getElementById('btn-acknowledge-disclaimer')?.addEventListener('click', async () => {
+      const modal = document.getElementById('ai-disclaimer-modal');
+      if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+      try {
+        await fetch('/.netlify/functions/legal-consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'acknowledge_ai_disclaimer' }),
+        });
+      } catch { /* best-effort */ }
+    });
+
+    // US-AUD-4.3.1 SC1/SC2/SC3: Global AI output disclaimer helper.
+    // Call window.renderAiDisclaimer(containerEl, outputText) after injecting any AI output.
+    const HIGH_RISK_PATTERN = /\b(legal\s+advice|solicitor|attorney|lawsuit|litigation|contract\s+clause|compliance|gdpr|libel|defamation|trademark|patent|copyright\s+infringement|indemnity|liability|negligence|jurisdiction|statute|regulation|medical\s+advice|diagnosis|prognosis|prescription|medication|dosage|treatment|symptom|clinical|doctor|physician|therapist|mental\s+health|healthcare|surgery|chronic|disease|disorder|syndrome|financial\s+advice|investment\s+advice|buy|sell|stock|shares|portfolio|returns|yield|interest\s+rate|mortgage|pension|retirement|tax\s+advice|accountant|forex|cryptocurrency|trading\s+strategy)\b/i;
+    window.renderAiDisclaimer = function (container, outputText) {
+      if (!container) return;
+      // Remove any existing disclaimer first
+      container.querySelectorAll('[data-ai-disclaimer]').forEach(el => el.remove());
+      const isHighRisk = HIGH_RISK_PATTERN.test(outputText || '');
+      const el = document.createElement('div');
+      el.setAttribute('data-ai-disclaimer', '1');
+      if (isHighRisk) {
+        el.className = 'mt-3 flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2';
+        el.innerHTML = `<span class="shrink-0 text-amber-500 text-sm">⚠️</span>
+          <p class="text-xs text-amber-800 leading-relaxed">This output may contain legal, financial, or medical information. Always consult a qualified professional before acting on this content.</p>`;
+      } else {
+        el.innerHTML = `<p class="mt-3 text-xs text-gray-400 italic">🤖 AI-generated content. Not verified. Do not act on legal, medical, or financial content without professional review.</p>`;
+      }
+      container.appendChild(el);
+    };
+
+    // US-AUD-3.1.1 SC5: Page event tracker — fire-and-forget for churn Signal 4.
+    window._trackPageEvent = function (pagePath, metadata) {
+      fetch('/.netlify/functions/page-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pagePath: pagePath || window.location.pathname, metadata: metadata || {} }),
+      }).catch(() => { /* non-critical */ });
+    };
+
+    // US-AUD-2.2.1: Quality Review (Quick Review / Full Review)
+    // Call window.renderQualityReview(containerEl, outputText, assistantId) after injecting AI output.
+    // SC1: Quick Review button on every paid plan output.
+    // SC2/SC3: Secondary LLM pass — factual, tone, hallucination. Max 3 checks, inline.
+    // SC4: Tier 3/4 gets Full Review + brand voice, competitor & compliance checks.
+    // SC5: Tier 1/2 sees upgrade callout if premium checks unavailable.
+    window.renderQualityReview = function (container, outputText, assistantId) {
+      if (!container) return;
+      // Remove any existing quality review panel first
+      container.querySelectorAll('[data-quality-review]').forEach(el => el.remove());
+
+      const panel = document.createElement('div');
+      panel.setAttribute('data-quality-review', '1');
+      panel.className = 'mt-3';
+
+      // Determine button label — will be updated after API call reveals tier
+      panel.innerHTML = `
+        <button data-qr-btn class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs font-medium text-gray-600 transition-colors shadow-sm">
+          <span>🔍</span> Quick Review
+        </button>
+        <div data-qr-results class="hidden mt-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-xs space-y-1"></div>`;
+      container.appendChild(panel);
+
+      panel.querySelector('[data-qr-btn]').addEventListener('click', async function () {
+        const btn = this;
+        const resultsEl = panel.querySelector('[data-qr-results]');
+        btn.disabled = true;
+        btn.textContent = 'Reviewing…';
+        resultsEl.classList.add('hidden');
+        resultsEl.innerHTML = '';
+
+        try {
+          const res = await fetch('/.netlify/functions/quality-review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: outputText, assistantId: assistantId || null }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Review failed');
+
+          // SC3: render each check as a line
+          (data.checks || []).forEach(check => {
+            const row = document.createElement('p');
+            row.className = check.status === 'warn'
+              ? 'text-amber-700 font-medium'
+              : 'text-emerald-700';
+            row.textContent = check.label;
+            resultsEl.appendChild(row);
+          });
+
+          // SC5: upgrade hint for Tier 1/2
+          if (data.upgradeHint) {
+            const hint = document.createElement('p');
+            hint.className = 'mt-2 pt-2 border-t border-gray-200 text-gray-500';
+            hint.innerHTML = `${data.upgradeHint} <a href="/pricing.html" class="underline text-emerald-700 font-medium">View plans →</a>`;
+            resultsEl.appendChild(hint);
+          }
+
+          resultsEl.classList.remove('hidden');
+
+          // Update button label based on tier
+          btn.disabled = false;
+          btn.innerHTML = data.tier === 'premium'
+            ? '<span>✅</span> Full Review complete'
+            : '<span>✅</span> Quick Review complete';
+        } catch (err) {
+          const row = document.createElement('p');
+          row.className = 'text-red-600';
+          row.textContent = '⚠️ Review unavailable — please try again.';
+          resultsEl.appendChild(row);
+          resultsEl.classList.remove('hidden');
+          btn.disabled = false;
+          btn.innerHTML = '<span>🔍</span> Retry Review';
+        }
+      });
+    };
+
+    // US-GAP-9.2.1: Task Volume Warning Banner
+    // SC1: ≥80% → yellow dismissable; SC2: 100% → red non-dismissable; SC5: unlimited → hidden.
+    function renderTaskVolumeBanner(cap) {
+      const banner = document.getElementById('task-volume-banner');
+      if (!banner || !cap) return;
+
+      const taskPct = cap.taskPct ?? 0;
+      const taskLimit = cap.taskLimit;
+
+      // SC5: no limit set → never show
+      if (!taskLimit) { banner.classList.add('hidden'); return; }
+      // No warning needed below 80%
+      if (taskPct < 80) { banner.classList.add('hidden'); return; }
+
+      const isAt100 = taskPct >= 100;
+      const dismissKey = 'task-vol-banner-dismissed-' + (new Date().toISOString().slice(0, 7)); // monthly key
+
+      // SC3: if 80% banner was already dismissed this session, hide it (100% is never dismissable)
+      if (!isAt100 && sessionStorage.getItem(dismissKey) === '1') {
+        banner.classList.add('hidden');
+        return;
+      }
+
+      const bgClass    = isAt100 ? 'bg-red-50 border border-red-300 text-red-900' : 'bg-amber-50 border border-amber-300 text-amber-900';
+      const iconClass  = isAt100 ? '🔴' : '⚠️';
+      const usedLabel  = `${taskPct}%`;
+      const message    = isAt100
+        ? `Monthly task limit reached. New tasks are paused until your next billing cycle or you upgrade.`
+        : `You've used ${usedLabel} of your monthly tasks. Upgrade to avoid interruptions.`;
+
+      // SC4: 100% banner has no dismiss button
+      const dismissBtn = isAt100
+        ? ''
+        : `<button onclick="sessionStorage.setItem('${dismissKey}','1');document.getElementById('task-volume-banner').classList.add('hidden');"
+                   class="ml-auto shrink-0 text-amber-600 hover:text-amber-800 font-semibold text-xs underline whitespace-nowrap">
+             Dismiss
+           </button>`;
+
+      banner.innerHTML = `
+        <div class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm ${bgClass}">
+          <span class="shrink-0 text-base">${iconClass}</span>
+          <span class="flex-1">${message}</span>
+          <a href="/pricing.html" class="shrink-0 font-semibold underline hover:opacity-80 whitespace-nowrap">Upgrade Now →</a>
+          ${dismissBtn}
+        </div>`;
+      banner.classList.remove('hidden');
+    }
+
+    // Expose a global routing helper for the HTML onclick handlers in the assistants grid
+    window.routeToAssistantDetail = function(assistantId) {
+      loadView('assistant-detail', assistantId);
+    };
+
+    // ADD THIS LINE: Expose the main router globally so inline clicks can trigger page changes
+    window.loadView = loadView;
+
+    function updateActiveNav(activeKey) {
+      Object.values(navLinks).forEach(link => {
+        if (!link) return;
+        link.classList.remove('bg-emerald-50', 'text-emerald-700', 'font-semibold');
+        link.classList.add('text-gray-600', 'hover:bg-gray-100', 'hover:text-gray-900', 'font-medium');
+      });
+
+      const activeLink = navLinks[activeKey];
+      if (activeLink) {
+        activeLink.classList.remove('text-gray-600', 'hover:bg-gray-100', 'hover:text-gray-900', 'font-medium');
+        activeLink.classList.add('bg-emerald-50', 'text-emerald-700', 'font-semibold');
+      }
+    }
+
+    Object.keys(navLinks).forEach(key => {
+      const link = navLinks[key];
+      if (link) {
+        link.addEventListener('click', async (e) => {
+          if (key === 'help') return; // opens /help.html in new tab via href
+          e.preventDefault();
+          await loadView(key);
+        });
+      }
+    });
+
+    // Fire the initial landing layout
+    await loadView('dashboard');
+
+    // Arriving from Stripe after successful payment
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.get('payment') === 'success') {
+      document.getElementById('payment-welcome-modal').classList.remove('hidden');
+      document.getElementById('payment-welcome-modal').classList.add('flex');
+
+      // Stripe appends payment_intent to the return_url — use it to guarantee
+      // the plan record exists even if the webhook hasn't fired yet.
+      const piId = qs.get('payment_intent');
+      if (piId) {
+        fetch('/.netlify/functions/confirm-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentIntentId: piId }),
+        }).catch(e => console.warn('confirm-payment call failed:', e));
+      }
+
+      history.replaceState(null, '', window.location.pathname);
+    }
+
+    // Deep-link: ?view=catalog (e.g. from public /assistants.html "Hire Assistant" CTA)
+    const viewParam = qs.get('view');
+    if (viewParam === 'catalog') {
+      history.replaceState(null, '', window.location.pathname);
+      await loadView('catalog');
+    }
+
+    // US-ONB-2.2.1: First-login welcome modal (AC5–AC20)
+    const WELCOME_GUIDE_URL = '/help.html'; // AC9: configurable constant
+    const WELCOME_LS_KEY = 'aura_welcome_seen';
+
+    function showWelcomeModal(profileData, tierName) {
+      const modal = document.getElementById('payment-welcome-modal');
+      if (!modal) return;
+
+      // AC6: personalised heading — first name from firstName field or email local-part
+      const firstName = profileData?.firstName || (profileData?.email || '').split('@')[0] || '';
+      const nameEl = document.getElementById('welcome-first-name');
+      if (nameEl && firstName) nameEl.textContent = firstName;
+
+      // AC9: wire guide button to WELCOME_GUIDE_URL constant
+      const guideBtn = document.getElementById('welcome-guide-btn');
+      if (guideBtn) guideBtn.setAttribute('href', WELCOME_GUIDE_URL);
+
+      // AC7: tier-specific bullets based on active plan name
+      const tier = (tierName || '').toLowerCase();
+      const TIER_BULLETS = {
+        buster:   ['Set up your first AI Digital Assistant', 'Connect your social media accounts', 'Schedule & publish posts automatically', 'Access your content library'],
+        saver:    ['Set up multiple AI Digital Assistants', 'Connect all your social platforms', 'Schedule & publish posts automatically', 'Upload brand assets & manage your library', 'Invite team members to collaborate'],
+        employee: ['Unlimited AI Digital Assistants', 'Full social platform integration', 'Advanced analytics & content insights', 'Custom brand kit & full library access', 'Team seats with role-based access', 'Priority support'],
+      };
+      const bullets = TIER_BULLETS[tier] || ['Set up your first AI Digital Assistant', 'Connect your social media accounts', 'Upload your brand assets', 'Review and approve AI-generated content'];
+      const bulletsEl = document.getElementById('welcome-bullets');
+      if (bulletsEl) {
+        bulletsEl.innerHTML = bullets.map(b =>
+          `<li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> ${b}</li>`
+        ).join('');
+      }
+
+      // Show modal — desktop: centred flex, mobile: bottom sheet slides up
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function dismissWelcomeModal() {
+      const modal = document.getElementById('payment-welcome-modal');
+      if (!modal) return;
+      // AC12: optimistic update BEFORE closing
+      localStorage.setItem(WELCOME_LS_KEY, '1'); // AC13: localStorage fallback
+      fetch('/.netlify/functions/update-profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fieldKey: 'firstLoginWelcomeSeen', value: true }),
+      }).catch(() => {});
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    (function initWelcomeModal() {
+      const modal = document.getElementById('payment-welcome-modal');
+      if (!modal) return;
+
+      // X button, "I'll explore on my own" link (AC5, AC10)
+      document.getElementById('welcome-modal-close-btn')?.addEventListener('click', dismissWelcomeModal);
+      document.getElementById('payment-welcome-dismiss-btn')?.addEventListener('click', dismissWelcomeModal);
+
+      // Backdrop click dismiss (AC5)
+      modal.addEventListener('click', (e) => { if (e.target === modal) dismissWelcomeModal(); });
+
+      // Escape key dismiss (AC5)
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) dismissWelcomeModal();
+      });
+    })();
+
+    (async function checkAndShowWelcomeModal() {
+      // AC13: don't show if localStorage flag already set
+      if (localStorage.getItem(WELCOME_LS_KEY)) return;
+      // AC3: don't show while plan gate is active (plan gate takes priority)
+      if (qs.get('payment') === 'success') return;
+      try {
+        const profileRes = await fetch('/.netlify/functions/update-profile');
+        if (!profileRes.ok) return;
+        const profile = await profileRes.json();
+        // AC1: only show if flag is false AND plan is active
+        if (profile.firstLoginWelcomeSeen === false) {
+          const cap = await window.checkCapacity();
+          if (cap?.planStatus === 'active' || cap?.planStatus === 'trialing') {
+            showWelcomeModal(profile, cap?.tierName);
+          }
+        }
+      } catch { /* non-fatal */ }
+    })();
+
+    // US-ONB-2.1.1: Plan gate — live plan cards, blur, sidebar dim (AC1–AC18)
+    (async function initPlanGate() {
+      const gateModal  = document.getElementById('plan-gate-modal');
+      const pollingEl  = document.getElementById('plan-gate-polling');
+      const cardsEl    = document.getElementById('plan-gate-cards');
+      const refBanner  = document.getElementById('plan-gate-referral-banner');
+      if (!gateModal) return;
+
+      function applyGateBlur(active) {
+        // AC5: blur workspace content, AC14: dim sidebar
+        const main = document.getElementById('workspace-content');
+        const sidebar = document.getElementById('sidebar-container');
+        if (active) {
+          if (main) { main.style.filter = 'blur(4px)'; main.style.pointerEvents = 'none'; }
+          if (sidebar) { sidebar.style.opacity = '0.4'; sidebar.style.pointerEvents = 'none'; }
+          document.title = 'Activate your workspace — Aura-Assist'; // AC15
+        } else {
+          if (main) { main.style.filter = ''; main.style.pointerEvents = ''; }
+          if (sidebar) { sidebar.style.opacity = ''; sidebar.style.pointerEvents = ''; }
+        }
+      }
+
+      async function loadPlanCards(referralCode) {
+        if (!cardsEl) return;
+        try {
+          const res = await fetch('/.netlify/functions/get-plans');
+          if (!res.ok) throw new Error();
+          const { plans } = await res.json();
+          if (!plans?.length) {
+            cardsEl.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500 text-sm"><a href="/pricing.html" class="text-emerald-700 font-semibold underline">View plans on our pricing page →</a></div>';
+            return;
+          }
+          cardsEl.innerHTML = plans.map(p => {
+            const price = parseFloat(p.monthlyPriceGbp || 0);
+            const bullets = [
+              p.assistantLimit ? `Up to ${p.assistantLimit} AI assistant${p.assistantLimit > 1 ? 's' : ''}` : null,
+              p.monthlyTaskLimit ? `${p.monthlyTaskLimit.toLocaleString()} tasks/month` : null,
+              p.appConnectionLimit ? `${p.appConnectionLimit} app connection${p.appConnectionLimit > 1 ? 's' : ''}` : null,
+              p.seatLimit && p.seatLimit > 1 ? `${p.seatLimit} team seats` : null,
+            ].filter(Boolean).slice(0, 5);
+            return `
+              <div class="border-2 border-gray-200 hover:border-emerald-400 rounded-xl p-5 flex flex-col transition cursor-pointer plan-card" data-plan-id="${p.id}" data-plan-name="${p.name}">
+                <h3 class="font-bold text-gray-900 text-base mb-1">${p.name}</h3>
+                <p class="text-2xl font-extrabold text-gray-900 mb-1">£${price % 1 === 0 ? price.toFixed(0) : price.toFixed(2)}<span class="text-sm font-normal text-gray-500">/mo</span></p>
+                <ul class="mt-3 space-y-1.5 text-xs text-gray-600 flex-1">
+                  ${bullets.map(b => `<li class="flex items-start gap-1.5"><span class="text-emerald-500 font-bold">✓</span>${b}</li>`).join('')}
+                </ul>
+                <button data-plan-id="${p.id}" data-plan-name="${p.name}"
+                  class="choose-plan-btn mt-4 w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition">
+                  Choose ${p.name} →
+                </button>
+              </div>`;
+          }).join('');
+
+          // Attach click handlers to choose-plan buttons (AC11)
+          cardsEl.querySelectorAll('.choose-plan-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              btn.disabled = true;
+              btn.textContent = 'Redirecting…';
+              try {
+                const body = { planId: btn.dataset.planId };
+                if (referralCode) body.referralCode = referralCode;
+                const r = await fetch('/.netlify/functions/create-plan-checkout-intent', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(body),
+                });
+                const data = await r.json();
+                if (data.url) window.location.href = data.url;
+                else throw new Error(data.error || 'Checkout failed');
+              } catch (err) {
+                btn.disabled = false;
+                btn.textContent = `Choose ${btn.dataset.planName} →`;
+                const t = document.getElementById('oauth-error-toast');
+                const tm = document.getElementById('oauth-error-toast-msg');
+                if (t && tm) { tm.textContent = 'Could not start checkout — please try again.'; t.classList.remove('hidden','opacity-0'); t.classList.add('flex'); setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 4000); }
+              }
+            });
+          });
+        } catch {
+          cardsEl.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500 text-sm"><a href="/pricing.html" class="text-emerald-700 font-semibold underline">View plans on our pricing page →</a></div>';
+        }
+      }
+
+      async function showGate(referralCode) {
+        gateModal.classList.remove('hidden');
+        applyGateBlur(true);
+        if (referralCode && refBanner) {
+          // AC20: fetch real discount % and months from server
+          try {
+            const discRes = await fetch(`/.netlify/functions/get-referral-discount?ref=${encodeURIComponent(referralCode)}`);
+            if (discRes.ok) {
+              const discData = await discRes.json();
+              if (discData.valid && discData.display) {
+                refBanner.textContent = `🎉 Referral discount applied — you'll save ${discData.display}`;
+              }
+            }
+          } catch { /* non-fatal — keep default text */ }
+          refBanner.classList.remove('hidden');
+        }
+        loadPlanCards(referralCode);
+      }
+
+      // US-ONB-2.1.2 AC11: strip ?action=select-plan from URL after modal opens
+      const actionParam = qs.get('action');
+      const refParam    = qs.get('ref');
+      if (actionParam === 'select-plan') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('action');
+        url.searchParams.delete('ref');
+        history.replaceState(null, '', url.toString());
+        showGate(refParam || null);
+      }
+
+      // Returning from Stripe checkout — the webhook may not have marked the plan active yet,
+      // so we must NOT show the plan-selection gate here; the polling block below handles it.
+      const planActivated = qs.get('plan_activated') === 'true';
+
+      // Show gate if user has no active plan (AC1-3)
+      const cap = await window.checkCapacity();
+      if (cap && cap.planStatus === null && actionParam !== 'select-plan' && !planActivated) {
+        showGate(null);
+      }
+
+      // AC6: gate is non-dismissible — no cancel handler
+
+      // AC12: ?plan_activated=true — poll for confirmed subscription
+      if (planActivated) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('plan_activated');
+        history.replaceState(null, '', url.toString());
+        // Show the gate in an "activating" state (no plan cards) while the webhook confirms.
+        const gateHeading = gateModal.querySelector('h2');
+        const gateSubtitle = gateModal.querySelector('h2 + p');
+        if (gateHeading) gateHeading.textContent = 'Activating your workspace';
+        if (gateSubtitle) gateSubtitle.textContent = 'Payment received — just confirming your subscription…';
+        if (cardsEl) cardsEl.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500 text-sm animate-pulse">Activating your plan…</div>';
+        gateModal.classList.remove('hidden');
+        applyGateBlur(true);
+        if (pollingEl) pollingEl.classList.remove('hidden');
+        let attempts = 0;
+        const poll = setInterval(async () => {
+          attempts++;
+          const fresh = await window.checkCapacity(true);
+          if (fresh?.planStatus === 'active' || fresh?.planStatus === 'trialing') {
+            clearInterval(poll);
+            gateModal.classList.add('hidden');
+            applyGateBlur(false);
+            // Show welcome modal after gate lifts (AC3)
+            try {
+              const profileRes = await fetch('/.netlify/functions/update-profile');
+              if (profileRes.ok) {
+                const profile = await profileRes.json();
+                if (!localStorage.getItem(WELCOME_LS_KEY) && profile.firstLoginWelcomeSeen === false) {
+                  showWelcomeModal(profile, fresh?.tierName);
+                }
+              }
+            } catch { /* non-fatal */ }
+          } else if (attempts >= 5) {
+            clearInterval(poll);
+            if (pollingEl) {
+              pollingEl.textContent = 'Taking longer than expected — refresh the page.';
+              pollingEl.classList.remove('animate-pulse', 'text-emerald-700');
+              pollingEl.classList.add('text-amber-600');
+            }
+          }
+        }, 3000);
+      }
+    })();
+
+    // Handle OAuth error redirects (e.g. ?error=access_denied from a failed app connection)
+    (function handleOAuthError() {
+      const errorParam = qs.get('error');
+      if (!errorParam) return;
+      const url = new URL(window.location.href);
+      url.searchParams.delete('error');
+      history.replaceState(null, '', url.toString());
+
+      const MESSAGES = {
+        access_denied: 'Connection cancelled — you declined the permission request. Try connecting again if this was a mistake.',
+        temporarily_unavailable: 'The app is temporarily unavailable. Please try again in a few minutes.',
+      };
+      const msg = MESSAGES[errorParam] || 'The app connection failed. Please try again.';
+
+      const toast = document.getElementById('oauth-error-toast');
+      const msgEl = document.getElementById('oauth-error-toast-msg');
+      if (!toast || !msgEl) return;
+      msgEl.textContent = msg;
+      toast.classList.remove('hidden', 'opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+        setTimeout(() => toast.classList.add('hidden'), 500);
+      }, 6000);
+
+      // Log to server for monitoring
+      fetch('/.netlify/functions/client-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'oauth_error', error: errorParam, path: window.location.pathname }),
+      }).catch(() => {/* non-blocking */});
+    })();
+
+    // US-SMM-4.1.1: oauth_success toast — shown after successful social platform OAuth
+    (function handleOAuthSuccess() {
+      const platform = qs.get('oauth_success');
+      if (!platform) return;
+      const url = new URL(window.location.href);
+      url.searchParams.delete('oauth_success');
+      history.replaceState(null, '', url.toString());
+      const LABELS = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X (Twitter)' };
+      const label = LABELS[platform] || platform;
+      const toast = document.getElementById('oauth-error-toast');
+      const msgEl = document.getElementById('oauth-error-toast-msg');
+      if (!toast || !msgEl) return;
+      msgEl.textContent = `${label} connected successfully. Head to Connections to manage your account.`;
+      toast.classList.remove('hidden', 'opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => { toast.classList.remove('opacity-100'); toast.classList.add('opacity-0'); setTimeout(() => toast.classList.add('hidden'), 500); }, 6000);
+    })();
+
+    // US-ONB-2.1.1 AC13: plan_cancelled toast — user returned from Stripe without paying
+    (function handlePlanCancelled() {
+      if (qs.get('plan_cancelled') !== 'true') return;
+      const url = new URL(window.location.href);
+      url.searchParams.delete('plan_cancelled');
+      history.replaceState(null, '', url.toString());
+      const toast = document.getElementById('oauth-error-toast');
+      const msgEl = document.getElementById('oauth-error-toast-msg');
+      if (!toast || !msgEl) return;
+      msgEl.textContent = "No problem — choose a plan whenever you're ready.";
+      toast.classList.remove('hidden', 'opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => { toast.classList.remove('opacity-100'); toast.classList.add('opacity-0'); setTimeout(() => toast.classList.add('hidden'), 500); }, 5000);
+    })();
+
+    // Show saved-draft toast if returning from "Save & Continue Later"
+    if (new URLSearchParams(window.location.search).get('draft') === 'saved') {
+      history.replaceState(null, '', window.location.pathname);
+      const toast = document.getElementById('draft-saved-toast');
+      if (toast) {
+        toast.classList.remove('hidden', 'opacity-0');
+        toast.classList.add('opacity-100');
+        setTimeout(() => {
+          toast.classList.remove('opacity-100');
+          toast.classList.add('opacity-0');
+          setTimeout(() => toast.classList.add('hidden'), 500);
+        }, 4000);
+      }
+    }
+  });
+
+    // ==========================================================================
+  // US-GAP-5.2.1: Team Management — init called when the 'team' route loads.
+  // The actual logic is embedded in team-management-content.html (auto-executes on load).
+  async function initTeamManagement() {
+    // The team-management-content.html script self-initialises via an IIFE.
+    // No additional setup needed here — kept as a named hook for future extension.
+  }
+
+  // MODERN BACKGROUND CONFIGURATION DISPATCH HUB (AUTO-SAVE & OPTIMISTIC UI)
+  // ==========================================================================
+  async function initProfileSettingsCenter() {
+    const errorBanner = document.getElementById('notification-error-banner');
+    const errorText = errorBanner ? errorBanner.querySelector('span') : null;
+
+    const fields = [
+      document.getElementById('input-first-name'),
+      document.getElementById('input-last-name'),
+      document.getElementById('input-email'),
+      document.getElementById('input-language'),
+      document.getElementById('input-timezone'),
+      document.getElementById('input-hourly-rate'),
+    ];
+
+    const toggles = [
+      document.getElementById('toggle-notify-wins'),
+      document.getElementById('toggle-notify-billing'),
+      document.getElementById('toggle-notify-availability')
+    ];
+
+    function triggerError(msg) {
+      if (errorBanner && errorText) {
+        errorText.textContent = msg;
+        errorBanner.classList.remove('hidden');
+      }
+      console.error(msg);
+    }
+
+    // --- STEP 1: HYDRATE DATA ---
+    try {
+      const pRes = await fetch('/.netlify/functions/update-profile');
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        fields.forEach(f => {
+          if (!f) return;
+          const key = f.getAttribute('data-field');
+          if (!key) return;
+          // Top-level fields (firstName, lastName, email, timezone)
+          if (key in pData) {
+            f.value = pData[key] || '';
+          // hourlyRateGbp is nested inside preferences object
+          } else if (key === 'hourlyRateGbp' && pData.preferences?.hourlyRateGbp != null) {
+            f.value = pData.preferences.hourlyRateGbp;
+          }
+        });
+      }
+
+      // US-UX-1.1 SC4: populate Your Roles section in settings
+      const roleListEl = document.getElementById('settings-role-list');
+      if (roleListEl && pRes.ok) {
+        const pData2 = window._profileRoles || {};
+        const pRole = pData2.platformRole || 'user';
+        const oRole = pData2.organisationRole || 'member';
+        const roleBadges = [];
+        if (pRole === 'super_admin') roleBadges.push('<span class="text-sm font-bold px-3 py-1 rounded-full bg-emerald-600 text-white">Super Admin</span>');
+        else if (pRole === 'admin')  roleBadges.push('<span class="text-sm font-bold px-3 py-1 rounded-full bg-indigo-100 text-indigo-800">Admin</span>');
+        else                          roleBadges.push('<span class="text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-600">Member</span>');
+        if (oRole === 'owner')       roleBadges.push('<span class="text-sm font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-800">Owner</span>');
+        else if (oRole === 'admin')  roleBadges.push('<span class="text-sm font-bold px-3 py-1 rounded-full bg-gray-100 text-gray-700">Org Admin</span>');
+        roleListEl.innerHTML = roleBadges.join('');
+      }
+
+      const nRes = await fetch('/.netlify/functions/update-notifications');
+      if (nRes.ok) {
+        const nData = await nRes.json();
+        toggles.forEach(t => {
+          if (!t) return;
+          const key = t.getAttribute('data-pref-key') || t.getAttribute('data-preference-key');
+          // NATIVE CHECKBOX HYDRATION
+          if (key && key in nData) t.checked = nData[key];
+        });
+      }
+    } catch (e) {
+      console.warn("Hydration incomplete. Defaults loaded.");
+    }
+
+    // --- US-AUD-5.3.1: Agency Attribution toggle ---
+    (async function initAgencyAttribution() {
+      try {
+        const res = await fetch('/.netlify/functions/agency-attribution');
+        if (!res.ok) return;
+        const data = await res.json();
+        const section   = document.getElementById('agency-attribution-section');
+        const locked    = document.getElementById('agency-attribution-locked');
+        const toggleBtn = document.getElementById('toggle-agency-attribution');
+        const badgeUrl  = document.getElementById('agency-badge-url');
+        const feedback  = document.getElementById('agency-save-feedback');
+
+        if (!section || !toggleBtn) return;
+
+        if (!data.eligible) {
+          // SC7: Tier 1 — show locked placeholder
+          locked?.classList.remove('hidden');
+          return;
+        }
+
+        // SC1: Eligible — show toggle
+        section.classList.remove('hidden');
+
+        // Hydrate current state
+        let enabled = Boolean(data.agencyAttributionEnabled);
+
+        function applyToggleState(on) {
+          toggleBtn.setAttribute('aria-checked', String(on));
+          toggleBtn.classList.toggle('bg-emerald-500', on);
+          toggleBtn.classList.toggle('bg-gray-300', !on);
+          const knob = toggleBtn.querySelector('span');
+          if (knob) { knob.classList.toggle('translate-x-5', on); knob.classList.toggle('translate-x-0', !on); }
+          if (badgeUrl) {
+            const slug = data.slug || '';
+            if (on && slug) {
+              badgeUrl.textContent = `Your badge URL: ${window.location.origin}/powered-by/${slug}`;
+              badgeUrl.classList.remove('hidden');
+            } else {
+              badgeUrl.classList.add('hidden');
+            }
+          }
+        }
+        applyToggleState(enabled);
+
+        toggleBtn.addEventListener('click', async () => {
+          const newState = !enabled;
+          applyToggleState(newState); // optimistic
+          try {
+            const r = await fetch('/.netlify/functions/agency-attribution', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled: newState }),
+            });
+            if (r.ok) {
+              enabled = newState;
+              if (feedback) { feedback.classList.remove('hidden'); setTimeout(() => feedback.classList.add('hidden'), 2000); }
+            } else {
+              applyToggleState(enabled); // revert on error
+            }
+          } catch {
+            applyToggleState(enabled); // revert on network failure
+          }
+        });
+      } catch { /* fail silently */ }
+    })();
+
+    // --- STEP 2: PROFILE AUTO-SAVE INTERACTION RULES ---
+    fields.forEach(field => {
+      if (!field) return;
+
+      const saveEvent = field.tagName === 'SELECT' ? 'change' : 'blur';
+      field.addEventListener(saveEvent, async () => {
+        if (errorBanner) errorBanner.classList.add('hidden');
+        const fieldKey = field.getAttribute('data-field');
+        const value = String(field.value).trim();
+
+        field.classList.add('border-emerald-500', 'ring-2', 'ring-emerald-100');
+
+        try {
+          const res = await fetch('/.netlify/functions/update-profile', {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({fieldKey, value})
+          });
+
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            triggerError(`Failed to save ${fieldKey}: ${errorData.error || 'Server rejected query.'}`);
+          } else if (fieldKey === 'language' && window.i18n) {
+            // US-I18N-1.2 SC1: apply new language immediately after save
+            window.i18n.setLang(value);
+          }
+        } catch (err) {
+          triggerError(`Network disconnected while saving ${fieldKey}.`);
+        } finally {
+          setTimeout(() => field.classList.remove('border-emerald-500', 'ring-2', 'ring-emerald-100'), 600);
+        }
+      });
+    });
+
+    // --- STEP 3: NOTIFICATION TOGGLES TRACKING WITH REPAIR FALLBACK ---
+    // --- STEP 3: NOTIFICATION TOGGLES TRACKING WITH REPAIR FALLBACK ---
+    toggles.forEach(toggle => {
+      if (!toggle) return;
+
+      // Revert to listening for button clicks
+      toggle.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (errorBanner) errorBanner.classList.add('hidden');
+
+        // Check if aria-checked is true
+        const isCurrentlyChecked = toggle.getAttribute('aria-checked') === 'true';
+        const targetNextState = !isCurrentlyChecked;
+        const preferenceKey = toggle.getAttribute('data-pref-key') || toggle.getAttribute('data-preference-key');
+
+        // Optimistic UI Update (Slide instantly to make app feel fast)
+        updateToggleView(toggle, targetNextState);
+
+        try {
+          const res = await fetch('/.netlify/functions/update-notifications', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ preferenceKey, value: targetNextState })
+          });
+
+          if (!res.ok) {
+            updateToggleView(toggle, isCurrentlyChecked); // Snap back on failure
+            const errorData = await res.json().catch(() => ({}));
+            triggerError(`Toggle failed: ${errorData.error || 'Server rejected query.'}`);
+          }
+        } catch (err) {
+          updateToggleView(toggle, isCurrentlyChecked); // Snap back on failure
+          triggerError(`Network disconnected while toggling preference.`);
+        }
+      });
+    });
+
+    // ── Email Notification Preferences (Scenario 1-3) ──────────────
+    async function initEmailPreferences() {
+      const loadingEl = document.getElementById('email-prefs-loading');
+      const bodyEl    = document.getElementById('email-prefs-body');
+      if (!bodyEl) return; // Not on settings view
+
+      try {
+        const res = await fetch('/.netlify/functions/notification-preferences');
+        if (!res.ok) throw new Error('Load failed');
+        const { preferences, categories } = await res.json();
+
+        // Build rows
+        bodyEl.innerHTML = categories.map(cat => {
+          const isOn = preferences[cat.key] !== false; // default true if missing
+          const locked = cat.locked;
+          const toggleId = `email-toggle-${cat.key}`;
+          return `
+            <div class="flex items-center justify-between px-6 py-4 gap-4">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <p class="text-sm font-semibold text-gray-900">${cat.label}</p>
+                  ${locked ? `<span class="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full border border-gray-200 shrink-0">Required</span>` : ''}
+                </div>
+                <p class="text-xs text-gray-400 mt-0.5 leading-snug">${cat.description}</p>
+              </div>
+              <button type="button"
+                id="${toggleId}"
+                data-email-pref-key="${cat.key}"
+                ${locked ? 'disabled aria-disabled="true"' : ''}
+                class="${locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isOn ? 'bg-green-500' : 'bg-red-500'} relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                role="switch"
+                aria-checked="${isOn ? 'true' : 'false'}">
+                <span aria-hidden="true" class="${isOn ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+              </button>
+            </div>`;
+        }).join('');
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+        bodyEl.classList.remove('hidden');
+
+        // Attach click handlers
+        categories.forEach(cat => {
+          if (cat.locked) return;
+          const btn = document.getElementById(`email-toggle-${cat.key}`);
+          if (!btn) return;
+          btn.addEventListener('click', async () => {
+            const current = btn.getAttribute('aria-checked') === 'true';
+            const next = !current;
+            updateToggleView(btn, next);
+            try {
+              const r = await fetch('/.netlify/functions/notification-preferences', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: cat.key, value: next }),
+              });
+              if (!r.ok) { updateToggleView(btn, current); return; }
+              // Flash save banner
+              const banner = document.getElementById('email-prefs-save-banner');
+              if (banner) {
+                banner.classList.remove('hidden');
+                setTimeout(() => banner.classList.add('hidden'), 2500);
+              }
+            } catch { updateToggleView(btn, current); }
+          });
+        });
+      } catch {
+        if (loadingEl) loadingEl.textContent = 'Could not load preferences. Please refresh.';
+      }
+    }
+    initEmailPreferences();
+
+    // Helper function to animate the toggle switches smoothly to match the provided image
+    function updateToggleView(el, status) {
+      el.setAttribute('aria-checked', status ? 'true' : 'false');
+      const dot = el.querySelector('span');
+
+      if (status) {
+        // Active State: Green background, dot slid to the right
+        el.classList.remove('bg-red-500');
+        el.classList.add('bg-green-500'); // Matches bright green in image
+        if (dot) {
+          dot.classList.remove('translate-x-0');
+          dot.classList.add('translate-x-5');
+        }
+      } else {
+        // Inactive State: Red background, dot sitting on the left
+        el.classList.remove('bg-green-500');
+        el.classList.add('bg-red-500'); // Matches bold red in image
+        if (dot) {
+          dot.classList.remove('translate-x-5');
+          dot.classList.add('translate-x-0');
+        }
+      }
+    }
+  }
+  // In workspace.html or dashboard.js
+  async function initDashboard() {
+    const widgetContainer = document.getElementById('onboarding-widget-container');
+    const resumeBtn = document.getElementById('resume-onboarding-btn');
+    if (!widgetContainer) return;
+
+    try {
+      const res = await fetch('/.netlify/functions/get-onboarding-status');
+      if (!res.ok) return;
+
+      const data = await res.json();
+      // Scenario 2: Show widget if not complete (< 100%)
+      if (!data.isComplete) {
+        widgetContainer.classList.remove('hidden');
+        if (resumeBtn) {
+          resumeBtn.addEventListener('click', () => {
+            // Route back to the assistant onboarding wizard
+            window.location.href = '/onboarding-social-media.html';
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Dashboard widget initialization failed", e);
+    }
+  }
+  // 1. Shared Card Generator
+  window.generateAssistantCardHTML = function(assistant) {
+    const initial = assistant.name ? assistant.name.charAt(0).toUpperCase() : 'A';
+    const role = assistant.role || 'Custom Assistant';
+
+    let statusHtml = '';
+    if (assistant.status === 'pending') {
+      statusHtml = `<div class="flex items-center gap-2 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-200"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>Provisioning</div>`;
+    } else if (!assistant.isActive) {
+      statusHtml = `<div class="flex items-center gap-2 bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold border border-gray-200"><span class="w-2 h-2 rounded-full bg-gray-400"></span>Paused</div>`;
+    } else {
+      statusHtml = `<div class="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Active</div>`;
+    }
+
+    // Cards: header + body are clickable (Board Room); footer has management actions
+    const isPaused = !assistant.isActive && assistant.status !== 'pending';
+    return `
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all">
+          <div class="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-start cursor-pointer" onclick="window.routeToAssistantDetail('${assistant.id}')">
+              <div class="flex items-center gap-4">
+                  <div class="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-2xl font-bold">
+                      ${initial}
+                  </div>
+                  <div>
+                      <h2 class="text-xl font-bold text-gray-900">${assistant.name}</h2>
+                      <p class="text-sm text-gray-500 font-medium">${role}</p>
+                  </div>
+              </div>
+              ${statusHtml}
+          </div>
+
+          <div class="p-6 flex-grow cursor-pointer" onclick="window.routeToAssistantDetail('${assistant.id}')">
+              <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Recent Wins</h3>
+              <div class="flex items-start gap-3">
+                  <span class="text-gray-400 mt-0.5">⏳</span>
+                  <p class="text-sm text-gray-500 italic">Awaiting first automated task completion...</p>
+              </div>
+          </div>
+
+          <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center gap-2 flex-wrap">
+              <button class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition cursor-pointer" onclick="window.routeToAssistantDetail('${assistant.id}')">Board Room &rarr;</button>
+              ${assistant.status !== 'pending' ? `
+              <div class="flex items-center gap-1.5">
+                  <button onclick="window._assistantEdit('${assistant.id}')"
+                    class="px-2.5 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+                    ✏️ Edit
+                  </button>
+                  <button onclick="window._assistantTogglePause('${assistant.id}', ${isPaused})"
+                    class="px-2.5 py-1.5 text-xs font-semibold ${isPaused ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-amber-700 bg-amber-50 border-amber-200'} border rounded-lg hover:opacity-80 transition">
+                    ${isPaused ? '▶ Resume' : '⏸ Pause'}
+                  </button>
+                  <button onclick="window._assistantDelete('${assistant.id}', '${(assistant.name || '').replace(/'/g, '&#39;')}')"
+                    class="px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:opacity-80 transition">
+                    🗑
+                  </button>
+              </div>` : ''}
+          </div>
+      </div>`;
+  };
+
+  // 2. Fetch Logic Helper
+  async function fetchAndRenderAssistants(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    try {
+      const res = await fetch('/.netlify/functions/get-assistants');
+      if (!res.ok) throw new Error("Failed to fetch");
+
+      const data = await res.json();
+      container.innerHTML = ''; // Clear loading state
+
+      if (!data.assistants || data.assistants.length === 0) {
+        container.innerHTML = `
+                <div class="col-span-full py-12 text-center text-gray-500 font-medium bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    You haven't hired any assistants yet. <a href="#" onclick="loadView('catalog')" class="text-emerald-600 hover:underline">Browse the catalog</a>.
+                </div>`;
+        return;
+      }
+
+      data.assistants.forEach(assistant => {
+        container.insertAdjacentHTML('beforeend', window.generateAssistantCardHTML(assistant));
+      });
+    } catch (error) {
+      container.innerHTML = `<div class="col-span-full text-center text-red-500">Failed to load team data.</div>`;
+    }
+  }
+
+  // 3. Attach to SPA Router Initialization
+  window.initDashboard = async function() {
+    // Show resume-onboarding banner if setup is not yet complete
+    try {
+      const statusRes = await fetch('/.netlify/functions/get-onboarding-status');
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        if (!statusData.isComplete) {
+          const widgetContainer = document.getElementById('onboarding-widget-container');
+          if (widgetContainer) {
+            widgetContainer.classList.remove('hidden');
+            const resumeBtn = document.getElementById('resume-onboarding-btn');
+            if (resumeBtn && !resumeBtn.dataset.bound) {
+              resumeBtn.dataset.bound = 'true';
+              resumeBtn.addEventListener('click', () => {
+                window.location.href = '/onboarding-social-media.html';
+              });
+            }
+          }
+        }
+      }
+    } catch (e) { console.warn('Onboarding status check failed:', e); }
+
+    await fetchAndRenderAssistants('dashboard-assistants-grid');
+  };
+
+  window.initAssistantsDirectory = async function(loadViewCb) {
+    await fetchAndRenderAssistants('directory-assistants-grid');
+
+    const routeToCatalogBtn = document.getElementById('route-to-catalog-from-dir');
+    if (routeToCatalogBtn && !routeToCatalogBtn.dataset.bound) {
+      routeToCatalogBtn.dataset.bound = 'true';
+      routeToCatalogBtn.addEventListener('click', () => loadViewCb('catalog'));
+    }
+  };
+
+  // ── Assistant management actions ──────────────────────────────────────
+  window._assistantEdit = function(id) {
+    // Redirect back to onboarding so the user can update their setup answers
+    window.location.href = '/onboarding-social-media.html?edit=' + id;
+  };
+
+  window._assistantTogglePause = async function(id, currentlyPaused) {
+    const action = currentlyPaused ? 'resume' : 'pause';
+    const label  = currentlyPaused ? 'resume' : 'pause';
+    if (!confirm('Are you sure you want to ' + label + ' this assistant?')) return;
+    try {
+      const res = await fetch('/.netlify/functions/manage-assistant?id=' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Failed to update assistant.');
+        return;
+      }
+      // Refresh both grids
+      await fetchAndRenderAssistants('dashboard-assistants-grid');
+      await fetchAndRenderAssistants('directory-assistants-grid');
+    } catch (e) {
+      alert('Network error — please try again.');
+    }
+  };
+
+  window._assistantDelete = async function(id, name) {
+    if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+    try {
+      const res = await fetch('/.netlify/functions/manage-assistant?id=' + id, { method: 'DELETE' });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Failed to delete assistant.');
+        return;
+      }
+      await fetchAndRenderAssistants('dashboard-assistants-grid');
+      await fetchAndRenderAssistants('directory-assistants-grid');
+    } catch (e) {
+      alert('Network error — please try again.');
+    }
+  };
+</script>
+<script src="/integrations.js"></script>
+<script src="/assets.js"></script>
+<script src="/notifications.js"></script>
+<script src="/instructions.js"></script>
+<script src="/assistants.js"></script>
+<script src="/help.js"></script>
+<script src="/my-content.js"></script>
+<script src="/src/components/platform-post-preview.js"></script>
+<script src="/src/components/confidence-badge.js"></script>
+<script src="/calendar.js"></script>
+<script src="/billing.js"></script>
+
+<!-- US-GOV-2.1.1: Review Queue + Pending Badge JS -->
+<script>
+// ── Pending badge ────────────────────────────────────────────────────────────
+let _rqPollInterval = null;
+
+async function refreshPendingBadge() {
+    try {
+        const [hitlRes, socialRes] = await Promise.all([
+            fetch('/.netlify/functions/get-pending-actions?status=pending&limit=1'),
+            fetch('/.netlify/functions/get-social-drafts?status=pending_approval'),
+        ]);
+        const { totalPending } = hitlRes.ok ? await hitlRes.json() : { totalPending: 0 };
+        const { drafts: socialDrafts } = socialRes.ok ? await socialRes.json() : { drafts: [] };
+        const socialCount = (socialDrafts || []).length;
+        const totalBadge = (totalPending || 0) + socialCount;
+
+        document.querySelectorAll('.pending-badge').forEach(el => {
+            el.textContent = totalBadge || '';
+            el.classList.toggle('hidden', !totalBadge);
+        });
+        const tabCount = document.getElementById('rq-pending-tab-count');
+        if (tabCount) tabCount.textContent = totalPending ? `(${totalPending})` : '';
+        const socialTabCount = document.getElementById('rq-social-tab-count');
+        if (socialTabCount) {
+            socialTabCount.textContent = socialCount || '';
+            socialTabCount.classList.toggle('hidden', !socialCount);
+        }
+    } catch { /* non-blocking */ }
+}
+
+// ── Review Queue drawer ──────────────────────────────────────────────────────
+let _rqCurrentTab = 'pending';
+let _rqCurrentTabType = 'hitl';
+
+async function openReviewQueue() {
+    const el = document.getElementById('review-queue-drawer');
+    if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
+
+    // Fetch HITL pending count; if 0 but social drafts exist, auto-switch to Social Drafts tab
+    try {
+        const res = await fetch('/.netlify/functions/get-pending-actions?status=pending&limit=1');
+        const { totalPending } = res.ok ? await res.json() : { totalPending: 0 };
+        if (!totalPending) {
+            const socialRes = await fetch('/.netlify/functions/get-social-drafts?status=pending_approval');
+            const { drafts } = socialRes.ok ? await socialRes.json() : { drafts: [] };
+            if ((drafts || []).length > 0) {
+                const socialBtn = document.querySelector('.rq-tab[data-tab-type="social"]');
+                if (socialBtn) { rqSetTab('pending_approval', socialBtn, 'social'); return; }
+            }
+        }
+    } catch { /* fall through to default tab */ }
+    rqLoadItems('pending', 'hitl');
+}
+
+function closeReviewQueue() {
+    const el = document.getElementById('review-queue-drawer');
+    if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
+}
+
+function rqSetTab(status, btn, tabType) {
+    _rqCurrentTab = status;
+    _rqCurrentTabType = tabType || 'hitl';
+    document.querySelectorAll('.rq-tab').forEach(t => {
+        t.classList.remove('border-b-2', 'border-emerald-600', 'text-emerald-700');
+        t.classList.add('text-gray-500');
+    });
+    btn.classList.add('border-b-2', 'border-emerald-600', 'text-emerald-700');
+    btn.classList.remove('text-gray-500');
+    rqLoadItems(status, _rqCurrentTabType);
+}
+
+async function rqLoadItems(status, tabType) {
+    const list = document.getElementById('rq-list');
+    if (!list) return;
+    list.innerHTML = '<p class="text-sm text-gray-400 py-8 text-center">Loading…</p>';
+    try {
+        if ((tabType || _rqCurrentTabType) === 'social') {
+            const res = await fetch(`/.netlify/functions/get-social-drafts?status=${status}`);
+            if (!res.ok) throw new Error();
+            const { drafts } = await res.json();
+            const socialCount = document.getElementById('rq-social-tab-count');
+            if (socialCount) {
+                socialCount.textContent = drafts.length || '';
+                socialCount.classList.toggle('hidden', !drafts.length);
+            }
+            if (!drafts.length) {
+                list.innerHTML = '<p class="text-sm text-gray-400 py-12 text-center">No social drafts.</p>';
+                return;
+            }
+            list.innerHTML = drafts.map(d => rqRenderSocialCard(d)).join('');
+        } else {
+            const res = await fetch(`/.netlify/functions/get-pending-actions?status=${status}`);
+            if (!res.ok) throw new Error();
+            const { items, totalPending } = await res.json();
+            const tabCount = document.getElementById('rq-pending-tab-count');
+            if (tabCount) tabCount.textContent = totalPending ? `(${totalPending})` : '';
+            document.querySelectorAll('.pending-badge').forEach(el => {
+                el.textContent = totalPending || '';
+                el.classList.toggle('hidden', !totalPending);
+            });
+            if (!items.length) {
+                const socialHint = status === 'pending'
+                    ? `<p class="text-sm text-gray-400 mt-2">Check <button onclick="document.querySelector('.rq-tab[data-tab-type=\\'social\\']').click()" class="underline text-emerald-600 hover:text-emerald-700 cursor-pointer">Social Drafts</button> for post drafts awaiting review.</p>`
+                    : '';
+                list.innerHTML = `<div class="py-12 text-center"><p class="text-sm text-gray-400">No AI tasks awaiting approval.</p>${socialHint}</div>`;
+                return;
+            }
+            list.innerHTML = items.map(item => rqRenderCard(item)).join('');
+        }
+    } catch {
+        list.innerHTML = '<p class="text-sm text-red-500 py-8 text-center">Failed to load items.</p>';
+    }
+}
+
+function rqRenderSocialCard(draft) {
+    const ago = rqTimeAgo(draft.generatedAt);
+    const platformLabel = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X' }[draft.platform] || draft.platform;
+    const isOnDemand = draft.triggerType === 'on_demand';
+    const isPending = draft.status === 'pending_approval';
+    return `<div class="py-4" data-post-id="${draft.id}">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <p class="text-sm font-semibold text-gray-900 truncate">${_rqEsc(platformLabel)} Post Draft</p>
+            ${isOnDemand ? '<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">On Demand</span>' : ''}
+          </div>
+          <p class="text-xs text-gray-500">${_rqEsc(draft.assistantName || 'AI Assistant')} · ${ago}</p>
+        </div>
+        <span class="flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">${_rqEsc(draft.status)}</span>
+      </div>
+      ${draft.caption ? `<p class="text-sm text-gray-700 mb-2 line-clamp-3">${_rqEsc(draft.caption)}</p>` : ''}
+      ${draft.hashtags ? `<p class="text-xs text-violet-700 mb-2">${_rqEsc(draft.hashtags)}</p>` : ''}
+      ${isPending ? `
+      <div class="sdraft-reject-form-${draft.id} hidden mb-2">
+        <input type="text" id="sdraft-reason-${draft.id}" placeholder="Rejection reason (required)" maxlength="300" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-red-300">
+      </div>
+      <div class="flex gap-2">
+        <button onclick="sdApprove(${draft.id},'publish_now')" class="flex-1 py-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Post Now</button>
+        <button onclick="sdApprove(${draft.id},'approve')" class="flex-1 py-3 text-xs font-bold border border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer">Schedule</button>
+        <button onclick="sdToggleReject(${draft.id})" id="sdraft-reject-btn-${draft.id}" class="flex-1 py-3 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer">Reject</button>
+      </div>` : `<span class="text-xs text-gray-500">${_rqEsc(draft.status)}</span>`}
+    </div>`;
+}
+
+async function sdApprove(postId, action) {
+    try {
+        const res = await fetch('/.netlify/functions/approve-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId, action }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(d.error || 'Failed to approve post.'); return; }
+        rqLoadItems(_rqCurrentTab, 'social');
+    } catch { alert('Network error — please try again.'); }
+}
+
+function sdToggleReject(id) {
+    const form = document.querySelector(`.sdraft-reject-form-${id}`);
+    const btn  = document.getElementById(`sdraft-reject-btn-${id}`);
+    if (!form) return;
+    const hidden = form.classList.toggle('hidden');
+    if (!hidden) { btn.textContent = 'Submit'; btn.onclick = () => sdSubmitReject(id); }
+    else { btn.textContent = 'Reject'; btn.onclick = () => sdToggleReject(id); }
+}
+
+async function sdSubmitReject(postId) {
+    const reason = (document.getElementById(`sdraft-reason-${postId}`) || {}).value?.trim();
+    if (!reason) { alert('Please enter a rejection reason.'); return; }
+    try {
+        const res = await fetch('/.netlify/functions/approve-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId, action: 'reject', rejectionReason: reason }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(d.error || 'Failed to reject post.'); return; }
+        rqLoadItems(_rqCurrentTab, 'social');
+    } catch { alert('Network error — please try again.'); }
+}
+
+function rqRenderCard(item) {
+    const ago = rqTimeAgo(item.createdAt);
+    const tierColor = { irreversible: 'red', reversible: 'amber', trivial: 'emerald' }[item.reversibilityTier] || 'gray';
+    const payload = item.actionPayload ? JSON.stringify(item.actionPayload, null, 2) : '—';
+    const isPending = item.status === 'pending';
+    const expired = item.expiresAt && new Date(item.expiresAt) < new Date();
+    const confidenceLevel = item.taskRunMetadata?.confidenceLevel || null;
+
+    const html = `<div class="py-4" data-action-id="${item.id}">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-gray-900 truncate">${_rqEsc(item.actionType)}</p>
+          <p class="text-xs text-gray-500 mt-0.5">${_rqEsc(item.assistantName || 'Unknown assistant')} · ${ago}</p>
+        </div>
+        <span class="flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full bg-${tierColor}-50 border border-${tierColor}-200 text-${tierColor}-700">${_rqEsc(item.reversibilityTier || '—')}</span>
+      </div>
+      <div id="rq-confidence-${item.id}" class="mb-2"></div>
+      <details class="mb-3">
+        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Show payload</summary>
+        <pre class="mt-1 text-xs bg-gray-50 rounded-lg p-3 overflow-x-auto max-h-32 text-gray-700 font-mono">${_rqEsc(payload)}</pre>
+      </details>
+      ${isPending && !expired ? `
+      <div class="rq-reject-form-${item.id} hidden mb-2">
+        <input type="text" id="rq-reason-${item.id}" placeholder="Rejection reason (required)" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-red-300">
+      </div>
+      <div class="flex gap-2">
+        <button onclick="rqApprove(${item.id})" data-action="approve-output" class="flex-1 py-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Approve</button>
+        <button onclick="rqToggleReject(${item.id})" class="flex-1 py-3 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer" id="rq-reject-btn-${item.id}">Reject</button>
+      </div>` : expired ? `<span class="text-xs text-gray-400 italic">Expired</span>` : `<span class="text-xs text-gray-500">${item.status}</span>`}
+    </div>`;
+
+    // Defer badge render so the DOM element exists
+    if (confidenceLevel && confidenceLevel !== 'green') {
+        setTimeout(() => {
+            const badgeEl = document.getElementById(`rq-confidence-${item.id}`);
+            if (badgeEl && window.renderConfidenceBadge) {
+                window.renderConfidenceBadge(badgeEl, confidenceLevel, item.taskRunMetadata?.verifyHint || null);
+            }
+        }, 0);
+    }
+
+    return html;
+}
+
+function _rqEsc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function rqTimeAgo(ts) {
+    if (!ts) return '—';
+    const diff = Math.floor((Date.now() - new Date(ts)) / 1000);
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+    return `${Math.floor(diff/86400)}d ago`;
+}
+
+function rqToggleReject(id) {
+    const form = document.querySelector(`.rq-reject-form-${id}`);
+    const btn  = document.getElementById(`rq-reject-btn-${id}`);
+    if (!form) return;
+    const hidden = form.classList.toggle('hidden');
+    if (!hidden) {
+        btn.textContent = 'Submit Rejection';
+        btn.onclick = () => rqReject(id);
+    } else {
+        btn.textContent = 'Reject';
+        btn.onclick = () => rqToggleReject(id);
+    }
+}
+
+async function rqApprove(id) {
+    await rqDecide(id, 'approved', null);
+}
+
+async function rqReject(id) {
+    const reason = (document.getElementById(`rq-reason-${id}`) || {}).value?.trim();
+    if (!reason) { alert('Please enter a rejection reason.'); return; }
+    await rqDecide(id, 'rejected', reason);
+}
+
+async function rqDecide(id, decision, rejectionReason) {
+    try {
+        const res = await fetch('/.netlify/functions/approve-pending-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pendingActionId: id, decision, rejectionReason }),
+        });
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            alert(d.error || 'Failed to process action.');
+            return;
+        }
+        rqLoadItems(_rqCurrentTab);
+        refreshPendingBadge();
+    } catch {
+        alert('Network error — please try again.');
+    }
+}
+
+// ── Autonomous-override modal ────────────────────────────────────────────────
+let _pendingAutonomousIntegrationId = null;
+
+function openAutonomousOverrideModal(integrationId) {
+    _pendingAutonomousIntegrationId = integrationId;
+    const modal = document.getElementById('modal-autonomous-override');
+    const cb = document.getElementById('autonomous-ack-checkbox');
+    const btn = document.getElementById('btn-autonomous-accept');
+    if (cb) cb.checked = false;
+    if (btn) btn.disabled = true;
+    if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+}
+
+function closeAutonomousOverrideModal() {
+    _pendingAutonomousIntegrationId = null;
+    const modal = document.getElementById('modal-autonomous-override');
+    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+}
+
+async function confirmAutonomousOverride() {
+    if (!_pendingAutonomousIntegrationId) return;
+    const btn = document.getElementById('btn-autonomous-accept');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    try {
+        const res = await fetch('/.netlify/functions/authorize-integration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                integrationId: _pendingAutonomousIntegrationId,
+                humanApprovalRequired: false,
+                autonomousAcknowledged: true,
+            }),
+        });
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            alert(d.error || 'Failed to save setting.');
+        } else {
+            closeAutonomousOverrideModal();
+        }
+    } catch {
+        alert('Network error — please try again.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'I Accept'; }
+    }
+}
+
+// Wire autonomous acknowledgment checkbox → button
+// ── US-SMM-2.4.2: Review Queue summary widget ─────────────────────────────
+async function refreshReviewSummaryWidget(assistantId) {
+    if (!assistantId) return;
+    try {
+        const res = await fetch(`/.netlify/functions/get-review-queue?assistantId=${assistantId}&tab=pending`);
+        if (!res.ok) return;
+        const { summary } = await res.json();
+        if (!summary) return;
+        const widget = document.getElementById('review-summary-widget');
+        if (!widget) return;
+        const { totalPending, redZoneCount, nextPostDueIn } = summary;
+        widget.classList.toggle('hidden', totalPending === 0);
+        const el = (id) => document.getElementById(id);
+        if (el('rw-total'))    el('rw-total').textContent    = totalPending;
+        if (el('rw-red'))      el('rw-red').textContent      = redZoneCount;
+        if (el('rw-next'))     el('rw-next').textContent     = nextPostDueIn ? `Next due in ${nextPostDueIn}` : '—';
+        if (el('rw-red-pill')) el('rw-red-pill').classList.toggle('hidden', redZoneCount === 0);
+    } catch { /* non-blocking */ }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const cb  = document.getElementById('autonomous-ack-checkbox');
+    const btn = document.getElementById('btn-autonomous-accept');
+    if (cb && btn) cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
+
+    // Context counter
+    const ctx = document.getElementById('gen-post-context');
+    const ctxCount = document.getElementById('gen-post-ctx-count');
+    if (ctx && ctxCount) ctx.addEventListener('input', () => { ctxCount.textContent = ctx.value.length; });
+
+    // Start badge polling
+    refreshPendingBadge();
+    _rqPollInterval = setInterval(refreshPendingBadge, 60_000);
+
+    // AC5 STOR-1.1.2: Show storage-full banner if org is at 100% quota
+    (async () => {
+        try {
+            const res = await fetch('/.netlify/functions/billing-data');
+            if (!res.ok) return;
+            const { storage } = await res.json();
+            if (storage && storage.limitBytes && storage.usedBytes >= storage.limitBytes) {
+                const banner = document.getElementById('storage-full-banner');
+                if (banner) banner.classList.remove('hidden');
+            }
+        } catch { /* non-fatal */ }
+    })();
+});
+
+// ── Generate Post on-demand sheet ─────────────────────────────────────────────
+let _gpCurrentAssistantId = null;
+let _gpCurrentBlueprintId = null;
+let _gpPollInterval = null;
+let _gpCurrentJobId = null;
+let _gpCurrentPostId = null;
+let _gpSelectedPlatform = 'instagram';
+
+async function openGeneratePostSheet() {
+    // Check monthly task limit first
+    const cap = await window.checkCapacity();
+    if (cap && cap.taskLimit != null && cap.taskCount >= cap.taskLimit) {
+        const resetDate = cap.trialExpiresAt
+            ? new Date(cap.trialExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+            : 'the start of your next billing cycle';
+        window.openUpgradeModal(
+            'Monthly generation limit reached',
+            `You've used all ${cap.taskLimit} generations this month.`,
+            `Your limit resets on ${resetDate}. Upgrade your plan to generate more posts now.`,
+            { nextPlan: cap.nextPlan }
+        );
+        return;
+    }
+
+    // Pick up current assistant context if available
+    _gpCurrentAssistantId = window._currentAssistantId || null;
+    _gpCurrentJobId = null;
+    _gpCurrentPostId = null;
+    clearInterval(_gpPollInterval);
+
+    // Reset UI
+    const ctx = document.getElementById('gen-post-context');
+    if (ctx) ctx.value = '';
+    const ctxCount = document.getElementById('gen-post-ctx-count');
+    if (ctxCount) ctxCount.textContent = '0';
+    gpSetStatus('');
+    document.getElementById('gen-post-conflict')?.classList.add('hidden');
+    document.getElementById('gen-post-preview')?.classList.add('hidden');
+    document.getElementById('gen-post-approve-actions')?.classList.add('hidden');
+    document.getElementById('gen-post-schedule-picker')?.classList.add('hidden');
+    document.getElementById('gen-post-reject-form')?.classList.add('hidden');
+    document.getElementById('gen-post-actions')?.classList.remove('hidden');
+    const submitBtn = document.getElementById('gen-post-submit-btn');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Generate'; }
+
+    // Mark connected platforms using cached capacity data
+    gpUpdateConnectedPlatforms(cap?.connectedPlatforms || []);
+    gpSelectPlatformByValue('instagram');
+
+    document.getElementById('gen-post-backdrop')?.classList.remove('hidden');
+    document.getElementById('gen-post-sheet')?.classList.remove('hidden');
+}
+
+function gpUpdateConnectedPlatforms(connected) {
+    // connected = ['instagram', 'facebook', ...] (lowercase service names)
+    document.querySelectorAll('.gen-platform-btn').forEach(btn => {
+        const p = btn.dataset.platform;
+        const isConnected = connected.some(s => s.toLowerCase().includes(p));
+        // Remove existing indicator
+        btn.querySelectorAll('.gp-conn-dot').forEach(d => d.remove());
+        if (isConnected) {
+            const dot = document.createElement('span');
+            dot.className = 'gp-conn-dot inline-block w-1.5 h-1.5 bg-emerald-500 rounded-full ml-1 align-middle';
+            dot.title = 'Connected';
+            btn.appendChild(dot);
+        }
+    });
+}
+
+function closeGeneratePostSheet() {
+    clearInterval(_gpPollInterval);
+    document.getElementById('gen-post-backdrop')?.classList.add('hidden');
+    document.getElementById('gen-post-sheet')?.classList.add('hidden');
+}
+
+function gpSelectPlatform(btn) {
+    document.querySelectorAll('.gen-platform-btn').forEach(b => {
+        b.classList.remove('border-emerald-600', 'text-emerald-700', 'font-semibold');
+        b.classList.add('border-gray-300', 'text-gray-700');
+    });
+    btn.classList.add('border-emerald-600', 'text-emerald-700', 'font-semibold');
+    btn.classList.remove('border-gray-300', 'text-gray-700');
+    _gpSelectedPlatform = btn.dataset.platform;
+}
+
+function gpSelectPlatformByValue(val) {
+    const btn = document.querySelector(`.gen-platform-btn[data-platform="${val}"]`);
+    if (btn) gpSelectPlatform(btn);
+}
+
+function gpSetStatus(msg, type) {
+    const el = document.getElementById('gen-post-status');
+    if (!el) return;
+    if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+    el.classList.remove('hidden');
+    el.className = `mb-4 text-sm rounded-xl p-3 border ${type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`;
+    el.textContent = msg;
+}
+
+async function gpSubmit() {
+    if (!_gpCurrentAssistantId) {
+        gpSetStatus('No assistant selected. Open an assistant first, then click Generate Post.', 'error');
+        return;
+    }
+    const contextPrompt = document.getElementById('gen-post-context')?.value?.trim() || '';
+    const submitBtn = document.getElementById('gen-post-submit-btn');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+    gpSetStatus('Queuing generation job…');
+
+    try {
+        const res = await fetch('/.netlify/functions/generate-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                assistantId: _gpCurrentAssistantId,
+                platform: _gpSelectedPlatform,
+                triggerType: 'on_demand',
+                contextPrompt: contextPrompt || undefined,
+            }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { gpSetStatus(d.error || 'Failed to queue generation.', 'error'); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Generate'; } return; }
+        _gpCurrentJobId = d.jobId;
+        document.getElementById('gen-post-actions')?.classList.add('hidden');
+        gpSetStatus('Generating your post… This usually takes 20–40 seconds.');
+        _gpPollInterval = setInterval(gpPollJob, 4000);
+    } catch {
+        gpSetStatus('Network error — please try again.', 'error');
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Generate'; }
+    }
+}
+
+async function gpPollJob() {
+    if (!_gpCurrentJobId) return;
+    try {
+        const res = await fetch(`/.netlify/functions/generate-post?jobId=${_gpCurrentJobId}`);
+        if (!res.ok) return;
+        const { status, resultPostId, errorMessage } = await res.json();
+        if (status === 'completed' && resultPostId) {
+            clearInterval(_gpPollInterval);
+            _gpCurrentPostId = resultPostId;
+            await gpLoadPreview(resultPostId);
+        } else if (status === 'failed') {
+            clearInterval(_gpPollInterval);
+            gpSetStatus(errorMessage || 'Generation failed. Please try again.', 'error');
+            document.getElementById('gen-post-actions')?.classList.remove('hidden');
+            const submitBtn = document.getElementById('gen-post-submit-btn');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Try Again'; }
+        }
+    } catch { /* poll silently */ }
+}
+
+async function gpLoadPreview(postId) {
+    try {
+        const res = await fetch(`/.netlify/functions/get-social-drafts?status=pending_approval`);
+        if (!res.ok) return;
+        const { drafts } = await res.json();
+        const draft = drafts.find(d => d.id === postId);
+        if (!draft) return;
+        document.getElementById('gen-post-preview-caption').textContent = draft.caption || '';
+        document.getElementById('gen-post-preview-hashtags').textContent = draft.hashtags || '';
+        document.getElementById('gen-post-preview-media').textContent = draft.suggestedMediaDescription ? `Media suggestion: ${draft.suggestedMediaDescription}` : '';
+        document.getElementById('gen-post-preview')?.classList.remove('hidden');
+        document.getElementById('gen-post-approve-actions')?.classList.remove('hidden');
+        // Show conflict notice if LLM detected a context prompt vs strict rule conflict
+        if (draft.conflictNotice) {
+            const el = document.getElementById('gen-post-conflict');
+            if (el) { el.textContent = `⚠️ ${draft.conflictNotice}`; el.classList.remove('hidden'); }
+        }
+        gpSetStatus('Your post is ready! Review and approve or reject below.');
+    } catch { gpSetStatus('Post generated but preview failed to load. Check Social Drafts tab.'); }
+}
+
+async function gpApprovePost() {
+    if (!_gpCurrentPostId) return;
+    await sdApprove(_gpCurrentPostId, 'publish_now');
+    gpSetStatus('Post approved and queued to publish now.');
+    document.getElementById('gen-post-approve-actions')?.classList.add('hidden');
+    document.getElementById('gen-post-preview')?.classList.add('hidden');
+    setTimeout(closeGeneratePostSheet, 1500);
+}
+
+function gpSchedulePost() {
+    if (!_gpCurrentPostId) return;
+    // Show date/time picker — set minimum to 5 minutes from now
+    const picker = document.getElementById('gen-post-schedule-input');
+    if (picker) {
+        const min = new Date(Date.now() + 5 * 60 * 1000);
+        picker.min = min.toISOString().slice(0, 16);
+        picker.value = new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16);
+    }
+    document.getElementById('gen-post-approve-actions')?.classList.add('hidden');
+    document.getElementById('gen-post-schedule-picker')?.classList.remove('hidden');
+}
+
+async function gpConfirmSchedule() {
+    if (!_gpCurrentPostId) return;
+    const picker = document.getElementById('gen-post-schedule-input');
+    const rescheduleAt = picker?.value;
+    if (!rescheduleAt) { gpSetStatus('Please choose a date and time.', 'error'); return; }
+    if (new Date(rescheduleAt) <= new Date()) { gpSetStatus('Scheduled time must be in the future.', 'error'); return; }
+    try {
+        const res = await fetch('/.netlify/functions/approve-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: _gpCurrentPostId, action: 'reschedule', rescheduleAt }),
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); gpSetStatus(d.error || 'Failed to schedule.', 'error'); return; }
+        gpSetStatus(`Post scheduled for ${new Date(rescheduleAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}.`);
+        document.getElementById('gen-post-schedule-picker')?.classList.add('hidden');
+        document.getElementById('gen-post-preview')?.classList.add('hidden');
+        setTimeout(closeGeneratePostSheet, 2000);
+    } catch { gpSetStatus('Network error — please try again.', 'error'); }
+}
+
+function gpRejectPost() {
+    document.getElementById('gen-post-reject-form')?.classList.remove('hidden');
+    document.getElementById('gen-post-approve-actions')?.classList.add('hidden');
+}
+
+function gpStartVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('Voice input is not supported in this browser. Try Chrome or Safari.'); return; }
+    const rec = new SR();
+    rec.lang = 'en-GB';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    const micBtn = document.getElementById('gen-post-mic-btn');
+    if (micBtn) micBtn.classList.add('text-red-500');
+    rec.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        const ctx = document.getElementById('gen-post-context');
+        if (ctx) {
+            ctx.value = (ctx.value ? ctx.value + ' ' : '') + transcript;
+            ctx.value = ctx.value.slice(0, 500);
+            document.getElementById('gen-post-ctx-count').textContent = ctx.value.length;
+        }
+    };
+    rec.onend = () => { if (micBtn) micBtn.classList.remove('text-red-500'); };
+    rec.onerror = () => { if (micBtn) micBtn.classList.remove('text-red-500'); };
+    rec.start();
+}
+
+async function gpSubmitReject() {
+    const reason = document.getElementById('gen-post-reject-reason')?.value?.trim();
+    if (!reason) { alert('Please enter a rejection reason.'); return; }
+    if (!_gpCurrentPostId) return;
+    try {
+        const res = await fetch('/.netlify/functions/approve-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: _gpCurrentPostId, action: 'reject', rejectionReason: reason }),
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || 'Failed to reject post.'); return; }
+        gpSetStatus('Post rejected.');
+        document.getElementById('gen-post-reject-form')?.classList.add('hidden');
+        document.getElementById('gen-post-preview')?.classList.add('hidden');
+        setTimeout(closeGeneratePostSheet, 1500);
+    } catch { alert('Network error — please try again.'); }
+}
+</script>
+</body>
+</html>

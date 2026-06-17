@@ -1,0 +1,97 @@
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full pb-20 relative">
+  <div class="mb-8 flex justify-between items-end">
+    <div>
+      <h1 class="text-3xl font-extrabold text-gray-900">Help & Support</h1>
+      <p class="text-gray-500 mt-1">Browse our documentation or get in touch with our support team.</p>
+    </div>
+  </div>
+
+  <div class="border-b border-gray-200 mb-8">
+    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+      <button id="tab-btn-docs" class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm border-emerald-500 text-emerald-600">Knowledge Base</button>
+      <button id="tab-btn-tickets" class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Support Tickets</button>
+    </nav>
+  </div>
+
+  <div id="tab-content-docs" class="tab-content block">
+    <div class="mb-8 max-w-2xl">
+      <div class="relative">
+        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        </div>
+        <input type="text" id="help-search-input" placeholder="Search documentation, guides, and FAQs..." class="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-600 outline-none transition-all shadow-sm">
+      </div>
+      <div class="flex flex-wrap gap-2 mt-4" id="help-filters">
+        <button data-category="All" class="px-4 py-2 rounded-full text-sm font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 transition filter-btn">All Articles</button>
+        <button data-category="Getting Started" class="px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition filter-btn">Getting Started</button>
+        <button data-category="Your Assistants" class="px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition filter-btn">Your Assistants</button>
+        <button data-category="Lead Management" class="px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition filter-btn">Lead Management</button>
+        <button data-category="Integrations &amp; Connections" class="px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition filter-btn">Integrations</button>
+        <button data-category="Billing &amp; Your Plan" class="px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition filter-btn">Billing</button>
+        <button data-category="Troubleshooting &amp; Quick Fixes" class="px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition filter-btn">Troubleshooting</button>
+      </div>
+    </div>
+    <div id="help-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </div>
+
+  <div id="tab-content-tickets" class="tab-content hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+      <div class="lg:col-span-1 space-y-6">
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <h3 class="text-lg font-bold text-gray-900 mb-4">Submit a Request</h3>
+          <form id="support-ticket-form" class="space-y-4">
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Subject</label>
+              <input type="text" id="ticket-subject" required placeholder="Brief summary of the issue" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-600 outline-none text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Category</label>
+              <select id="ticket-category" required class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-600 outline-none text-sm bg-white cursor-pointer">
+                <option value="" disabled selected>Select an issue type...</option>
+                <option value="technical">Technical Support / Bug</option>
+                <option value="assistant">Assistant Behavior Issue</option>
+                <option value="billing">Billing / Subscription</option>
+                <option value="feature">Feature Request / Feedback</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Description</label>
+              <textarea id="ticket-description" required rows="5" placeholder="Please provide as much detail as possible..." class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-600 outline-none text-sm resize-none"></textarea>
+            </div>
+            <button type="submit" id="btn-submit-ticket" class="w-full px-4 py-3 text-sm font-bold text-white bg-gray-900 hover:bg-black rounded-xl transition-colors shadow-sm">
+              Submit Ticket
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2">
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
+          <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-gray-900">Your Ticket History</h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
+              <tr>
+                <th class="px-6 py-3">Ticket ID</th>
+                <th class="px-6 py-3">Subject / Category</th>
+                <th class="px-6 py-3">Date Submitted</th>
+                <th class="px-6 py-3">Status</th>
+              </tr>
+              </thead>
+              <tbody id="ticket-history-body" class="divide-y divide-gray-100 bg-white">
+              <tr>
+                <td colspan="4" class="p-8 text-center text-gray-500">Loading history...</td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>

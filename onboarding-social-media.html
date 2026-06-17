@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="./auth-check.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Social Media Setup | Aura</title>
+  <title>Assistant Setup | Aura-Assist</title>
   <link href="./style.css" rel="stylesheet">
+  <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
+  <link rel="manifest" href="/favicon/manifest.json">
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
@@ -28,29 +32,213 @@
     <div class="flex justify-between h-16 items-center">
       <div class="flex items-center">
         <a href="index.html" class="flex items-center">
-          <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura</span>
+          <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura-Assist&#8482;</span>
         </a>
-        <span class="text-base font-medium text-gray-400 ml-2">| Social Media Manager Blueprint</span>
+        <span id="nav-subtitle" class="text-base font-medium text-gray-400 ml-2">| Set Up Your Assistant</span>
       </div>
-      <div id="tier-badge" class="hidden items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 tracking-wide uppercase shadow-sm">
+      <div class="flex items-center gap-4">
+        <div id="draft-save-status" class="hidden items-center gap-1.5 px-3 py-1 rounded-full bg-gray-50 border border-gray-200 text-xs font-bold text-gray-500 shadow-sm transition-all duration-300 opacity-0">
+          <span id="draft-icon"></span>
+          <span id="draft-text">Draft Saved</span>
+        </div>
+        <div id="tier-badge" class="hidden items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 tracking-wide uppercase shadow-sm">
+        </div>
       </div>
     </div>
   </div>
 </nav>
 
-<main class="flex-grow flex items-center justify-center p-4 sm:p-6 mb-20">
+<div id="cancel-recovery-banner" class="hidden max-w-2xl mx-auto px-4 pt-4 w-full">
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 text-sm shadow-sm">
+    <span class="text-amber-500 text-lg shrink-0">↩</span>
+    <div class="flex-1 text-amber-800">
+      <strong>No worries — your progress has been saved.</strong> Review your configuration below and click "Proceed to Payment" when you're ready.
+    </div>
+    <button onclick="document.getElementById('cancel-recovery-banner').remove()" class="text-amber-400 hover:text-amber-700 font-bold text-lg leading-none shrink-0">&times;</button>
+  </div>
+</div>
+
+<!-- Waitlist modal -->
+<div id="waitlist-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+    <div class="flex justify-between items-start mb-4">
+      <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-2xl">🔔</div>
+      <button onclick="closeWaitlistModal()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+    </div>
+    <h3 class="text-xl font-extrabold text-gray-900 mb-1">Join the Waitlist</h3>
+    <p id="waitlist-desc" class="text-gray-500 text-sm mb-5">We'll notify you the moment this assistant is available.</p>
+    <input id="waitlist-email" type="email" placeholder="your@email.com"
+      class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition mb-3"
+    />
+    <button onclick="submitWaitlist()"
+      class="w-full px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg transition">
+      Notify Me
+    </button>
+    <div id="waitlist-success" class="hidden mt-3 text-center text-sm text-emerald-700 font-semibold">✓ You're on the list! We'll email you when it's ready.</div>
+    <div id="waitlist-error" class="hidden mt-3 text-center text-sm text-red-600"></div>
+  </div>
+</div>
+
+<main class="grow flex items-center justify-center p-4 sm:p-6 mb-20">
   <div class="bg-white rounded-2xl shadow-lg border border-gray-100 w-full max-w-2xl overflow-hidden mt-4">
 
     <div class="bg-gray-100 h-2 w-full">
-      <div id="progress-bar" class="bg-emerald-700 h-2 transition-all duration-500 ease-out" style="width: 25%;"></div>
+      <div id="progress-bar" class="bg-emerald-700 h-2 transition-all duration-500 ease-out" style="width: 11%;"></div>
     </div>
 
     <div class="p-8 sm:p-12">
       <form id="intake-form" onsubmit="event.preventDefault();">
 
-        <div id="step-2" class="step-active">
+        <!-- STEP 1: Choose your assistant -->
+        <div id="step-1" class="step-active">
+          <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 1 of 8</span>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-2">Choose your Digital Assistant</h2>
+          <p class="text-gray-500 mb-6">Select the assistant you'd like to set up. More specialist assistants are coming soon.</p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            <!-- Social Media Manager — AVAILABLE -->
+            <label id="card-social-media" class="relative flex flex-col gap-2 p-5 border-2 border-emerald-600 rounded-xl cursor-pointer bg-emerald-50 transition ring-2 ring-emerald-600 ring-offset-1">
+              <input type="radio" name="selected_assistant" value="Social Media Manager" class="sr-only" checked onchange="onAssistantSelect(this)">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center text-xl">📱</div>
+                <span class="text-xs font-bold text-emerald-700 bg-white border border-emerald-200 px-2 py-0.5 rounded-full">Available</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-900 mt-1">Social Media Manager</p>
+                <p class="text-xs text-gray-500 mt-0.5">Research, write, and schedule content across your platforms automatically.</p>
+              </div>
+              <div id="check-social-media" class="absolute top-3 right-3 w-5 h-5 bg-emerald-600 rounded-full flex items-center justify-center">
+                <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </label>
+
+            <!-- Email Manager — LOCKED -->
+            <div class="relative flex flex-col gap-2 p-5 border border-gray-200 rounded-xl bg-gray-50 opacity-75">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">📧</div>
+                <span class="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">🔒 Coming Soon</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-400 mt-1">Email Manager</p>
+                <p class="text-xs text-gray-400 mt-0.5">Triage, draft replies, and organise your inbox on autopilot.</p>
+              </div>
+              <button type="button" onclick="openWaitlistModal('Email Manager')"
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition cursor-pointer">
+                Join the waitlist →
+              </button>
+            </div>
+
+            <!-- Lead Qualifier — LOCKED -->
+            <div class="relative flex flex-col gap-2 p-5 border border-gray-200 rounded-xl bg-gray-50 opacity-75">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">🎯</div>
+                <span class="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">🔒 Coming Soon</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-400 mt-1">Lead Qualifier</p>
+                <p class="text-xs text-gray-400 mt-0.5">Instantly score, tag, and follow up with new enquiries from any source.</p>
+              </div>
+              <button type="button" onclick="openWaitlistModal('Lead Qualifier')"
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition cursor-pointer">
+                Join the waitlist →
+              </button>
+            </div>
+
+            <!-- Invoice Organiser — LOCKED -->
+            <div class="relative flex flex-col gap-2 p-5 border border-gray-200 rounded-xl bg-gray-50 opacity-75">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">🧾</div>
+                <span class="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">🔒 Coming Soon</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-400 mt-1">Invoice Organiser</p>
+                <p class="text-xs text-gray-400 mt-0.5">Extract, file, and track receipts and invoices from your email automatically.</p>
+              </div>
+              <button type="button" onclick="openWaitlistModal('Invoice Organiser')"
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition cursor-pointer">
+                Join the waitlist →
+              </button>
+            </div>
+
+            <!-- Customer Support Agent — LOCKED -->
+            <div class="relative flex flex-col gap-2 p-5 border border-gray-200 rounded-xl bg-gray-50 opacity-75">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">💬</div>
+                <span class="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">🔒 Coming Soon</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-400 mt-1">Customer Support Agent</p>
+                <p class="text-xs text-gray-400 mt-0.5">Handle common queries, chase responses, and escalate only what matters.</p>
+              </div>
+              <button type="button" onclick="openWaitlistModal('Customer Support Agent')"
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition cursor-pointer">
+                Join the waitlist →
+              </button>
+            </div>
+
+            <!-- Content Writer — LOCKED -->
+            <div class="relative flex flex-col gap-2 p-5 border border-gray-200 rounded-xl bg-gray-50 opacity-75">
+              <div class="flex items-start justify-between">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">✍️</div>
+                <span class="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">🔒 Coming Soon</span>
+              </div>
+              <div>
+                <p class="font-bold text-gray-400 mt-1">Content Writer</p>
+                <p class="text-xs text-gray-400 mt-0.5">Draft blog posts, newsletters, and copy in your voice, ready to publish.</p>
+              </div>
+              <button type="button" onclick="openWaitlistModal('Content Writer')"
+                class="mt-auto text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline text-left transition cursor-pointer">
+                Join the waitlist →
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <div id="step-2" class="step-hidden">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 2 of 8</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's get this off your plate.</h2>
+          <p class="text-gray-500 mb-6">Before we build your assistant, we need to understand the strategic goal driving your social presence.</p>
+
+          <div class="mb-8">
+            <h3 class="block text-sm font-bold text-gray-700 mb-1">What is your primary objective? <span class="text-red-500">*</span></h3>
+            <p class="text-xs text-gray-500 mb-3">This determines how your assistant prioritises content, CTAs, and platform strategy.</p>
+            <div class="space-y-3" id="objective-options">
+              <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+                <input type="radio" name="primary_objective" value="brand_awareness" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300">
+                <div class="ml-4">
+                  <span class="block font-bold text-gray-900">Brand Awareness</span>
+                  <span class="block text-sm text-gray-500 mt-0.5">I want to grow my audience, increase visibility, and be found by the right people.</span>
+                </div>
+              </label>
+              <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+                <input type="radio" name="primary_objective" value="lead_generation" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300">
+                <div class="ml-4">
+                  <span class="block font-bold text-gray-900">Lead Generation</span>
+                  <span class="block text-sm text-gray-500 mt-0.5">I want to capture contact details, drive sign-ups, or fill a pipeline with qualified prospects.</span>
+                </div>
+              </label>
+              <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+                <input type="radio" name="primary_objective" value="direct_sales" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300">
+                <div class="ml-4">
+                  <span class="block font-bold text-gray-900">Direct Sales</span>
+                  <span class="block text-sm text-gray-500 mt-0.5">I want to drive immediate purchases, bookings, or conversions directly from social content.</span>
+                </div>
+              </label>
+              <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+                <input type="radio" name="primary_objective" value="community_engagement" class="mt-1 h-5 w-5 text-emerald-700 focus:ring-emerald-700 border-gray-300">
+                <div class="ml-4">
+                  <span class="block font-bold text-gray-900">Community &amp; Engagement</span>
+                  <span class="block text-sm text-gray-500 mt-0.5">I want to deepen relationships with my existing audience and increase interaction with my content.</span>
+                </div>
+              </label>
+            </div>
+            <span id="error-objective" class="error-msg hidden text-red-500 text-xs font-bold mt-2 block">Please select your primary objective.</span>
+          </div>
+
+          <hr class="border-gray-200 mb-8">
+
           <p class="text-gray-500 mb-6">In your own words, what is the repetitive, boring, or frustrating task you want to hand off to your digital assistant?</p>
 
           <div class="mb-6">
@@ -68,12 +256,17 @@
                 <span class="font-bold block mb-1">The Multi-Platform Headache</span>
                 "I waste time taking one core message and rewriting it to fit perfectly across platforms..."
               </button>
+              <button type="button" title="I need to rapidly test different value propositions and engage with niche communities to build our initial audience from scratch, but I don't have the bandwidth." onclick="populateProblem('I need to rapidly test different value propositions and engage with niche communities to build our initial audience from scratch, but I don\'t have the bandwidth.')" class="text-left text-sm bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg p-3 hover:bg-emerald-100 hover:border-emerald-300 transition shadow-sm cursor-pointer">
+                <span class="font-bold block mb-1">The Cold Start & Growth Grind</span>
+                "I need to rapidly test different value propositions and engage with niche communities..."
+              </button>
             </div>
           </div>
 
           <div class="relative">
-            <label class="block text-sm font-bold text-gray-700 mb-2">Your Bottleneck: *</label>
-            <textarea id="user_story_problem" rows="5" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none" placeholder="e.g., I spend 4 hours a week researching trends, writing captions in Notion, and manually posting to Instagram..."></textarea>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Your Bottleneck: *</label>
+            <p class="text-xs text-gray-500 mb-2">Click a suggestion above, or type your own unique bottleneck below.</p>
+            <label for="user_story_problem"></label><textarea id="user_story_problem" class="auto-expand-textarea w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm" placeholder="e.g., I spend 4 hours a week researching trends, writing captions in Notion, and manually posting to Instagram..."></textarea>
             <span class="error-msg hidden text-red-500 text-xs font-bold mt-1">Please provide a bit more detail (at least 10 characters).</span>
           </div>
         </div>
@@ -157,40 +350,104 @@
           <p class="text-gray-500 mb-6">Define the core message and personality of your content. These details are required so the assistant sounds exactly like your brand.</p>
 
           <div class="space-y-6">
-            <!-- Assistant Naming Section -->
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Name Your Digital Assistant: *</label>
-              <p class="text-xs text-gray-500 mb-2">Give your assistant a custom name, or leave it to us.</p>
-              <div class="flex items-center gap-4 mb-3">
-                <label class="flex items-center cursor-pointer">
-                  <input type="radio" name="assistant_name_pref" value="custom" class="h-4 w-4 text-emerald-700 focus:ring-emerald-700 border-gray-300" checked onchange="document.getElementById('val_assistant_name').classList.remove('hidden')">
-                  <span class="ml-2 text-sm text-gray-800">I'll name it</span>
-                </label>
-                <label class="flex items-center cursor-pointer">
-                  <input type="radio" name="assistant_name_pref" value="ai_decide" class="h-4 w-4 text-emerald-700 focus:ring-emerald-700 border-gray-300" onchange="document.getElementById('val_assistant_name').classList.add('hidden')">
-                  <span class="ml-2 text-sm text-gray-800">Let the Assistant decide</span>
-                </label>
+              <p class="text-xs text-gray-500 mb-2">Give your assistant a custom name (max 50 characters).</p>
+
+              <div class="relative mb-1">
+                <label for="val_assistant_name" class="sr-only">Assistant Name</label>
+                <input type="text" id="val_assistant_name" maxlength="50" class="w-full border border-gray-300 rounded-lg py-3 pl-3 pr-12 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., ContentBot 9000...">
+                <div class="absolute right-3 top-1/2 transform -translate-y-1/2" id="name-validation-icon"></div>
               </div>
-              <input type="text" id="val_assistant_name" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Chloe, ContentBot 9000...">
+
+              <span id="error-assistant-name" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">Please enter a name.</span>
+              <span id="error-assistant-duplicate" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">You already have an Assistant with this name. Please choose a unique name.</span>
+
+              <div class="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <label class="block text-xs font-bold text-gray-700 mb-2">✨ Need inspiration? Generate a themed name:</label>
+
+                <div class="flex flex-col sm:flex-row gap-2 mb-3">
+                  <input type="text" id="ai_theme_input" class="flex-1 border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-emerald-500" placeholder="Enter a theme (e.g., Sci-Fi, Poets, Marvel)">
+                  <button type="button" id="btn-generate-names" onclick="generateAINames()" class="px-4 py-2 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-md transition-colors whitespace-nowrap flex items-center justify-center gap-2">
+                    Generate Names
+                  </button>
+                </div>
+
+                <div class="flex flex-wrap gap-2 mb-3 items-center">
+                  <span class="text-xs text-gray-500">Suggestions:</span>
+                  <button type="button" onclick="setTheme('Star Wars')" class="text-xs px-2 py-1 bg-white border border-gray-200 rounded hover:bg-gray-100 transition">Star Wars</button>
+                  <button type="button" onclick="setTheme('Greek Mythology')" class="text-xs px-2 py-1 bg-white border border-gray-200 rounded hover:bg-gray-100 transition">Greek Mythology</button>
+                  <button type="button" onclick="setTheme('Famous Poets')" class="text-xs px-2 py-1 bg-white border border-gray-200 rounded hover:bg-gray-100 transition">Famous Poets</button>
+                  <button type="button" onclick="setTheme('Marvel')" class="text-xs px-2 py-1 bg-white border border-gray-200 rounded hover:bg-gray-100 transition">Marvel</button>
+                </div>
+
+                <div id="ai-names-results" class="flex flex-wrap gap-2 hidden">
+                </div>
+
+                <span id="ai-names-error" class="hidden text-xs text-red-500 font-medium">Our creative gears are jammed right now. Please type a name manually!</span>
+              </div>
             </div>
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Target Audience: *</label>
-              <input type="text" id="val_audience" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Women founders looking to optimize their business operations.">
+              <label for="val_audience"></label><input type="text" id="val_audience" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Women founders looking to optimize their business operations.">
             </div>
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Brand Voice & Tone: *</label>
               <p class="text-xs text-gray-500 mb-2">Describe the personality. (e.g., Nurturing, honest, professional, casual, supportive).</p>
-              <input type="text" id="val_tone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Friendly and supportive, avoiding overly salesy language.">
+              <label for="val_tone"></label><input type="text" id="val_tone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Friendly and supportive, avoiding overly salesy language.">
             </div>
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Content Pillars / Core Topics: *</label>
               <p class="text-xs text-gray-500 mb-2">What are the core topics, themes, or keywords the assistant should focus on?</p>
-              <input type="text" id="val_pillars" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Wellness tips, stress relief, product spotlights.">
+              <label for="val_pillars"></label><input type="text" id="val_pillars" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Wellness tips, stress relief, product spotlights.">
             </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1">Knowledge Base / Brain Trust Link (Optional):</label>
-              <p class="text-xs text-gray-500 mb-2">Where can the AI read your personal anecdotes, life experiences, or company wikis so it sounds authentic?</p>
-              <input type="url" id="val_braintrust" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Link to a Google Doc or Notion page">
+
+            <div class="border-t border-gray-100 pt-6 mt-2">
+              <h3 class="text-lg font-bold text-gray-900 mb-1">Core Message &amp; Call-to-Action</h3>
+              <p class="text-sm text-gray-500 mb-5">The single most important thing you want your audience to think, feel, or do after seeing your content.</p>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-1">Core Message: *</label>
+                  <p class="text-xs text-gray-500 mb-2">The one idea you want every piece of content to reinforce. Your assistant will anchor all content around this.</p>
+                  <input type="text" id="val_core_message" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., We help busy founders reclaim their time without sacrificing growth.">
+                  <span id="error-core-message" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">Please enter your core message.</span>
+                </div>
+                <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-1">Primary Call-to-Action (CTA): *</label>
+                  <p class="text-xs text-gray-500 mb-2">What specific action do you want the audience to take? (e.g., Book a call, Download the guide, Shop now)</p>
+                  <input type="text" id="val_cta" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Book a free 15-minute discovery call.">
+                  <span id="error-cta" class="error-msg hidden text-red-500 text-xs font-bold mt-1 block">Please enter your primary CTA.</span>
+                </div>
+                <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-1">The Incentive (Optional):</label>
+                  <p class="text-xs text-gray-500 mb-2">Why should they take that action right now? What do they get?</p>
+                  <input type="text" id="val_incentive" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Get the first month free, No obligation, Instant access to the toolkit.">
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-6 border-t border-gray-100 pt-6">
+              <h3 class="block text-sm font-bold text-gray-700 mb-1">Knowledge Base & Brain Trust (Optional)</h3>
+              <p class="text-xs text-gray-500 mb-4">Train your AI with your unique voice. Share personal anecdotes, life experiences, or brand stories.</p>
+
+              <label for="val_braintrust_text" class="sr-only">Share your personal anecdotes</label>
+              <textarea id="val_braintrust_text"
+                        class="auto-expand-textarea w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white mb-6"
+                        placeholder="Type your personal anecdotes, life experiences, or brand stories here..."></textarea>
+
+              <div id="dynamic_links_container" class="space-y-3">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Add reference documents or websites</label>
+                <div class="flex items-center gap-2 link-row">
+                  <input type="url" class="braintrust-link-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="https://...">
+                  <button type="button" onclick="removeLink(this)" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition hidden trash-btn" title="Remove Link">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+
+              <button type="button" onclick="addBrainTrustLink()" class="mt-3 text-emerald-700 font-bold hover:text-emerald-800 transition flex items-center text-sm">
+                <span class="text-lg mr-1">+</span> Add another link
+              </button>
             </div>
           </div>
         </div>
@@ -227,34 +484,53 @@
                 <span class="ml-2 text-sm text-gray-800">Facebook Page</span>
               </label>
               <div id="fb_handle_container" class="hidden mt-2 ml-6 relative">
-                <input type="text" id="fb_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="Page Name or URL">
+                <input type="url" id="fb_handle"
+                       class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
+                       value="https://facebook.com/"
+                       placeholder="https://facebook.com/yourpage">
+                <div class="handle-feedback"></div>
               </div>
             </div>
+
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_ig" value="Instagram" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('ig_handle_container', this.checked)">
                 <span class="ml-2 text-sm text-gray-800">Instagram</span>
               </label>
               <div id="ig_handle_container" class="hidden mt-2 ml-6 relative">
-                <input type="text" id="ig_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="@handle">
+                <input type="url" id="ig_handle"
+                       class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
+                       value="https://instagram.com/"
+                       placeholder="https://instagram.com/yourhandle">
+                <div class="handle-feedback"></div>
               </div>
             </div>
+
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_li" value="LinkedIn" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('li_handle_container', this.checked)">
                 <span class="ml-2 text-sm text-gray-800">LinkedIn</span>
               </label>
               <div id="li_handle_container" class="hidden mt-2 ml-6 relative">
-                <input type="text" id="li_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="Profile or Company URL">
+                <input type="url" id="li_handle"
+                       class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
+                       value="https://linkedin.com/in/"
+                       placeholder="https://linkedin.com/in/yourprofile">
+                <div class="handle-feedback"></div>
               </div>
             </div>
+
             <div>
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="chk_x" value="X" class="h-4 w-4 text-emerald-700 rounded border-gray-300" onchange="toggleHandleInput('x_handle_container', this.checked)">
                 <span class="ml-2 text-sm text-gray-800">X (Twitter)</span>
               </label>
               <div id="x_handle_container" class="hidden mt-2 ml-6 relative">
-                <input type="text" id="x_handle" class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700" placeholder="@handle">
+                <input type="url" id="x_handle"
+                       class="w-full sm:w-2/3 border border-emerald-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-emerald-700"
+                       value="https://x.com/"
+                       placeholder="https://x.com/yourhandle">
+                <div class="handle-feedback"></div>
               </div>
             </div>
           </div>
@@ -263,157 +539,65 @@
             <label class="block text-sm font-bold text-gray-900 mb-2">Platform Algorithm Helpers (Hashtags/Keywords): *</label>
             <p class="text-sm text-gray-500 mb-4">Define the visibility and formatting strategy for each of your selected platforms.</p>
 
-            <!-- FB Block -->
-            <div id="algo_block_fb" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+            <div id="algo_block_fb" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
               <h4 class="font-bold text-gray-800 text-sm mb-2">Facebook Strategy</h4>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_fb" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_fb" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_fb" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_fb').classList.add('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
-              </label>
-              <div id="algo_custom_tags_fb" class="mt-3 pl-7">
-                <input type="text" id="val_algo_tags_fb" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #FacebookTips #Community">
+              <div class="space-y-2">
+                <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700" checked onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')"><span class="ml-3 text-sm font-bold">Only use my specific tags</span></label>
+                <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700" onchange="document.getElementById('algo_custom_tags_fb').classList.remove('hidden')"><span class="ml-3 text-sm font-bold">Use mine, and add relevant ones</span></label>
+                <label class="flex items-start cursor-pointer hover:text-emerald-800 transition"><input type="radio" name="algo_strategy_fb" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700" onchange="document.getElementById('algo_custom_tags_fb').classList.add('hidden')"><span class="ml-3 text-sm font-bold">Let the Digital Assistant decide</span></label>
               </div>
-              <hr class="my-3 border-gray-100">
-              <h5 class="font-bold text-gray-800 text-xs mb-2">Content Optimization</h5>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition mb-2">
-                <input type="checkbox" id="fb_opt_groups" class="h-4 w-4 text-emerald-700 rounded border-gray-300">
-                <span class="ml-2 text-sm text-gray-700">Draft a secondary version optimized for niche Facebook Groups</span>
-              </label>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition">
-                <input type="checkbox" id="fb_opt_hooks" class="h-4 w-4 text-emerald-700 rounded border-gray-300" checked>
-                <span class="ml-2 text-sm text-gray-700">End posts with high-engagement hooks (questions/CTAs)</span>
+              <input type="text" id="algo_custom_tags_fb" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #FacebookTips #Community">
+              <hr class="border-gray-100">
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Facebook Group Optimization')">
+                <input type="checkbox" id="fb_opt_groups" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm font-bold text-emerald-900">Draft version for niche Facebook Groups (Saver+)</span>
               </label>
             </div>
 
-            <!-- IG Block -->
-            <div id="algo_block_ig" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+            <div id="algo_block_ig" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
               <h4 class="font-bold text-gray-800 text-sm mb-2">Instagram Strategy</h4>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_ig" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_ig').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_ig" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_ig').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_ig" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_ig').classList.add('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
-              </label>
-              <div id="algo_custom_tags_ig" class="mt-3 pl-7">
-                <input type="text" id="val_algo_tags_ig" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #InstaGood #Visuals">
-              </div>
-              <hr class="my-3 border-gray-100">
-              <h5 class="font-bold text-gray-800 text-xs mb-2">Content Format</h5>
-              <select id="ig_opt_format" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white mb-3">
+              <input type="text" id="algo_custom_tags_ig" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #InstaGood">
+              <select id="ig_opt_format" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
                 <option value="mix">Optimize for a Mix (Reels, Carousels, Static)</option>
-                <option value="reels">Prioritize Reels (Short, punchy captions)</option>
-                <option value="carousels">Prioritize Carousels (Educational, swipeable steps)</option>
-                <option value="static">Prioritize Static Images</option>
+                <option value="reels">Prioritize Reels</option>
               </select>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition">
-                <input type="checkbox" id="ig_opt_audio" class="h-4 w-4 text-emerald-700 rounded border-gray-300" checked>
-                <span class="ml-2 text-sm text-gray-700">Suggest trending audio concepts for Reels</span>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Trending Audio Monitoring')">
+                <input type="checkbox" id="ig_opt_audio" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Suggest trending audio concepts (Saver+)</span>
               </label>
             </div>
 
-            <!-- LI Block -->
-            <div id="algo_block_li" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+            <div id="algo_block_li" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
               <h4 class="font-bold text-gray-800 text-sm mb-2">LinkedIn Strategy</h4>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_li" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_li').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_li" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_li').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_li" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_li').classList.add('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
-              </label>
-              <div id="algo_custom_tags_li" class="mt-3 pl-7">
-                <input type="text" id="val_algo_tags_li" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #Leadership #B2B">
-              </div>
-              <hr class="my-3 border-gray-100">
-              <h5 class="font-bold text-gray-800 text-xs mb-2">Algorithm & Dwell Time</h5>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition mb-2">
-                <input type="checkbox" id="li_opt_links" class="h-4 w-4 text-emerald-700 rounded border-gray-300" checked>
-                <span class="ml-2 text-sm text-gray-700">Anti-Penalty: Place external URLs in the first comment</span>
-              </label>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition">
-                <input type="checkbox" id="li_opt_sliders" class="h-4 w-4 text-emerald-700 rounded border-gray-300">
-                <span class="ml-2 text-sm text-gray-700">Format educational posts as PDF Slider/Carousel outlines</span>
-              </label>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition"><input type="checkbox" id="li_opt_links" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Anti-Penalty: URLs in first comment</span></label>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'PDF Slider Generation')"><input type="checkbox" id="li_opt_sliders" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">PDF Slider/Carousel outlines (Saver+)</span></label>
             </div>
 
-            <!-- X Block -->
-            <div id="algo_block_x" class="hidden space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+            <div id="algo_block_x" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
               <h4 class="font-bold text-gray-800 text-sm mb-2">X (Twitter) Strategy</h4>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_x" value="strict_custom" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" checked onchange="document.getElementById('algo_custom_tags_x').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Only use my specific tags</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_x" value="hybrid" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_x').classList.remove('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Use mine, and add relevant ones</span></div>
-              </label>
-              <label class="flex items-start cursor-pointer hover:text-emerald-800 transition">
-                <input type="radio" name="algo_strategy_x" value="ai_decide" class="mt-1 h-4 w-4 text-emerald-700 border-gray-300" onchange="document.getElementById('algo_custom_tags_x').classList.add('hidden')">
-                <div class="ml-3"><span class="block text-sm font-bold">Let the Digital Assistant decide</span></div>
-              </label>
-              <div id="algo_custom_tags_x" class="mt-3 pl-7">
-                <input type="text" id="val_algo_tags_x" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #TechTrends #BuildInPublic">
-              </div>
-              <hr class="my-3 border-gray-100">
-              <h5 class="font-bold text-gray-800 text-xs mb-2">Format & Velocity</h5>
-              <select id="x_opt_length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white mb-3">
+              <select id="x_opt_length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
                 <option value="mix">Mix of Threads and Single Posts</option>
-                <option value="single">Strictly single punchy posts (under 280 chars)</option>
-                <option value="threads">Prioritize educational Threads (Deep-dives)</option>
               </select>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition">
-                <input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded border-gray-300" checked>
-                <span class="ml-2 text-sm text-gray-700">Include placeholders for me to attach GIFs/Images</span>
-              </label>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Automated Media Sourcing')"><input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Include placeholders for media (Saver+)</span></label>
             </div>
           </div>
         </div>
 
-
         <div id="step-6" class="step-hidden">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 6 of 8</span>
-          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Workflow & Guardrails</h2>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Guardrails & Rules</h2>
+          <p class="text-gray-500 mb-6">Set the hard boundaries your assistant must always respect — these rules override everything else.</p>
 
-          <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start shadow-sm">
-            <span class="text-blue-600 text-xl mr-3 leading-none">✨</span>
-            <div>
-              <p class="text-sm text-blue-800 font-medium">We've auto-generated a workflow based on your answers. Review and edit them below.</p>
-            </div>
-          </div>
-
-          <label class="block text-sm font-bold text-gray-700 mb-2">Step-by-Step Workflow: *</label>
-          <div id="workflow-steps-container" class="space-y-4 mb-4">
-          </div>
-          <button type="button" onclick="addWorkflowStep()" class="text-emerald-700 font-bold hover:text-emerald-800 transition flex items-center mb-8">
-            <span class="text-xl mr-1">+</span> Add Next Step
-          </button>
+          <!-- Hidden workflow container — auto-populated silently, never displayed -->
+          <div id="workflow-steps-container" class="hidden"></div>
 
           <label class="block text-sm font-bold text-gray-700 mb-2">Strict Rules & Exceptions: *</label>
-          <textarea id="acceptance_criteria_rules" rows="5" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none" placeholder="e.g., Never use more than 3 hashtags per post."></textarea>
+          <textarea id="acceptance_criteria_rules"
+                    class="auto-expand-textarea w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none"
+                    placeholder="e.g., Never use more than 3 hashtags per post."></textarea>
 
           <div class="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
             <p class="text-sm font-bold text-emerald-800 mb-1">Approval Protocol:</p>
             <p class="text-sm text-emerald-900">
-              All requests requiring approval will be stored in your <strong>Aura Workspace</strong>.
+              All requests requiring approval will be stored in your <strong>Aura-Assist Workspace</strong>.
               You will be notified by email the moment a new request is ready for your review.
             </p>
           </div>
@@ -421,33 +605,36 @@
 
         <div id="step-7" class="step-hidden">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 7 of 8</span>
-          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Review Your Blueprint</h2>
-          <p class="text-gray-500 mb-6">We have compiled your answers into the engineering brief below. Feel free to edit this text directly before submission.</p>
-          <textarea id="generated_brief" rows="22" class="w-full font-mono text-sm border border-gray-300 rounded-lg p-4 mb-4 focus:ring-2 focus:ring-emerald-700 transition shadow-inner bg-gray-50"></textarea>
+          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Review Your Setup</h2>
+          <p class="text-gray-500 mb-6">Here is a high-level summary of your configuration. To protect proprietary logic, your specific workflow is compiled securely on our servers.</p>
+          <div id="summary_container" class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+          </div>
+
+          <div class="mt-6 p-5 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <label class="block text-sm font-bold text-gray-900 mb-1" for="val_hourly_rate">
+              What is your hourly rate? <span class="text-gray-400 font-normal">(Optional)</span>
+            </label>
+            <p class="text-xs text-gray-500 mb-3">Aura uses this to calculate how much time — and money — your assistants save you each month.</p>
+            <div class="flex items-center gap-2 max-w-xs">
+              <span class="text-gray-500 font-bold text-sm">£</span>
+              <input type="number" id="val_hourly_rate" min="1" max="9999" step="1"
+                class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white"
+                placeholder="e.g. 75">
+              <span class="text-gray-500 text-sm whitespace-nowrap">/ hr</span>
+            </div>
+          </div>
         </div>
 
         <div id="step-8" class="step-hidden text-center py-4">
-          <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold mx-auto mb-6 text-4xl">📋</div>
-          <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Perfect. Let's start the build.</h2>
-
-          <div class="mb-6 text-left">
-            <label class="block text-sm font-bold text-gray-700 mb-2">Work Email (where we send build updates):</label>
-            <input type="email" id="client_email" class="w-full border border-gray-300 rounded-lg p-3 mb-6 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="name@company.com" required>
+          <div id="setup-initial-view">
+            <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold mx-auto mb-6 text-4xl">📋</div>
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-8">Perfect. Let's start the build.</h2>
           </div>
 
-          <div class="mt-4 space-y-4 text-left text-sm text-gray-600 border-t border-gray-100 pt-6">
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" name="legal_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
-              <span>I grant Aura permission to process my business data for the sole purpose of executing my requested workflows.</span>
-            </label>
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" name="no_training_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
-              <span>I acknowledge that Aura does <strong>not</strong> use my proprietary business data to train public AI models.</span>
-            </label>
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" name="tos_consent" class="mt-1 h-5 w-5 text-emerald-700" required>
-              <span>I agree to the <a href="#" class="text-emerald-700 font-bold underline">Terms of Service</a> and <a href="#" class="text-emerald-700 font-bold underline">Privacy Policy</a>.</span>
-            </label>
+          <div id="setup-loading-view" class="hidden py-12">
+            <div class="w-16 h-16 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin mx-auto mb-6"></div>
+            <h3 class="text-xl font-bold text-gray-900">Provisioning your workspace...</h3>
+            <p class="text-gray-500 mt-2">Connecting your accounts and building your assistant.</p>
           </div>
         </div>
 
@@ -455,9 +642,18 @@
           <button type="button" id="btn-back" onclick="prevStep()" class="text-gray-500 font-semibold hover:text-gray-900 transition">
             ← Back
           </button>
-          <button type="button" id="btn-next" onclick="nextStep()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
-            Next Step
-          </button>
+          <div class="flex items-center gap-4">
+            <button type="button" id="btn-save-exit" onclick="saveAndExit()"
+              class="text-sm text-gray-400 hover:text-gray-600 font-medium transition flex items-center gap-1.5 group cursor-pointer">
+              <svg class="w-4 h-4 group-hover:text-gray-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              </svg>
+              Save &amp; Continue Later
+            </button>
+            <button type="button" id="btn-next" onclick="nextStep()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition cursor-pointer">
+              Next Step
+            </button>
+          </div>
         </div>
 
       </form>
@@ -468,7 +664,68 @@
 <div id="footer-placeholder"></div>
 
 <script>
-  let currentStep = 2; // Starts at 2 because 1 was the Hub Router
+
+  // --- WAITLIST MODAL ---
+  let waitlistRole = '';
+  function openWaitlistModal(role) {
+    waitlistRole = role;
+    document.getElementById('waitlist-desc').textContent = `Be the first to know when the ${role} assistant launches.`;
+    document.getElementById('waitlist-email').value = '';
+    document.getElementById('waitlist-success').classList.add('hidden');
+    document.getElementById('waitlist-error').classList.add('hidden');
+    document.getElementById('waitlist-modal').classList.remove('hidden');
+  }
+  function closeWaitlistModal() {
+    document.getElementById('waitlist-modal').classList.add('hidden');
+  }
+  async function submitWaitlist() {
+    const email = document.getElementById('waitlist-email').value.trim();
+    const errEl = document.getElementById('waitlist-error');
+    const sucEl = document.getElementById('waitlist-success');
+    errEl.classList.add('hidden');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errEl.textContent = 'Please enter a valid email address.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    try {
+      const res = await fetch('/.netlify/functions/capture-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, role: waitlistRole }),
+      });
+      if (!res.ok) throw new Error('Request failed');
+      sucEl.classList.remove('hidden');
+      setTimeout(() => closeWaitlistModal(), 2500);
+    } catch {
+      errEl.textContent = 'Something went wrong. Please try again.';
+      errEl.classList.remove('hidden');
+    }
+  }
+
+  // --- STEP 1: ASSISTANT SELECTION ---
+  function onAssistantSelect(radio) {
+    // Update card styles
+    document.querySelectorAll('[id^="card-"]').forEach(card => {
+      card.classList.remove('border-emerald-600', 'bg-emerald-50', 'ring-2', 'ring-emerald-600', 'ring-offset-1');
+      card.classList.add('border-gray-200', 'bg-white');
+    });
+    document.querySelectorAll('[id^="check-"]').forEach(el => el.classList.add('hidden'));
+    const cardId = 'card-' + radio.value.toLowerCase().replace(/\s+/g, '-');
+    const checkId = 'check-' + radio.value.toLowerCase().replace(/\s+/g, '-');
+    const card = document.getElementById(cardId);
+    const check = document.getElementById(checkId);
+    if (card) {
+      card.classList.add('border-emerald-600', 'bg-emerald-50', 'ring-2', 'ring-emerald-600', 'ring-offset-1');
+      card.classList.remove('border-gray-200', 'bg-white');
+    }
+    if (check) check.classList.remove('hidden');
+    document.getElementById('nav-subtitle').textContent = '| ' + radio.value;
+  }
+
+  // window.validateCurrentStep is defined below after all helpers are in scope
+  // --- 1. CONFIG & STATE ---
+  let currentStep = 1;
   const totalSteps = 8;
   let workflowStepCount = 1;
   const missingFallback = "⚠️ [MISSING - PLEASE UPDATE]";
@@ -481,18 +738,48 @@
   };
   const activeTier = tierConfig[currentTierKey];
 
+  const handlePatterns = {
+    'fb': { regex: /^(https?:\/\/)?(www\.)?facebook\.com\/[\w.-]+$/, example: "https://facebook.com/yourpage" },
+    'ig': { regex: /^@?[a-zA-Z0-9._]{1,30}$/, example: "@yourbrand" },
+    'li': { regex: /^(https?:\/\/)?(www\.)?linkedin\.com\/(in|company)\/[\w-]+\/?$/, example: "https://linkedin.com/in/yourprofile" },
+    'x':  { regex: /^@?[a-zA-Z0-9_]{1,15}$/, example: "@yourhandle" }
+  };
+
+  // --- 2. DOM INITIALIZATION & HYDRATION ---
   document.addEventListener("DOMContentLoaded", async () => {
     loadComponent("footer-placeholder", "./components/footer.html");
 
-    document.querySelectorAll('input, textarea').forEach(el => {
+    // Resume existing draft
+    await hydrateDraft();
+
+    // Show cancel-recovery banner when returning from Stripe checkout cancellation
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('cancelled') === 'true') {
+      document.getElementById('cancel-recovery-banner').classList.remove('hidden');
+      // Jump straight to the final review step so they can re-submit without re-doing everything
+      currentStep = totalSteps;
+      updateUI();
+      window.history.replaceState({}, '', window.location.pathname + '?tier=' + currentTierKey);
+    }
+
+    autoExpandTextareas();
+
+    document.querySelectorAll('input, textarea, select').forEach(el => {
+      // Clear errors
       el.addEventListener('input', function() {
         this.classList.remove('input-error');
         const errorMsg = this.parentNode.querySelector('.error-msg');
         if(errorMsg) errorMsg.classList.add('hidden');
       });
+      // Trigger background sync on any change
+      el.addEventListener('input', triggerAutoSave);
+      el.addEventListener('change', triggerAutoSave);
     });
 
-    // Clear inline radio errors on change
+    document.querySelectorAll('input[id$="_handle"]').forEach(input => {
+      input.addEventListener('input', function() { validateHandle(this.id.split('_')[0], this); });
+    });
+
     document.querySelectorAll('input[type="radio"]').forEach(el => {
       el.addEventListener('change', function() {
         if (this.name === 'trigger_type') document.getElementById('error-trigger')?.classList.add('hidden');
@@ -501,50 +788,678 @@
     });
   });
 
-  async function loadComponent(placeholderId, filePath) {
+  // --- 3. AUTO-SAVE ENGINE & HYDRATION ---
+  let saveDraftTimeout;
+
+  function updateDraftStatus(state) {
+    const statusEl = document.getElementById('draft-save-status');
+    const iconEl = document.getElementById('draft-icon');
+    const textEl = document.getElementById('draft-text');
+    if (!statusEl) return;
+
+    statusEl.classList.remove('hidden');
+    statusEl.classList.add('flex');
+
+    if (state === 'saving') {
+      statusEl.classList.remove('opacity-0');
+      iconEl.innerHTML = `<svg class="animate-spin w-3 h-3 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" class="opacity-75"></path></svg>`;
+      textEl.textContent = 'Saving...';
+      statusEl.className = 'flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700 shadow-sm transition-all duration-300';
+    } else if (state === 'saved') {
+      iconEl.innerHTML = `<svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+      textEl.textContent = 'Saved';
+      statusEl.className = 'flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700 shadow-sm transition-all duration-300';
+      setTimeout(() => statusEl.classList.add('opacity-0'), 3000);
+    }
+  }
+
+  function getFormData() {
+    const data = {
+      client_name: sessionStorage.getItem('aura_client_name') || '',
+      business_name: sessionStorage.getItem('aura_business_name') || '',
+      assistant_name: sessionStorage.getItem('aura_assistant_name') || '',
+    };
+
+    document.querySelectorAll('#intake-form input, #intake-form textarea, #intake-form select').forEach(el => {
+      if (el.id) {
+        if (el.type === 'checkbox') data[el.id] = el.checked;
+        else if (el.type === 'radio') { if (el.checked) data[el.name] = el.value; }
+        else data[el.id] = el.value;
+      }
+    });
+
+    // Special capture for dynamic link fields without unique IDs
+    const links = [];
+    document.querySelectorAll('.braintrust-link-input').forEach(input => {
+      if (input.value.trim() !== '') links.push(input.value.trim());
+    });
+    data['braintrust_links'] = links;
+
+    return data;
+  }
+
+  async function saveDraftToBackend() {
+    updateDraftStatus('saving');
     try {
-      const response = await fetch(filePath);
-      if (response.ok) document.getElementById(placeholderId).innerHTML = await response.text();
-    } catch (error) { console.error(`Error loading ${filePath}:`, error); }
+      const res = await fetch('/.netlify/functions/onboarding-draft', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentStep: currentStep,
+          onboardingPath: 'social_media',
+          draftData: getFormData()
+        })
+      });
+      if (res.ok) updateDraftStatus('saved');
+    } catch (e) { console.error("Draft save failed", e); }
   }
 
-  function showUpsellModal(message) {
-    document.getElementById('upsell-message').innerHTML = message;
-    document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+  function triggerAutoSave() {
+    const statusEl = document.getElementById('draft-save-status');
+    if(statusEl) statusEl.classList.remove('opacity-0');
+    updateDraftStatus('saving');
+
+    clearTimeout(saveDraftTimeout);
+    saveDraftTimeout = setTimeout(saveDraftToBackend, 1500); // Wait 1.5s after user stops typing
   }
-  function closeUpsellModal() {
-    document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
+
+  async function hydrateDraft() {
+    try {
+      const res = await fetch('/.netlify/functions/onboarding-draft');
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.draft && resData.draft.onboardingPath === 'social_media') {
+          const data = resData.draft.draftData;
+
+          // Restore Session Storage Memory
+          if(data.client_name) sessionStorage.setItem('aura_client_name', data.client_name);
+          if(data.business_name) sessionStorage.setItem('aura_business_name', data.business_name);
+          if(data.assistant_name) sessionStorage.setItem('aura_assistant_name', data.assistant_name);
+
+          // 1. Rebuild dynamic workflow rows BEFORE hydrating them
+          let wfCount = 0;
+          Object.keys(data).forEach(key => {
+            if (key.startsWith('workflow_step_')) {
+              const stepNum = parseInt(key.split('_')[2]);
+              if (stepNum > wfCount) wfCount = stepNum;
+            }
+          });
+
+          if (wfCount > 0) {
+            const container = document.getElementById('workflow-steps-container');
+            container.innerHTML = '';
+            workflowStepCount = 0;
+            for (let i = 1; i <= wfCount; i++) {
+              if (data[`workflow_step_${i}`] !== undefined) {
+                workflowStepCount++;
+                container.insertAdjacentHTML('beforeend', `
+                                  <div class="flex items-start workflow-step-row step-active mt-4">
+                                      <div class="bg-gray-200 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
+                                      <div class="w-full relative ml-4">
+                                          <textarea id="workflow_step_${workflowStepCount}" class="workflow-step-input auto-expand-textarea w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm">${data[`workflow_step_${i}`]}</textarea>
+                                      </div>
+                                  </div>`);
+              }
+            }
+          }
+
+          // 2. Rebuild dynamic Brain Trust links
+          if (data['braintrust_links'] && data['braintrust_links'].length > 0) {
+            const container = document.getElementById('dynamic_links_container');
+            container.innerHTML = '<label class="block text-sm font-bold text-gray-700 mb-1">Add reference documents or websites</label>';
+            data['braintrust_links'].forEach(link => {
+              container.insertAdjacentHTML('beforeend', `
+                              <div class="flex items-center gap-2 link-row mt-3">
+                                <input type="url" value="${link}" class="braintrust-link-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="https://...">
+                                <button type="button" onclick="removeLink(this)" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition trash-btn" title="Remove Link">🗑️</button>
+                              </div>
+                          `);
+            });
+            toggleTrashIcons();
+          }
+
+          // 3. Hydrate standard fields
+          Object.keys(data).forEach(key => {
+            const el = document.getElementById(key);
+            if (el) {
+              if (el.type === 'checkbox') el.checked = data[key];
+              else if (el.type !== 'radio') el.value = data[key];
+            } else {
+              const radios = document.getElementsByName(key);
+              radios.forEach(r => { if (r.value === data[key]) r.checked = true; });
+            }
+          });
+
+          // 4. Retrigger UI specific toggles based on hydrated values
+          toggleScheduleDetails();
+          toggleContentSourceDetails();
+          ['fb', 'ig', 'li', 'x'].forEach(p => {
+            const chk = document.getElementById(`chk_${p}`);
+            if(chk) toggleHandleInput(`${p}_handle_container`, chk.checked);
+          });
+
+          // 5. Resume User Location
+          currentStep = resData.draft.currentStep || 1;
+          updateUI();
+          if (currentStep >= 7) generateSummary();
+        }
+      }
+    } catch(e) { console.warn("No draft found or network offline."); }
   }
 
-  // --- Suggestion Populator Engine w/ Animation ---
-  function populateProblem(text) {
-    const textarea = document.getElementById('user_story_problem');
-    textarea.value = text;
+  // --- 4. AUTO-EXPANSION ENGINE ---
+  function autoExpandTextareas() {
+    document.querySelectorAll('.auto-expand-textarea').forEach(textarea => {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 400);
+      textarea.style.height = newHeight + 'px';
+      textarea.style.overflowY = textarea.scrollHeight > 400 ? 'scroll' : 'hidden';
+    });
+  }
 
-    // Clear any previous error states
-    textarea.classList.remove('input-error');
-    const errorMsg = textarea.parentNode.querySelector('.error-msg');
-    if (errorMsg) errorMsg.classList.add('hidden');
+  document.addEventListener('input', (e) => {
+    if (e.target.classList.contains('auto-expand-textarea')) {
+      autoExpandTextareas();
+    }
+  });
 
-    // Apply temporary inline styles to create a "Pulse/Glow" effect
-    textarea.style.transition = 'all 0.3s ease';
-    textarea.style.backgroundColor = '#ecfdf5'; // Tailwind emerald-50
-    textarea.style.borderColor = '#10b981';     // Tailwind emerald-500
-    textarea.style.transform = 'scale(1.02)';
-    textarea.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.2)'; // Emerald ring
+  // --- 5. VALIDATION LOGIC ---
+  function validateHandle(platform, inputEl) {
+    const errorMsg = inputEl.parentNode.querySelector('.handle-feedback') || createErrorEl(inputEl);
+    let fullUrl = inputEl.value.trim();
 
-    // Revert back to original state after 400ms
-    setTimeout(() => {
-      textarea.style.backgroundColor = '';
-      textarea.style.borderColor = '';
-      textarea.style.transform = 'scale(1)';
-      textarea.style.boxShadow = '';
-    }, 400);
+    // EXTRACTION LOGIC: Normalize full URLs to just the handle/path
+    let cleanHandle = fullUrl
+            .replace(/^https?:\/\/(www\.)?facebook\.com\//i, '')
+            .replace(/^https?:\/\/(www\.)?instagram\.com\//i, '')
+            .replace(/^https?:\/\/(www\.)?linkedin\.com\/(in|company)\//i, '')
+            .replace(/^https?:\/\/(www\.)?twitter\.com\//i, '')
+            .replace(/^https?:\/\/(www\.)?x\.com\//i, '')
+            .replace('@', '')
+            .replace(/\/$/, '');
+
+    // Format check
+    const isValidFormat = handlePatterns[platform].regex.test(fullUrl) || handlePatterns[platform].regex.test(cleanHandle);
+
+    if (!isValidFormat) {
+      showError(inputEl, errorMsg, `Please enter a valid format, e.g., ${handlePatterns[platform].example}`);
+      return false;
+    } else {
+      showSuccess(inputEl, errorMsg);
+      return true;
+    }
+  }
+
+  // Inject strict Tailwind text colors to override default div styling
+  function showSuccess(el, err) {
+    el.classList.remove('animate-pulse', 'input-error', 'border-red-500');
+    el.classList.add('border-green-500');
+    err.innerText = '✓ Verified';
+    err.className = 'handle-feedback text-sm font-bold text-green-600 mt-1 block';
+  }
+
+  function showError(el, err, msg) {
+    el.classList.remove('animate-pulse', 'border-green-500');
+    el.classList.add('input-error', 'border-red-500');
+    err.innerText = msg;
+    err.className = 'handle-feedback text-sm font-bold text-red-600 mt-1 block';
+  }
+
+  function createErrorEl(el) {
+    const div = document.createElement('div');
+    div.className = 'handle-feedback text-red-500 text-xs font-bold mt-1 block';
+    el.parentNode.appendChild(div);
+    return div;
+  }
+
+  window.validateCurrentStep = function() {
+    let isValid = true;
+
+    // --- Step 1 Validation: assistant must be selected ---
+    if (currentStep === 1) {
+      if (!document.querySelector('input[name="selected_assistant"]:checked')) {
+        alert('Please select a Digital Assistant to continue.');
+        return false;
+      }
+      return true;
+    }
+
+    // --- Step 2 Validation ---
+    if (currentStep === 2) {
+      // Objective
+      if (!document.querySelector('input[name="primary_objective"]:checked')) {
+        document.getElementById('error-objective')?.classList.remove('hidden');
+        isValid = false;
+      } else {
+        document.getElementById('error-objective')?.classList.add('hidden');
+      }
+      // Bottleneck
+      const prob = document.getElementById('user_story_problem');
+      if (prob.value.trim().length < 10) {
+        prob.classList.add('input-error');
+        prob.nextElementSibling.classList.remove('hidden');
+        isValid = false;
+      }
+    }
+    // --- Step 3 Validation ---
+    else if (currentStep === 3) {
+      if (!document.querySelector('input[name="trigger_type"]:checked')) {
+        document.getElementById('error-trigger')?.classList.remove('hidden');
+        isValid = false;
+      }
+      if (!document.querySelector('input[name="content_source"]:checked')) {
+        document.getElementById('error-source')?.classList.remove('hidden');
+        isValid = false;
+      }
+    }
+    // --- Step 4 Validation ---
+    else if (currentStep === 4) {
+      ['val_assistant_name', 'val_audience', 'val_tone', 'val_pillars', 'val_core_message', 'val_cta'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || el.value.trim() === '') {
+          if (el) el.classList.add('input-error');
+          if (id === 'val_assistant_name') document.getElementById('error-assistant-name')?.classList.remove('hidden');
+          if (id === 'val_core_message') document.getElementById('error-core-message')?.classList.remove('hidden');
+          if (id === 'val_cta') document.getElementById('error-cta')?.classList.remove('hidden');
+          isValid = false;
+        }
+      });
+
+      // NEW: Block progression if the name fails DB uniqueness
+      if (!isNameUnique) {
+        document.getElementById('val_assistant_name').classList.add('input-error', 'border-red-500');
+        document.getElementById('error-assistant-duplicate').classList.remove('hidden');
+        document.getElementById('val_assistant_name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        isValid = false;
+      }
+    }
+    // --- Step 5 Validation (With Auto-Prefixing) ---
+    else if (currentStep === 5) {
+      let hasPlatform = false, allHandlesValid = true;
+      const prefixes = { 'fb': 'https://facebook.com/', 'li': 'https://linkedin.com/' };
+
+      for (const p of ['fb', 'ig', 'li', 'x']) {
+        const chk = document.getElementById(`chk_${p}`);
+        if (chk?.checked) {
+          hasPlatform = true;
+          const handleEl = document.getElementById(`${p}_handle`);
+          let val = handleEl.value.trim();
+
+          // Apply auto-prefixing if needed
+          if (prefixes[p] && val !== '' && !val.startsWith('http')) {
+            val = prefixes[p] + val.replace(/^\//, '');
+            handleEl.value = val;
+          }
+
+          // Use the newly synchronous validateHandle to check format
+          const isFormatValid = validateHandle(p, handleEl);
+          if (!isFormatValid) {
+            allHandlesValid = false;
+            handleEl.classList.add('input-error');
+          }
+        }
+      }
+
+      if (!hasPlatform) {
+        alert("Please select a platform.");
+        isValid = false;
+      } else if (!allHandlesValid) {
+        isValid = false;
+      }
+    }
+
+    return isValid;
+  }
+
+  // --- 6. WORKFLOW & BRIEF GENERATION ---
+  function toggleHandleInput(containerId, isChecked) {
+    document.getElementById(containerId).classList.toggle('hidden', !isChecked);
+    // Link to Algorithm Helper Blocks
+    const platformKey = containerId.split('_')[0];
+    const algoBlock = document.getElementById(`algo_block_${platformKey}`);
+    if (algoBlock) algoBlock.classList.toggle('hidden', !isChecked);
+
+    // Toggle master container
+    const hasPlatform = ['fb', 'ig', 'li', 'x'].some(p => document.getElementById(`chk_${p}`)?.checked);
+    document.getElementById('algorithm_helpers_container').classList.toggle('hidden', !hasPlatform);
+  }
+
+  function addWorkflowStep() {
+    workflowStepCount++;
+    const stepHtml = `
+      <div class="flex items-start workflow-step-row step-active mt-4">
+        <div class="bg-gray-200 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
+        <div class="w-full relative ml-4">
+          <textarea id="workflow_step_${workflowStepCount}" class="workflow-step-input auto-expand-textarea w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="Describe the next action..."></textarea>
+        </div>
+      </div>`;
+    document.getElementById('workflow-steps-container').insertAdjacentHTML('beforeend', stepHtml);
+    autoExpandTextareas();
+  }
+
+  function autoGenerateWorkflowAndRules() {
+    const triggerEl = document.querySelector('input[name="trigger_type"]:checked');
+    const sourceEl = document.querySelector('input[name="content_source"]:checked');
+    const audience = document.getElementById('val_audience')?.value || '[Target Audience]';
+    const pillars = document.getElementById('val_pillars')?.value || '[Core Topics]';
+    const visuals = document.getElementById('val_visuals')?.value || 'Text Only';
+
+    const container = document.getElementById('workflow-steps-container');
+    container.innerHTML = '';
+    workflowStepCount = 0;
+
+    [ `${triggerEl?.value || 'Upon activation'}, research topics focusing on: ${pillars}.`,
+      `Draft copy for ${audience}.`,
+      !visuals.includes('Text Only') ? `Process visual assets: ${visuals}.` : null,
+      `Stage final content.` ].filter(Boolean).forEach(text => {
+      workflowStepCount++;
+      container.insertAdjacentHTML('beforeend', `
+        <div class="flex items-start mt-4">
+          <div class="bg-gray-200 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
+          <div class="w-full ml-4"><textarea id="workflow_step_${workflowStepCount}" class="workflow-step-input auto-expand-textarea w-full border rounded-lg p-3 shadow-sm">${text}</textarea></div>
+        </div>`);
+    });
+    autoExpandTextareas();
+  }
+
+  window.globalRawInputs = {}; // Store raw answers for backend compilation
+
+  function generateSummary() {
+    const hasValue = (val) => val && val.trim() !== '' && val !== missingFallback;
+
+    // Data Gathering
+    const problem = document.getElementById('user_story_problem').value || missingFallback;
+    const finalAssistantName = document.getElementById('val_assistant_name')?.value || missingFallback;
+    const triggerText = document.querySelector('input[name="trigger_type"]:checked')?.nextElementSibling.querySelector('span').innerText || missingFallback;
+    const sourceText = document.querySelector('input[name="content_source"]:checked')?.nextElementSibling.querySelector('span').innerText || missingFallback;
+
+    let platforms = [];
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      const chk = document.getElementById(`chk_${p}`);
+      if (chk && chk.checked) {
+        platforms.push(`${chk.value} (${document.getElementById(`${p}_handle`)?.value || missingFallback})`);
+      }
+    });
+
+    let generalPreferences = [];
+    let strictRules = [];
+
+    const objectiveMap = { brand_awareness: 'Brand Awareness', lead_generation: 'Lead Generation', direct_sales: 'Direct Sales', community_engagement: 'Community & Engagement' };
+    const objectiveVal = document.querySelector('input[name="primary_objective"]:checked')?.value || '';
+    const objectiveLabel = objectiveMap[objectiveVal] || objectiveVal;
+    const coreMessage = document.getElementById('val_core_message')?.value || '';
+    const ctaText = document.getElementById('val_cta')?.value || '';
+    const incentiveText = document.getElementById('val_incentive')?.value || '';
+
+    if (objectiveLabel) generalPreferences.push(`- Primary Objective: ${objectiveLabel}`);
+    if (hasValue(coreMessage)) generalPreferences.push(`- Core Message: ${coreMessage}`);
+    if (hasValue(ctaText)) generalPreferences.push(`- Primary CTA: ${ctaText}`);
+    if (hasValue(incentiveText)) generalPreferences.push(`- Incentive: ${incentiveText}`);
+    if (hasValue(document.getElementById('val_audience')?.value)) generalPreferences.push(`- Target Audience: ${document.getElementById('val_audience').value}`);
+    if (hasValue(document.getElementById('val_pillars')?.value)) generalPreferences.push(`- Core Topics: ${document.getElementById('val_pillars').value}`);
+    if (hasValue(document.getElementById('val_tone')?.value)) generalPreferences.push(`- Preferred Tone: ${document.getElementById('val_tone').value}`);
+
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      if (document.getElementById(`chk_${p}`)?.checked) {
+        const customTags = document.getElementById(`algo_custom_tags_${p}`)?.value;
+        if (document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value === 'strict_custom' && hasValue(customTags)) {
+          strictRules.push(`- MUST DO (${document.getElementById(`chk_${p}`).value}): ONLY use exactly these tags: ${customTags}.`);
+        }
+        if (p === 'fb' && document.getElementById('fb_opt_groups')?.checked) strictRules.push(`- MUST DO (Facebook): Draft version optimized for Facebook Groups.`);
+        if (p === 'li' && document.getElementById('li_opt_links')?.checked) strictRules.push(`- NEVER DO (LinkedIn): External URLs in first comment only.`);
+      }
+    });
+
+    const userRules = document.getElementById('acceptance_criteria_rules')?.value;
+    if (hasValue(userRules)) {
+      userRules.split('\n').forEach(rule => { if (hasValue(rule)) strictRules.push(`- NON-NEGOTIABLE: ${rule.trim()}`); });
+    }
+
+    let workflowText = "";
+    let workflowCount = 0;
+    document.querySelectorAll('.workflow-step-input').forEach((input, i) => {
+      if(input.value.trim() !== '') {
+        workflowText += `${i + 1}. ${input.value}\n`;
+        workflowCount++;
+      }
+    });
+
+    const brainTrustText = document.getElementById('val_braintrust_text')?.value || '';
+    const linkInputs = document.querySelectorAll('.braintrust-link-input');
+    const validLinks = [];
+
+    linkInputs.forEach(input => {
+      const url = input.value.trim();
+      if (url !== '' && input.checkValidity()) validLinks.push(url);
+    });
+
+    if (hasValue(brainTrustText)) strictRules.push(`- KNOWLEDGE BASE (TEXT): Consider the following brand stories and context: "${brainTrustText}"`);
+    if (validLinks.length > 0) strictRules.push(`- KNOWLEDGE BASE (LINKS): MUST DO: Always cross-reference facts and adopt the tone found at these sources: ${validLinks.join(', ')}`);
+
+    // SCENARIO 2 & 3: Store raw inputs so the backend can compile them securely
+    window.globalRawInputs = {
+      problem,
+      primary_objective: objectiveVal,
+      core_message: coreMessage,
+      cta: ctaText,
+      incentive: incentiveText,
+      triggerText,
+      sourceText,
+      platforms,
+      generalPreferences,
+      workflowText,
+      strictRules
+    };
+
+    // EPIC 2, SCENARIO 3: Verification of data integrity detailed view
+    const summaryHTML = `
+      <div class="grid grid-cols-1 gap-6 text-left">
+          <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
+              <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Strategy & Core Identity</span>
+              <ul class="text-sm text-gray-900 space-y-2">
+                  <li><b>Assistant Name:</b> <span class="font-medium text-emerald-800">${finalAssistantName}</span></li>
+                  <li><b>Primary Objective:</b> <span class="font-medium">${objectiveLabel || '—'}</span></li>
+                  <li><b>Core Message:</b> <span class="font-medium italic">${hasValue(coreMessage) ? '"' + coreMessage.substring(0, 80) + (coreMessage.length > 80 ? '…' : '') + '"' : '—'}</span></li>
+                  <li><b>CTA:</b> <span class="font-medium">${ctaText || '—'}</span></li>
+                  <li><b>Trigger:</b> <span class="font-medium">${triggerText}</span></li>
+                  <li><b>Data Source:</b> <span class="font-medium">${sourceText}</span></li>
+                  <li><b>Bottleneck:</b> <span class="font-medium italic">"${problem.substring(0, 80)}${problem.length > 80 ? '...' : ''}"</span></li>
+              </ul>
+          </div>
+          
+          <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
+              <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Platforms & Strategy</span>
+              <ul class="text-sm text-gray-900 space-y-2">
+                  <li><b>Platforms:</b> <span class="font-medium">${platforms.length > 0 ? platforms.join(', ') : missingFallback}</span></li>
+                  <li><b>Target Audience:</b> <span class="font-medium">${document.getElementById('val_audience')?.value || missingFallback}</span></li>
+                  <li><b>Content Pillars:</b> <span class="font-medium">${document.getElementById('val_pillars')?.value || missingFallback}</span></li>
+                  <li><b>Tone of Voice:</b> <span class="font-medium">${document.getElementById('val_tone')?.value || missingFallback}</span></li>
+              </ul>
+          </div>
+
+          <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
+              <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Guardrails & Knowledge Base</span>
+              <ul class="text-sm text-gray-900 space-y-2">
+                  <li><b>Workflow Steps:</b> <span class="font-medium">${workflowCount} automated actions configured.</span></li>
+                  <li><b>Strict Rules:</b> <span class="font-medium">${strictRules.length} explicit constraints applied.</span></li>
+                  <li><b>Reference Links:</b> <span class="font-medium">${validLinks.length} URLs attached.</span></li>
+              </ul>
+          </div>
+      </div>
+      
+      <div class="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex gap-3 shadow-sm">
+          <span class="text-xl">🔒</span>
+          <p class="text-sm text-emerald-800 font-medium">Your inputs are securely transmitted and verified. If any data mapping fails during generation, the deployment will automatically halt to protect against partial or hallucinated logic.</p>
+      </div>
+    `;
+
+    document.getElementById('summary_container').innerHTML = summaryHTML;
+  }
+
+  // --- 7. NAVIGATION & SUBMISSION ---
+  function nextStep() {
+    if (!validateCurrentStep()) {
+      const firstInvalid = document.querySelector('.input-error');
+      firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (currentStep === 5 && workflowStepCount === 1) autoGenerateWorkflowAndRules();
+    if (currentStep === 6) generateSummary();
+
+    if (currentStep < totalSteps) {
+      currentStep++;
+      updateUI();
+      saveDraftToBackend(); // Force synchronous save on navigation
+    } else {
+      submitToBackend();
+    }
+  }
+
+  function prevStep() {
+    if (currentStep > 1) {
+      currentStep--;
+      updateUI();
+      saveDraftToBackend(); // Save progress even if they step backward
+    } else {
+      // Returning to step 1 (onboarding.html). Append ?restart=true to bypass auto-redirect loop
+      window.location.href = `onboarding.html?tier=${currentTierKey}&restart=true`;
+    }
+  }
+
+  function updateUI() {
+    for (let i = 1; i <= totalSteps; i++) {
+      document.getElementById(`step-${i}`)?.classList.toggle('step-active', i === currentStep);
+      document.getElementById(`step-${i}`)?.classList.toggle('step-hidden', i !== currentStep);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    autoExpandTextareas();
+    document.getElementById('progress-bar').style.width = `${(currentStep / totalSteps) * 100}%`;
+
+    // Hide "Save & Continue Later" on the final submit step
+    const saveExitBtn = document.getElementById('btn-save-exit');
+    if (saveExitBtn) saveExitBtn.classList.toggle('invisible', currentStep === totalSteps);
+  }
+
+  async function saveAndExit() {
+    const btn = document.getElementById('btn-save-exit');
+    if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+    await saveDraftToBackend();
+    window.location.href = 'workspace.html?draft=saved';
+  }
+
+  async function submitToBackend() {
+
+    // Extract exact values for the specific Social Media Manager requirements
+    // 1. Extract exact values
+    const extractedPlatforms = [];
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+      if (document.getElementById(`chk_${p}`)?.checked) extractedPlatforms.push(p);
+    });
+
+    const structuredContext = {
+      primary_objective: document.querySelector('input[name="primary_objective"]:checked')?.value || null,
+      core_message: document.getElementById('val_core_message')?.value || null,
+      cta: document.getElementById('val_cta')?.value || null,
+      incentive: document.getElementById('val_incentive')?.value || null,
+      target_audience: document.getElementById('val_audience')?.value || null,
+      content_pillars: document.getElementById('val_pillars')?.value || null,
+      tone_of_voice: document.getElementById('val_tone')?.value || null,
+      posting_frequency: document.getElementById('schedule_frequency')?.value || 'On Demand',
+      primary_platforms: extractedPlatforms,
+      problem_statement: document.getElementById('user_story_problem')?.value || null
+    };
+
+    // 2. Safe Consent Handling: Use optional chaining or fallback to false
+    const getConsent = (id) => document.getElementById(id)?.checked || false;
+
+    const hourlyRateRaw = parseFloat(document.getElementById('val_hourly_rate')?.value);
+    const payload = {
+      clientName: sessionStorage.getItem('aura_client_name') || 'User',
+      businessName: sessionStorage.getItem('aura_business_name') || 'Business',
+      assistantName: sessionStorage.getItem('aura_assistant_name') || 'Social Media Manager',
+      customAssistantName: document.getElementById('val_assistant_name')?.value || 'Digital Assistant',
+      tier: currentTierKey,
+      rawInputs: window.globalRawInputs,
+      onboardingContext: structuredContext,
+      ...(hourlyRateRaw > 0 ? { hourlyRateGbp: hourlyRateRaw } : {}),
+      consents: {
+        legal: getConsent('legal_consent'),
+        no_training: getConsent('no_training_consent'),
+        tos_consent: getConsent('tos_consent')
+      }
+    };
+
+    const btn = document.getElementById('btn-next');
+    btn.disabled = true;
+    btn.innerText = "Processing...";
+
+    // UI Feedback: Switch views
+    document.getElementById('setup-initial-view').classList.add('hidden');
+    document.getElementById('setup-loading-view').classList.remove('hidden');
+
+    // Disable navigation
+    document.getElementById('btn-next').disabled = true;
+    document.getElementById('btn-back').style.display = 'none';
+
+    try {
+      const response = await fetch('/.netlify/functions/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        window.location.href = 'workspace.html';
+      } else if (response.status === 403) {
+        const errData = await response.json();
+        if (errData.code === 'DPA_REQUIRED') {
+          // Show DPA acceptance modal — user must accept before provisioning can proceed
+          document.getElementById('setup-loading-view').classList.add('hidden');
+          const dpaModal = document.getElementById('modal-dpa-onboarding');
+          if (dpaModal) { dpaModal.classList.remove('hidden'); dpaModal.classList.add('flex'); }
+          return;
+        }
+        document.getElementById('setup-initial-view').classList.remove('hidden');
+        document.getElementById('setup-loading-view').classList.add('hidden');
+        document.getElementById('btn-next').disabled = false;
+        document.getElementById('btn-back').style.display = 'block';
+        alert(`Setup failed: ${errData.error}`);
+      } else {
+        document.getElementById('setup-initial-view').classList.remove('hidden');
+        document.getElementById('setup-loading-view').classList.add('hidden');
+        document.getElementById('btn-next').disabled = false;
+        document.getElementById('btn-back').style.display = 'block';
+        const errData = await response.json();
+        alert(`Setup failed: ${errData.error}`);
+      }
+    } catch (err) {
+      document.getElementById('setup-initial-view').classList.remove('hidden');
+      document.getElementById('setup-loading-view').classList.add('hidden');
+      document.getElementById('btn-next').disabled = false;
+      document.getElementById('btn-back').style.display = 'block';
+      alert('Connection failed. Please try again.');
+    }
+  } // end submitToBackend
+
+  // --- 8. UI HELPERS ---
+  function loadComponent(id, file) { fetch(file).then(r => r.ok && r.text().then(t => document.getElementById(id).innerHTML = t)); }
+  function populateProblem(t) { const el = document.getElementById('user_story_problem'); el.value = t; autoExpandTextareas(); triggerAutoSave(); }
+
+  function showUpsellModal(m) { document.getElementById('upsell-message').innerHTML = m; document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0'); }
+  function closeUpsellModal() { document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0'); }
+
+  function checkTier(tier, feat) {
+    const tiers = ['buster', 'saver', 'employee'];
+    if (tiers.indexOf(currentTierKey) < tiers.indexOf(tier)) {
+      showUpsellModal(`The <strong>${feat}</strong> feature is available on the <strong>${tier.toUpperCase()}</strong> plan.`);
+      return false;
+    }
+    return true;
   }
 
   function toggleScheduleDetails() {
     const triggerEl = document.querySelector('input[name="trigger_type"][value="scheduled"]');
-    document.getElementById('schedule_detail').classList.toggle('hidden', !(triggerEl && triggerEl.checked));
+    document.getElementById('schedule_detail')?.classList.toggle('hidden', !(triggerEl && triggerEl.checked));
   }
 
   function toggleContentSourceDetails() {
@@ -553,517 +1468,333 @@
     if(checked) checked.closest('label').querySelector('.content-source-detail').classList.remove('hidden');
   }
 
-  function toggleHandleInput(containerId, isChecked) {
-    document.getElementById(containerId).classList.toggle('hidden', !isChecked);
-
-    // Toggle the corresponding Algorithm Helper block based on the checkbox
-    const platformKey = containerId.split('_')[0]; // Extacts 'fb', 'ig', etc.
-    const algoBlock = document.getElementById(`algo_block_${platformKey}`);
-    if (algoBlock) {
-      algoBlock.classList.toggle('hidden', !isChecked);
-    }
-
-    // Check if ANY platform is selected. If yes, show the master algorithm container.
-    let hasPlatform = false;
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-      const chk = document.getElementById(`chk_${p}`);
-      if (chk && chk.checked) hasPlatform = true;
-    });
-
-    const algoMasterContainer = document.getElementById('algorithm_helpers_container');
-    if (algoMasterContainer) {
-      algoMasterContainer.classList.toggle('hidden', !hasPlatform);
-    }
-  }
-
-  function toggleAccordion(bodyId, iconId) {
-    const body = document.getElementById(bodyId);
-    const icon = document.getElementById(iconId);
+  function toggleAccordion(id, icon) {
+    const body = document.getElementById(id);
     body.classList.toggle('hidden');
-    icon.innerText = body.classList.contains('hidden') ? '+' : '-';
+    document.getElementById(icon).innerText = body.classList.contains('hidden') ? '+' : '-';
   }
 
-  function validateCurrentStep() {
-    let isValid = true;
+  // --- RANDOM NAME GENERATOR LOGIC ---
+  const assistantNames = [
+    "Gracie", "Charlie", "Mabel", "Nova", "Atlas",
+    "Echo", "Chloe", "Orion", "Sage", "Aura-Bot"
+  ];
+  let currentNameIndex = -1;
 
-    if (currentStep === 2) {
-      const prob = document.getElementById('user_story_problem');
-      if (prob.value.trim().length < 10) { prob.classList.add('input-error'); prob.nextElementSibling.classList.remove('hidden'); isValid = false; }
-    } else if (currentStep === 3) {
-      const trigger = document.querySelector('input[name="trigger_type"]:checked');
-      const errorTrigger = document.getElementById('error-trigger');
-      if (!trigger) {
-        if(errorTrigger) errorTrigger.classList.remove('hidden');
-        isValid = false;
-      } else {
-        if(errorTrigger) errorTrigger.classList.add('hidden');
-        if (trigger.value === 'scheduled') {
-          const freq = document.getElementById('schedule_frequency');
-          const tz = document.getElementById('schedule_timezone');
-          if (freq && freq.value.trim() === '') { freq.classList.add('input-error'); isValid = false; }
-          if (tz && tz.value.trim() === '') { tz.classList.add('input-error'); isValid = false; }
-        }
-      }
+  // --- REAL-TIME UNIQUENESS VALIDATION ---
+  let isNameChecking = false;
+  let isNameUnique = true; // Assume true until checked
 
-      const source = document.querySelector('input[name="content_source"]:checked');
-      const errorSource = document.getElementById('error-source');
-      if (!source) {
-        if(errorSource) errorSource.classList.remove('hidden');
-        isValid = false;
-      } else {
-        if(errorSource) errorSource.classList.add('hidden');
-        if (source.value !== 'assistant_generated') {
-          const detailInput = source.closest('label').querySelector('.content-source-detail input');
-          if (detailInput && detailInput.value.trim() === '') {
-            detailInput.classList.add('input-error');
-            isValid = false;
-          }
-        }
-      }
-    } else if (currentStep === 4) {
-      ['val_audience', 'val_tone', 'val_pillars'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el.value.trim() === '') { el.classList.add('input-error'); isValid = false; }
-      });
-    } else if (currentStep === 5) {
-      let hasPlatform = false;
-      ['fb', 'ig', 'li', 'x'].forEach(p => {
-        const chk = document.getElementById(`chk_${p}`);
-        if (chk && chk.checked) {
-          hasPlatform = true;
+  document.addEventListener("DOMContentLoaded", () => {
+    const nameInput = document.getElementById('val_assistant_name');
 
-          // 1. Validate the Social Media Handle
-          const handle = document.getElementById(`${p}_handle`);
-          if (handle.value.trim() === '') {
-            handle.classList.add('input-error');
-            isValid = false;
-          }
-
-          // 2. NEW: Validate the Custom Tags input if required
-          const algoPref = document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value;
-          if (algoPref === 'strict_custom' || algoPref === 'hybrid') {
-            const tagInput = document.getElementById(`val_algo_tags_${p}`);
-            if (tagInput && tagInput.value.trim() === '') {
-              tagInput.classList.add('input-error');
-              isValid = false;
-            }
-          }
-        }
-      });
-
-      if (!hasPlatform) {
-        alert("Please select at least one social media platform and enter a handle.");
-        isValid = false;
-      }
-    }
-    return isValid;
-  }
-
-  function autoGenerateWorkflowAndRules() {
-    const firstStepInput = document.getElementById('workflow_step_1');
-    if (firstStepInput && firstStepInput.value.trim() !== '') return;
-
-    const source = document.querySelector('input[name="content_source"]:checked')?.value || 'client_provided';
-    const audience = document.getElementById('val_audience')?.value || '[Target Audience]';
-    const pillars = document.getElementById('val_pillars')?.value || '[Core Topics]';
-    const visuals = document.getElementById('val_visuals')?.value || 'Text Only';
-
-    let platforms = [];
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-      if (document.getElementById(`chk_${p}`)?.checked) {
-        platforms.push(document.getElementById(`chk_${p}`).value);
-      }
-    });
-    const platformText = platforms.length > 0 ? platforms.join(', ') : '[Selected Platforms]';
-
-    let steps = [];
-
-    if (source === 'assistant_generated') {
-      steps.push(`Monitor specified feeds and autonomously research relevant industry news concerning: ${pillars}.`);
-    } else if (source === 'hybrid') {
-      steps.push(`Receive the initial brief or client notes and expand upon them using the core content pillars.`);
-    } else {
-      steps.push(`Ingest the raw drafts and notes provided by the client upon trigger.`);
-    }
-
-    steps.push(`Draft social media copy specifically tailored for ${audience}.`);
-
-    if (visuals !== 'Text Only (No visuals needed)') {
-      steps.push(`Process and format visual assets according to the strategy: ${visuals}.`);
-    }
-
-    steps.push(`Format the final content and stage the posts for delivery to: ${platformText}.`);
-
-    const container = document.getElementById('workflow-steps-container');
-    container.innerHTML = '';
-    let workflowStepCount = 0;
-
-    const stepsToRender = steps.slice(0, activeTier.maxSteps);
-
-    stepsToRender.forEach(stepText => {
-      workflowStepCount++;
-      const stepHtml = `
-              <div class="flex items-start workflow-step-row step-active mt-4">
-                  <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
-                  <div class="w-full relative ml-4">
-                      <input type="text" id="workflow_step_${workflowStepCount}" class="workflow-step-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" value="${stepText}">
-                  </div>
-              </div>`;
-      container.insertAdjacentHTML('beforeend', stepHtml);
-    });
-  }
-  function generateBrief() {
-    const missingFallback = "[MISSING - PLEASE UPDATE]";
-
-    // SCENARIO 4: Function to ignore empty or skipped fields entirely
-    const hasValue = (val) => val && val.trim() !== '' && val !== missingFallback;
-
-    const clientName = sessionStorage.getItem('aura_client_name') || 'N/A';
-    const businessName = sessionStorage.getItem('aura_business_name') || 'N/A';
-    const problem = document.getElementById('user_story_problem').value || missingFallback;
-
-    const namePref = document.querySelector('input[name="assistant_name_pref"]:checked')?.value;
-    const customNameInput = document.getElementById('val_assistant_name')?.value;
-    const finalAssistantName = namePref === 'ai_decide'
-            ? '[Assistant to self-determine name]'
-            : (customNameInput || missingFallback);
-
-    const triggerEl = document.querySelector('input[name="trigger_type"]:checked');
-    let triggerText = triggerEl ? triggerEl.nextElementSibling.querySelector('span').innerText : missingFallback;
-    if (triggerEl && triggerEl.value === 'scheduled') {
-      const freq = document.getElementById('schedule_frequency')?.value;
-      if(freq) triggerText += ` (${freq})`;
-    }
-
-    const sourceEl = document.querySelector('input[name="content_source"]:checked');
-    let sourceText = sourceEl ? sourceEl.nextElementSibling.querySelector('span').innerText : missingFallback;
-    if (sourceEl) {
-      const detailInput = sourceEl.closest('label').querySelector('.content-source-detail input');
-      if (detailInput && detailInput.value) sourceText += `: ${detailInput.value}`;
-    }
-
-    let platforms = [];
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-      const chk = document.getElementById(`chk_${p}`);
-      if (chk && chk.checked) {
-        const handleEl = document.getElementById(`${p}_handle`);
-        const handle = handleEl ? handleEl.value : missingFallback;
-        platforms.push(`${chk.value} (${handle})`);
-      }
-    });
-    const platformText = platforms.length > 0 ? platforms.join(', ') : missingFallback;
-
-    // --- SCENARIOS 1, 2 & 3: THE EVALUATION ENGINE ---
-    let generalPreferences = [];
-    let strictRules = [];
-
-    const audience = document.getElementById('val_audience')?.value;
-    const tone = document.getElementById('val_tone')?.value;
-    const pillars = document.getElementById('val_pillars')?.value;
-    const visuals = document.getElementById('val_visuals')?.value;
-    const brainTrust = document.getElementById('val_braintrust')?.value;
-
-    // Evaluate standard fields
-    if (hasValue(audience)) generalPreferences.push(`- Target Audience: Cater content to ${audience}.`);
-    if (hasValue(pillars)) generalPreferences.push(`- Core Topics: Focus on ${pillars}.`);
-    if (hasValue(visuals)) generalPreferences.push(`- Visual Strategy: ${visuals}.`);
-
-    // Simple NLP Evaluation for Tone
-    if (hasValue(tone)) {
-      const tLower = tone.toLowerCase();
-      // If user typed absolute constraints, escalate to Strict Rule
-      if (tLower.includes('never') || tLower.includes('must') || tLower.includes('always') || tLower.includes('no ')) {
-        strictRules.push(`- MUST DO (Tone): Strictly adhere to this boundary: "${tone}"`);
-      } else {
-        generalPreferences.push(`- Preferred Tone: ${tone}`);
-      }
-    }
-
-    if (hasValue(brainTrust)) strictRules.push(`- MUST DO: Always cross-reference facts with Knowledge Base at ${brainTrust}`);
-
-    // Evaluate Platform Algorithms
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-      const chk = document.getElementById(`chk_${p}`);
-      if (chk && chk.checked) {
-        const platformName = chk.value;
-        const algoPref = document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value;
-        const customTags = document.getElementById(`val_algo_tags_${p}`)?.value;
-
-        // Tags Logic Evaluation
-        if (algoPref === 'strict_custom' && hasValue(customTags)) {
-          strictRules.push(`- MUST DO (${platformName}): ONLY use exactly these tags: ${customTags}. NEVER add others.`);
-        } else if (algoPref === 'hybrid' && hasValue(customTags)) {
-          generalPreferences.push(`- ${platformName} Tags: Baseline tags (${customTags}) + 2-3 relevant tags.`);
-        } else if (algoPref === 'ai_decide') {
-          generalPreferences.push(`- ${platformName} Tags: AI full autonomy.`);
-        }
-
-        // Format Logic Evaluation
-        if (p === 'fb') {
-          if (document.getElementById('fb_opt_groups')?.checked) generalPreferences.push(`- ${platformName} Format: Auto-draft secondary version optimized for Groups.`);
-          if (document.getElementById('fb_opt_hooks')?.checked) strictRules.push(`- MUST DO (${platformName}): ALWAYS end posts with high-engagement conversational hooks.`);
-        } else if (p === 'ig') {
-          const format = document.getElementById('ig_opt_format')?.value;
-          if (hasValue(format)) generalPreferences.push(`- ${platformName} Format Priority: ${format}.`);
-          if (document.getElementById('ig_opt_audio')?.checked) generalPreferences.push(`- ${platformName} Audio: Suggest trending audio concepts.`);
-        } else if (p === 'li') {
-          if (document.getElementById('li_opt_links')?.checked) strictRules.push(`- NEVER DO (${platformName}): Do NOT place external URLs in the main text. MUST place them in the first comment.`);
-          if (document.getElementById('li_opt_sliders')?.checked) generalPreferences.push(`- ${platformName} Format: Structure educational posts as PDF Slider outlines.`);
-        } else if (p === 'x') {
-          const length = document.getElementById('x_opt_length')?.value;
-          if (hasValue(length)) generalPreferences.push(`- ${platformName} Post Style: ${length}.`);
-          if (document.getElementById('x_opt_media')?.checked) generalPreferences.push(`- ${platformName} Media: Include placeholders for GIFs/Images.`);
-        }
-      }
+    // Check validation on blur
+    nameInput.addEventListener('blur', async () => {
+      await validateAssistantName(nameInput.value);
     });
 
-    // Capture User's custom typed rules from Step 6
-    const userRules = document.getElementById('acceptance_criteria_rules')?.value;
-    if (hasValue(userRules)) {
-      userRules.split('\n').forEach(rule => {
-        if (hasValue(rule)) strictRules.push(`- NON-NEGOTIABLE: ${rule.trim()}`);
-      });
-    }
-
-    let workflowText = "";
-    document.querySelectorAll('.workflow-step-input').forEach((input, i) => {
-      if(input.value.trim() !== '') workflowText += `${i + 1}. ${input.value}\n`;
+    // Clear errors on typing
+    nameInput.addEventListener('input', () => {
+      document.getElementById('error-assistant-duplicate').classList.add('hidden');
+      document.getElementById('error-assistant-name').classList.add('hidden');
+      nameInput.classList.remove('input-error', 'border-red-500');
+      document.getElementById('name-validation-icon').innerHTML = '';
     });
+  });
 
-    // Compile Evaluated Sections
-    const prefsStr = generalPreferences.length > 0 ? generalPreferences.join('\n') : '- No general preferences configured.';
-    const rulesStr = strictRules.length > 0 ? strictRules.join('\n') : '- No strict rules configured.';
+  async function validateAssistantName(name) {
+    if (!name.trim()) return;
+    isNameChecking = true;
+    const iconContainer = document.getElementById('name-validation-icon');
 
-    // SCENARIO 5: Inject into the UI text box so the user can review and edit
-    const compiledBrief = `===========================================
-    AURA ENGINEERING BRIEF: SOCIAL MEDIA
-===========================================
-
-CLIENT DETAILS
-- Name: ${clientName}
-- Business: ${businessName}
-- Assistant Name: ${finalAssistantName}
-
-1. PROCESS BOTTLENECK
-${problem || missingFallback}
-
-2. SOURCING & TRIGGER
-- Trigger: ${triggerText}
-- Source: ${sourceText}
-
-3. PUBLISHING DESTINATIONS
-- Platforms: ${platformText}
-
-4. GENERAL PREFERENCES & STRATEGY
-${prefsStr}
-
-5. WORKFLOW LOGIC
-${workflowText || missingFallback}
-
-6. NON-NEGOTIABLE STRICT RULES
-${rulesStr}
-
-7. APPROVAL PROTOCOL
-- All requests requiring your sign-off are managed exclusively through your Aura Workspace. You will be notified by email immediately upon the creation of any new request.
-`;
-
-    document.getElementById('generated_brief').value = compiledBrief;
-  }
-
-  function updateUI() {
-    // Hide all steps
-    for (let i = 2; i <= totalSteps; i++) {
-      const stepEl = document.getElementById(`step-${i}`);
-      if(stepEl) { stepEl.classList.remove('step-active'); stepEl.classList.add('step-hidden'); }
-    }
-
-    // Show the new target step
-    const activeStepEl = document.getElementById(`step-${currentStep}`);
-    activeStepEl.classList.remove('step-hidden');
-    activeStepEl.classList.add('step-active');
-
-    // SCENARIO 1 & 3: Scroll to the absolute top of the window consistently
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-
-    // SCENARIO 2: Programmatically shift keyboard/DOM focus for Accessibility
-    // Set a small 50ms timeout to allow the browser to paint the step's visibility first
-    setTimeout(() => {
-      // Target the primary heading of the newly visible step
-      const focusTarget = activeStepEl.querySelector('h2');
-      if (focusTarget) {
-        // Add tabindex="-1" so the heading can receive programmatic focus
-        // without interfering with the user's normal tab flow
-        focusTarget.setAttribute('tabindex', '-1');
-        focusTarget.focus({ preventScroll: true });
-      }
-    }, 50);
-
-    // Update the progress bar
-    document.getElementById('progress-bar').style.width = `${(currentStep / totalSteps) * 100}%`;
-
-    // Update the button states
-    const btnNext = document.getElementById('btn-next');
-    if (currentStep === totalSteps - 1) {
-      btnNext.innerText = "Confirm & Proceed";
-      btnNext.className = "px-8 py-3 bg-gray-800 text-white font-bold rounded-lg shadow hover:bg-gray-900 transition";
-    } else if (currentStep === totalSteps) {
-      btnNext.innerText = "Proceed to Secure Checkout";
-      btnNext.className = "px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition";
-    } else {
-      btnNext.innerText = "Next Step";
-      btnNext.className = "px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition";
-    }
-  }
-
-  function nextStep() {
-    // SCENARIO 4: Dynamic error validation handling
-    if (!validateCurrentStep()) {
-      // Find the first input field that failed validation
-      const firstInvalidField = document.querySelector('.input-error');
-
-      if (firstInvalidField) {
-        // Smoothly scroll to center the input, then focus it
-        firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        firstInvalidField.focus({ preventScroll: true });
-      } else {
-        // Fallback: If the error was a radio button group (which lacks the .input-error class),
-        // find the first visible error message text and scroll to that instead
-        const firstErrorMsg = document.querySelector('.error-msg:not(.hidden)');
-        if (firstErrorMsg) {
-          firstErrorMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-      return; // Stop the function here so the user cannot progress
-    }
-
-    // Trigger auto-generation exactly when leaving Step 5
-    if (currentStep === 5) autoGenerateWorkflowAndRules();
-
-    if (currentStep === 6) generateBrief();
-
-    if (currentStep < totalSteps) { currentStep++; updateUI(); }
-    else { submitToBackend(); }
-  }
-
-  function prevStep() {
-    if (currentStep > 2) { currentStep--; updateUI(); }
-    else { window.location.href = `onboarding.html?tier=${currentTierKey}`; }
-  }
-
-  function addWorkflowStep() {
-    if (workflowStepCount >= activeTier.maxSteps) {
-      showUpsellModal(`Your plan supports up to ${activeTier.maxSteps} workflow steps. Please upgrade.`);
-      return;
-    }
-    workflowStepCount++;
-    const stepHtml = `
-            <div class="flex items-start workflow-step-row step-active mt-4">
-                <div class="bg-gray-200 text-gray-700 rounded-full h-8 w-8 flex items-center justify-center font-bold flex-shrink-0 mt-1">${workflowStepCount}</div>
-                <div class="w-full relative ml-4">
-                    <input type="text" id="workflow_step_${workflowStepCount}" class="workflow-step-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="Describe the next action...">
-                </div>
-            </div>`;
-    document.getElementById('workflow-steps-container').insertAdjacentHTML('beforeend', stepHtml);
-  }
-  async function submitToBackend() {
-    const email = document.getElementById('client_email').value;
-
-    const fullName = sessionStorage.getItem('aura_client_name') || 'New User';
-    const companyName = sessionStorage.getItem('aura_business_name') || '';
-    const tier = sessionStorage.getItem('aura_tier') || 'employee';
-    const assistantName = sessionStorage.getItem('aura_assistant_name') || 'Aura Digital Assistant';
-    const blueprint = document.getElementById('generated_brief').value;
-
-    const customNameInput = document.getElementById('val_assistant_name')?.value;
-    const namePref = document.querySelector('input[name="assistant_name_pref"]:checked')?.value;
-    const finalAssistantName = namePref === 'ai_decide' ? '' : customNameInput;
-
-    // --- Generate the JSON Config for selected platforms & format options ---
-    const algorithmConfig = {};
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-      const chk = document.getElementById(`chk_${p}`);
-      if (chk && chk.checked) {
-        let platformData = {
-          strategy: document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value || 'strict_custom',
-          tags: document.getElementById(`val_algo_tags_${p}`)?.value || ''
-        };
-
-        if (p === 'fb') {
-          platformData.groups = document.getElementById('fb_opt_groups')?.checked;
-          platformData.hooks = document.getElementById('fb_opt_hooks')?.checked;
-        } else if (p === 'ig') {
-          platformData.format = document.getElementById('ig_opt_format')?.value;
-          platformData.audio = document.getElementById('ig_opt_audio')?.checked;
-        } else if (p === 'li') {
-          platformData.links = document.getElementById('li_opt_links')?.checked;
-          platformData.sliders = document.getElementById('li_opt_sliders')?.checked;
-        } else if (p === 'x') {
-          platformData.length = document.getElementById('x_opt_length')?.value;
-          platformData.media = document.getElementById('x_opt_media')?.checked;
-        }
-
-        algorithmConfig[p] = platformData;
-      }
-    });
-
-    // --- NEW: Capture Compliance Checkbox States ---
-    const consentDataProcessing = document.querySelector('input[name="legal_consent"]')?.checked || false;
-    const consentNoTraining = document.querySelector('input[name="no_training_consent"]')?.checked || false;
-    const consentToS = document.querySelector('input[name="tos_consent"]')?.checked || false;
-
-    const nameParts = fullName.split(' ');
-    const firstName = nameParts[0];
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    const btn = document.getElementById('btn-next');
-    btn.innerText = "Processing Blueprint...";
-    btn.disabled = true;
-    btn.classList.add('opacity-75', 'cursor-not-allowed');
+    // Show loading spinner in input
+    iconContainer.innerHTML = `<svg class="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" class="opacity-75"></path></svg>`;
 
     try {
-      const response = await fetch('/.netlify/functions/onboarding', {
+      const res = await fetch(`/.netlify/functions/check-assistant-name?name=${encodeURIComponent(name)}`);
+      if (res.ok) {
+        const data = await res.json();
+        isNameUnique = data.isUnique;
+
+        if (!isNameUnique) {
+          const nameInput = document.getElementById('val_assistant_name');
+          nameInput.classList.add('input-error', 'border-red-500');
+          document.getElementById('error-assistant-duplicate').classList.remove('hidden');
+          iconContainer.innerHTML = `<svg class="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+        } else {
+          iconContainer.innerHTML = `<svg class="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+        }
+      }
+    } catch (e) {
+      iconContainer.innerHTML = '';
+    } finally {
+      isNameChecking = false;
+    }
+  }
+
+  // --- AI NAME GENERATION UI ---
+  function setTheme(theme) {
+    document.getElementById('ai_theme_input').value = theme;
+    generateAINames();
+  }
+
+  async function generateAINames() {
+    const theme = document.getElementById('ai_theme_input').value.trim();
+    if (!theme) return alert('Please enter a theme first.');
+
+    const btn = document.getElementById('btn-generate-names');
+    const resultsContainer = document.getElementById('ai-names-results');
+    const errorContainer = document.getElementById('ai-names-error');
+
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" class="opacity-75"></path></svg> Thinking...`;
+    resultsContainer.innerHTML = '';
+    resultsContainer.classList.add('hidden');
+    errorContainer.classList.add('hidden');
+
+    try {
+      const role = "Social Media Manager"; // Constant derived from current workflow path
+      const res = await fetch('/.netlify/functions/generate-names', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme, role })
+      });
+
+      if (!res.ok) throw new Error("API failed");
+      const data = await res.json();
+
+      if (data.names && data.names.length > 0) {
+        resultsContainer.innerHTML = data.names.map(name =>
+                `<button type="button" onclick="applyGeneratedName('${name.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-md text-sm font-bold transition shadow-sm">${name}</button>`
+        ).join('');
+        resultsContainer.classList.remove('hidden');
+      } else {
+        throw new Error("No names returned");
+      }
+    } catch (e) {
+      errorContainer.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Generate Names';
+    }
+  }
+
+  function applyGeneratedName(name) {
+    const input = document.getElementById('val_assistant_name');
+    input.value = name;
+    input.classList.remove('input-error', 'border-red-500');
+    document.getElementById('error-assistant-name').classList.add('hidden');
+    document.getElementById('error-assistant-duplicate').classList.add('hidden');
+
+    triggerAutoSave();
+    validateAssistantName(name); // Immediately trigger uniqueness verification
+  }
+
+  // Dynamic Link Management
+  function addBrainTrustLink() {
+    const container = document.getElementById('dynamic_links_container');
+    const rowHtml = `
+    <div class="flex items-center gap-2 link-row mt-3">
+      <input type="url" class="braintrust-link-input w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="https://..." oninput="triggerAutoSave()">
+      <button type="button" onclick="removeLink(this)" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition trash-btn" title="Remove Link">
+        🗑️
+      </button>
+    </div>
+  `;
+    container.insertAdjacentHTML('beforeend', rowHtml);
+    toggleTrashIcons();
+    triggerAutoSave();
+  }
+
+  function removeLink(buttonElement) {
+    buttonElement.closest('.link-row').remove();
+    toggleTrashIcons();
+    triggerAutoSave();
+  }
+
+  function toggleTrashIcons() {
+    const rows = document.querySelectorAll('.link-row');
+    const trashBtns = document.querySelectorAll('.trash-btn');
+    if (rows.length > 1) {
+      trashBtns.forEach(btn => btn.classList.remove('hidden'));
+    } else {
+      trashBtns.forEach(btn => btn.classList.add('hidden'));
+    }
+  }
+  async function clearDraftAndRestart() {
+    if (confirm("Are you sure? This will delete your current progress and restart onboarding.")) {
+      try {
+        await fetch('/.netlify/functions/onboarding-draft', { method: 'DELETE' }); // You may need to add a DELETE case to onboarding-draft.ts
+        window.location.href = 'onboarding.html?restart=true';
+      } catch (e) { alert("Could not clear draft."); }
+    }
+  }
+  window.submitToBackend = submitToBackend;
+</script>
+
+<!-- ── "Need help?" floating support widget ──────────────────────────── -->
+<div id="onboarding-help-fab" style="position:fixed;bottom:24px;right:24px;z-index:9999">
+  <!-- FAB button -->
+  <button onclick="window._helpWidgetOpen()" id="help-fab-btn"
+    class="flex items-center gap-2 bg-gray-900 hover:bg-black text-white text-sm font-bold px-4 py-2.5 rounded-full shadow-lg transition-all">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3-3-3z"/>
+    </svg>
+    Need help?
+  </button>
+
+  <!-- Mini-form panel -->
+  <div id="help-widget-panel" class="hidden absolute bottom-14 right-0 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+    <div class="bg-gray-900 px-5 py-4 flex items-center justify-between">
+      <span class="text-white font-bold text-sm">Contact Support</span>
+      <button onclick="window._helpWidgetClose()" class="text-gray-400 hover:text-white text-xl leading-none transition">&times;</button>
+    </div>
+    <!-- Idle form -->
+    <div id="help-form-body" class="p-5 space-y-3">
+      <p class="text-xs text-gray-500 leading-relaxed">Stuck on setup? Tell us what's happening and we'll follow up shortly.</p>
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">Subject</label>
+        <input id="help-subject" type="text" placeholder="e.g. Can't connect my account"
+          class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" maxlength="120">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">Description</label>
+        <textarea id="help-description" rows="3" placeholder="Describe the issue..."
+          class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none" maxlength="2000"></textarea>
+      </div>
+      <div id="help-form-error" class="hidden text-xs text-red-600 font-medium"></div>
+      <button onclick="window._helpWidgetSubmit()" id="help-submit-btn"
+        class="w-full py-2.5 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-lg transition">
+        Send to Support
+      </button>
+    </div>
+    <!-- Success state -->
+    <div id="help-form-success" class="hidden p-5 text-center space-y-3">
+      <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-2xl">✓</div>
+      <p class="text-sm font-bold text-gray-900">Support notified!</p>
+      <p class="text-xs text-gray-500 leading-relaxed">Our team will follow up within 1–2 business days. Your ticket ID is shown in your workspace notifications.</p>
+      <button onclick="window._helpWidgetClose()" class="text-xs text-emerald-600 font-semibold hover:underline">Close</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var panel = document.getElementById('help-widget-panel');
+  var formBody = document.getElementById('help-form-body');
+  var success = document.getElementById('help-form-success');
+
+  window._helpWidgetOpen = function () {
+    panel.classList.remove('hidden');
+    formBody.classList.remove('hidden');
+    success.classList.add('hidden');
+    document.getElementById('help-subject').value = '';
+    document.getElementById('help-description').value = '';
+    document.getElementById('help-form-error').classList.add('hidden');
+  };
+  window._helpWidgetClose = function () { panel.classList.add('hidden'); };
+
+  window._helpWidgetSubmit = async function () {
+    var subject = (document.getElementById('help-subject').value || '').trim();
+    var description = (document.getElementById('help-description').value || '').trim();
+    var errEl = document.getElementById('help-form-error');
+    errEl.classList.add('hidden');
+
+    if (!subject) { errEl.textContent = 'Please enter a subject.'; errEl.classList.remove('hidden'); return; }
+    if (!description) { errEl.textContent = 'Please describe the issue.'; errEl.classList.remove('hidden'); return; }
+
+    var btn = document.getElementById('help-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    // Capture context: page + current wizard step
+    var pageContext = window.location.pathname.replace(/.*\//, '').replace('.html', '');
+    var step = (typeof window.currentStep !== 'undefined') ? window.currentStep : 'unknown';
+    var fullDescription = description + '\n\n---\nPage: ' + pageContext + ' | Step: ' + step;
+
+    try {
+      var res = await fetch('/.netlify/functions/support-tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firstName,
-          lastName,
-          email,
-          companyName,
-          tier,
-          blueprint,
-          assistantName,
-          customAssistantName: finalAssistantName,
-          algorithmConfig: algorithmConfig,
-
-          // --- NEW: Inject the consents and timestamp into the payload ---
-          consents: {
-            dataProcessing: consentDataProcessing,
-            noTraining: consentNoTraining,
-            termsOfService: consentToS,
-            agreedAt: new Date().toISOString() // Captures exact UTC time of submission for the audit trail
-          }
-        })
+          subject: subject,
+          category: 'Onboarding',
+          description: fullDescription,
+        }),
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        console.log(data.message);
-        window.location.href = 'checkout.html';
+      if (res.ok) {
+        formBody.classList.add('hidden');
+        success.classList.remove('hidden');
       } else {
-        alert("Error creating account: " + data.error);
-        btn.innerText = "Proceed to Secure Checkout";
+        var data = await res.json().catch(() => ({}));
+        errEl.textContent = data.error || 'Failed to send — please try again.';
+        errEl.classList.remove('hidden');
         btn.disabled = false;
-        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        btn.textContent = 'Send to Support';
       }
-    } catch (err) {
-      console.error("Network Error:", err);
-      alert("Failed to connect to the server. Please try again.");
-      btn.innerText = "Proceed to Secure Checkout";
+    } catch (e) {
+      errEl.textContent = 'Network error — please try again.';
+      errEl.classList.remove('hidden');
       btn.disabled = false;
-      btn.classList.remove('opacity-75', 'cursor-not-allowed');
+      btn.textContent = 'Send to Support';
     }
+  };
+})();
+</script>
+
+<!-- US-GDPR-1.1.1: DPA acceptance modal for onboarding flow -->
+<div id="modal-dpa-onboarding" class="hidden fixed inset-0 z-[70] items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+    <div class="flex items-start gap-3 mb-4">
+      <span class="text-2xl flex-shrink-0">📋</span>
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">One Last Step — Data Processing Agreement</h2>
+        <p class="text-sm text-gray-500 mt-1">Before your assistant can be activated, your organisation must accept our Data Processing Agreement (DPA) as required by UK GDPR Article 28.</p>
+      </div>
+    </div>
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-5 max-h-48 overflow-y-auto text-sm text-gray-700 leading-relaxed">
+      <p class="font-bold mb-2">Data Processing Agreement — Summary</p>
+      <p class="mb-2">By accepting this agreement, your organisation (the Data Controller) authorises Aura-Assist (the Data Processor) to process personal data on your behalf solely to provide the Aura-Assist platform services, in accordance with your instructions.</p>
+      <p class="mb-2">Aura-Assist commits to: (1) process data only on documented instructions; (2) ensure confidentiality; (3) implement appropriate technical and organisational security measures; (4) assist with data subject rights requests; (5) delete or return all personal data at contract end; (6) provide audit assistance.</p>
+      <p>Sub-processors are listed in our Privacy Policy. Full agreement available at <a href="/privacy.html" target="_blank" class="text-emerald-700 underline">aura-assist.com/privacy</a>.</p>
+    </div>
+    <label class="flex items-start gap-3 mb-6 cursor-pointer">
+      <input type="checkbox" id="dpa-onboarding-checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" onchange="document.getElementById('btn-dpa-onboarding-accept').disabled=!this.checked">
+      <span class="text-sm text-gray-700">I have read and agree to the <a href="/privacy.html#dpa" target="_blank" class="text-emerald-700 underline font-medium">Data Processing Agreement</a> on behalf of my organisation.</span>
+    </label>
+    <button id="btn-dpa-onboarding-accept" onclick="acceptDpaAndRetry()"
+      class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled>
+      Accept DPA &amp; Activate Assistant
+    </button>
+    <p class="text-xs text-gray-400 text-center mt-3">Your acceptance is recorded with timestamp and IP address as legally admissible evidence under UK GDPR Article 28(9).</p>
+  </div>
+</div>
+
+<script>
+async function acceptDpaAndRetry() {
+  const btn = document.getElementById('btn-dpa-onboarding-accept');
+  btn.disabled = true;
+  btn.textContent = 'Recording acceptance…';
+  try {
+    const res = await fetch('/.netlify/functions/accept-dpa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: '1.0' }),
+    });
+    if (!res.ok) throw new Error('Failed');
+    // Hide modal and re-trigger submission
+    document.getElementById('modal-dpa-onboarding').classList.add('hidden');
+    document.getElementById('modal-dpa-onboarding').classList.remove('flex');
+    document.getElementById('setup-loading-view').classList.remove('hidden');
+    document.getElementById('setup-initial-view').classList.add('hidden');
+    if (typeof window.submitToBackend === 'function') window.submitToBackend();
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Accept DPA & Activate Assistant';
+    alert('Failed to record DPA acceptance. Please try again.');
   }
+}
 </script>
 </body>
 </html>

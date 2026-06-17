@@ -1,0 +1,141 @@
+// netlify/functions/storage-request-upload.ts
+// US-STOR-1.2.1: Issues a pre-signed R2 PUT URL for direct client-to-R2 uploads.
+//
+// POST { orgId, assetType, filename, mimeType, fileSizeBytes }
+// → { uploadUrl (15-min TTL), assetId }
+//
+// Auth: caller must be a member of orgId.
+// Quota: fileSizeBytes + usedBytes must not exceed plan storageLimitBytes.
+// MIME: mimeType must be on the allowlist for assetType.
+
+import { Handler } from '@netlify/functions';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import { eq, and } from 'drizzle-orm';
+import { getDb } from '../../db/client';
+import { users, userOrganisations, workspaceAssets, storageUsage, plans, masterPlans } from '../../db/schema';
+import { buildTenantKey } from '../../src/utils/storage-keys';
+
+const JWT_SECRET  = process.env.JWT_SECRET;
+const R2_ENDPOINT = process.env.R2_ENDPOINT;           // https://<accountId>.r2.cloudflarestorage.com
+const R2_ACCESS_KEY_ID     = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_BUCKET   = process.env.R2_BUCKET_NAME;
+
+// AC3/AC14: MIME allowlist per assetType
+const MIME_ALLOWLIST: Record<string, Set<string>> = {
+    brand_logo:       new Set(['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']),
+    brand_document:   new Set(['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']),
+    social_image:     new Set(['image/png', 'image/jpeg', 'image/webp']),
+    voice_recording:  new Set(['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg']),
+    generated_content:new Set(['image/png', 'image/jpeg', 'image/webp']),
+    other:            new Set(['application/pdf', 'text/plain', 'image/png', 'image/jpeg']),
+};
+
+function getR2Client(): S3Client {
+    return new S3Client({
+        region: 'auto',
+        endpoint: R2_ENDPOINT,
+        credentials: { accessKeyId: R2_ACCESS_KEY_ID!, secretAccessKey: R2_SECRET_ACCESS_KEY! },
+    });
+}
+
+export const handler: Handler = async (event) => {
+    if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+    if (!JWT_SECRET) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
+
+    const cookie = (event.headers.cookie || '').match(/aura_session=([^;]+)/)?.[1];
+    if (!cookie) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
+
+    let userId: number;
+    try { userId = (jwt.verify(cookie, JWT_SECRET) as { userId: number }).userId; }
+    catch { return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) }; }
+
+    let body: { orgId?: number; assetType?: string; filename?: string; mimeType?: string; fileSizeBytes?: number };
+    try { body = JSON.parse(event.body || '{}'); }
+    catch { return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON.' }) }; }
+
+    const { orgId, assetType, filename, mimeType, fileSizeBytes } = body;
+    if (!orgId || !assetType || !filename || !mimeType || !fileSizeBytes) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'orgId, assetType, filename, mimeType, fileSizeBytes required.' }) };
+    }
+
+    const db = getDb();
+
+    // AC2: caller must be a member of orgId
+    const [membership] = await db
+        .select({ id: userOrganisations.id })
+        .from(userOrganisations)
+        .where(and(eq(userOrganisations.userId, userId), eq(userOrganisations.organisationId, orgId)))
+        .limit(1);
+    if (!membership) return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden.' }) };
+
+    // AC3/AC14: MIME allowlist check — SVG blocked for social_image and generated_content (AC15)
+    const allowed = MIME_ALLOWLIST[assetType];
+    if (!allowed) return { statusCode: 422, body: JSON.stringify({ error: `Unknown assetType: ${assetType}` }) };
+    if (!allowed.has(mimeType)) {
+        return { statusCode: 422, body: JSON.stringify({ error: `MIME type ${mimeType} not permitted for ${assetType}. Allowed: ${[...allowed].join(', ')}` }) };
+    }
+
+    // AC4: quota check
+    const [usage] = await db.select({ usedBytes: storageUsage.usedBytes }).from(storageUsage).where(eq(storageUsage.organisationId, orgId)).limit(1);
+    const usedBytes = usage?.usedBytes ?? 0;
+    const [planRow] = await db
+        .select({ storageLimitBytes: masterPlans.storageLimitBytes })
+        .from(plans)
+        .leftJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
+        .where(and(eq(plans.organisationId, orgId), eq(plans.status, 'active')))
+        .limit(1);
+    const limitBytes = planRow?.storageLimitBytes ?? null;
+    if (limitBytes !== null && usedBytes + fileSizeBytes > limitBytes) {
+        return { statusCode: 413, body: JSON.stringify({ error: 'storage_quota_exceeded', usedBytes, limitBytes }) };
+    }
+
+    // AC13: hard guard — key MUST begin with a valid orgId prefix; no zero/null can slip through
+    if (!Number.isInteger(orgId) || orgId <= 0) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'Invalid orgId — cannot issue key without valid tenant prefix.' }) };
+    }
+
+    // AC2 key format: /{orgId}/{assetType}/{uuid}.{ext} — derived via shared tenant-key util (AC12/AC13)
+    const r2Key = buildTenantKey(orgId, assetType, filename, crypto.randomUUID());
+
+    // Insert pending workspace_asset row
+    const [asset] = await db.insert(workspaceAssets).values({
+        organisationId: orgId,
+        uploaderId: userId,
+        name: filename,
+        assetType,
+        category: assetType,
+        r2Key,
+        mimeType,
+        fileSizeBytes,
+        originalFilename: filename,
+        status: 'pending',
+    }).returning({ id: workspaceAssets.id });
+
+    // Generate pre-signed PUT URL (AC5: 15-min TTL)
+    if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET) {
+        // Mock mode — R2 not yet configured
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ uploadUrl: `/.netlify/functions/storage-request-upload?mock=1&key=${encodeURIComponent(r2Key)}`, assetId: asset.id, mock: true }),
+        };
+    }
+
+    const s3 = getR2Client();
+    const command = new PutObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: r2Key,          // AC6: scoped to specific key only
+        ContentType: mimeType,
+        ContentLength: fileSizeBytes,
+    });
+    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 }); // 15 minutes
+
+    return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uploadUrl, assetId: asset.id }),
+    };
+};

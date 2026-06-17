@@ -1,0 +1,148 @@
+{
+  "nav": {
+    "how_it_works": "Comment ça marche",
+    "assistant_library": "Bibliothèque d'assistants",
+    "pricing": "Tarifs",
+    "faqs": "FAQ",
+    "log_in": "Se connecter",
+    "log_out": "Se déconnecter",
+    "dashboard": "Tableau de bord",
+    "billing": "Facturation"
+  },
+  "footer": {
+    "tagline": "Déléguez le travail que vous détestez. Nous construisons, hébergeons et gérons vos assistants numériques pour que vous puissiez vous concentrer sur l'essentiel.",
+    "tagline_sub": "Votre équipe numérique invisible. Travaillant en permanence en arrière-plan pour transformer votre chaos quotidien en sérénité.",
+    "platform": "Plateforme",
+    "how_it_works": "Comment ça marche",
+    "assistant_library": "Bibliothèque d'assistants",
+    "pricing": "Tarifs",
+    "faqs": "FAQ",
+    "get_started": "Commencer",
+    "legal": "Mentions légales",
+    "privacy_policy": "Politique de confidentialité",
+    "terms_of_service": "Conditions d'utilisation",
+    "trust_security": "Confiance & Sécurité",
+    "copyright": "© 2026 Aura-Assist. Tous droits réservés.",
+    "language": "Langue"
+  },
+  "common": {
+    "submit": "Envoyer",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "save": "Sauvegarder",
+    "loading": "Chargement…",
+    "error_generic": "Une erreur s'est produite. Veuillez réessayer.",
+    "error_email_invalid": "Veuillez saisir une adresse e-mail valide.",
+    "error_required": "Ce champ est obligatoire.",
+    "error_connection": "Connexion échouée. Veuillez réessayer.",
+    "success": "Succès !",
+    "sending": "Envoi…"
+  },
+  "lang": {
+    "selector_label": "Langue",
+    "en": "English",
+    "fr": "Français",
+    "de": "Deutsch",
+    "es": "Español",
+    "pt": "Português"
+  },
+  "index": {
+    "hero_title": "Déléguez le Travail que Vous Détestez",
+    "hero_subtitle": "Nous construisons, hébergeons et gérons des assistants numériques alimentés par l'IA qui gèrent vos tâches les plus chronophages — pour que vous puissiez vous concentrer sur ce qui compte vraiment.",
+    "hero_cta_primary": "Commencer gratuitement",
+    "hero_cta_secondary": "Voir comment ça marche",
+    "how_it_works_title": "Comment ça marche",
+    "step1_title": "Dites-nous ce qui vous ralentit",
+    "step1_body": "Remplissez un bref formulaire sur la tâche que vous souhaitez automatiser.",
+    "step2_title": "Nous créons votre assistant",
+    "step2_body": "Notre équipe configure et déploie un assistant IA dédié adapté à votre flux de travail.",
+    "step3_title": "Il travaille en arrière-plan",
+    "step3_body": "Votre assistant travaille 24h/24 pour que vous n'ayez pas à le faire."
+  },
+  "pricing": {
+    "title": "Tarifs simples et transparents",
+    "subtitle": "Un assistant. Un abonnement mensuel. Résiliable à tout moment.",
+    "monthly": "Mensuel",
+    "annual": "Annuel",
+    "save_label": "Économisez 20 %",
+    "per_month": "/mois",
+    "billed_monthly": "Facturé mensuellement · résiliable à tout moment",
+    "get_started": "Commencer",
+    "talk_to_sales": "Contacter les ventes entreprises",
+    "currency_label": "Devise"
+  },
+  "assistants": {
+    "page_title": "Bibliothèque d'assistants",
+    "page_subtitle": "Parcourez notre catalogue d'assistants IA. Chacun est conçu pour un rôle métier spécifique.",
+    "join_waitlist": "Rejoindre la liste d'attente",
+    "notify_me": "Me notifier",
+    "hire_assistant": "Recruter cet assistant",
+    "request_role": "Demander un nouveau rôle",
+    "request_role_subtitle": "Vous ne trouvez pas le rôle dont vous avez besoin ? Dites-le nous et nous le créerons.",
+    "role_label": "Rôle / Intitulé du poste",
+    "tasks_label": "Tâches à automatiser",
+    "industry_label": "Votre secteur",
+    "urgency_label": "Quelle urgence ?",
+    "urgency_this_week": "Cette semaine",
+    "urgency_next_month": "Le mois prochain",
+    "urgency_exploring": "Je cherche juste",
+    "submit_request": "Envoyer la demande"
+  },
+  "contact": {
+    "title": "Nous contacter",
+    "email_label": "Votre e-mail",
+    "subject_label": "Sujet",
+    "message_label": "Message",
+    "submit": "Envoyer le message",
+    "success": "Merci ! Nous vous recontacterons très vite."
+  },
+  "register": {
+    "title": "Créer votre compte",
+    "first_name": "Prénom",
+    "last_name": "Nom",
+    "email": "Adresse e-mail",
+    "submit": "Créer un compte",
+    "login_link": "Vous avez déjà un compte ? Connectez-vous"
+  },
+  "validation": {
+    "email_required": "L'adresse e-mail est obligatoire.",
+    "email_invalid": "Veuillez saisir une adresse e-mail valide.",
+    "name_required": "Le nom est obligatoire.",
+    "field_required": "Ce champ est obligatoire.",
+    "role_required": "Veuillez saisir un nom de rôle.",
+    "tasks_required": "Veuillez décrire les tâches à automatiser."
+  },
+  "workspace": {
+    "nav": {
+      "dashboard": "Tableau de bord",
+      "my_team": "Mon équipe",
+      "my_content": "Mon contenu",
+      "calendar": "Calendrier",
+      "defaults_group": "Paramètres",
+      "brand_profile": "Profil de marque",
+      "connections": "Connexions",
+      "team_members": "Membres de l'équipe",
+      "assistant_rules": "Règles des assistants",
+      "notifications": "Notifications",
+      "refer_a_friend": "Parrainer un ami",
+      "help_support": "Aide et assistance",
+      "admin_portal": "Portail admin",
+      "my_account": "Mon compte",
+      "log_out": "Se déconnecter"
+    },
+    "settings": {
+      "title": "Paramètres du compte",
+      "subtitle": "Les modifications sont enregistrées automatiquement en arrière-plan.",
+      "language_label": "Langue",
+      "language_hint": "Modifie la langue de votre espace de travail immédiatement.",
+      "timezone_label": "Fuseau horaire",
+      "first_name": "Prénom",
+      "last_name": "Nom",
+      "email_label": "Adresse e-mail",
+      "your_roles": "Vos rôles",
+      "roles_subtitle": "Les rôles sont attribués par le propriétaire de votre organisation ou un administrateur.",
+      "roles_change_hint": "Pour demander un changement de rôle, contactez le propriétaire de votre organisation ou le support.",
+      "view_billing": "Voir la facturation"
+    }
+  }
+}

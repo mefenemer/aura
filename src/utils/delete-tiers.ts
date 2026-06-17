@@ -1,0 +1,105 @@
+// src/utils/delete-tiers.ts
+// US-ADM-1.6.1: Delete tier classification and cascade rules.
+// Shared between cascade-preview.ts and admin-delete-record.ts.
+
+export type DeleteTier = 'soft' | 'hard' | 'hard_confirmed' | 'blocked';
+
+export interface TableDeleteConfig {
+    tier: DeleteTier;
+    blockedReason?: string; // only when tier === 'blocked'
+    softField?: 'deletedAt' | 'isActive'; // which field to set for soft deletes
+}
+
+/** Tier rules per table name */
+export const TABLE_DELETE_CONFIG: Record<string, TableDeleteConfig> = {
+    // ── Soft-delete (default for user-facing entities) ───────────────────────
+    users:             { tier: 'soft', softField: 'isActive' },
+    organisations:     { tier: 'soft', softField: 'isActive' },
+    ai_assistants:     { tier: 'soft', softField: 'isActive' },
+    master_assistants: { tier: 'soft', softField: 'isActive' },
+    workspace_assets:  { tier: 'soft', softField: 'isActive' },
+    content_assets:    { tier: 'soft', softField: 'isActive' },
+
+    // ── Hard-delete (operational/transient data) ─────────────────────────────
+    rate_limit_attempts:   { tier: 'hard' },
+    jwt_blocklist:         { tier: 'hard' },
+    notifications:         { tier: 'hard' }, // older than 90d
+    integration_api_calls: { tier: 'hard' }, // older than 90d
+
+    // ── Hard-delete with explicit SuperAdmin confirmation ────────────────────
+    system_connections:    { tier: 'hard_confirmed' },
+    vault_secrets:         { tier: 'hard_confirmed' },
+    user_organisations:    { tier: 'hard_confirmed' },
+    scheduled_posts:       { tier: 'hard_confirmed' }, // Draft state only
+
+    // ── Blocked — cannot be deleted via UI under any circumstance ────────────
+    admin_audit_log: {
+        tier: 'blocked',
+        blockedReason: 'Immutable audit record — cannot be deleted',
+    },
+    audit_logs: {
+        tier: 'blocked',
+        blockedReason: 'Immutable audit record — cannot be deleted',
+    },
+    dpa_acceptances: {
+        tier: 'blocked',
+        blockedReason: 'Retained: Article 28(9) GDPR legal admissibility requirement',
+    },
+    gdpr_erasure_log: {
+        tier: 'blocked',
+        blockedReason: 'Retained: GDPR erasure evidence log — cannot be deleted',
+    },
+    billing_reconciliation_log: {
+        tier: 'blocked',
+        blockedReason: 'Retained: HMRC 7-year billing record requirement',
+    },
+    invoices: {
+        tier: 'blocked',
+        blockedReason: 'Retained: HMRC 7-year billing record requirement',
+    },
+    payments: {
+        tier: 'blocked',
+        blockedReason: 'Retained: HMRC 7-year billing record requirement',
+    },
+    plans: {
+        tier: 'blocked',
+        blockedReason: 'Cannot delete: check plan status — active/past_due plans cannot be removed',
+    },
+    tos_acceptances: {
+        tier: 'blocked',
+        blockedReason: 'Retained: ToS consent evidence — cannot be deleted',
+    },
+};
+
+/** Tables that block deletion of their parent when active records exist */
+export const BLOCKING_DEPENDENCY_TABLES: Record<string, { parentTable: string; fkColumn: string; reason: string }> = {
+    ai_assistants: {
+        parentTable: 'master_assistants',
+        fkColumn: 'master_assistant_id',
+        reason: 'active workspace(s) depend on this record',
+    },
+    plans: {
+        parentTable: 'master_plans',
+        fkColumn: 'master_plan_id',
+        reason: 'active subscription(s) depend on this record',
+    },
+};
+
+/** Known cascade relationships: child_table → { fkColumn, behavior } */
+export const CASCADE_RELATIONSHIPS: Array<{
+    childTable: string;
+    fkColumn: string;
+    parentTable: string;
+    behavior: 'cascade_delete' | 'set_null' | 'soft_delete';
+}> = [
+    { childTable: 'ai_assistants',     fkColumn: 'user_id',         parentTable: 'users',         behavior: 'cascade_delete' },
+    { childTable: 'task_runs',         fkColumn: 'user_id',         parentTable: 'users',         behavior: 'cascade_delete' },
+    { childTable: 'system_connections',fkColumn: 'user_id',         parentTable: 'users',         behavior: 'cascade_delete' },
+    { childTable: 'workspace_assets',  fkColumn: 'uploader_id',     parentTable: 'users',         behavior: 'set_null' },
+    { childTable: 'scheduled_posts',   fkColumn: 'user_id',         parentTable: 'users',         behavior: 'cascade_delete' },
+    { childTable: 'notifications',     fkColumn: 'user_id',         parentTable: 'users',         behavior: 'cascade_delete' },
+    { childTable: 'plans',             fkColumn: 'user_id',         parentTable: 'users',         behavior: 'cascade_delete' },
+    { childTable: 'support_tickets',   fkColumn: 'user_id',         parentTable: 'users',         behavior: 'cascade_delete' },
+    { childTable: 'agent_run_events',  fkColumn: 'assistant_id',    parentTable: 'ai_assistants', behavior: 'set_null' },
+    { childTable: 'task_runs',         fkColumn: 'assistant_id',    parentTable: 'ai_assistants', behavior: 'set_null' },
+];

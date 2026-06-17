@@ -1,10 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="./auth-check.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Onboarding | Aura</title>
+    <title>Onboarding | Aura-Assist</title>
     <link href="./style.css" rel="stylesheet">
+    <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
+    <link rel="manifest" href="/favicon/manifest.json">
+    <script>
+        // ----------------------------------------------------------------------
+        // 1. Session Verification Check
+        // ----------------------------------------------------------------------
+        // ----------------------------------------------------------------------
+        // 1. Session Verification Check
+        // ----------------------------------------------------------------------
+        function enforceAuthentication() {
+            const hasSession = document.cookie.split('; ').find(row => row.startsWith('aura_session='));
+
+            if (!hasSession) {
+                // If they have no session, they haven't registered or logged in yet.
+                sessionStorage.setItem('return_url', window.location.href);
+
+                // FIX: Redirect them to the registration page, NOT check-email
+                window.location.href = '/register.html';
+            }
+        }
+
+        // Run the check immediately
+        enforceAuthentication();
+
+        // ----------------------------------------------------------------------
+        // 2. Handling Backend Rejections (Failsafe)
+        // ----------------------------------------------------------------------
+        // When your form submits to the /api/provision-workspace endpoint,
+        // it should elegantly handle the 401/403 errors we set up in the backend.
+
+        async function submitOnboardingForm(payload) {
+            try {
+                const response = await fetch('/.netlify/functions/onboarding', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.status === 401 || response.status === 403) {
+                    // The backend caught an unverified user that bypassed the frontend check
+                    alert("Your account is pending verification. Please check your email.");
+                    window.location.href = '/check-email.html';
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Success! Redirect to the dashboard
+                    window.location.href = '/dashboard.html';
+                } else {
+                    console.error("Provisioning Error:", data.error);
+                    alert(data.error || "Something went wrong.");
+                }
+            } catch (error) {
+                console.error("Network Error:", error);
+            }
+        }
+    </script>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
@@ -55,7 +116,7 @@
         <div class="flex justify-between h-16 items-center">
             <div class="flex items-center">
                 <a href="index.html" class="flex items-center">
-                    <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura</span>
+                    <span class="font-extrabold text-2xl text-emerald-700 tracking-tight">Aura-Assist</span>
                 </a>
                 <span id="nav-page-title" class="text-base font-medium text-gray-400 ml-2 transition-opacity duration-300">| Get Started</span>
             </div>
@@ -73,9 +134,8 @@
         </div>
 
         <div class="p-8 sm:p-12">
-            <form id="intake-form" onsubmit="event.preventDefault(); proceedToRole();">
-
-                <div id="step-1" class="step-active">
+            <form id="intake-form" onsubmit="event.preventDefault();">
+                <div id="step-1" class="step-hidden">
                     <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 1 of 8</span>
                     <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's get to know you and your mission.</h2>
                     <p class="text-gray-500 mb-8">First, tell us a bit about yourself, then select the specific Digital Assistant role you want to hire us to build.</p>
@@ -95,17 +155,12 @@
                     <label class="block text-sm font-bold text-gray-700 mb-3">Select your Digital Assistant role:</label>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="role-selection-grid">
 
-                        <label class="relative cursor-pointer role-card" data-role="social_media" onclick="checkRoleAccess(event, 'social_media')">
-                            <input type="radio" name="category" value="social_media" class="sr-only" checked>
-                            <div class="p-4 border border-gray-200 rounded-lg hover:border-emerald-300 transition h-full">
-                                <div class="flex items-center mb-2 justify-between">
-                                    <div class="flex items-center">
-                                        <div class="radio-indicator h-4 w-4 rounded-full border border-gray-300 mr-3 flex-shrink-0"></div>
-                                        <span class="font-bold text-gray-900">📱 Social Media Manager</span>
-                                    </div>
-                                    <span id="lock_social_media" class="hidden text-xs font-bold text-gray-400 uppercase tracking-wide bg-gray-100 px-2 py-1 rounded">Locked</span>
-                                </div>
-                                <span class="block text-sm text-gray-500 ml-7">Organic content creation and automated publishing scheduling.</span>
+                        <label class="role-option" for="role-smm" style="display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+                            <input type="radio" name="assistant_role" id="role-smm" value="social_media_manager" required style="margin-top: 4px;">
+                            <div style="font-size: 24px;">📱</div>
+                            <div>
+                                <div style="font-weight: 600; color: #1e293b;">Social Media Manager</div>
+                                <div style="font-size: 14px; color: #64748b; margin-top: 4px;">Organic content creation and automated publishing scheduling.</div>
                             </div>
                         </label>
 
@@ -196,7 +251,8 @@
                 </div>
 
                 <div class="mt-10 pt-6 border-t border-gray-100 flex justify-end items-center">
-                    <button type="button" onclick="proceedToRole()" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
+                    <button type="button" id="btn-next" onclick="nextStep()"
+                            class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition cursor-pointer">
                         Next Step
                     </button>
                 </div>
@@ -223,7 +279,31 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
         loadComponent("footer-placeholder", "./components/footer.html");
-
+// NEW: Resume Draft Logic (Scenario 2)
+        // If the URL has ?restart=true, we skip this to prevent an infinite routing loop
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.has('restart')) {
+            try {
+                const res = await fetch('/.netlify/functions/onboarding-draft');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.draft && data.draft.onboardingPath) {
+                        const routeMap = {
+                            'social_media': 'onboarding-social-media.html',
+                            'paid_ads': 'onboarding-performance.html',
+                            'data_entry': 'onboarding-inventory.html',
+                            'custom': 'onboarding-custom.html'
+                        };
+                        const target = routeMap[data.draft.onboardingPath];
+                        if (target) {
+                            // Automatically route them back into the specific wizard
+                            window.location.href = target;
+                            return;
+                        }
+                    }
+                }
+            } catch(e) { /* Ignore and continue to Step 1 */ }
+        }
         const badge = document.getElementById('tier-badge');
         if (badge && activeTier.name !== '') {
             badge.innerText = activeTier.name;
@@ -287,7 +367,7 @@
             'data_entry': 'Inventory & Order Manager',
             'custom': 'Operations Manager'
         };
-        const assistantDisplayName = assistantNameMap[role] || 'Aura Digital Assistant';
+        const assistantDisplayName = assistantNameMap[role] || 'Aura-Assist Digital Assistant';
 
         // Save all data to session storage so child pages (and the backend) can use it
         sessionStorage.setItem('aura_client_name', nameInput.value);
@@ -316,23 +396,108 @@
     // Modal Handlers
     function showWaitlistModal(event, roleName) {
         event.preventDefault();
+        // Reset modal state
+        document.getElementById('waitlist-form-container').classList.remove('hidden');
+        document.getElementById('waitlist-success').classList.add('hidden');
+        document.getElementById('waitlist-email').value = '';
+
         document.getElementById('waitlist-role-name').innerText = roleName;
-        document.getElementById('waitlist-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        document.getElementById('waitlist-modal').classList.remove('hidden');
+        // Small delay to allow CSS transitions to trigger
+        setTimeout(() => {
+            document.getElementById('waitlist-modal').classList.remove('opacity-0', 'pointer-events-none');
+        }, 10);
     }
     function closeWaitlistModal() {
-        document.getElementById('waitlist-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
+        const modal = document.getElementById('waitlist-modal');
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => { modal.classList.add('hidden'); }, 300);
     }
-    function submitWaitlist(event) {
-        event.preventDefault();
-        document.getElementById('waitlist-form-container').classList.add('hidden');
-        document.getElementById('waitlist-success').classList.remove('hidden');
-    }
+
     function showUpsellModal(message) {
         document.getElementById('upsell-message').innerHTML = message;
-        document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        document.getElementById('upsell-modal').classList.remove('hidden');
+        setTimeout(() => {
+            document.getElementById('upsell-modal').classList.remove('opacity-0', 'pointer-events-none');
+        }, 10);
     }
     function closeUpsellModal() {
-        document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
+        const modal = document.getElementById('upsell-modal');
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => { modal.classList.add('hidden'); }, 300);
+    }
+
+        // Global state for the onboarding wizard
+        let currentStep = 2; // Starting step
+        const totalSteps = 8;
+
+        function nextStep() {
+        // You will need to trigger the validation specific to the active fragment
+        // If the fragment has its own validate function, call it here
+        if (typeof window.validateCurrentStep === 'function') {
+        if (!window.validateCurrentStep()) return;
+    }
+
+        if (currentStep < totalSteps) {
+        currentStep++;
+        updateUI();
+    } else {
+        // This is where you would call submitToBackend()
+        if (typeof window.submitToBackend === 'function') {
+        window.submitToBackend();
+    }
+    }
+    }
+
+        function prevStep() {
+        if (currentStep > 2) {
+        currentStep--;
+        updateUI();
+    }
+    }
+
+    function updateUI() {
+        // 1. Hide all steps regardless of where they are in the DOM
+        document.querySelectorAll('[id^="step-"]').forEach(el => {
+            el.classList.add('step-hidden');
+            el.classList.remove('step-active');
+        });
+
+        // 2. Show the active step
+        const activeStep = document.getElementById(`step-${currentStep}`);
+        if (activeStep) {
+            activeStep.classList.remove('step-hidden');
+            activeStep.classList.add('step-active');
+        } else {
+            console.error("Step element not found: " + `step-${currentStep}`);
+        }
+
+        // 3. Update progress bar
+        const progressBar = document.querySelector('.bg-emerald-700'); // Targeted directly
+        if (progressBar) progressBar.style.width = `${(currentStep / totalSteps) * 100}%`;
+    }
+
+    // Add this helper function to your existing <script> block
+    async function finalizeOnboarding() {
+        const btn = document.getElementById('btn-next');
+        btn.disabled = true;
+        btn.innerText = "Processing...";
+
+        try {
+            // We assume the fragment (e.g., social-media) has stored its final state in the global window or session
+            // Let's call a global function that the fragment MUST expose
+            if (typeof window.submitToBackend === 'function') {
+                await window.submitToBackend();
+            } else {
+                console.error("Submission function not found in loaded fragment!");
+                btn.disabled = false;
+                btn.innerText = "Next Step";
+            }
+        } catch (e) {
+            console.error("Finalization error", e);
+            btn.disabled = false;
+            btn.innerText = "Next Step";
+        }
     }
 </script>
 </body>

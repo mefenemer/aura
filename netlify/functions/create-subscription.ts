@@ -1,0 +1,169 @@
+import { config } from 'dotenv';
+import * as path from 'path';
+import Stripe from 'stripe';
+
+config({ path: path.resolve(process.cwd(), '.env') });
+
+import { Handler } from '@netlify/functions';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { eq } from 'drizzle-orm';
+import { users, masterPlans } from '../../db/schema';
+import { requireTenant } from '../../src/utils/tenant';
+
+const connectionString = process.env.NETLIFY_DATABASE_URL;
+if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
+const stripeSecret = process.env.STRIPE_SECRET_KEY;
+if (!stripeSecret) throw new Error('CRITICAL: STRIPE_SECRET_KEY is missing.');
+
+const pgClient = postgres(connectionString);
+const db = drizzle({ client: pgClient });
+const stripe = new Stripe(stripeSecret, { apiVersion: '2026-05-27.dahlia' });
+
+// Stripe price IDs keyed by tier — test and live environments
+const isTestMode = stripeSecret.startsWith('sk_test_');
+const STRIPE_PRICE_IDS: Record<string, string> = isTestMode
+  ? {
+      buster:   'price_1TgGNFE7lvVYjk1BAsnhUzBp',
+      saver:    'price_1TgGP8E7lvVYjk1BRBeEZVd6',
+      employee: 'price_1TgGPfE7lvVYjk1B1CQrS6pE',
+    }
+  : {
+      buster:   'price_1Tg6f1CuS8qyNSsFxeUsfi4a',
+      saver:    'price_1Tg6fQCuS8qyNSsF5DKmEqMu',
+      employee: 'price_1Tg6fiCuS8qyNSsF787zwCwh',
+    };
+
+export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+
+  try {
+    // 1. AUTH + resolve the active organisation (verifies membership; never trusts the claim alone).
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { userId: currentUserId, organisationId: orgId } = ctx;
+
+    const [user] = await db.select().from(users).where(eq(users.id, currentUserId)).limit(1);
+    if (!user || user.status !== 'active') {
+      return { statusCode: 403, body: JSON.stringify({ error: 'Account not active.' }) };
+    }
+
+    const { tier, billingCycle: rawCycle, promotionCodeId } = JSON.parse(event.body || '{}');
+    if (!tier) return { statusCode: 400, body: JSON.stringify({ error: 'Missing tier.' }) };
+
+    const billingCycle: 'monthly' | 'annual' = rawCycle === 'annual' ? 'annual' : 'monthly';
+
+    // Annual discount: 20% off (12 months × monthly price × 0.8)
+    const ANNUAL_DISCOUNT = 0.80;
+
+    // 2. LOOK UP MASTER PLAN
+    const tierKey = tier.toLowerCase();
+    const [masterPlan] = await db.select().from(masterPlans)
+      .where(eq(masterPlans.tierKey, tierKey))
+      .limit(1);
+    if (!masterPlan) return { statusCode: 400, body: JSON.stringify({ error: 'Invalid plan tier.' }) };
+
+    const stripePriceId = STRIPE_PRICE_IDS[tierKey];
+    if (!stripePriceId) {
+      return { statusCode: 400, body: JSON.stringify({ error: `No Stripe price configured for tier: ${tierKey}` }) };
+    }
+
+    // Compute charge amount based on billing cycle
+    const monthlyGbp    = Number(masterPlan.monthlyPriceGbp);
+    const baseChargeGbp = billingCycle === 'annual'
+        ? parseFloat((monthlyGbp * 12 * ANNUAL_DISCOUNT).toFixed(2))  // annual lump-sum
+        : monthlyGbp;                                                   // monthly
+
+    // SC3: Apply promotion code discount if provided (validated by validate-promo.ts)
+    let chargeGbp        = baseChargeGbp;
+    let discountAmountGbp: number | null = null;
+    if (promotionCodeId) {
+        try {
+            const promoCode = await stripe.promotionCodes.retrieve(promotionCodeId, { expand: ['promotion.coupon'] });
+            const coupon    = promoCode.promotion.coupon;
+            if (coupon && typeof coupon !== 'string' && coupon.valid) {
+                if (coupon.percent_off) {
+                    discountAmountGbp = parseFloat((baseChargeGbp * coupon.percent_off / 100).toFixed(2));
+                } else if (coupon.amount_off) {
+                    discountAmountGbp = coupon.amount_off / 100;
+                }
+                if (discountAmountGbp !== null) {
+                    chargeGbp = Math.max(0, parseFloat((baseChargeGbp - discountAmountGbp).toFixed(2)));
+                }
+            }
+        } catch (promoErr: any) {
+            console.warn('[create-subscription] Could not retrieve promo code — ignoring:', promoErr.message);
+        }
+    }
+
+    const chargePence = Math.round(chargeGbp * 100);
+
+    const billingCycleLabel = billingCycle === 'annual'
+        ? `Annual subscription (${Math.round((1 - ANNUAL_DISCOUNT) * 100)}% off)`
+        : 'Monthly subscription';
+
+    // 3. CREATE STRIPE CUSTOMER
+    // ── VAT (P3): Collect billing address at checkout via Stripe Payment Element.
+    // Stripe's automatic_payment_methods + address collection lets Stripe determine
+    // the customer's country and apply VAT/tax rates automatically.
+    // We set `automatic_tax: { enabled: true }` on the PaymentIntent so that
+    // UK customers are charged 20% VAT and EU/international customers are handled
+    // correctly by Stripe Tax (requires Stripe Tax to be enabled in the dashboard).
+    //
+    // Pre-fill billing info from the user's stored billing_information record when available.
+    const customer = await stripe.customers.create({
+      email: user.email,
+      name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
+      metadata: { auraUserId: user.id.toString() },
+    });
+
+    // 4. CREATE PAYMENT INTENT
+    // setup_future_usage: 'off_session' saves the card for recurring subscription charges.
+    // The webhook (payment_intent.succeeded) creates the Stripe subscription + DB records.
+    // billingCycle is passed in metadata so the webhook can set interval: 'year' for annual plans.
+    //
+    // automatic_tax.enabled = true: Stripe Tax calculates VAT based on the billing address
+    // provided in the Payment Element. The amount shown to the user is exclusive of tax;
+    // Stripe adds tax on top at confirmation time. The final charged amount (inc. VAT) is
+    // reflected in the payment_intent.succeeded webhook event's `amount_received`.
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: chargePence,
+      currency: 'gbp',
+      customer: customer.id,
+      setup_future_usage: 'off_session',
+      // Collect billing address so Stripe Tax can determine VAT liability
+      automatic_payment_methods: { enabled: true },
+      metadata: {
+        userId:           user.id.toString(),
+        organisationId:   orgId.toString(),
+        tier:             tierKey,
+        masterPlanId:     masterPlan.id.toString(),
+        stripePriceId,
+        stripeCustomerId: customer.id,
+        billingCycle,
+        ...(promotionCodeId ? { promotionCodeId } : {}),
+      },
+    });
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        data: {
+          clientSecret:        paymentIntent.client_secret,
+          publishableKey:      process.env.STRIPE_PUBLISHABLE_KEY,
+          planName:            masterPlan.name,
+          amountGbp:           chargeGbp.toString(),
+          originalAmountGbp:   baseChargeGbp.toString(),
+          discountAmountGbp:   discountAmountGbp !== null ? discountAmountGbp.toString() : null,
+          tier:                tierKey,
+          billingCycle,
+          billingCycleLabel,
+        },
+      }),
+    };
+  } catch (error: any) {
+    console.error('create-subscription error:', error);
+    const detail = error?.message || String(error);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Failed to initialise checkout.', detail }) };
+  }
+};

@@ -1,0 +1,366 @@
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full pb-20">
+
+  <!-- US-LEGAL-3.1: EU AI Act Art.50 — persistent AI interaction disclosure (non-dismissable) -->
+  <div id="ai-interaction-disclosure" role="note" aria-label="AI system disclosure"
+       class="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700 font-medium">
+    <svg class="w-3.5 h-3.5 shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd"/>
+    </svg>
+    <span>You are interacting with an AI assistant. AI-generated content may be inaccurate — always review before sending or publishing.</span>
+  </div>
+
+  <!-- Back nav -->
+  <nav class="flex mb-6 text-sm font-medium text-gray-500">
+    <button id="btn-back-assistants" class="hover:text-emerald-700 transition-colors flex items-center gap-1 cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+      Back to Team
+    </button>
+  </nav>
+
+  <!-- Hero header -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 mb-6 relative overflow-hidden">
+    <div class="absolute -top-10 -right-10 w-32 h-32 bg-emerald-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 z-10 relative">
+      <div class="flex items-center gap-5">
+        <div id="detail-avatar" class="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shadow-sm shrink-0">A</div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <input id="detail-name-input" type="text" value="Loading…"
+              class="text-2xl font-extrabold text-gray-900 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-emerald-500 focus:outline-none focus:ring-0 transition-colors min-w-0 w-auto"
+              style="width: 100%; max-width: 320px;"
+              placeholder="Assistant Name">
+            <button id="btn-generate-name" title="Generate a name" class="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer" type="button">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+            </button>
+            <span id="detail-status" class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">…</span>
+          </div>
+          <p id="detail-role" class="text-gray-500 font-medium mt-1 text-sm">Reviewing tasks…</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 w-full sm:w-auto shrink-0">
+        <span id="detail-save-status" class="text-sm font-semibold text-emerald-600 transition-all mr-2"></span>
+        <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm cursor-pointer" type="button">
+          Pause Assistant
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Activity strip -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
+    <h3 class="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wide">Recent Activity</h3>
+    <div id="recent-activity-list" class="space-y-3">
+      <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading activity…</div>
+    </div>
+  </div>
+
+  <!-- Performance KPIs -->
+  <div class="mb-8">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Performance Metrics</h3>
+      <span class="text-xs text-gray-400 font-medium">Live tracking coming soon</span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+      <!-- The Thumb Stopper -->
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Engagement Rate by Reach</span>
+          <span class="w-2 h-2 rounded-full bg-gray-200"></span>
+        </div>
+        <div>
+          <p class="text-2xl font-extrabold text-gray-900">—</p>
+          <p class="text-base font-bold text-gray-700 mt-0.5">The Thumb Stopper</p>
+          <p class="text-xs text-gray-500 mt-1">Of everyone who saw your content, how many actually stopped to engage with it.</p>
+        </div>
+        <div class="mt-auto pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-400">Trending: <span class="font-semibold text-gray-500">—</span></p>
+        </div>
+      </div>
+
+      <!-- Escaping the Echo Chamber -->
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Organic Reach Growth</span>
+          <span class="w-2 h-2 rounded-full bg-gray-200"></span>
+        </div>
+        <div>
+          <p class="text-2xl font-extrabold text-gray-900">—</p>
+          <p class="text-base font-bold text-gray-700 mt-0.5">Escaping the Echo Chamber</p>
+          <p class="text-xs text-gray-500 mt-1">How far your content is spreading beyond your existing followers into new audiences.</p>
+        </div>
+        <div class="mt-auto pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-400">Trending: <span class="font-semibold text-gray-500">—</span></p>
+        </div>
+      </div>
+
+      <!-- The Pack Your Bags Metric -->
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Click-Through Rate</span>
+          <span class="w-2 h-2 rounded-full bg-gray-200"></span>
+        </div>
+        <div>
+          <p class="text-2xl font-extrabold text-gray-900">—</p>
+          <p class="text-base font-bold text-gray-700 mt-0.5">The "Pack Your Bags" Metric</p>
+          <p class="text-xs text-gray-500 mt-1">How many viewers clicked through and took the action your content asked for.</p>
+        </div>
+        <div class="mt-auto pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-400">Trending: <span class="font-semibold text-gray-500">—</span></p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="border-b border-gray-200 mb-8 overflow-x-auto">
+    <nav class="-mb-px flex space-x-1 min-w-max" aria-label="Tabs">
+      <button data-tab="problem"      class="detail-tab-btn active-tab cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-bold text-sm">The Problem</button>
+      <button data-tab="operation"    class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">How it Works</button>
+      <button data-tab="strategy"     class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Creative Strategy</button>
+      <button data-tab="platforms"    class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Connections</button>
+      <button data-tab="guardrails"   class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Guardrails</button>
+    </nav>
+  </div>
+
+  <!-- ── TAB: The Problem ───────────────────────────────────────── -->
+  <div id="tab-problem" class="detail-tab-content space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Step 2 — The Problem</h3>
+        <p class="text-sm text-gray-500 mt-1">What bottleneck or time-drain were you trying to solve? This shapes everything your assistant prioritises.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-bold text-gray-700 mb-1">Your Bottleneck <span class="text-red-500">*</span></label>
+        <textarea id="edit_problem" rows="5"
+          class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-y"
+          placeholder="E.g., I spend hours every week researching topics, writing captions, and remembering to schedule posts…"></textarea>
+        <p class="text-xs text-gray-400 mt-1">Be as specific as possible — the more detail, the smarter your assistant.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: How it Works ─────────────────────────────────────── -->
+  <div id="tab-operation" class="detail-tab-content hidden space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Step 3 — How it Works</h3>
+        <p class="text-sm text-gray-500 mt-1">When does your assistant run, and where does it get its content from?</p>
+      </div>
+      <div class="space-y-6">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-2">Trigger / Schedule</label>
+          <div class="space-y-2">
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_trigger" value="on_demand" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">On Demand</span><br><span class="text-xs text-gray-500">I trigger it manually when I need content.</span></span>
+            </label>
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_trigger" value="reactive" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">Reactive</span><br><span class="text-xs text-gray-500">It runs automatically when a new brief or data arrives.</span></span>
+            </label>
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_trigger" value="scheduled" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">Scheduled</span><br><span class="text-xs text-gray-500">It runs on a fixed recurring schedule.</span></span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-2">Content Source</label>
+          <div class="space-y-2">
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_source" value="client_provided" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">Client Provided</span><br><span class="text-xs text-gray-500">I supply the drafts, data, or notes — the assistant processes it.</span></span>
+            </label>
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_source" value="assistant_generated" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">Assistant Generated</span><br><span class="text-xs text-gray-500">The assistant researches and writes everything independently.</span></span>
+            </label>
+            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
+              <input type="radio" name="edit_source" value="hybrid" class="mt-0.5 text-emerald-700 focus:ring-emerald-700">
+              <span><span class="font-semibold text-gray-800 text-sm">Hybrid</span><br><span class="text-xs text-gray-500">A mix — I provide direction, the assistant fills the gaps.</span></span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label for="edit_frequency" class="block text-sm font-bold text-gray-700 mb-1">Posting Frequency</label>
+          <input type="text" id="edit_frequency" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., 3 times a week, Daily, On demand…">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Creative Strategy ────────────────────────────────── -->
+  <div id="tab-strategy" class="detail-tab-content hidden space-y-6">
+
+    <!-- Global Brand Profile -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="flex items-start justify-between mb-5 gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Brand Profile</h3>
+          <p class="text-sm text-gray-500 mt-1">Your global brand identity from <a href="#" onclick="window.loadView('assets')" class="text-emerald-600 hover:underline font-medium">Brand Profile settings</a>. Toggle to apply it to this assistant.</p>
+        </div>
+        <span id="brand-save-status" class="text-sm font-bold text-emerald-600 shrink-0 transition-all"></span>
+      </div>
+      <div id="global-brand-profile-content">
+        <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading brand profile…</div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Objective &amp; Message</h3>
+        <p class="text-sm text-gray-500 mt-1">The strategic goal and core message that drives everything your assistant produces.</p>
+      </div>
+      <div class="space-y-5">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-2">Primary Objective</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition text-sm font-medium text-gray-800">
+              <input type="radio" name="edit_objective" value="brand_awareness" class="text-emerald-700 focus:ring-emerald-700"> Brand Awareness
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition text-sm font-medium text-gray-800">
+              <input type="radio" name="edit_objective" value="lead_generation" class="text-emerald-700 focus:ring-emerald-700"> Lead Generation
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition text-sm font-medium text-gray-800">
+              <input type="radio" name="edit_objective" value="direct_sales" class="text-emerald-700 focus:ring-emerald-700"> Direct Sales
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-emerald-400 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition text-sm font-medium text-gray-800">
+              <input type="radio" name="edit_objective" value="community_engagement" class="text-emerald-700 focus:ring-emerald-700"> Community &amp; Engagement
+            </label>
+          </div>
+        </div>
+        <div>
+          <label for="edit_core_message" class="block text-sm font-bold text-gray-700 mb-1">Core Message</label>
+          <input type="text" id="edit_core_message" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., We help busy founders reclaim their time without sacrificing growth.">
+        </div>
+        <div>
+          <label for="edit_cta" class="block text-sm font-bold text-gray-700 mb-1">Primary Call-to-Action (CTA)</label>
+          <input type="text" id="edit_cta" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Book a free 15-minute discovery call.">
+        </div>
+        <div>
+          <label for="edit_incentive" class="block text-sm font-bold text-gray-700 mb-1">The Incentive</label>
+          <input type="text" id="edit_incentive" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Get the first month free. No obligation.">
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Audience &amp; Voice</h3>
+        <p class="text-sm text-gray-500 mt-1">Who your assistant speaks to, and how it sounds.</p>
+      </div>
+      <div class="space-y-5">
+        <div>
+          <label for="edit_audience" class="block text-sm font-bold text-gray-700 mb-1">Target Audience</label>
+          <input type="text" id="edit_audience" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Tech founders aged 30–45 building B2B SaaS products…">
+          <p class="text-xs text-gray-400 mt-1">Be specific — the more detail, the more targeted the content.</p>
+        </div>
+        <div>
+          <label for="edit_tone" class="block text-sm font-bold text-gray-700 mb-1">Brand Voice &amp; Tone</label>
+          <input type="text" id="edit_tone" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Professional yet friendly, Witty, Authoritative…">
+        </div>
+        <div>
+          <label for="edit_pillars" class="block text-sm font-bold text-gray-700 mb-1">Content Pillars / Core Topics</label>
+          <input type="text" id="edit_pillars" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Growth hacking, Leadership, Behind the scenes…">
+          <p class="text-xs text-gray-400 mt-1">Separate topics with commas.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Platforms ────────────────────────────────────────── -->
+  <div id="tab-platforms" class="detail-tab-content hidden space-y-6">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Connections</h3>
+          <p class="text-sm text-gray-500 mt-1">Toggle which connected platforms this assistant should post to. Platforms not yet connected will prompt you to set them up first.</p>
+        </div>
+        <span id="platforms-save-status" class="text-sm font-bold text-emerald-600 shrink-0 transition-all"></span>
+      </div>
+      <!-- Connected platforms with toggles -->
+      <div id="assistant-platforms-list" class="space-y-3">
+        <div class="h-12 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading connections…</div>
+      </div>
+      <!-- Platforms not yet connected -->
+      <div id="assistant-platforms-unconnected" class="hidden mt-6 space-y-3">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Not yet connected</p>
+        <div id="assistant-platforms-unconnected-list" class="space-y-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Guardrails ───────────────────────────────────────── -->
+  <div id="tab-guardrails" class="detail-tab-content hidden space-y-6">
+
+    <!-- Assistant-specific strict rules -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Guardrails &amp; Rules</h3>
+        <p class="text-sm text-gray-500 mt-1">Hard constraints specific to this assistant. These override any AI-generated suggestions.</p>
+      </div>
+      <div class="space-y-5">
+        <div>
+          <label for="edit_strict_rules" class="block text-sm font-bold text-gray-700 mb-1">Strict Rules</label>
+          <textarea id="edit_strict_rules" rows="6"
+            class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-y"
+            placeholder="- NEVER use emojis in LinkedIn posts&#10;- ALWAYS end Facebook posts with a question&#10;- NEVER mention competitor brand names"></textarea>
+          <p class="text-xs text-gray-400 mt-1">Start each rule with a dash (–). Use MUST DO / NEVER DO for clarity.</p>
+        </div>
+        <div>
+          <label for="edit_knowledge" class="block text-sm font-bold text-gray-700 mb-1">Knowledge Base &amp; Brand Context</label>
+          <textarea id="edit_knowledge" rows="5"
+            class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-y"
+            placeholder="Brand story, key messages, style notes, or any background context your assistant should always know…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Autonomous Content Fallback (US5) -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Autonomous Posting Fallback</h3>
+          <p class="text-sm text-gray-500 mt-1">When <strong>My Content</strong> has no pending assets, should this assistant continue posting independently?</p>
+        </div>
+        <button id="toggle-autonomous" type="button" role="switch" aria-checked="false"
+          onclick="window._toggleAutonomous()"
+          class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-gray-300 mt-1">
+          <span id="toggle-autonomous-dot" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+        </button>
+      </div>
+      <div id="autonomous-on-msg" class="hidden mt-4 flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+        <svg class="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span>This assistant will generate autonomous posts (text-only or AI-assisted media) when your content hub is empty. Autonomous posts are visually flagged as <strong>"100% AI-Generated"</strong> in your upcoming posts dashboard.</span>
+      </div>
+      <div id="autonomous-off-msg" class="mt-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+        <svg class="w-4 h-4 shrink-0 mt-0.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <span>If My Content is empty, this assistant will <strong>pause</strong> for that scheduled slot and send you an in-app notification to upload new media.</span>
+      </div>
+    </div>
+
+    <!-- Global Assistant Rules (from workspace defaults) -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="flex items-start justify-between mb-5 gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Assistant Rules</h3>
+          <p class="text-sm text-gray-500 mt-1">Global rules from your <a href="#" onclick="window.loadView('instructions')" class="text-emerald-600 hover:underline font-medium">Assistant Rules settings</a>. Toggle each one on or off for this assistant only.</p>
+        </div>
+        <span id="rules-save-status" class="text-sm font-bold text-emerald-600 shrink-0 transition-all"></span>
+      </div>
+      <div id="global-assistant-rules-list">
+        <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading rules…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- tab-integrations removed — merged into tab-platforms as "Connections" -->
+
+</div>
+
+<style>
+  .detail-tab-btn.active-tab { border-bottom-color: #059669; color: #059669; font-weight: 700; }
+  .detail-tab-btn:not(.active-tab) { border-bottom-color: transparent; }
+</style>

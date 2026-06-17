@@ -1,0 +1,80 @@
+name: License Gate
+
+on:
+  push:
+    branches: [main, test]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  license-scan:
+    name: Scan dependency licenses
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install license-checker
+        run: npm install -g license-checker
+
+      # ── Hard-block: GPL, AGPL, EUPL, CCDL ───────────────────────────────────
+      # Fail immediately if any transitive dependency uses a copyleft license
+      # that would require source disclosure on SaaS deployment.
+      - name: Check for blocked licenses
+        run: |
+          echo "Scanning for blocked licenses (GPL, AGPL, EUPL, CCDL)..."
+          license-checker \
+            --excludePrivatePackages \
+            --failOn "GPL-1.0;GPL-1.0-only;GPL-1.0-or-later;GPL-2.0;GPL-2.0-only;GPL-2.0-or-later;GPL-3.0;GPL-3.0-only;GPL-3.0-or-later;AGPL-1.0;AGPL-1.0-only;AGPL-1.0-or-later;AGPL-3.0;AGPL-3.0-only;AGPL-3.0-or-later;EUPL-1.0;EUPL-1.1;EUPL-1.2;CDDL-1.0;CDDL-1.1" \
+            --json > /dev/null
+          echo "No blocked licenses found."
+
+      # ── Flag for review: LGPL, MPL ──────────────────────────────────────────
+      # These require linking hygiene but don't block; output a warning.
+      - name: Warn on review-required licenses
+        run: |
+          echo "Checking for licenses that require manual review (LGPL, MPL)..."
+          REVIEW=$(license-checker --excludePrivatePackages --json | \
+            node -e "
+              const d = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
+              const flagged = Object.entries(d)
+                .filter(([,v]) => /LGPL|MPL/i.test(v.licenses || ''))
+                .map(([k,v]) => k + ' → ' + v.licenses);
+              if (flagged.length) {
+                console.warn('⚠️  Review-required licenses found:');
+                flagged.forEach(l => console.warn('  ' + l));
+              } else {
+                console.log('No review-required licenses found.');
+              }
+            ")
+          echo "$REVIEW"
+
+      # ── Generate THIRD-PARTY-NOTICES ─────────────────────────────────────────
+      - name: Generate THIRD-PARTY-NOTICES
+        run: node scripts/generate-notices.js
+
+      # ── Commit THIRD-PARTY-NOTICES if changed ────────────────────────────────
+      - name: Commit updated notices (push to main/test only)
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add THIRD-PARTY-NOTICES
+          git diff --cached --quiet || git commit -m "chore: update THIRD-PARTY-NOTICES [skip ci]"
+          git push

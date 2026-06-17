@@ -3,311 +3,894 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pricing | Aura</title>
-    <!--    <script src="https://cdn.tailwindcss.com"></script>-->
+    <title>Pricing | Aura-Assist™</title>
     <link href="./style.css" rel="stylesheet">
+    <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
+    <link rel="manifest" href="/favicon/manifest.json">
+    <style>
+        .hero-gradient { background: linear-gradient(160deg, #f0fdf4 0%, #f9fafb 55%, #f5f3ff 100%); }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+        .fade-up   { animation: fadeUp .4s ease both; }
+        .fade-up-2 { animation: fadeUp .4s .08s ease both; }
+        .fade-up-3 { animation: fadeUp .4s .16s ease both; }
+        /* Comparison table sticky header */
+        .cmp-thead th { position: sticky; top: 0; z-index: 1; vertical-align: top; }
+        /* Pink palette — defined here so Tailwind purging cannot remove them */
+        .pk-btn        { background-color: #ec4899; color: #ffffff; }
+        .pk-btn:hover  { background-color: #db2777; }
+        .pk-stat-box   { background-color: #fdf2f8; }
+        .pk-stat-num   { color: #be185d; }
+        .pk-stat-lbl   { color: #9d174d; }
+        .pk-check      { color: #ec4899; }
+        .pk-pill       { background-color: #ec4899; color: #ffffff; }
+        .pk-col-tint   { background-color: #fdf2f8; }
+        .pk-col-th     { background-color: #fdf2f8; }
+        .pk-text       { color: #ec4899; }
+        .pk-text-dark  { color: #be185d; }
+        .pk-divider    { border-color: #fce7f3; }
+        .pk-ent-label  { color: #f9a8d4; }
+        .pk-ent-check  { color: #f9a8d4; }
+        /* Force 4-column grid at 1024px — overrides any compiled Tailwind cascade issues */
+        @media (min-width: 1024px) {
+            .pricing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+        }
+        /* Billing cycle toggle */
+        .billing-toggle-track {
+            display: inline-flex; align-items: center; background: #f3f4f6;
+            border-radius: 999px; padding: 4px; gap: 2px; border: 1px solid #e5e7eb;
+        }
+        .billing-toggle-btn {
+            padding: 8px 20px; border-radius: 999px; font-size: 13px; font-weight: 700;
+            cursor: pointer; border: none; background: transparent; color: #6b7280;
+            transition: background .2s, color .2s; white-space: nowrap;
+        }
+        .billing-toggle-btn.active { background: #ffffff; color: #111827; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    </style>
+    <script src="/src/i18n.js"></script>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
 <div id="nav-placeholder"></div>
 
-<!-- Pricing Header -->
-<header class="py-16 text-center max-w-4xl mx-auto px-4">
-    <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">Choose How Much Time to Save</h1>
-    <p class="text-xl text-gray-500 mb-6">
-        Pay a flat monthly fee for us to run your digital assistant, plus a few pennies for the computing power it uses.
-    </p>
-
-    <div class="inline-block bg-emerald-50 border border-emerald-200 rounded-lg px-6 py-3 text-emerald-800 font-medium text-sm shadow-sm">
-        ✨ <strong>Our Guarantee:</strong> No coding. No complicated dashboards. You tell us what you hate doing on a 5-minute form, and our human team builds your digital assistant for you.
-    </div>
-</header>
-
-<!-- Main Pricing Content -->
-<main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full mb-20">
-
-    <!-- Tab Controls -->
-    <div class="flex justify-center mb-12">
-        <div class="inline-flex bg-gray-200 rounded-lg p-1">
-            <button id="btn-consumer" onclick="switchTab('consumer')" class="px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 bg-white text-gray-900 shadow-sm cursor-pointer">
-                For Individuals & Solopreneurs
-            </button>
-            <button id="btn-business" onclick="switchTab('business')" class="px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 text-gray-500 hover:text-gray-700 cursor-pointer">
-                For Growing Businesses
-            </button>
+<!-- ══ HERO ═══════════════════════════════════════════════════════ -->
+<section class="hero-gradient border-b border-gray-100">
+    <div class="max-w-4xl mx-auto px-4 py-20 text-center">
+        <span class="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full mb-6 fade-up">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            No coding required · Cancel any time
+        </span>
+        <h1 class="text-4xl md:text-6xl font-extrabold text-gray-900 tracking-tight leading-tight mb-5 fade-up-2">
+            Simple, transparent<br class="hidden sm:block"> pricing
+        </h1>
+        <p class="text-lg md:text-xl text-gray-500 max-w-2xl mx-auto mb-8 fade-up-3">
+            One flat monthly fee. No hidden costs. No surprise bills.<br>
+            Tell us what you want automated — our team builds it for you.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-400 fade-up-3">
+            <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>Stripe-secured payments</span>
+            <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>GDPR compliant</span>
+            <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Live in 5 minutes</span>
+            <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>Human-built assistants</span>
         </div>
     </div>
+</section>
 
-    <!-- CONSUMER TIER CONTENT -->
-    <div id="tab-consumer" class="block animate-fade-in">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+<main class="flex-grow w-full">
 
-            <!-- Tier 1 -->
-            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 flex flex-col hover:border-emerald-300 transition relative">
-                <div class="h-32 mb-6 rounded-xl overflow-hidden shadow-sm">
-                    <img src="https://images.pexels.com/photos/3799830/pexels-photo-3799830.jpeg?auto=compress&cs=tinysrgb&w=800"
-                         alt="Enjoying personal time and music"
-                         class="w-full h-full object-cover">
-                </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-2">The Busywork Buster</h3>
-                <p class="text-gray-500 mb-6 min-h-[48px]">Hand off your single most annoying daily chore.</p>
-                <div class="mb-6">
-                    <span class="text-4xl font-extrabold text-gray-900">£20</span>
-                    <span class="text-gray-500 font-medium">/month</span>
-                </div>
-                <ul class="space-y-4 mb-8 flex-grow text-gray-600 text-sm">
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>1 Dedicated Assistant</strong></span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span>Handles <strong>one specific task</strong> perfectly every time.</span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span>Works inside <strong>1 app</strong>.</span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>Works on your command:</strong> Forward an email, and it does the chore.</span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>Follows the rules:</strong> It follows your static instructions.</span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume:</strong> We handle the maintenance.</span></li>
-                    <li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span> <span><strong>1 Update per month.</strong></span></li>
-                </ul>
-                <a href="onboarding.html?tier=buster" onclick="sessionStorage.setItem('aura_tier', 'buster')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition mt-auto">Delegate This Task</a>
+    <!-- ══ PRICING CARDS — 4 column grid ════════════════════════════ -->
+    <section class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+
+        <!-- ── Billing cycle toggle ──────────────────────────────── -->
+        <div class="flex flex-col items-center mb-10 gap-3">
+            <div class="billing-toggle-track" role="group" aria-label="Billing frequency">
+                <button id="toggle-monthly" class="billing-toggle-btn active" onclick="setBillingCycle('monthly')">
+                    Pay Monthly
+                </button>
+                <button id="toggle-annual" class="billing-toggle-btn" onclick="setBillingCycle('annual')">
+                    Pay Annually
+                    <span style="background:#dcfce7;color:#166534;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;">Save 20%</span>
+                </button>
             </div>
-
-            <!-- Tier 2 (Most Popular) -->
-            <div class="bg-white border-2 border-emerald-700 rounded-2xl shadow-md p-8 flex flex-col relative transform md:-translate-y-2">
-                <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-emerald-700 text-white px-4 py-1 rounded-full text-xs font-bold tracking-wide">MOST POPULAR</div>
-                <div class="h-32 mb-6 rounded-xl overflow-hidden shadow-sm">
-                    <img src="https://images.pexels.com/photos/1684032/pexels-photo-1684032.jpeg?auto=compress&cs=tinysrgb&w=800"
-                         alt="Enjoying an outdoor meal with friends and family"
-                         class="w-full h-full object-cover">
-                </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-2">The Workflow Saver</h3>
-                <p class="text-gray-500 mb-6 min-h-[48px]">Connect your apps and put a whole process on autopilot.</p>
-                <div class="mb-6">
-                    <span class="text-4xl font-extrabold text-gray-900">£50</span>
-                    <span class="text-gray-500 font-medium">/month</span>
-                </div>
-                <ul class="space-y-4 mb-8 flex-grow text-gray-600 text-sm">
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>1 Smart Assistant</strong></span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span>Handles a <strong>multi-step process</strong>.</span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span>Connects <strong>up to 3 of your apps</strong>.</span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>Works automatically:</strong> Reacts the moment a new task arrives.</span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>Learns your style:</strong> Remembers your voice and history.</span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume:</strong> Scales instantly.</span></li>
-                    <li class="flex items-start"><span class="text-emerald-700 mr-2 mt-0.5">✓</span> <span><strong>2 Updates per month.</strong></span></li>
-                </ul>
-                <a href="onboarding.html?tier=saver" onclick="sessionStorage.setItem('aura_tier', 'saver')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-800 shadow-md transition mt-auto">Automate My Workflow</a>
-            </div>
-
-            <!-- Tier 3 -->
-            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 flex flex-col hover:border-emerald-300 transition">
-                <div class="h-32 mb-6 rounded-xl overflow-hidden shadow-sm">
-                    <img src="https://images.pexels.com/photos/3807755/pexels-photo-3807755.jpeg?auto=compress&cs=tinysrgb&w=800"
-                         alt="Taking the dog for a walk outdoors"
-                         class="w-full h-full object-cover">
-                </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-2">The Digital Employee</h3>
-                <p class="text-gray-500 mb-6 min-h-[48px]">Like hiring a specialist for one department, without the HR headache.</p>
-                <div class="mb-6">
-                    <span class="text-4xl font-extrabold text-gray-900">£100</span>
-                    <span class="text-gray-500 font-medium">/month</span>
-                </div>
-                <ul class="space-y-4 mb-8 flex-grow text-gray-600 text-sm">
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>1 Dedicated Assistant</strong> for one core area.</span></li>
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Manages a complete process</strong> (up to 5 connected steps).</span></li>
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span>Connects <strong>all standard apps</strong>.</span></li>
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Works while you sleep:</strong> 24/7 monitoring.</span></li>
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Knows your business:</strong> Uses your real data.</span></li>
-                    <li class="flex items-start"><span class="text-purple-500 mr-2 mt-0.5">✓</span> <span><strong>Unlimited Volume & Tweaks.</strong></span></li>
-                </ul>
-                <a href="onboarding.html?tier=employee" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-purple-600 bg-purple-50 hover:bg-purple-100 transition mt-auto">Hire Your Assistant</a>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- BUSINESS TIER CONTENT -->
-    <div id="tab-business" class="hidden animate-fade-in">
-        <div class="text-center mb-10">
-            <h2 class="text-2xl font-bold text-gray-800">Enterprise-grade automation.</h2>
-            <p class="text-gray-500 mt-2">Replace complex, multi-step human operations across your entire team.</p>
+            <p id="billing-cycle-note" class="text-sm text-gray-400" style="display:none;">
+                Annual plans billed as a single upfront payment. Cancel any time.
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 flex flex-col">
-                <h3 class="text-2xl font-bold text-gray-900 mb-2">The Department Automator</h3>
-                <div class="mb-6">
-                    <span class="text-4xl font-extrabold text-gray-900">£599</span>
-                    <span class="text-gray-500 font-medium">/month</span>
+        <div class="pricing-grid grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
+
+            <!-- ── Tier 1: The Busywork Buster ──────────────────── -->
+            <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
+                <div class="p-6 pb-5 border-b border-gray-100">
+                    <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 1</p>
+                    <h2 class="text-lg font-extrabold text-gray-900 mb-3">The Busywork Buster</h2>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-4 italic">Hand off your most annoying daily task to a helper that never takes a day off.</p>
+                    <div class="flex items-end gap-1 mb-1">
+                        <span id="card-price-t1" class="text-4xl font-extrabold text-gray-900 leading-none">£29</span>
+                        <span class="text-gray-400 text-base font-medium mb-1">/month</span>
+                    </div>
+                    <p id="card-note-t1" class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
                 </div>
-                <ul class="space-y-4 mb-8 flex-grow">
-                    <li class="flex items-start"><span class="text-gray-800 mr-2">✓</span> <span class="text-gray-600">Up to 3 interconnected digital assistants</span></li>
-                    <li class="flex items-start"><span class="text-gray-800 mr-2">✓</span> <span class="text-gray-600">Continuous background optimization</span></li>
-                </ul>
-                <a href="onboarding.html?tier=employee" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-gray-900 bg-gray-100 hover:bg-gray-200 transition mt-auto">Draft Your Custom Brief</a>
+                <div class="p-6 flex-grow flex flex-col">
+                    <!-- Capacity stat boxes — pink -->
+                    <div class="grid grid-cols-3 gap-2 mb-6">
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">1</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Assistant</div>
+                        </div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">500</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Tasks/mo</div>
+                        </div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">2</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Apps</div>
+                        </div>
+                    </div>
+                    <!-- Divider after stat boxes -->
+                    <hr class="pk-divider border-t mb-5">
+                    <ul class="space-y-2.5 text-sm text-gray-600 flex-grow">
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Monthly Recap</strong> — a simple snapshot of every task your assistant took off your plate this month</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Sounds Just Like You</strong> — learns your unique style from day one so posts and emails always sound authentic</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Works While You Sleep</strong> — background habits keep your business moving 24/7 after you log off</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>You Have the Final Say</strong> — nothing goes live or gets sent without your quick thumbs-up first</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Simple Visual Planner</strong> — one easy calendar to see exactly what your assistant is working on next</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Your Inspiration Folder</strong> — dump raw photos, quick videos, and messy notes for your assistant to turn into polished work</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Zero Embarrassing Mistakes</strong> — built-in safety guardrails guarantee your assistant never posts anything inappropriate</span></li>
+                    </ul>
+                </div>
+                <div class="px-6 pb-6">
+                    <a href="#" onclick="event.preventDefault(); choosePlan('starter');"
+                       class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
+                        Get Started
+                    </a>
+                </div>
             </div>
 
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl shadow-lg p-8 flex flex-col text-white">
-                <h3 class="text-2xl font-bold text-white mb-2">Custom Architecture</h3>
-                <div class="mb-6">
-                    <span class="text-xl text-gray-400 font-medium">Starting at</span><br>
-                    <span class="text-4xl font-extrabold text-white">£1,199+</span>
-                    <span class="text-gray-400 font-medium">/month</span>
+            <!-- ── Tier 2: The Workflow Saver ─────────────────────── -->
+            <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden relative">
+                <div class="absolute top-4 right-4">
+                    <span class="pk-pill text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full">Most Popular</span>
                 </div>
-                <ul class="space-y-4 mb-8 flex-grow">
-                    <li class="flex items-start"><span class="text-emerald-500 mr-2">✓</span> <span class="text-gray-300">Fully bespoke, multi-system integration</span></li>
-                    <li class="flex items-start"><span class="text-emerald-500 mr-2">✓</span> <span class="text-gray-300">It reads and remembers your internal company databases</span></li>
-                </ul>
-                <a href="onboarding.html?tier=employee" onclick="sessionStorage.setItem('aura_tier', 'employee')" class="w-full block text-center px-6 py-3 font-semibold rounded-lg text-white bg-emerald-700 hover:bg-emerald-600 transition mt-auto">Scope Your Architecture</a>
+                <div class="p-6 pb-5 border-b border-gray-100">
+                    <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 2</p>
+                    <h2 class="text-lg font-extrabold text-gray-900 mb-3">The Workflow Saver</h2>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-4 italic">Scale your business by building your own mini digital department.</p>
+                    <div class="flex items-end gap-1 mb-1">
+                        <span id="card-price-t2" class="text-4xl font-extrabold text-gray-900 leading-none">£99</span>
+                        <span class="text-gray-400 text-base font-medium mb-1">/month</span>
+                    </div>
+                    <p id="card-note-t2" class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
+                </div>
+                <div class="p-6 flex-grow flex flex-col">
+                    <div class="grid grid-cols-3 gap-2 mb-6">
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">3</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Assistants</div>
+                        </div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">2.5k</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Tasks/mo</div>
+                        </div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">5</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Apps</div>
+                        </div>
+                    </div>
+                    <hr class="pk-divider border-t mb-5">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Everything in Tier 1, plus:</p>
+                    <ul class="space-y-2.5 text-sm text-gray-600 flex-grow">
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>3 Distinct Digital Assistants</strong> — run multiple specialised roles at the same time (social media, emails, calendar, and more)</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Connect Standard Apps You Use</strong> — connect your digital department to up to 5 standard everyday business tools (like Gmail, Slack, and Google Calendar)</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Time-Saved Dashboard</strong> — visual charts showing exactly how many hours of manual labour your assistants have saved each week</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>The In-House Editor</strong> — a dedicated assistant that proofreads and perfects the work of your other assistants before it reaches your desk</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Be the First to Hire New Assistants</strong> — early access to brand-new digital roles before they're released to the public</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Fast-Track Support</strong> — jump to the front of the queue with priority email and chat support whenever you need help</span></li>
+                    </ul>
+                </div>
+                <div class="px-6 pb-6">
+                    <a href="#" onclick="event.preventDefault(); choosePlan('pro_team');"
+                       class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
+                        Automate My Workflow
+                    </a>
+                </div>
+            </div>
+
+            <!-- ── Tier 3: The Business Automator ────────────────── -->
+            <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden">
+                <div class="p-6 pb-5 border-b border-gray-100">
+                    <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 3</p>
+                    <h2 class="text-lg font-extrabold text-gray-900 mb-3">The Business Automator</h2>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-4 italic">A complete digital workforce built for growing businesses and collaborative teams.</p>
+                    <div class="flex items-end gap-1 mb-1">
+                        <span id="card-price-t3" class="text-4xl font-extrabold text-gray-900 leading-none">£349</span>
+                        <span class="text-gray-400 text-base font-medium mb-1">/month</span>
+                    </div>
+                    <p id="card-note-t3" class="text-xs text-gray-400 mt-1">Billed monthly · cancel any time</p>
+                </div>
+                <div class="p-6 flex-grow flex flex-col">
+                    <div class="grid grid-cols-3 gap-2 mb-6">
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">10</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Assistants</div>
+                        </div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">10k</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Tasks/mo</div>
+                        </div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">15</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Apps</div>
+                        </div>
+                    </div>
+                    <hr class="pk-divider border-t mb-5">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Everything in Tier 2, plus:</p>
+                    <ul class="space-y-2.5 text-sm text-gray-600 flex-grow">
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Your Personal Scorecard</strong> — custom tracking dashboards built around the specific goals and numbers that matter to your business</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Shared Virtual Workspace</strong> — invite partners, team members, or clients to log in, review drafts, and collaborate on approvals together</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Premium Software Vault</strong> — securely unlock connections to your specialised, high-tier, or premium third-party software</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>1-on-1 Kick-off Strategy Call</strong> — a personal session with an Aura-Assist expert to build out your digital department and map your automation goals</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>Shape Our Future Features</strong> — cast your vote on what new digital assistant roles we build next, directly guiding our engineering queue</span></li>
+                    </ul>
+                </div>
+                <div class="px-6 pb-6">
+                    <a href="#" onclick="event.preventDefault(); choosePlan('business');"
+                       class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
+                        Scale My Business
+                    </a>
+                </div>
+            </div>
+
+            <!-- ── Tier 4: Custom Enterprise ─────────────────────── -->
+            <div class="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden relative">
+                <div class="p-6 pb-5 border-b border-gray-100">
+                    <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tier 4 · Enterprise</p>
+                    <h2 class="text-lg font-extrabold text-gray-900 mb-3">Custom Enterprise</h2>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-4 italic">Bespoke digital architecture for complex corporate environments.</p>
+                    <div class="flex items-end gap-1 mb-1">
+                        <span class="text-4xl font-extrabold text-gray-900 leading-none">£1,199</span>
+                        <span class="text-gray-400 text-base font-medium mb-1">+/mo</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">Scoped to your requirements</p>
+                </div>
+                <div class="p-6 flex-grow flex flex-col">
+                    <div class="grid grid-cols-3 gap-2 mb-6">
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">∞</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Assistants</div>
+                        </div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num">∞</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Tasks/mo</div>
+                        </div>
+                        <div class="text-center pk-stat-box rounded-xl py-3 px-1">
+                            <div class="text-xl font-extrabold pk-stat-num" style="font-size:1rem;">Bespoke</div>
+                            <div class="text-xs pk-stat-lbl mt-0.5 leading-tight">Apps</div>
+                        </div>
+                    </div>
+                    <hr class="pk-divider border-t mb-5">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Everything in Tier 3, plus:</p>
+                    <ul class="space-y-2.5 text-sm text-gray-600 flex-grow">
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Tailored assistant &amp; task volume limits</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Dedicated account manager</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SSO integration for corporate-wide access</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>SMS &amp; WhatsApp alerts for critical approvals</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Internal systems &amp; legacy software access</span></li>
+                        <li class="flex gap-3"><svg class="w-4 h-4 pk-check flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>➕ VIP Engineering Co-Creation add-on available</span></li>
+                    </ul>
+                </div>
+                <div class="px-6 pb-6">
+                    <span class="block text-center mb-3 bg-gray-900 text-white text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full">Quote in 24 hrs</span>
+                    <button onclick="openEnterpriseModal()"
+                            class="pk-btn w-full block text-center px-6 py-3.5 font-bold rounded-xl shadow-sm transition">
+                        Book a Discovery Call
+                    </button>
+                </div>
+            </div>
+
+        </div><!-- /grid -->
+    </section>
+
+    <!-- ══ FEATURE COMPARISON TABLE ══════════════════════════════ -->
+    <section class="bg-white border-y border-gray-100 py-16">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-extrabold text-gray-900 text-center mb-2">Compare every feature</h2>
+            <p class="text-gray-500 text-center text-sm mb-10">A complete breakdown of what's included at each tier.</p>
+
+            <div class="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
+                <table class="w-full text-sm">
+                    <thead class="cmp-thead">
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th class="text-left px-6 py-5 font-semibold text-gray-600 w-2/5 bg-gray-50" style="vertical-align:top"></th>
+                            <th class="text-center px-4 py-5 bg-gray-50 w-[15%]" style="vertical-align:top">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tier 1</div>
+                                <div class="font-extrabold text-gray-900 text-sm leading-snug">The Busywork<br>Buster</div>
+                                <div id="tbl-price-t1" class="font-extrabold text-gray-900 text-base mt-1.5">£29</div>
+                                <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
+                            </th>
+                            <th class="text-center px-4 py-5 w-[15%] pk-col-th" style="vertical-align:top">
+                                <div class="text-[10px] font-bold uppercase tracking-wider pk-text mb-0.5">Tier 2</div>
+                                <div class="font-extrabold text-gray-900 text-sm leading-snug">The Workflow<br>Saver</div>
+                                <div id="tbl-price-t2" class="font-extrabold text-gray-900 text-base mt-1.5">£99</div>
+                                <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
+                                <div class="mt-2"><span class="pk-pill inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">Popular</span></div>
+                            </th>
+                            <th class="text-center px-4 py-5 bg-gray-50 w-[15%]" style="vertical-align:top">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tier 3</div>
+                                <div class="font-extrabold text-gray-900 text-sm leading-snug">The Business<br>Automator</div>
+                                <div id="tbl-price-t3" class="font-extrabold text-gray-900 text-base mt-1.5">£349</div>
+                                <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
+                            </th>
+                            <th class="text-center px-4 py-5 bg-gray-50 w-[15%]" style="vertical-align:top">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tier 4</div>
+                                <div class="font-extrabold text-gray-900 text-sm leading-snug">Custom<br>Enterprise</div>
+                                <div class="font-extrabold text-gray-900 text-base mt-1.5">£1,199+</div>
+                                <div class="text-[10px] text-gray-400 mt-0.5">/ month</div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <!-- CAPACITY -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Capacity</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Digital Assistants<br><span class="text-xs text-gray-400 font-normal">The number of distinct AI roles you can deploy in your account</span></td>
+                            <td class="px-4 py-3.5 text-center font-bold text-gray-900 align-middle">1</td>
+                            <td class="px-4 py-3.5 text-center font-bold pk-text-dark pk-col-tint align-middle">3</td>
+                            <td class="px-4 py-3.5 text-center font-bold text-gray-900 align-middle">10</td>
+                            <td class="px-4 py-3.5 text-center font-bold text-gray-900 align-middle">Custom</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Completed Tasks / Month<br><span class="text-xs text-gray-400 font-normal">Each action your assistant completes counts as one task</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle">500</td>
+                            <td class="px-4 py-3.5 text-center font-semibold pk-text-dark pk-col-tint align-middle">2,500</td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle">10,000</td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle">Custom</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">App Connections<br><span class="text-xs text-gray-400 font-normal">The tools and platforms your assistants can connect to and work within</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle text-xs">Connect up to 2 everyday apps</td>
+                            <td class="px-4 py-3.5 text-center font-semibold pk-text-dark pk-col-tint align-middle text-xs">Connect up to 5 standard apps to power your digital department</td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle text-xs">Connect up to 15 apps (unlocks Premium Tool integrations like CRM and e-commerce)</td>
+                            <td class="px-4 py-3.5 text-center text-gray-700 align-middle text-xs">Bespoke app limits &amp; custom internal system integrations</td>
+                        </tr>
+
+                        <!-- CORE FEATURES -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Core Features — included on every plan</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Aura Safe Content Benchmark<br><span class="text-xs text-gray-400 font-normal">Built-in safety rules that keep every output on-brand and legally compliant</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Brand Memory<br><span class="text-xs text-gray-400 font-normal">Your assistant learns your voice, values, and history from day one</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Around-the-Clock Workflows<br><span class="text-xs text-gray-400 font-normal">Scheduled tasks run automatically, even while you're offline or asleep</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Draft Approvals<br><span class="text-xs text-gray-400 font-normal">Every output lands in your inbox for sign-off before it's published or sent</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Content Calendar<br><span class="text-xs text-gray-400 font-normal">Plan, schedule, and review your assistant's upcoming work in one view</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">"My Content" Hub<br><span class="text-xs text-gray-400 font-normal">Drop in photos, videos, and links for your assistant to use as source material</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Brand Protection Guarantee<br><span class="text-xs text-gray-400 font-normal">Your assistants are governed by our Safe Content Benchmark on every plan</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+
+                        <!-- REPORTING -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Reporting</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Basic Reporting<br><span class="text-xs text-gray-400 font-normal">A clear monthly summary of what your assistant completed</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Advanced Reporting<br><span class="text-xs text-gray-400 font-normal">Detailed breakdowns of assistant performance, output quality, and time saved</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Custom Reporting<br><span class="text-xs text-gray-400 font-normal">Tailored dashboards built around the metrics that matter most to your business</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+
+                        <!-- TEAM & ADVANCED -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Team &amp; Advanced Features</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">The Quality Reviewer<br><span class="text-xs text-gray-400 font-normal">A dedicated assistant that checks and critiques the work of your other assistants</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Workspace Collaboration<br><span class="text-xs text-gray-400 font-normal">Invite team members, managers, or clients to view and approve outputs</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Advanced Tool Vault<br><span class="text-xs text-gray-400 font-normal">Access to premium and specialist third-party integrations beyond the standard set</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Internal Systems Access<br><span class="text-xs text-gray-400 font-normal">Connect assistants directly to your private databases and legacy business software</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">SSO Integration<br><span class="text-xs text-gray-400 font-normal">Single sign-on for seamless, secure corporate-wide access management</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">SMS &amp; WhatsApp Alerts<br><span class="text-xs text-gray-400 font-normal">Receive push notifications for urgent approvals directly via SMS or WhatsApp</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+
+                        <!-- SUPPORT -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Support</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Support Channel<br><span class="text-xs text-gray-400 font-normal">How you can reach our team when you need help</span></td>
+                            <td class="px-4 py-3.5 text-center text-xs text-gray-500">Email &amp; Help Centre</td>
+                            <td class="px-4 py-3.5 text-center text-xs font-semibold pk-text-dark pk-col-tint">Priority Email &amp; Chat</td>
+                            <td class="px-4 py-3.5 text-center text-xs text-gray-500">Priority + Strategy Call</td>
+                            <td class="px-4 py-3.5 text-center text-xs text-gray-500">Dedicated Account Manager</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">1-on-1 Strategy &amp; Onboarding Call<br><span class="text-xs text-gray-400 font-normal">A dedicated session with an Aura-Assist expert to set up and optimise your workspace</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+
+                        <!-- CONTINUOUS EVOLUTION -->
+                        <tr class="bg-gray-50/70 border-t border-gray-200">
+                            <td colspan="5" class="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-400">Continuous Evolution</td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Free Capability Upgrades<br><span class="text-xs text-gray-400 font-normal">Your assistants automatically improve as we release new capabilities — no extra cost ever</span></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Early Access to New Roles<br><span class="text-xs text-gray-400 font-normal">Be first to try new assistant roles before they launch to the general public</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center pk-col-tint"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700 font-medium">Roadmap Influence &amp; Voting<br><span class="text-xs text-gray-400 font-normal">Vote on which features and assistant types we prioritise building next</span></td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+                        <tr class="border-t border-gray-100 hover:bg-gray-50/40">
+                            <td class="px-6 py-3.5 text-gray-700">
+                                <span class="font-medium">➕ Premium Add-On: VIP Engineering Co-Creation</span><br>
+                                <span class="text-xs text-gray-400 font-normal">Commission our core engineering team to architect and build completely bespoke Digital Assistants exclusive to your private organisation. <em>(Scoped and billed per project)</em></span>
+                            </td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300 pk-col-tint">—</td>
+                            <td class="px-4 py-3.5 text-center text-gray-300">—</td>
+                            <td class="px-4 py-3.5 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></td>
+                        </tr>
+
+                        <!-- CTA row -->
+                        <tr class="border-t-2 border-gray-200 bg-gray-50">
+                            <td class="px-6 py-5"></td>
+                            <td class="px-4 py-5 text-center">
+                                <a href="#" onclick="event.preventDefault(); choosePlan('starter');"
+                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Choose</a>
+                            </td>
+                            <td class="px-4 py-5 text-center pk-col-tint">
+                                <a href="#" onclick="event.preventDefault(); choosePlan('pro_team');"
+                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Choose</a>
+                            </td>
+                            <td class="px-4 py-5 text-center">
+                                <a href="#" onclick="event.preventDefault(); choosePlan('business');"
+                                   class="pk-btn inline-block px-5 py-2 text-sm font-bold rounded-lg transition">Choose</a>
+                            </td>
+                            <td class="px-4 py-5 text-center">
+                                <button onclick="openEnterpriseModal()"
+                                        class="inline-block px-5 py-2 text-sm font-bold rounded-lg text-white bg-pink-600 hover:bg-pink-700 transition">Choose</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
-    </div>
+    </section>
 
-    <!-- FAQ SECTION -->
-    <div class="max-w-3xl mx-auto mt-24">
-        <h2 class="text-3xl font-bold text-center text-gray-900 mb-10">Frequently Asked Questions</h2>
-
-        <div class="space-y-4">
-            <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
-                    <span>What are "raw computing costs"?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
-                </summary>
-                <div class="px-6 pb-6 text-gray-600">
-                    Think of our monthly subscription like paying for a car, and the "computing cost" like paying for the electricity. Most users spend less than £2 a month. We pass this cost to you with zero markup.
-                </div>
-            </details>
-
-            <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
-                    <span>Is there a risk of a huge surprise bill?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
-                </summary>
-                <div class="px-6 pb-6 text-gray-600">
-                    No. You can set a strict monthly spending cap (e.g., £5). If your assistant reaches that, it simply pauses until you approve more.
-                </div>
-            </details>
-
-            <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
-                    <span>What apps can my assistant connect to?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
-                </summary>
-                <div class="px-6 pb-6 text-gray-600">
-                    Almost anything (Gmail, Slack, Sheets, CRMs). Our team verifies compatibility during onboarding before you ever pay a dime.
-                </div>
-            </details>
-
-            <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
-                    <span>Is my business data safe?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
-                </summary>
-                <div class="px-6 pb-6 text-gray-600">
-                    Your data is never used to train public AI models. It is locked in a secure vault that only belongs to your account.
-                </div>
-            </details>
-
-            <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
-                    <span>Do I need to know anything about coding?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
-                </summary>
-                <div class="px-6 pb-6 text-gray-600">
-                    Absolutely not. You just fill out a plain-English form. Our human team takes over from there.
-                </div>
-            </details>
-
-            <details class="bg-white border border-gray-200 rounded-lg shadow-sm group">
-                <summary class="flex justify-between items-center font-semibold cursor-pointer list-none p-6 text-gray-900 hover:text-emerald-700">
-                    <span>Am I locked into a long-term contract?</span>
-                    <span class="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
-                        </span>
-                </summary>
-                <div class="px-6 pb-6 text-gray-600">
-                    No. All plans are rolling monthly subscriptions. Cancel or change your assistant's job at any time.
-                </div>
-            </details>
+    <!-- ══ FINAL CTA ═══════════════════════════════════════════════ -->
+    <section class="bg-emerald-700 py-8">
+        <div class="max-w-3xl mx-auto px-4 py-20 text-center">
+            <h2 class="text-3xl font-extrabold text-white mb-3">Ready to reclaim your time?</h2>
+            <p class="text-emerald-100 mb-8 text-lg">Join teams already saving hours every week with their Aura-Assist digital assistants.</p>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                <a href="#" onclick="event.preventDefault(); choosePlan('pro_team');"
+                   class="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-emerald-700 font-bold rounded-xl shadow-md hover:bg-emerald-50 transition text-base">
+                    Start with The Workflow Saver — £99/mo
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                </a>
+                <button onclick="openEnterpriseModal()"
+                        class="inline-flex items-center justify-center gap-2 px-8 py-4 border-2 border-white/30 text-white font-bold rounded-xl hover:border-white/60 hover:bg-white/10 transition text-base">
+                    Talk to Enterprise Sales
+                </button>
+            </div>
         </div>
-    </div>
+    </section>
+
 </main>
 
+<!-- ══ ENTERPRISE MODAL ═══════════════════════════════════════════ -->
+<div id="modal-enterprise" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="ent-modal-title">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div class="bg-gray-900 px-8 py-6 flex items-start justify-between">
+            <div>
+                <h2 id="ent-modal-title" class="text-xl font-bold text-white mb-1">Book a Discovery Call</h2>
+                <p class="text-gray-400 text-sm">Tell us about your organisation and we'll scope your custom build.</p>
+            </div>
+            <button onclick="closeEnterpriseModal()" class="text-gray-500 hover:text-gray-300 transition text-2xl leading-none ml-4 mt-0.5">&times;</button>
+        </div>
+        <form id="enterprise-form" class="px-8 py-6 space-y-4" onsubmit="submitEnterpriseForm(event)">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-first-name">First name</label>
+                    <input id="ent-first-name" type="text" required placeholder="Sarah" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-last-name">Last name</label>
+                    <input id="ent-last-name" type="text" required placeholder="Johnson" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-email">Work email</label>
+                <input id="ent-email" type="email" required placeholder="sarah@acmecorp.com" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-company">Company</label>
+                    <input id="ent-company" type="text" required placeholder="Acme Corp" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-team-size">Team size</label>
+                    <select id="ent-team-size" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
+                        <option value="">Select…</option>
+                        <option value="1-10">1–10 people</option>
+                        <option value="11-50">11–50 people</option>
+                        <option value="51-200">51–200 people</option>
+                        <option value="201-1000">201–1,000 people</option>
+                        <option value="1000+">1,000+ people</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider" for="ent-use-case">What do you want to automate?</label>
+                <textarea id="ent-use-case" rows="3" required placeholder="e.g. Route and summarise inbound support emails, then update our CRM automatically…" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"></textarea>
+            </div>
+            <p id="ent-form-error" class="text-red-600 text-sm hidden bg-red-50 border border-red-200 rounded-lg px-4 py-2.5"></p>
+            <div class="flex gap-3 pt-1">
+                <button type="button" onclick="closeEnterpriseModal()" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">Cancel</button>
+                <button type="submit" id="ent-submit-btn" class="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition">Request Discovery Call</button>
+            </div>
+        </form>
+        <div id="enterprise-success" class="px-8 py-12 text-center hidden">
+            <div class="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Request received!</h3>
+            <p class="text-gray-500 text-sm mb-6">Our team will be in touch within one business day to schedule your discovery call.</p>
+            <button onclick="closeEnterpriseModal()" class="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition">Close</button>
+        </div>
+    </div>
+</div>
+
 <div id="footer-placeholder"></div>
-
 <script src="./mobileMenu.js"></script>
-
 <script>
-    // CRITICAL: This function must stay OUTSIDE the DOMContentLoaded block
-    // so your HTML buttons can access it!
-    function switchTab(tabId) {
-        const consumerTab = document.getElementById('tab-consumer');
-        const businessTab = document.getElementById('tab-business');
-        const btnConsumer = document.getElementById('btn-consumer');
-        const btnBusiness = document.getElementById('btn-business');
+(function () {
+    // ── Billing cycle state ────────────────────────────────────────
+    let _billingCycle = 'monthly'; // 'monthly' | 'annual'
 
-        if (!consumerTab || !businessTab || !btnConsumer || !btnBusiness) return;
+    // ── US-I18N-2.1: Multi-currency support ───────────────────────
+    const CURRENCY_CONFIG = {
+        GBP: { symbol: '£', locale: 'en-GB', monthly: [29,  99,  349],  annual: [23,  79,  279],  annualTotal: [276,  948,  3348] },
+        USD: { symbol: '$', locale: 'en-US', monthly: [35,  119, 419],  annual: [28,  95,  335],  annualTotal: [336,  1140, 4020] },
+        EUR: { symbol: '€', locale: 'de-DE', monthly: [29,  99,  349],  annual: [23,  79,  279],  annualTotal: [276,  948,  3348] },
+        AUD: { symbol: 'A$', locale: 'en-AU', monthly: [55,  179, 629],  annual: [44,  143, 503],  annualTotal: [528,  1716, 6036] },
+        CAD: { symbol: 'C$', locale: 'en-CA', monthly: [49,  159, 559],  annual: [39,  127, 447],  annualTotal: [468,  1524, 5364] },
+    };
+    const SUPPORTED_CURRENCIES = Object.keys(CURRENCY_CONFIG);
+    let _currency = localStorage.getItem('aura_currency') || 'GBP';
+    if (!SUPPORTED_CURRENCIES.includes(_currency)) _currency = 'GBP';
 
-        if (tabId === 'consumer') {
-            consumerTab.classList.remove('hidden');
-            consumerTab.classList.add('block');
-            businessTab.classList.remove('block');
-            businessTab.classList.add('hidden');
-
-            btnConsumer.className = "px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 bg-white text-gray-900 shadow-sm cursor-pointer";
-            btnBusiness.className = "px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 text-gray-500 hover:text-gray-700 cursor-pointer";
-        } else if (tabId === 'business') {
-            businessTab.classList.remove('hidden');
-            businessTab.classList.add('block');
-            consumerTab.classList.remove('block');
-            consumerTab.classList.add('hidden');
-
-            btnBusiness.className = "px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 bg-white text-gray-900 shadow-sm cursor-pointer";
-            btnConsumer.className = "px-8 py-3 rounded-md text-sm font-bold transition-all duration-200 text-gray-500 hover:text-gray-700 cursor-pointer";
-        }
+    function fmtPrice(amount, currency) {
+        const cfg = CURRENCY_CONFIG[currency] || CURRENCY_CONFIG.GBP;
+        return cfg.symbol + amount.toLocaleString(cfg.locale);
     }
 
-    // Component loader must also be in the global scope
-    async function loadComponent(placeholderId, filePath) {
-        try {
-            const response = await fetch(filePath);
-            if (response.ok) {
-                document.getElementById(placeholderId).innerHTML = await response.text();
+    window.setCurrency = function(c) {
+        if (!SUPPORTED_CURRENCIES.includes(c)) return;
+        _currency = c;
+        localStorage.setItem('aura_currency', c);
+        updatePriceDisplay();
+        // Update selector if present
+        const sel = document.getElementById('currency-selector');
+        if (sel) sel.value = c;
+    };
+
+    function updatePriceDisplay() {
+        const cfg = CURRENCY_CONFIG[_currency] || CURRENCY_CONFIG.GBP;
+        const isAnnual = _billingCycle === 'annual';
+        const prices = isAnnual ? cfg.annual : cfg.monthly;
+        const tiers = ['t1', 't2', 't3'];
+        tiers.forEach((t, i) => {
+            const priceEl = document.getElementById('card-price-' + t);
+            const noteEl  = document.getElementById('card-note-' + t);
+            const tblEl   = document.getElementById('tbl-price-' + t);
+            const priceStr = fmtPrice(prices[i], _currency);
+            if (priceEl) priceEl.textContent = priceStr;
+            if (tblEl)   tblEl.textContent   = priceStr;
+            if (noteEl) {
+                if (isAnnual) {
+                    noteEl.textContent = `Billed ${fmtPrice(cfg.annualTotal[i], _currency)} annually · cancel any time`;
+                } else {
+                    noteEl.textContent = 'Billed monthly · cancel any time';
+                }
             }
-        } catch (error) {
-            console.error(`Error loading component ${filePath}:`, error);
-        }
+        });
     }
 
-    // The router logic stays safely inside the listener
-    document.addEventListener("DOMContentLoaded", async () => {
-        // 1. Core payload inject
-        await loadComponent("nav-placeholder", "./components/nav.html");
-        loadComponent("footer-placeholder", "./components/footer.html");
+    const BILLING_CONFIG = {
+        monthly: {
+            t1: { price: '£29',  note: 'Billed monthly · cancel any time' },
+            t2: { price: '£99',  note: 'Billed monthly · cancel any time' },
+            t3: { price: '£349', note: 'Billed monthly · cancel any time' },
+        },
+        annual: {
+            // Monthly equivalent shown on cards; actual charge is the annual total below.
+            t1: { price: '£23',  note: 'Billed £276 annually · cancel any time' },
+            t2: { price: '£79',  note: 'Billed £948 annually · cancel any time' },
+            t3: { price: '£279', note: 'Billed £3,348 annually · cancel any time' },
+        },
+    };
 
-        // 2. Initialize the mobile menu now that the nav is in the DOM
+    window.setBillingCycle = function (cycle) {
+        _billingCycle = cycle;
+
+        // Toggle button states
+        document.getElementById('toggle-monthly').classList.toggle('active', cycle === 'monthly');
+        document.getElementById('toggle-annual').classList.toggle('active', cycle === 'annual');
+
+        // Show/hide annual note
+        const note = document.getElementById('billing-cycle-note');
+        if (note) note.style.display = cycle === 'annual' ? 'block' : 'none';
+
+        // Update card prices
+        const cfg = BILLING_CONFIG[cycle];
+        ['t1', 't2', 't3'].forEach(t => {
+            const priceEl = document.getElementById('card-price-' + t);
+            const noteEl  = document.getElementById('card-note-' + t);
+            const tblEl   = document.getElementById('tbl-price-' + t);
+            if (priceEl) priceEl.textContent = cfg[t].price;
+            if (noteEl)  noteEl.textContent  = cfg[t].note;
+            if (tblEl)   tblEl.textContent   = cfg[t].price;
+        });
+
+        // Persist for checkout handoff
+        sessionStorage.setItem('billing_cycle', cycle);
+        updatePriceDisplay();
+    };
+
+    // Monthly price IDs (test env) — used when billing_cycle = 'monthly'
+    const PRICE_IDS = {
+        starter:  'price_1TgGNFE7lvVYjk1BAsnhUzBp',
+        pro_team: 'price_1TgGP8E7lvVYjk1BRBeEZVd6',
+        business: 'price_1TgGPfE7lvVYjk1B1CQrS6pE',
+    };
+
+    function getCookie(name) {
+        const v = `; ${document.cookie}`;
+        const p = v.split(`; ${name}=`);
+        if (p.length === 2) return p.pop().split(';').shift();
+        return null;
+    }
+
+    function isLoggedIn() {
+        const token = getCookie('aura_session');
+        if (!token) return false;
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            return payload.exp && payload.exp * 1000 > Date.now();
+        } catch { return false; }
+    }
+
+    window.choosePlan = function (tier) {
+        if (tier === 'enterprise') { openEnterpriseModal(); return; }
+        const cycle = _billingCycle || 'monthly';
+        sessionStorage.setItem('billing_cycle', cycle);
+        sessionStorage.setItem('aura_currency', _currency); // US-I18N-2.1 SC3: pass currency to checkout
+        if (isLoggedIn()) {
+            window.location.href = 'checkout.html?tier=' + tier + '&cycle=' + cycle + '&currency=' + _currency;
+        } else {
+            sessionStorage.setItem('pending_price_id', PRICE_IDS[tier] || PRICE_IDS.pro_team);
+            sessionStorage.setItem('pending_tier', tier);
+            window.location.href = 'register.html';
+        }
+    };
+
+    window.openEnterpriseModal = function () {
+        const m = document.getElementById('modal-enterprise');
+        m.classList.remove('hidden'); m.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => document.getElementById('ent-first-name').focus(), 50);
+    };
+
+    window.closeEnterpriseModal = function () {
+        const m = document.getElementById('modal-enterprise');
+        m.classList.add('hidden'); m.classList.remove('flex');
+        document.body.style.overflow = '';
+        document.getElementById('enterprise-form').classList.remove('hidden');
+        document.getElementById('enterprise-success').classList.add('hidden');
+        document.getElementById('enterprise-form').reset();
+        document.getElementById('ent-form-error').classList.add('hidden');
+    };
+
+    document.getElementById('modal-enterprise').addEventListener('click', function (e) { if (e.target === this) closeEnterpriseModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeEnterpriseModal(); });
+
+    window.submitEnterpriseForm = async function (e) {
+        e.preventDefault();
+        const btn = document.getElementById('ent-submit-btn');
+        const errEl = document.getElementById('ent-form-error');
+        errEl.classList.add('hidden');
+        btn.disabled = true; btn.textContent = 'Sending…';
+        try {
+            const res = await fetch('/.netlify/functions/capture-lead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email:             document.getElementById('ent-email').value.trim(),
+                    role:              'Enterprise',
+                    name:              `${document.getElementById('ent-first-name').value.trim()} ${document.getElementById('ent-last-name').value.trim()}`,
+                    company:           document.getElementById('ent-company').value.trim(),
+                    teamSize:          document.getElementById('ent-team-size').value,
+                    useCase:           document.getElementById('ent-use-case').value.trim(),
+                    opportunityReason: 'Enterprise pricing enquiry',
+                    leadType:          'enterprise_enquiry',
+                    source:            'pricing_page',
+                    priority:          'high',
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to submit');
+            document.getElementById('enterprise-form').classList.add('hidden');
+            document.getElementById('enterprise-success').classList.remove('hidden');
+        } catch (err) {
+            errEl.textContent = err.message || 'Something went wrong. Please try again.';
+            errEl.classList.remove('hidden');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Request Discovery Call';
+        }
+    };
+
+    async function loadComponent(id, path) {
+        try { const r = await fetch(path); if (r.ok) document.getElementById(id).innerHTML = await r.text(); } catch {}
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadComponent('nav-placeholder', './components/nav.html');
+        loadComponent('footer-placeholder', './components/footer.html');
         setupMobileMenu();
+        if (window.i18n) window.i18n.apply();
 
-        // 3. Set the active title
-        const currentPage = window.location.pathname.split("/").pop();
-        const titleMap = {
-            "index.html": "Welcome",
-            "": "Welcome",
-            "pricing.html": "Pricing",
-            "dashboard.html": "Dashboard",
-            "billing.html": "Billing",
-            "logout.html": "See you Soon"
-        };
+        // US-I18N-2.1 SC2: Detect currency from geo-IP if not already stored
+        if (!localStorage.getItem('aura_currency')) {
+            fetch('/.netlify/functions/detect-currency')
+                .then(r => r.ok ? r.json() : null)
+                .then(d => { if (d?.currency) setCurrency(d.currency); })
+                .catch(() => {});
+        } else {
+            updatePriceDisplay();
+        }
 
-        const targetTitleSpan = document.getElementById("nav-page-title");
-        if (targetTitleSpan && titleMap[currentPage]) {
-            targetTitleSpan.innerText = `| ${titleMap[currentPage]}`;
+        // Inject currency selector near billing toggle
+        const toggleArea = document.getElementById('toggle-monthly')?.closest('div');
+        if (toggleArea && !document.getElementById('currency-selector')) {
+            const wrap = document.createElement('div');
+            wrap.className = 'flex items-center gap-2 mt-3';
+            wrap.innerHTML = `<label class="text-xs text-gray-500 font-medium">Currency:</label>
+              <select id="currency-selector" onchange="setCurrency(this.value)"
+                class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+                <option value="GBP">£ GBP</option>
+                <option value="USD">$ USD</option>
+                <option value="EUR">€ EUR</option>
+                <option value="AUD">A$ AUD</option>
+                <option value="CAD">C$ CAD</option>
+              </select>`;
+            toggleArea.parentElement.insertAdjacentElement('afterend', wrap);
+            document.getElementById('currency-selector').value = _currency;
+        }
+
+        // US-AUD-3.1.1 SC5: Track pricing page view for churn Signal 4 detection.
+        fetch('/.netlify/functions/page-events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pagePath: '/pricing.html' }),
+        }).catch(() => { /* non-critical */ });
+
+        if (new URLSearchParams(window.location.search).get('verified') === 'true') {
+            const banner = document.createElement('div');
+            banner.className = 'fixed top-0 left-0 right-0 z-50 bg-emerald-700 text-white text-center py-3 px-4 text-sm font-semibold shadow-md';
+            banner.innerHTML = '✓ Your email is verified! Choose a plan below to get started.';
+            document.body.prepend(banner);
         }
     });
+})();
 </script>
 </body>
 </html>

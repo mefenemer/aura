@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Accept Invite — Aura-Assist</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+
+  <div class="w-full max-w-md">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <span class="text-2xl font-extrabold text-emerald-600">Aura</span><span class="text-2xl font-extrabold text-gray-900">-Assist</span>
+    </div>
+
+    <!-- Loading state -->
+    <div id="state-loading" class="bg-white rounded-2xl border border-gray-200 p-8 text-center shadow-sm">
+      <div class="animate-spin w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+      <p class="text-gray-500 text-sm">Accepting your invitation…</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="state-error" class="hidden bg-white rounded-2xl border border-red-200 p-8 text-center shadow-sm">
+      <div class="text-4xl mb-4">❌</div>
+      <h1 class="text-lg font-bold text-gray-900 mb-2">Something went wrong</h1>
+      <p id="error-message" class="text-gray-500 text-sm">Please ask your admin to resend the invite.</p>
+    </div>
+  </div>
+
+  <script>
+    (async function () {
+      const params   = new URLSearchParams(window.location.search);
+      const token    = params.get('token');
+      const orgId    = params.get('orgId');
+      const role     = params.get('role') || 'member';
+
+      if (!token || !orgId) {
+        showError('Invalid invite link. Please ask your workspace admin to resend the invite.');
+        return;
+      }
+
+      // Redirect to the serverless function which sets cookie + redirects to workspace
+      // The function handles the full logic (expiry check, user activation, org join).
+      window.location.href = `/.netlify/functions/accept-invite?token=${encodeURIComponent(token)}&orgId=${encodeURIComponent(orgId)}&role=${encodeURIComponent(role)}`;
+    })();
+
+    function showError(msg) {
+      document.getElementById('state-loading').classList.add('hidden');
+      document.getElementById('state-error').classList.remove('hidden');
+      document.getElementById('error-message').textContent = msg;
+    }
+  </script>
+</body>
+</html>

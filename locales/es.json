@@ -1,0 +1,148 @@
+{
+  "nav": {
+    "how_it_works": "Cómo funciona",
+    "assistant_library": "Biblioteca de asistentes",
+    "pricing": "Precios",
+    "faqs": "Preguntas frecuentes",
+    "log_in": "Iniciar sesión",
+    "log_out": "Cerrar sesión",
+    "dashboard": "Panel",
+    "billing": "Facturación"
+  },
+  "footer": {
+    "tagline": "Delega el trabajo que odias. Construimos, alojamos y gestionamos tus asistentes digitales para que puedas centrarte en lo que importa.",
+    "tagline_sub": "Tu equipo digital invisible. Trabajando constantemente en segundo plano para convertir tu caos diario en calma absoluta.",
+    "platform": "Plataforma",
+    "how_it_works": "Cómo funciona",
+    "assistant_library": "Biblioteca de asistentes",
+    "pricing": "Precios",
+    "faqs": "Preguntas frecuentes",
+    "get_started": "Empezar",
+    "legal": "Legal",
+    "privacy_policy": "Política de privacidad",
+    "terms_of_service": "Términos de servicio",
+    "trust_security": "Confianza y seguridad",
+    "copyright": "© 2026 Aura-Assist. Todos los derechos reservados.",
+    "language": "Idioma"
+  },
+  "common": {
+    "submit": "Enviar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "save": "Guardar",
+    "loading": "Cargando…",
+    "error_generic": "Algo salió mal. Por favor, inténtalo de nuevo.",
+    "error_email_invalid": "Por favor, introduce una dirección de correo válida.",
+    "error_required": "Este campo es obligatorio.",
+    "error_connection": "Conexión fallida. Por favor, inténtalo de nuevo.",
+    "success": "¡Éxito!",
+    "sending": "Enviando…"
+  },
+  "lang": {
+    "selector_label": "Idioma",
+    "en": "English",
+    "fr": "Français",
+    "de": "Deutsch",
+    "es": "Español",
+    "pt": "Português"
+  },
+  "index": {
+    "hero_title": "Delega el Trabajo que Odias",
+    "hero_subtitle": "Construimos, alojamos y gestionamos asistentes digitales impulsados por IA que se encargan de tus tareas más consumidoras de tiempo — para que puedas centrarte en lo que realmente mueve la aguja.",
+    "hero_cta_primary": "Empieza gratis",
+    "hero_cta_secondary": "Ver cómo funciona",
+    "how_it_works_title": "Cómo funciona",
+    "step1_title": "Cuéntanos qué te ralentiza",
+    "step1_body": "Rellena un breve formulario sobre la tarea que quieres automatizar.",
+    "step2_title": "Construimos tu asistente",
+    "step2_body": "Nuestro equipo configura y despliega un asistente IA dedicado adaptado a tu flujo de trabajo.",
+    "step3_title": "Trabaja en segundo plano",
+    "step3_body": "Tu asistente trabaja 24/7 para que tú no tengas que hacerlo."
+  },
+  "pricing": {
+    "title": "Precios simples y transparentes",
+    "subtitle": "Un asistente. Una tarifa mensual. Cancela en cualquier momento.",
+    "monthly": "Mensual",
+    "annual": "Anual",
+    "save_label": "Ahorra un 20 %",
+    "per_month": "/mes",
+    "billed_monthly": "Facturado mensualmente · cancela cuando quieras",
+    "get_started": "Empezar",
+    "talk_to_sales": "Hablar con ventas enterprise",
+    "currency_label": "Moneda"
+  },
+  "assistants": {
+    "page_title": "Biblioteca de asistentes",
+    "page_subtitle": "Explora nuestro catálogo de asistentes de IA. Cada uno está diseñado para un rol empresarial específico.",
+    "join_waitlist": "Unirse a la lista de espera",
+    "notify_me": "Notificarme",
+    "hire_assistant": "Contratar este asistente",
+    "request_role": "Solicitar un nuevo rol",
+    "request_role_subtitle": "¿No encuentras el rol que necesitas? Dínoslo y lo construiremos.",
+    "role_label": "Rol / Título del puesto",
+    "tasks_label": "Tareas a automatizar",
+    "industry_label": "Tu sector",
+    "urgency_label": "¿Qué tan urgente?",
+    "urgency_this_week": "Esta semana",
+    "urgency_next_month": "El mes que viene",
+    "urgency_exploring": "Solo explorando",
+    "submit_request": "Enviar solicitud"
+  },
+  "contact": {
+    "title": "Contáctanos",
+    "email_label": "Tu correo",
+    "subject_label": "Asunto",
+    "message_label": "Mensaje",
+    "submit": "Enviar mensaje",
+    "success": "¡Gracias! Nos pondremos en contacto pronto."
+  },
+  "register": {
+    "title": "Crea tu cuenta",
+    "first_name": "Nombre",
+    "last_name": "Apellido",
+    "email": "Dirección de correo",
+    "submit": "Crear cuenta",
+    "login_link": "¿Ya tienes una cuenta? Inicia sesión"
+  },
+  "validation": {
+    "email_required": "El correo electrónico es obligatorio.",
+    "email_invalid": "Por favor, introduce una dirección de correo válida.",
+    "name_required": "El nombre es obligatorio.",
+    "field_required": "Este campo es obligatorio.",
+    "role_required": "Por favor, introduce un nombre de rol.",
+    "tasks_required": "Por favor, describe las tareas a automatizar."
+  },
+  "workspace": {
+    "nav": {
+      "dashboard": "Panel de control",
+      "my_team": "Mi equipo",
+      "my_content": "Mi contenido",
+      "calendar": "Calendario",
+      "defaults_group": "Ajustes",
+      "brand_profile": "Perfil de marca",
+      "connections": "Conexiones",
+      "team_members": "Miembros del equipo",
+      "assistant_rules": "Reglas del asistente",
+      "notifications": "Notificaciones",
+      "refer_a_friend": "Recomendar un amigo",
+      "help_support": "Ayuda y soporte",
+      "admin_portal": "Portal de administración",
+      "my_account": "Mi cuenta",
+      "log_out": "Cerrar sesión"
+    },
+    "settings": {
+      "title": "Configuración de cuenta",
+      "subtitle": "Los cambios se guardan automáticamente en segundo plano.",
+      "language_label": "Idioma",
+      "language_hint": "Cambia el idioma de tu espacio de trabajo inmediatamente.",
+      "timezone_label": "Zona horaria",
+      "first_name": "Nombre",
+      "last_name": "Apellido",
+      "email_label": "Correo electrónico",
+      "your_roles": "Tus roles",
+      "roles_subtitle": "Los roles son asignados por el propietario de tu organización o un administrador.",
+      "roles_change_hint": "Para solicitar un cambio de rol, contacta al propietario de tu organización o al soporte.",
+      "view_billing": "Ver facturación"
+    }
+  }
+}

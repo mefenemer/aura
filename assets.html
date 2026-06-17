@@ -1,0 +1,74 @@
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full pb-20 relative">
+
+  <div class="mb-8">
+    <h1 class="text-3xl font-extrabold text-gray-900">Brand Assets</h1>
+    <p class="text-gray-500 mt-1">Upload brand guidelines, logos, and knowledge documents.</p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-1 space-y-6">
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
+          <h3 class="text-lg font-bold text-gray-900">Add New Asset</h3>
+        </div>
+
+        <div class="p-6">
+          <form id="asset-upload-form" class="space-y-5">
+            <div class="flex bg-gray-100 p-1 rounded-lg">
+              <button type="button" id="btn-tab-file" class="flex-1 py-1.5 text-xs font-bold bg-white text-gray-900 rounded-md shadow-sm transition-all">File</button>
+              <button type="button" id="btn-tab-url" class="flex-1 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-all">URL</button>
+            </div>
+
+            <div>
+              <label for="asset-category" class="block text-sm font-bold text-gray-700 mb-1">Asset Category</label>
+              <select id="asset-category" required class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white cursor-pointer">
+                <option value="" disabled selected>Select a category...</option>
+                <option value="tone_of_voice">Tone of Voice / Style</option>
+                <option value="logo">Brand Logo / Visuals</option>
+                <option value="product_info">Product Knowledge</option>
+                <option value="general">General Context</option>
+              </select>
+            </div>
+
+            <div id="zone-file" class="block">
+              <div id="drop-zone" class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-emerald-500 hover:bg-emerald-50 transition-colors cursor-pointer relative">
+                <div class="space-y-1 text-center">
+                  <svg class="mx-auto h-10 w-10 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                  <div class="flex text-sm text-gray-600 justify-center">
+                    <span class="relative cursor-pointer rounded-md font-medium text-emerald-600 hover:text-emerald-500">
+                      <span>Upload a file</span>
+                      <input id="file-upload" name="file-upload" type="file" class="sr-only" accept=".pdf,.txt,.csv,.png,.jpg,.svg">
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p id="file-name-display" class="text-xs font-bold text-emerald-700 mt-2 hidden text-center truncate"></p>
+            </div>
+
+            <div id="zone-url" class="hidden">
+              <label for="external-url" class="block text-sm font-bold text-gray-700 mb-1">External Resource URL</label>
+              <input type="url" id="external-url" placeholder="https://yourcompany.com/about" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-600 outline-none transition-all">
+            </div>
+
+            <button type="submit" id="submit-asset-btn" class="w-full block text-center px-6 py-3 text-sm font-bold rounded-xl text-white bg-gray-900 hover:bg-black shadow-md transition-all">
+              Upload Asset
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace Library (Right Column) -->
+    <div class="lg:col-span-2 space-y-6">
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+          <h3 class="text-lg font-bold text-gray-900">Workspace Library</h3>
+        </div>
+        <div class="p-0 flex-1 overflow-y-auto">
+          <ul id="asset-list" class="divide-y divide-gray-100"></ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

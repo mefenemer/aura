@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trust &amp; Security | Aura-Assist</title>
+    <link href="./style.css" rel="stylesheet">
+    <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
+    <link rel="manifest" href="/favicon/manifest.json">
+</head>
+<body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
+
+<div id="nav-placeholder"></div>
+
+<main class="flex-grow max-w-3xl mx-auto px-4 py-16">
+
+    <!-- Header -->
+    <div class="mb-10">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-2">Trust &amp; Security</h1>
+        <!-- SC5: Last updated date -->
+        <p class="text-sm text-gray-500">Last updated: <time datetime="2026-06-10">10 June 2026</time> · Reviewed quarterly</p>
+    </div>
+
+    <!-- SC4: GDPR Compliance Statement -->
+    <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-5 mb-10">
+        <p class="text-sm text-emerald-900">
+            <strong>GDPR Compliance:</strong> Aura-Assist acts as a <strong>Data Processor</strong> under UK GDPR / EU GDPR.
+            Our full <a href="/privacy.html" class="underline hover:text-emerald-700">Privacy Policy</a> is available at <a href="/privacy.html" class="underline hover:text-emerald-700">/privacy.html</a>.
+            For erasure requests, please email <a href="mailto:hello@aura-assist.com" class="underline hover:text-emerald-700">hello@aura-assist.com</a>.
+        </p>
+    </div>
+
+    <!-- Section: Data Residency -->
+    <section class="mb-10">
+        <h2 class="text-xl font-bold text-gray-900 mb-3">Data Residency</h2>
+        <p class="text-gray-700 text-sm leading-relaxed">
+            All customer data processed and stored by Aura-Assist resides within the <strong>United Kingdom / European Economic Area</strong>
+            on infrastructure provided by Netlify (Cloudflare CDN with UK/EU edge nodes) and our managed PostgreSQL provider.
+            No data is transferred outside the UK/EEA without adequate safeguards as required by UK GDPR Article 46.
+        </p>
+    </section>
+
+    <!-- Section: Sub-Processor List -->
+    <section class="mb-10">
+        <h2 class="text-xl font-bold text-gray-900 mb-3">Sub-Processors</h2>
+        <p class="text-gray-600 text-sm mb-4">
+            Aura-Assist uses the following third-party sub-processors to deliver its services.
+            Each has been assessed for GDPR compliance and has its own Data Processing Agreement in place.
+        </p>
+        <div class="overflow-x-auto rounded-xl border border-gray-200">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                    <tr>
+                        <th class="px-4 py-3 font-semibold">Sub-Processor</th>
+                        <th class="px-4 py-3 font-semibold">Purpose</th>
+                        <th class="px-4 py-3 font-semibold">Location</th>
+                        <th class="px-4 py-3 font-semibold">DPA / Security</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium text-gray-800">OpenAI</td>
+                        <td class="px-4 py-3 text-gray-600">AI language model inference</td>
+                        <td class="px-4 py-3 text-gray-600">USA (SCCs applied)</td>
+                        <td class="px-4 py-3"><a href="https://openai.com/enterprise-privacy" target="_blank" rel="noopener" class="text-emerald-600 underline hover:text-emerald-800">openai.com/enterprise-privacy</a></td>
+                    </tr>
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium text-gray-800">Stripe</td>
+                        <td class="px-4 py-3 text-gray-600">Payment processing &amp; billing</td>
+                        <td class="px-4 py-3 text-gray-600">USA / UK (SCCs applied)</td>
+                        <td class="px-4 py-3"><a href="https://stripe.com/gb/privacy" target="_blank" rel="noopener" class="text-emerald-600 underline hover:text-emerald-800">stripe.com/gb/privacy</a></td>
+                    </tr>
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium text-gray-800">Resend</td>
+                        <td class="px-4 py-3 text-gray-600">Transactional email delivery</td>
+                        <td class="px-4 py-3 text-gray-600">USA (SCCs applied)</td>
+                        <td class="px-4 py-3"><a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener" class="text-emerald-600 underline hover:text-emerald-800">resend.com/legal/privacy-policy</a></td>
+                    </tr>
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium text-gray-800">Netlify</td>
+                        <td class="px-4 py-3 text-gray-600">Hosting, serverless functions, CDN</td>
+                        <td class="px-4 py-3 text-gray-600">USA / EU edge nodes</td>
+                        <td class="px-4 py-3"><a href="https://www.netlify.com/gdpr-ccpa" target="_blank" rel="noopener" class="text-emerald-600 underline hover:text-emerald-800">netlify.com/gdpr-ccpa</a></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Section: Encryption Standards -->
+    <section class="mb-10">
+        <h2 class="text-xl font-bold text-gray-900 mb-3">Encryption Standards</h2>
+        <ul class="text-sm text-gray-700 space-y-2">
+            <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5">✓</span><span><strong>In transit:</strong> All data is encrypted in transit using TLS 1.3. Older cipher suites are disabled.</span></li>
+            <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5">✓</span><span><strong>At rest:</strong> All database storage is encrypted at rest using AES-256 via the managed database provider's native encryption.</span></li>
+            <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5">✓</span><span><strong>OAuth credentials &amp; API keys:</strong> Stored with AES-256-GCM application-layer encryption. Plaintext credentials are never logged or returned to clients.</span></li>
+        </ul>
+    </section>
+
+    <!-- Section: Penetration Testing -->
+    <section class="mb-10">
+        <h2 class="text-xl font-bold text-gray-900 mb-3">Penetration Testing</h2>
+        <p class="text-sm text-gray-700 leading-relaxed">
+            Aura-Assist undergoes regular security assessments.
+            Our last penetration test was conducted in <strong>Q2 2026</strong>.
+            A summary report is available on request to enterprise customers — please email
+            <a href="mailto:hello@aura-assist.com" class="text-emerald-600 underline hover:text-emerald-800">hello@aura-assist.com</a>
+            with the subject <em>"Security Report Request"</em>.
+        </p>
+    </section>
+
+    <!-- Section: Data Retention -->
+    <section class="mb-10">
+        <h2 class="text-xl font-bold text-gray-900 mb-3">Data Retention</h2>
+        <ul class="text-sm text-gray-700 space-y-2">
+            <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5">✓</span><span><strong>Active accounts:</strong> Data is retained for the duration of your subscription.</span></li>
+            <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5">✓</span><span><strong>After account deletion:</strong> Personal data is permanently deleted within <strong>30 days</strong> of account closure. An anonymised erasure record is retained for compliance purposes.</span></li>
+            <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5">✓</span><span><strong>Audit logs:</strong> Retained for <strong>12 months</strong> for security and compliance monitoring, then purged.</span></li>
+            <li class="flex items-start gap-2"><span class="text-emerald-600 mt-0.5">✓</span><span><strong>Integration API call logs:</strong> Retained for <strong>90 days</strong>, then automatically purged.</span></li>
+        </ul>
+    </section>
+
+    <!-- SC3: DPA Request Form -->
+    <section class="mb-10" id="dpa-request">
+        <h2 class="text-xl font-bold text-gray-900 mb-2">Request a Data Processing Agreement</h2>
+        <p class="text-sm text-gray-600 mb-5">
+            Enterprise customers and partners may request a signed DPA for their records.
+            Complete the form below and we'll respond within <strong>2 business days</strong>.
+        </p>
+
+        <form id="dpa-form" class="space-y-4 bg-white rounded-xl border border-gray-200 p-6">
+            <div>
+                <label for="dpa-name" class="block text-sm font-semibold text-gray-700 mb-1">Your Name <span class="text-red-500">*</span></label>
+                <input id="dpa-name" type="text" required placeholder="Jane Smith"
+                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <div>
+                <label for="dpa-company" class="block text-sm font-semibold text-gray-700 mb-1">Company Name <span class="text-red-500">*</span></label>
+                <input id="dpa-company" type="text" required placeholder="Acme Ltd"
+                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <div>
+                <label for="dpa-email" class="block text-sm font-semibold text-gray-700 mb-1">Work Email <span class="text-red-500">*</span></label>
+                <input id="dpa-email" type="email" required placeholder="jane@acme.com"
+                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <div id="dpa-error" class="hidden text-sm text-red-600 font-medium"></div>
+            <div id="dpa-success" class="hidden rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">
+                ✅ Request received. We'll send your Data Processing Agreement within 2 business days.
+            </div>
+
+            <button type="submit" id="dpa-submit"
+                    class="w-full py-2.5 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition disabled:opacity-60 disabled:cursor-not-allowed">
+                Request DPA
+            </button>
+        </form>
+    </section>
+
+</main>
+
+<div id="footer-placeholder"></div>
+
+<script>
+  // Load shared nav and footer components
+  async function loadComponent(id, path) {
+    try {
+      const r = await fetch(path);
+      if (r.ok) document.getElementById(id).innerHTML = await r.text();
+    } catch {}
+  }
+  loadComponent('nav-placeholder', './components/nav.html');
+  loadComponent('footer-placeholder', './components/footer.html');
+
+  // DPA Request Form submission
+  document.getElementById('dpa-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const btn    = document.getElementById('dpa-submit');
+    const errEl  = document.getElementById('dpa-error');
+    const succEl = document.getElementById('dpa-success');
+
+    const name    = document.getElementById('dpa-name').value.trim();
+    const company = document.getElementById('dpa-company').value.trim();
+    const email   = document.getElementById('dpa-email').value.trim();
+
+    errEl.classList.add('hidden');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    try {
+      const res = await fetch('/.netlify/functions/dpa-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, company, email }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Submission failed. Please try again.';
+        errEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Request DPA';
+      } else {
+        succEl.classList.remove('hidden');
+        this.classList.add('hidden');
+      }
+    } catch {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Request DPA';
+    }
+  });
+</script>
+
+</body>
+</html>
