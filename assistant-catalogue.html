@@ -358,12 +358,19 @@
       }
     } catch { /* allow through on error */ }
 
-    // Store intended role and go to the onboarding flow. Onboarding is a standalone
-    // page (onboarding.html routes to the role-specific wizard) — NOT a workspace view,
-    // so navigate to it directly. (Previously this called loadView('onboarding'), but
-    // there is no 'onboarding' route, so the click silently did nothing.)
+    // Go straight to the role-specific onboarding wizard (skips the onboarding.html
+    // role-picker step). roleKey matches the master-assistant roleKey from the DB.
+    // Falls back to onboarding.html for any role without a dedicated wizard.
+    // (Previously this called loadView('onboarding'), but there is no 'onboarding'
+    // workspace route, so the click silently did nothing.)
+    const ROLE_ONBOARDING_PAGE = {
+      social_media: 'onboarding-social-media.html',
+      paid_ads:     'onboarding-performance.html',
+      data_entry:   'onboarding-inventory.html',
+      custom:       'onboarding-custom.html',
+    };
     sessionStorage.setItem('intended_role_key', roleKey);
-    window.location.href = 'onboarding.html';
+    window.location.href = ROLE_ONBOARDING_PAGE[roleKey] || 'onboarding.html';
   };
 
   // ── US-AUD-2.3.1: Notify Me toggle (milestone progress bar cards) ──────────
