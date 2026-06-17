@@ -409,7 +409,7 @@ async function submitTosAcceptance(btn) {
 </div>
 
 <!-- US-ONB-2.1.1: Plan selection gate — non-dismissible, shows live plan cards from DB (AC5–AC18) -->
-<div id="plan-gate-modal" class="hidden fixed inset-0 z-[10000] bg-gray-950 backdrop-blur-sm flex items-center justify-center p-4" style="z-index:10000;padding-top:max(1rem,env(safe-area-inset-top));padding-bottom:max(1rem,env(safe-area-inset-bottom))">
+<div id="plan-gate-modal" class="hidden fixed inset-0 z-[10000] backdrop-blur-sm flex items-center justify-center p-4" style="z-index:10000;background-color:rgba(20,18,15,0.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding-top:max(1rem,env(safe-area-inset-top));padding-bottom:max(1rem,env(safe-area-inset-bottom))">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-y-auto" style="max-height:calc(100vh - 2rem)">
     <div class="p-8 pb-4 text-center border-b border-gray-100">
       <!-- AC10: referral discount banner -->
@@ -542,7 +542,7 @@ async function submitTosAcceptance(btn) {
 
   <!-- US-GAP-3.1.1 SC1/SC2: Payment Required full-page gate — shown when planStatus==='past_due' -->
   <!-- Non-dismissable until payment is resolved. Injected via renderPaymentRequiredGate(). -->
-  <div id="payment-required-gate" class="hidden fixed inset-0 z-[9999] bg-gray-950/95 backdrop-blur-sm flex items-center justify-center p-4" style="z-index:9999">
+  <div id="payment-required-gate" class="hidden fixed inset-0 z-[9999] backdrop-blur-sm flex items-center justify-center p-4" style="z-index:9999;background-color:rgba(20,18,15,0.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
       <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
         <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -567,7 +567,7 @@ async function submitTosAcceptance(btn) {
   </div>
 
   <!-- US-GAP-8.1.1 SC6c: Trial Expired Gate — full-page non-dismissable, shown after cron marks plan 'expired' -->
-  <div id="trial-expired-gate" class="hidden fixed inset-0 z-[9999] bg-gray-950/95 backdrop-blur-sm flex items-center justify-center p-4" style="z-index:9999">
+  <div id="trial-expired-gate" class="hidden fixed inset-0 z-[9999] backdrop-blur-sm flex items-center justify-center p-4" style="z-index:9999;background-color:rgba(20,18,15,0.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
       <div class="flex items-center justify-center w-16 h-16 bg-amber-100 rounded-full mx-auto mb-4">
         <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1883,19 +1883,31 @@ function formatCurrency(amount, currency) {
         showGate(refParam || null);
       }
 
+      // Returning from Stripe checkout — the webhook may not have marked the plan active yet,
+      // so we must NOT show the plan-selection gate here; the polling block below handles it.
+      const planActivated = qs.get('plan_activated') === 'true';
+
       // Show gate if user has no active plan (AC1-3)
       const cap = await window.checkCapacity();
-      if (cap && cap.planStatus === null && actionParam !== 'select-plan') {
+      if (cap && cap.planStatus === null && actionParam !== 'select-plan' && !planActivated) {
         showGate(null);
       }
 
       // AC6: gate is non-dismissible — no cancel handler
 
       // AC12: ?plan_activated=true — poll for confirmed subscription
-      if (qs.get('plan_activated') === 'true') {
+      if (planActivated) {
         const url = new URL(window.location.href);
         url.searchParams.delete('plan_activated');
         history.replaceState(null, '', url.toString());
+        // Show the gate in an "activating" state (no plan cards) while the webhook confirms.
+        const gateHeading = gateModal.querySelector('h2');
+        const gateSubtitle = gateModal.querySelector('h2 + p');
+        if (gateHeading) gateHeading.textContent = 'Activating your workspace';
+        if (gateSubtitle) gateSubtitle.textContent = 'Payment received — just confirming your subscription…';
+        if (cardsEl) cardsEl.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500 text-sm animate-pulse">Activating your plan…</div>';
+        gateModal.classList.remove('hidden');
+        applyGateBlur(true);
         if (pollingEl) pollingEl.classList.remove('hidden');
         let attempts = 0;
         const poll = setInterval(async () => {

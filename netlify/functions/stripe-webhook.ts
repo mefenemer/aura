@@ -36,6 +36,153 @@ export const handler: Handler = async (event) => {
         return { statusCode: 200, body: JSON.stringify({ received: true, duplicate: true }) };
     }
 
+    // ── checkout.session.completed — plan-gate subscription checkout ──
+    // create-plan-checkout-intent.ts uses Stripe Checkout in `subscription` mode. Stripe does NOT
+    // route these through our custom payment_intent.succeeded metadata flow, and invoice.paid with
+    // billing_reason `subscription_create` is skipped below — so the plan must be activated HERE,
+    // otherwise check-capacity never sees an active plan and the plan-gate modal keeps reappearing.
+    if (stripeEvent.type === 'checkout.session.completed') {
+        const session = stripeEvent.data.object as Stripe.Checkout.Session;
+        const { userId, organisationId, masterPlanId, planName: metaPlanName, referralCode } = session.metadata || {};
+
+        // Only our plan-gate subscription sessions carry userId in metadata
+        if (session.mode !== 'subscription' || !userId) {
+            return { statusCode: 200, body: JSON.stringify({ received: true }) };
+        }
+        console.log(`[stripe-webhook] checkout.session.completed activating plan for userId=${userId} org=${organisationId} masterPlan=${masterPlanId}`);
+
+        const userIdInt        = parseInt(userId);
+        const orgIdInt         = organisationId ? parseInt(organisationId) : null;
+        const masterPlanIdInt  = masterPlanId ? parseInt(masterPlanId) : null;
+        const stripeCustomerId = typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
+        const stripeSubscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null;
+        const planName = metaPlanName || 'Aura-Assist Subscription';
+
+        // Create the active plan record — unique-constraint guard mirrors the payment_intent path
+        let newPlan: typeof plans.$inferSelect;
+        try {
+            const [inserted] = await db.insert(plans).values({
+                userId: userIdInt,
+                organisationId: orgIdInt,
+                masterPlanId: masterPlanIdInt,
+                planName,
+                planType: 'subscription',
+                status: 'active',
+                stripeCustomerId,
+                stripeSubscriptionId,
+            }).returning();
+            newPlan = inserted;
+        } catch (planErr: any) {
+            if (planErr?.code === '23505' || planErr?.message?.includes('plans_one_active_per_org_unique')) {
+                console.warn('[stripe-webhook] checkout.session.completed — active plan already exists, returning 200');
+                return { statusCode: 200, body: JSON.stringify({ received: true, duplicate_plan: true }) };
+            }
+            throw planErr;
+        }
+
+        // Trial-to-paid: expire any active trial plan so check-capacity returns the paid plan
+        await db.update(plans)
+            .set(withUpdatedAt({ status: 'expired' as const }))
+            .where(and(eq(plans.userId, userIdInt), eq(plans.planType, 'trial'), eq(plans.status, 'active')));
+
+        // Record the first payment + invoice (subscription_create invoice.paid is skipped below,
+        // so this is the only place the initial charge is persisted for the plan-gate flow).
+        const amountPence = session.amount_total ?? 0;
+        await db.insert(payments).values({
+            userId: userIdInt,
+            organisationId: orgIdInt,
+            planId: newPlan.id,
+            masterPlanId: masterPlanIdInt,
+            amount: (amountPence / 100).toFixed(2),
+            currency: (session.currency || 'gbp').toUpperCase(),
+            status: 'completed',
+            externalPaymentId: (typeof session.payment_intent === 'string' ? session.payment_intent : null) || session.id,
+            description: `${planName} — first payment`,
+        }).catch(err => console.error('[stripe-webhook] checkout.session payment insert failed:', (err as any)?.message));
+
+        const sessBillingStart = new Date();
+        const sessBillingEnd   = new Date(sessBillingStart);
+        sessBillingEnd.setMonth(sessBillingEnd.getMonth() + 1);
+        const sessInv = await _createInvoice({
+            userId:                userIdInt,
+            organisationId:        orgIdInt,
+            planId:                newPlan.id,
+            planName,
+            amountPence,
+            currency:              session.currency || 'gbp',
+            billingPeriodStart:    sessBillingStart,
+            billingPeriodEnd:      sessBillingEnd,
+            stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+        });
+        if (sessInv) {
+            await db.insert(notifications).values({
+                userId: userIdInt,
+                type: 'invoice_ready',
+                title: `Your invoice for ${planName} is ready`,
+                message: `Invoice ${sessInv.invoiceNumber} has been generated for your ${planName} subscription. View it in your Invoice History.`,
+                isRead: false,
+                metadata: { invoiceId: sessInv.id, invoiceNumber: sessInv.invoiceNumber, action: 'view_invoices' },
+            }).catch(() => {});
+        }
+
+        // US-ONB-2.2.1: reset welcome flag + persistent welcome notification (AC15/AC16)
+        await db.update(userProfiles)
+            .set({ firstLoginWelcomeSeen: false, updatedAt: new Date() })
+            .where(eq(userProfiles.userId, userIdInt))
+            .catch(() => {});
+        await db.insert(notifications).values({
+            userId: userIdInt,
+            type: 'welcome',
+            title: 'Welcome to Aura-Assist!',
+            message: 'Your workspace is ready. Open your User Guide to get started.',
+            isRead: false,
+            metadata: { ctaLabel: 'Open User Guide', ctaUrl: '/help.html' },
+        }).catch(() => {});
+
+        // US-GAP-8.2: referral qualification + £10 reward (keyed on the referred user, like the PI path)
+        try {
+            const [pendingReferral] = await db
+                .select({ id: userReferrals.id, referrerId: userReferrals.referrerId })
+                .from(userReferrals)
+                .where(and(eq(userReferrals.referredUserId, userIdInt), eq(userReferrals.status, 'pending')))
+                .limit(1);
+
+            if (pendingReferral) {
+                const [referrerPlan] = await db
+                    .select({ stripeCustomerId: plans.stripeCustomerId })
+                    .from(plans)
+                    .where(and(eq(plans.userId, pendingReferral.referrerId), eq(plans.status, 'active')))
+                    .limit(1);
+
+                let balanceTxId: string | null = null;
+                if (referrerPlan?.stripeCustomerId) {
+                    const balanceTx = await stripe.customers.createBalanceTransaction(
+                        referrerPlan.stripeCustomerId,
+                        { amount: -1000, currency: (session.currency || 'gbp').toLowerCase(), description: 'Referral reward — friend made their first payment' },
+                    );
+                    balanceTxId = balanceTx.id;
+                }
+
+                await db.update(userReferrals)
+                    .set({ status: 'rewarded', qualifiedAt: new Date(), rewardedAt: new Date(), stripeBalanceTxId: balanceTxId })
+                    .where(eq(userReferrals.id, pendingReferral.id));
+
+                await db.insert(notifications).values({
+                    userId: pendingReferral.referrerId,
+                    type: 'referral_reward',
+                    title: '🎉 Referral Reward Earned — £10 Credit Applied',
+                    message: 'A friend you referred has signed up and made their first payment. We\'ve added a £10 credit to your account — it will be applied to your next invoice.',
+                    isRead: false,
+                    metadata: { referralId: pendingReferral.id, rewardGbp: 10 },
+                });
+            }
+        } catch (refErr) {
+            console.warn('[stripe-webhook] checkout.session referral reward failed (non-blocking):', refErr);
+        }
+
+        return { statusCode: 200, body: JSON.stringify({ received: true, activated: true }) };
+    }
+
     // ── payment_intent.succeeded — initial checkout ───────────────
     if (stripeEvent.type === 'payment_intent.succeeded') {
         const pi = stripeEvent.data.object as Stripe.PaymentIntent;
