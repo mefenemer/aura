@@ -2139,9 +2139,9 @@ export const handler: Handler = async (event) => {
         if (event.httpMethod === 'GET' && resource === 'failed-posts') {
             const platform = event.queryStringParameters?.platform ?? 'instagram';
             const rows = await db.execute<{ id: number; publish_date: string; attempt_count: number; failure_reason: unknown; organisation_id: number }>(
-                `SELECT id, publish_date, attempt_count, failure_reason, organisation_id
+                sql`SELECT id, publish_date, attempt_count, failure_reason, organisation_id
                  FROM scheduled_posts
-                 WHERE platform = '${platform}' AND status = 'failed'
+                 WHERE platform = ${platform} AND status = 'failed'
                  ORDER BY updated_at DESC
                  LIMIT 50`
             );
@@ -2151,7 +2151,7 @@ export const handler: Handler = async (event) => {
         if (event.httpMethod === 'POST' && resource === 'retry-post') {
             const postId = event.queryStringParameters?.postId;
             if (!postId) return { statusCode: 400, body: JSON.stringify({ error: 'postId required' }) };
-            await db.execute(`UPDATE scheduled_posts SET status = 'scheduled', attempt_count = 0, retry_at = NULL, failure_reason = NULL, updated_at = now() WHERE id = ${parseInt(postId)} AND status = 'failed'`);
+            await db.execute(sql`UPDATE scheduled_posts SET status = 'scheduled', attempt_count = 0, retry_at = NULL, failure_reason = NULL, updated_at = now() WHERE id = ${parseInt(postId)} AND status = 'failed'`);
             await insertAdminAuditLog({ adminId, action: 'retry_failed_post', targetType: 'scheduled_posts', targetId: postId });
             return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
         }

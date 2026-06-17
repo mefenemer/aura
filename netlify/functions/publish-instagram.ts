@@ -4,7 +4,7 @@
 // rate-limit state table, permanent-error classification, push notifications, cron log.
 
 import { Handler } from '@netlify/functions';
-import { and, eq, lte, or, isNull, inArray } from 'drizzle-orm';
+import { and, eq, lte, or, isNull, inArray, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     scheduledPosts, systemConnections, rateLimitStates, publishCronLog,
@@ -70,7 +70,7 @@ export const handler: Handler = async () => {
 
     // Set all claimed posts to 'publishing' atomically
     const postIds = posts.map(p => p.id);
-    await db.execute(`UPDATE scheduled_posts SET status = 'publishing', updated_at = now() WHERE id = ANY(ARRAY[${postIds.join(',')}]::int[])`);
+    await db.update(scheduledPosts).set({ status: 'publishing', updatedAt: new Date() }).where(inArray(scheduledPosts.id, postIds));
 
     processed = posts.length;
 
@@ -141,7 +141,7 @@ export const handler: Handler = async () => {
             }
 
             const containerId = mediaData.id;
-            await db.execute(`UPDATE scheduled_posts SET container_id = '${containerId}', updated_at = now() WHERE id = ${post.id}`);
+            await db.update(scheduledPosts).set({ containerId, updatedAt: new Date() }).where(eq(scheduledPosts.id, post.id));
 
             // Video-only: poll container status until FINISHED (or ERROR)
             if (isVideo) {
@@ -280,8 +280,10 @@ async function handlePublishFailure(
 
         // Token expired — mark connection
         if (reason.errorCode === 190) {
-            await db.execute(`UPDATE system_connections SET status = 'token_expired', updated_at = now() WHERE organisation_id = ${post.organisation_id} AND service_name = 'instagram'`);
-            await db.execute(`UPDATE scheduled_posts SET status = 'paused', updated_at = now() WHERE connection_id IN (SELECT id FROM system_connections WHERE organisation_id = ${post.organisation_id} AND service_name = 'instagram') AND status = 'scheduled'`);
+            await db.update(systemConnections)
+                .set({ status: 'token_expired', updatedAt: new Date() })
+                .where(and(eq(systemConnections.organisationId, post.organisation_id), eq(systemConnections.serviceName, 'instagram')));
+            await db.execute(sql`UPDATE scheduled_posts SET status = 'paused', updated_at = now() WHERE connection_id IN (SELECT id FROM system_connections WHERE organisation_id = ${post.organisation_id} AND service_name = 'instagram') AND status = 'scheduled'`);
         }
     } else {
         // Retryable: exponential backoff

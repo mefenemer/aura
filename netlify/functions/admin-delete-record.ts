@@ -110,9 +110,9 @@ export const handler: Handler = async (event) => {
     if (!isBulk) {
         for (const [childTable, dep] of Object.entries(BLOCKING_DEPENDENCY_TABLES)) {
             if (dep.parentTable !== table) continue;
-            const result = await db.execute(sql.raw(
-                `SELECT COUNT(*) AS cnt FROM ${childTable} WHERE ${dep.fkColumn} = ${targetIds[0]} AND (is_active IS NULL OR is_active = true)`
-            ));
+            const result = await db.execute(
+                sql`SELECT COUNT(*) AS cnt FROM ${sql.identifier(childTable)} WHERE ${sql.identifier(dep.fkColumn)} = ${targetIds[0]} AND (is_active IS NULL OR is_active = true)`
+            );
             const cnt = Number((result[0] as any)?.cnt ?? 0);
             if (cnt > 0) {
                 return {
@@ -157,19 +157,21 @@ export const handler: Handler = async (event) => {
     let failureReason: string | null = null;
 
     try {
-        const idList = targetIds.join(',');
+        // Bind ids as parameters; the table name is a validated whitelist key quoted via sql.identifier.
+        const idValues = sql.join(targetIds.map((n) => sql`${n}`), sql`, `);
+        const tableId = sql.identifier(table);
 
         if (config.tier === 'soft') {
             // Soft-delete: set isActive = false or deletedAt
             if (config.softField === 'isActive') {
-                await db.execute(sql.raw(`UPDATE ${table} SET is_active = false, updated_at = now() WHERE id IN (${idList})`));
+                await db.execute(sql`UPDATE ${tableId} SET is_active = false, updated_at = now() WHERE id IN (${idValues})`);
             } else {
-                await db.execute(sql.raw(`UPDATE ${table} SET deleted_at = now(), updated_at = now() WHERE id IN (${idList})`));
+                await db.execute(sql`UPDATE ${tableId} SET deleted_at = now(), updated_at = now() WHERE id IN (${idValues})`);
             }
             deletedCount = targetIds.length;
         } else {
             // Hard-delete or hard_confirmed
-            const result = await db.execute(sql.raw(`DELETE FROM ${table} WHERE id IN (${idList}) RETURNING id`));
+            const result = await db.execute(sql`DELETE FROM ${tableId} WHERE id IN (${idValues}) RETURNING id`);
             deletedCount = result.length ?? targetIds.length;
         }
     } catch (deleteErr: any) {

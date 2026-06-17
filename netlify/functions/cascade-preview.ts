@@ -110,9 +110,9 @@ export const handler: Handler = async (event) => {
     const blockingDependencies: { table: string; count: number; reason: string }[] = [];
     for (const [childTable, dep] of Object.entries(BLOCKING_DEPENDENCY_TABLES)) {
         if (dep.parentTable !== table) continue;
-        const result = await db.execute(sql.raw(
-            `SELECT COUNT(*) AS cnt FROM ${childTable} WHERE ${dep.fkColumn} = ${id} AND (is_active IS NULL OR is_active = true)`
-        ));
+        const result = await db.execute(
+            sql`SELECT COUNT(*) AS cnt FROM ${sql.identifier(childTable)} WHERE ${sql.identifier(dep.fkColumn)} = ${id} AND (is_active IS NULL OR is_active = true)`
+        );
         const cnt = Number((result[0] as any)?.cnt ?? 0);
         if (cnt > 0) {
             blockingDependencies.push({ table: childTable, count: cnt, reason: dep.reason });
@@ -125,9 +125,9 @@ export const handler: Handler = async (event) => {
 
     for (const rel of relevantRelations) {
         try {
-            const result = await db.execute(sql.raw(
-                `SELECT COUNT(*) AS cnt FROM ${rel.childTable} WHERE ${rel.fkColumn} = ${id}`
-            ));
+            const result = await db.execute(
+                sql`SELECT COUNT(*) AS cnt FROM ${sql.identifier(rel.childTable)} WHERE ${sql.identifier(rel.fkColumn)} = ${id}`
+            );
             const cnt = Number((result[0] as any)?.cnt ?? 0);
             if (cnt === 0) continue;
 
