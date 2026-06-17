@@ -41,11 +41,11 @@ async function runRenewalReminder() {
         });
 
         for (const sub of page.data) {
-            const periodEnd = sub.current_period_end;
+            const periodEnd = sub.items.data[0]?.current_period_end ?? 0;
             if (periodEnd < windowStart || periodEnd > windowEnd) continue;
 
             const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
-            const dedupeKey  = `renewal_reminder:${sub.id}:${sub.current_period_start}`;
+            const dedupeKey  = `renewal_reminder:${sub.id}:${sub.items.data[0]?.current_period_start ?? 0}`;
 
             // Skip if already sent for this cycle
             const [existing] = await db.select({ id: processedWebhookEvents.id })
@@ -61,7 +61,7 @@ async function runRenewalReminder() {
                 .limit(1);
             if (!plan?.userId) continue;
 
-            const [user] = await db.select({ email: users.email, name: users.name })
+            const [user] = await db.select({ email: users.email, firstName: users.firstName, lastName: users.lastName })
                 .from(users)
                 .where(eq(users.id, plan.userId))
                 .limit(1);
@@ -80,7 +80,7 @@ async function runRenewalReminder() {
                 to: user.email,
                 subject: `Reminder: Your Aura-Assist™ subscription renews in 14 days`,
                 html: `
-                    <p>Hi ${user.name || 'there'},</p>
+                    <p>Hi ${[user.firstName, user.lastName].filter(Boolean).join(' ') || 'there'},</p>
                     <p>This is a reminder that your Aura-Assist subscription will automatically renew on <strong>${renewalDate}</strong>${amount ? ` for <strong>${amount}/${interval}</strong>` : ''}.</p>
                     <p>If you wish to cancel before this date, you can do so at any time from your <a href="${BASE_URL}/user-settings.html">Settings → Billing</a>. Cancellations take effect at the end of your current billing period — you keep access until ${renewalDate}.</p>
                     <p>If you have any questions, reply to this email or contact our support team.</p>

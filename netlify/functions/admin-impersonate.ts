@@ -76,7 +76,7 @@ export const handler: Handler = async (event) => {
     let body: { action?: string; targetUserId?: number; reason?: string };
     try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
 
-    const ip = getAdminIp(event.headers as Record<string, string | undefined>);
+    const ip = getAdminIp(event.headers);
     const ua = event.headers['user-agent'] || undefined;
 
     // ── END impersonation ─────────────────────────────────────────────────────

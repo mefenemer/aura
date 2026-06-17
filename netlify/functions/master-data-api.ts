@@ -450,7 +450,7 @@ export const handler: Handler = async (event) => {
     if (!auth) return unauth();
 
     const resource = event.queryStringParameters?.resource;
-    const ip = getAdminIp(event.headers as Record<string, string | undefined>);
+    const ip = getAdminIp(event.headers);
     const ua = event.headers['user-agent'] || undefined;
     const { adminId, role } = auth;
 

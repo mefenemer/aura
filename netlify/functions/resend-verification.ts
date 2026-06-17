@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import { getDb, withUpdatedAt } from '../../db/client';
 import { users } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -49,8 +50,8 @@ export const handler: Handler = async (event) => {
             .where(eq(users.id, existingUser.id));
 
         // 4. Construct the link and send the email
-        if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-        const baseUrl = process.env.BASE_URL;
+        const baseUrl = resolveBaseUrl(event.headers);
+        if (!baseUrl) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
 
         // Ensure we send the PLAIN token in the URL, not the hash
         const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}`;

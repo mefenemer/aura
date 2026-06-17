@@ -12,10 +12,9 @@ import jwt from 'jsonwebtoken';
 import { eq, desc, and } from 'drizzle-orm';
 import { getDb, withUpdatedAt } from '../../db/client';
 import { users, userReferrals, plans } from '../../db/schema';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 const jwtSecret = process.env.JWT_SECRET;
-if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-const BASE_URL  = process.env.BASE_URL;
 const REWARD_GBP = 10;
 
 function getAuth(event: any): number | null {
@@ -36,6 +35,9 @@ function generateCode(): string {
 export const handler: Handler = async (event) => {
     const callerId = getAuth(event);
     if (!callerId) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
+
+    const BASE_URL = resolveBaseUrl(event.headers);
+    if (!BASE_URL) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
 
     const db = getDb();
 
@@ -98,12 +100,12 @@ export const handler: Handler = async (event) => {
         let referredBy: { displayName: string; joinedAt: string; referralBonusApplied: boolean } | null = null;
         if (referralRecord) {
             const [referrer] = await db
-                .select({ firstName: users.firstName, lastName: users.lastName, deletedAt: users.deletedAt })
+                .select({ firstName: users.firstName, lastName: users.lastName, pendingDeletion: users.pendingDeletion })
                 .from(users)
                 .where(eq(users.id, referralRecord.referrerId))
                 .limit(1);
-            // AC3/AC15: hide referrer if their account has been soft-deleted (deletedAt IS NOT NULL)
-            if (referrer && !referrer.deletedAt) {
+            // AC3/AC15: hide referrer if their account has been soft-deleted
+            if (referrer && !referrer.pendingDeletion) {
                 const name = [referrer.firstName, referrer.lastName].filter(Boolean).join(' ') || 'An Aura-Assist member';
                 referredBy = {
                     displayName: name,

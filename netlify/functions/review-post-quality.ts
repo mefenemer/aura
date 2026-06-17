@@ -9,7 +9,7 @@
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     users, userOrganisations, scheduledPosts, aiAssistants, aiBlueprints,
@@ -90,7 +90,8 @@ export const handler: Handler = async (event) => {
         const [bp] = await db
             .select({ sections: aiBlueprints.sections })
             .from(aiBlueprints)
-            .where(and(eq(aiBlueprints.assistantId, post.assistantId), eq(aiBlueprints.status, 'active')))
+            .where(eq(aiBlueprints.assistantId, post.assistantId))
+            .orderBy(desc(aiBlueprints.compiledAt))
             .limit(1);
         if (bp) {
             const sections = bp.sections as Record<string, { content: Record<string, unknown> }>;

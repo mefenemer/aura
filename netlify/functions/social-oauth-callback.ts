@@ -8,9 +8,7 @@ import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { systemConnections, notifications, auditLogs, users, userOrganisations } from '../../db/schema';
 import { storeSecret, getSecret, deleteSecret } from '../../src/utils/vault';
-
-if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-const baseUrl = process.env.BASE_URL;
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 function parseState(raw: string): Record<string, string> | null {
     try { return JSON.parse(Buffer.from(raw, 'base64url').toString()); }
@@ -19,6 +17,9 @@ function parseState(raw: string): Record<string, string> | null {
 
 export const handler: Handler = async (event) => {
     const platform = event.queryStringParameters?.platform;
+
+    const baseUrl = resolveBaseUrl(event.headers);
+    if (!baseUrl) return { statusCode: 500, body: 'Server misconfigured.' };
     const { code, state: rawState, error } = event.queryStringParameters ?? {};
 
     if (error) {

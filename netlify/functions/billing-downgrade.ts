@@ -168,7 +168,7 @@ export const handler: Handler = async (event) => {
         if (activePlan.stripeSubscriptionId) {
             try {
                 const sub = await stripe.subscriptions.retrieve(activePlan.stripeSubscriptionId);
-                periodEnd = new Date(sub.current_period_end * 1000).toISOString();
+                periodEnd = new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toISOString();
             } catch { /* non-critical */ }
         }
 
@@ -228,7 +228,7 @@ export const handler: Handler = async (event) => {
             .where(eq(plans.id, activePlan.id));
 
         // Notify user
-        const periodEnd = new Date(sub.current_period_end * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        const periodEnd = new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
         await db.insert(notifications).values({
             userId,
             type: 'downgrade_scheduled',
@@ -243,7 +243,7 @@ export const handler: Handler = async (event) => {
                 success: true,
                 action: 'downgrade_scheduled',
                 effectivePlanName: targetMp.name,
-                periodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+                periodEnd: new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toISOString(),
             }),
         };
     } catch (err: any) {

@@ -37,7 +37,7 @@ import {
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { isAdminRole, hasPermission, requirePermission } from '../../src/utils/rbac';
-import { checkImpersonationBlock } from '../../src/utils/impersonation';
+import { checkImpersonationBlock } from '../../src/utils/impersonation-guard';
 import { SPECIAL_CATEGORY_CLAUSE } from './get-dpa-content';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -53,7 +53,7 @@ async function requireAdmin(event: any): Promise<number | null> {
     if (!match) { console.log('[admin-api] FAIL: no aura_session cookie. Cookies present:', event.headers.cookie || '(none)'); return null; }
     let userId: number;
     try { userId = (jwt.verify(match[1], jwtSecret) as { userId: number }).userId; }
-    catch (e) { console.log('[admin-api] FAIL: JWT verify error:', e.message); return null; }
+    catch (e) { console.log('[admin-api] FAIL: JWT verify error:', (e as any)?.message); return null; }
 
     console.log('[admin-api] JWT valid, userId:', userId);
 
@@ -284,7 +284,7 @@ export const handler: Handler = async (event) => {
             if (uid === adminId) return { statusCode: 400, body: JSON.stringify({ error: 'Cannot delete your own account via admin API.' }) };
 
             // Fetch user details before deletion (needed for email + GDPR log)
-            const [targetUser] = await db.select({ email: users.email, name: users.name })
+            const [targetUser] = await db.select({ email: users.email, firstName: users.firstName, lastName: users.lastName })
                 .from(users).where(eq(users.id, uid)).limit(1);
 
             // Hard delete — cascades to all related records via FK onDelete: 'cascade'
@@ -299,7 +299,7 @@ export const handler: Handler = async (event) => {
                 await db.insert(gdprErasureLog).values({
                     emailHash,
                     requesterType: 'admin',
-                    requesterAdminId: adminId,
+                    requestedBy: adminId,
                 }).catch(err => console.warn('[admin-api] GDPR erasure log insert failed (non-blocking):', err));
 
                 // SC1b: Confirmation email to the deleted user
@@ -309,7 +309,7 @@ export const handler: Handler = async (event) => {
                     html: `
                         <div style="font-family:sans-serif;padding:24px;max-width:500px">
                             <h2>Account Removed</h2>
-                            <p>Hi ${targetUser.name || 'there'},</p>
+                            <p>Hi ${[targetUser.firstName, targetUser.lastName].filter(Boolean).join(' ') || 'there'},</p>
                             <p>Your Aura-Assist account has been permanently removed by a platform administrator.</p>
                             <p>All your data has been deleted in accordance with our <a href="https://aura-assist.com/privacy.html">Privacy Policy</a>.</p>
                             <p>If you believe this was a mistake, please contact us at <a href="mailto:hello@aura-assist.com">hello@aura-assist.com</a>.</p>
@@ -455,7 +455,7 @@ export const handler: Handler = async (event) => {
                 adminId, action: 'password_reset',
                 targetType: 'user', targetId: uid,
                 newState: { magicLinkSent: true, email: targetUser.email },
-                ipAddress: getAdminIp(event.headers as any),
+                ipAddress: getAdminIp(event.headers),
             });
 
             return {
@@ -498,7 +498,7 @@ export const handler: Handler = async (event) => {
                 previousState: { status: prevStatus },
                 newState: { status: newStatus },
                 reason: lockReason,
-                ipAddress: getAdminIp(event.headers as any),
+                ipAddress: getAdminIp(event.headers),
             });
 
             // Invalidate all active JWTs for the user by adding to blocklist
@@ -599,7 +599,7 @@ export const handler: Handler = async (event) => {
                 previousState: { email: targetUser.email },
                 newState: { pendingEmail: newEmail.toLowerCase(), status: 'pending_confirmation' },
                 reason: changeReason,
-                ipAddress: getAdminIp(event.headers as any),
+                ipAddress: getAdminIp(event.headers),
             });
 
             return {
@@ -799,7 +799,7 @@ export const handler: Handler = async (event) => {
                     targetType: 'feature_flag', targetId: flagKey,
                     previousState: null as any,
                     newState: { enabled, rolloutPercentage, allowedWorkspaceIds, allowedTiers },
-                    ipAddress: getAdminIp(event.headers as any),
+                    ipAddress: getAdminIp(event.headers),
                 });
 
                 return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
@@ -833,7 +833,7 @@ export const handler: Handler = async (event) => {
                     previousState: { enabled: prev.enabled, rolloutPercentage: prev.rolloutPercentage,
                                      allowedWorkspaceIds: prev.allowedWorkspaceIds, allowedTiers: prev.allowedTiers },
                     newState: { ...patch },
-                    ipAddress: getAdminIp(event.headers as any),
+                    ipAddress: getAdminIp(event.headers),
                 });
 
                 return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
@@ -893,7 +893,7 @@ export const handler: Handler = async (event) => {
                     previousState: { value: prev?.value ?? null },
                     newState: { value: cfgValue },
                     reason: cfgReason,
-                    ipAddress: getAdminIp(event.headers as any),
+                    ipAddress: getAdminIp(event.headers),
                 });
 
                 return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
@@ -956,7 +956,7 @@ export const handler: Handler = async (event) => {
                     previousState: { masterPlanId: prevPlan?.masterPlanId, planName: prevPlan?.planName },
                     newState: { masterPlanId: masterPlan.id, planName: masterPlan.name, tierKey: newTierKey },
                     reason: reason || 'reconciliation_sync',
-                    ipAddress: getAdminIp(event.headers as any),
+                    ipAddress: getAdminIp(event.headers),
                     metadata: { stripeSubscriptionId },
                 });
 
@@ -1325,7 +1325,7 @@ export const handler: Handler = async (event) => {
                     previousState: { role: targetUser.role },
                     newState: { pendingRole: newRole, requestId, status: 'pending_approval' },
                     reason: roleReason,
-                    ipAddress: getAdminIp(event.headers as any),
+                    ipAddress: getAdminIp(event.headers),
                 });
 
                 return {
@@ -1344,7 +1344,7 @@ export const handler: Handler = async (event) => {
                 previousState: { role: targetUser.role },
                 newState: { role: newRole },
                 reason: roleReason,
-                ipAddress: getAdminIp(event.headers as any),
+                ipAddress: getAdminIp(event.headers),
             });
 
             return {
@@ -1404,7 +1404,7 @@ export const handler: Handler = async (event) => {
                 previousState: { role: pendingReq.previousRole },
                 newState: { role: pendingReq.newRole, approvedBy: adminId, initiatedBy: pendingReq.initiatorId },
                 reason: `4-eyes approval of request ${requestId}: ${pendingReq.reason}`,
-                ipAddress: getAdminIp(event.headers as any),
+                ipAddress: getAdminIp(event.headers),
                 metadata: { requestId, initiatorId: pendingReq.initiatorId, approverId: adminId },
             });
 
@@ -1493,7 +1493,7 @@ export const handler: Handler = async (event) => {
                 previousState: { status: 'past_due' },
                 newState: { gracePeriodEndsAt: graceEnd.toISOString(), dunningSupressed: true },
                 reason: dunningReason,
-                ipAddress: getAdminIp(event.headers as any),
+                ipAddress: getAdminIp(event.headers),
             });
 
             return {
@@ -1647,7 +1647,7 @@ export const handler: Handler = async (event) => {
                 previousState: { lifecycleState: assistant.lifecycleState },
                 newState: { lifecycleState: newState },
                 reason: changeNote,
-                ipAddress: getAdminIp(event.headers as any),
+                ipAddress: getAdminIp(event.headers),
                 metadata: { assistantName: assistant.name },
             });
 
@@ -1698,7 +1698,7 @@ export const handler: Handler = async (event) => {
                     previousState: { lifecycleState: 'beta' },
                     newState: { lifecycleState: 'live' },
                     reason: item.changeNote,
-                    ipAddress: getAdminIp(event.headers as any),
+                    ipAddress: getAdminIp(event.headers),
                     metadata: { bulkPublish: true, assistantName: assistant.name },
                 });
             }
@@ -1839,7 +1839,7 @@ export const handler: Handler = async (event) => {
                 previousState: { versionId },
                 newState: { rolledBackToVersion: targetVersion.versionNumber, newVersionId: rollbackVersion.id },
                 reason: rollbackReason,
-                ipAddress: getAdminIp(event.headers as any),
+                ipAddress: getAdminIp(event.headers),
             });
 
             return {
@@ -2030,22 +2030,21 @@ export const handler: Handler = async (event) => {
                 WHERE created_at >= ${periodStart} AND created_at <= ${periodEnd}
                   AND 'special_category_suspected' = ANY(data_categories)
             `);
-            const specialCount = Number((specialRes.rows?.[0] as any)?.cnt ?? 0);
+            const specialCount = Number((specialRes[0] as any)?.cnt ?? 0);
 
             // Pseudonymised log: userId hashed, no email
             const logRows = await db.select({
                 id: aiUsageLog.id,
                 model: aiUsageLog.model,
-                feature: aiUsageLog.feature,
-                promptTokens: aiUsageLog.promptTokens,
-                completionTokens: aiUsageLog.completionTokens,
+                inputTokens: aiUsageLog.inputTokens,
+                outputTokens: aiUsageLog.outputTokens,
                 dataCategories: aiUsageLog.dataCategories,
                 createdAt: aiUsageLog.createdAt,
             }).from(aiUsageLog)
               .where(and(gte(aiUsageLog.createdAt, periodStart), lte(aiUsageLog.createdAt, periodEnd)))
               .limit(10000);
 
-            const byCategory = (catRows.rows as any[]).map(r => ({
+            const byCategory = (catRows as any[]).map(r => ({
                 category: r.category,
                 callCount: Number(r.call_count),
                 pct: totalCalls > 0 ? +((Number(r.call_count) / totalCalls) * 100).toFixed(1) : 0,
@@ -2146,7 +2145,7 @@ export const handler: Handler = async (event) => {
                  ORDER BY updated_at DESC
                  LIMIT 50`
             );
-            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows.rows) };
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows) };
         }
 
         if (event.httpMethod === 'POST' && resource === 'retry-post') {

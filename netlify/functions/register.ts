@@ -7,6 +7,7 @@ import { users, organisations, userOrganisations, userProfiles, plans, masterPla
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { checkRateLimit, getClientIp } from '../../src/utils/rate-limit';
 import { isRegistrationLocked } from '../../src/utils/platform-config';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 const slugify = (str: string) =>
     str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -31,6 +32,7 @@ function detectLangFromHeader(acceptLanguage: string | undefined): string {
     return preferred.find(l => SUPPORTED_LANGS.includes(l)) || 'en';
 }
 
+
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -39,7 +41,7 @@ export const handler: Handler = async (event) => {
     try {
         // SC1 — US-GAP-7.1.1: IP-level rate limit: 5 requests per IP per 60 seconds
         const db = getDb();
-        const ip = getClientIp(event.headers as Record<string, string | undefined>);
+        const ip = getClientIp(event.headers);
         const rl = await checkRateLimit(db, 'register', ip, { maxAttempts: 5, windowSecs: 60 });
         if (!rl.allowed) {
             return {
@@ -69,6 +71,14 @@ export const handler: Handler = async (event) => {
 
         if (!email || !firstName || !lastName) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields.' }) };
+        }
+
+        // Resolve the verification-link origin up front — BEFORE any DB writes — so a missing
+        // BASE_URL can never leave behind a half-registered user with no email sent.
+        const baseUrl = resolveBaseUrl(event.headers);
+        if (!baseUrl) {
+            console.error('[register] Could not resolve base URL (BASE_URL unset and no host header)');
+            return { statusCode: 500, body: JSON.stringify({ error: 'Registration failed. Please try again.' }) };
         }
 
         // BUG-P2-9: Enforce maximum field lengths to prevent oversized DB inserts
@@ -111,7 +121,7 @@ export const handler: Handler = async (event) => {
 
             // 2. Create Organization
             // EU AI Act Art. 50: enable disclosure footer by default for EU workspaces
-            const euJurisdiction = isEuJurisdiction(event.headers as Record<string, string | undefined>);
+            const euJurisdiction = isEuJurisdiction(event.headers);
             const [newOrg] = await tx.insert(organisations).values({
                 name: businessName,
                 slug: `${slugify(businessName)}-${crypto.randomBytes(3).toString('hex')}`,
@@ -182,11 +192,9 @@ export const handler: Handler = async (event) => {
             return newUser;
         });
 
-        // Send the First-Time Verification Email
-        // BUG-P1-3: Use BASE_URL env var — never trust the Host header for URL construction
-        // (a forged Host header sends the magic link to an attacker-controlled domain).
-        if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-        const baseUrl = process.env.BASE_URL;
+        // Send the First-Time Verification Email — baseUrl was resolved above (prefers BASE_URL env,
+        // falls back to the request host for deploy previews). Resolved before the DB transaction
+        // so a missing config fails fast rather than orphaning a half-created user.
         const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}${priceId ? `&priceId=${encodeURIComponent(priceId)}` : ''}${isTrial ? '&trial=true' : ''}`;
 
         await sendMagicLinkEmail({

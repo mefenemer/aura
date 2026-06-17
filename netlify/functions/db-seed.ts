@@ -369,7 +369,7 @@ export const handler: Handler = async (event) => {
     }
 
     const action = event.queryStringParameters?.action;
-    const ip = getAdminIp(event.headers as Record<string, string | undefined>);
+    const ip = getAdminIp(event.headers);
     const ua = event.headers['user-agent'] || undefined;
 
     // ── Export ────────────────────────────────────────────────────────────────

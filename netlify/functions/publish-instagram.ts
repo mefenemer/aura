@@ -63,18 +63,18 @@ export const handler: Handler = async () => {
          FOR UPDATE SKIP LOCKED`
     );
 
-    if (!posts.rows.length) {
+    if (!posts.length) {
         await db.insert(publishCronLog).values({ postsProcessed: 0, postsSucceeded: 0, postsFailed: 0, durationMs: Date.now() - tickStart });
         return { statusCode: 200, body: 'no posts due' };
     }
 
     // Set all claimed posts to 'publishing' atomically
-    const postIds = posts.rows.map(p => p.id);
+    const postIds = posts.map(p => p.id);
     await db.execute(`UPDATE scheduled_posts SET status = 'publishing', updated_at = now() WHERE id = ANY(ARRAY[${postIds.join(',')}]::int[])`);
 
-    processed = posts.rows.length;
+    processed = posts.length;
 
-    await Promise.allSettled(posts.rows.map(async post => {
+    await Promise.allSettled(posts.map(async post => {
         try {
             if (!post.connection_id) throw new Error('No Instagram connection linked to this post.');
 

@@ -113,7 +113,7 @@ export const handler: Handler = async (event) => {
         const result = await db.execute(sql.raw(
             `SELECT COUNT(*) AS cnt FROM ${childTable} WHERE ${dep.fkColumn} = ${id} AND (is_active IS NULL OR is_active = true)`
         ));
-        const cnt = Number((result.rows?.[0] as any)?.cnt ?? 0);
+        const cnt = Number((result[0] as any)?.cnt ?? 0);
         if (cnt > 0) {
             blockingDependencies.push({ table: childTable, count: cnt, reason: dep.reason });
         }
@@ -128,7 +128,7 @@ export const handler: Handler = async (event) => {
             const result = await db.execute(sql.raw(
                 `SELECT COUNT(*) AS cnt FROM ${rel.childTable} WHERE ${rel.fkColumn} = ${id}`
             ));
-            const cnt = Number((result.rows?.[0] as any)?.cnt ?? 0);
+            const cnt = Number((result[0] as any)?.cnt ?? 0);
             if (cnt === 0) continue;
 
             const childConfig = TABLE_DELETE_CONFIG[rel.childTable];

@@ -41,11 +41,11 @@ export const handler: Handler = async () => {
          FOR UPDATE SKIP LOCKED`
     );
 
-    if (!jobs.rows.length) return { statusCode: 200, body: 'no jobs' };
+    if (!jobs.length) return { statusCode: 200, body: 'no jobs' };
 
-    await Promise.allSettled(jobs.rows.map(job => processJob(db, job, now)));
+    await Promise.allSettled(jobs.map(job => processJob(db, job, now)));
 
-    return { statusCode: 200, body: `processed ${jobs.rows.length} jobs` };
+    return { statusCode: 200, body: `processed ${jobs.length} jobs` };
 };
 
 async function processJob(db: ReturnType<typeof getDb>, job: {

@@ -83,7 +83,7 @@ export const handler: Handler = async (event) => {
     const userInvoices = await db.select().from(invoices).where(eq(invoices.userId, targetUserId));
     const assistants  = await db.select().from(aiAssistants).where(eq(aiAssistants.userId, targetUserId));
     const tasks       = await db.select().from(taskRuns).where(eq(taskRuns.userId, targetUserId));
-    const assets      = await db.select().from(workspaceAssets).where(eq(workspaceAssets.userId, targetUserId));
+    const assets      = await db.select().from(workspaceAssets).where(eq(workspaceAssets.uploaderId, targetUserId));
     const content     = await db.select().from(contentAssets).where(eq(contentAssets.userId, targetUserId));
     const tickets     = await db.select().from(supportTickets).where(eq(supportTickets.userId, targetUserId));
     const auditEntries = await db.select().from(auditLogs).where(eq(auditLogs.userId, targetUserId));
@@ -177,7 +177,7 @@ export const handler: Handler = async (event) => {
         previousState: null as any,
         newState:  { downloadToken, expiresAt: expiresAt.toISOString() },
         reason:    'GDPR Subject Access Request',
-        ipAddress: getAdminIp(event.headers as any),
+        ipAddress: getAdminIp(event.headers),
         metadata:  { exportRowId: exportRow?.id },
     });
 

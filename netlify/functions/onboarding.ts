@@ -21,6 +21,7 @@ import {
 import { CURRENT_DPA_VERSION } from './accept-dpa';
 import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
 import { checkRateLimit } from '../../src/utils/rate-limit';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
 if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
@@ -199,7 +200,7 @@ export const handler: Handler = async (event) => {
 
     // EU AI Act Art. 50 safety net: if register.ts missed EU detection (VPN/proxy/no header),
     // set aiDisclosureFooterEnabled=true here before any content is ever generated.
-    if (isEuJurisdiction(event.headers as Record<string, string | undefined>)) {
+    if (isEuJurisdiction(event.headers)) {
       orgUpdate.aiDisclosureFooterEnabled = true;
     }
 
@@ -271,8 +272,8 @@ export const handler: Handler = async (event) => {
     });
 
     // 8. TRIGGER ASYNC PROVISIONING
-    if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-    const baseUrl = process.env.BASE_URL;
+    const baseUrl = resolveBaseUrl(event.headers);
+    if (!baseUrl) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
     fetch(`${baseUrl}/.netlify/functions/provision-assistant-async`, {
       method: 'POST',
       body: JSON.stringify({ assistantId: newAssistant.id }),

@@ -237,7 +237,7 @@ export const handler: Handler = async (event) => {
                         eq(scheduledPosts.connectionId, connIdInt),
                         eq(scheduledPosts.status, 'scheduled'),
                     ));
-                cancelledCount = (result as unknown as { rowCount: number })?.rowCount ?? 0;
+                cancelledCount = (result as any).count ?? 0;
             }
 
             // Notification for all social platforms

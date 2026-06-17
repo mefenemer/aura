@@ -70,7 +70,7 @@ async function generateStripeCoupon(email: string): Promise<string | null> {
     if (!STRIPE_SECRET_KEY) return null;
     try {
         const Stripe = (await import('stripe')).default;
-        const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' as any });
+        const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' });
         const coupon = await stripe.coupons.create({
             percent_off: 100,
             duration: 'once',

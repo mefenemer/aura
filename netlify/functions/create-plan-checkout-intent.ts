@@ -10,6 +10,7 @@ import Stripe from 'stripe';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, masterPlans, planPrices } from '../../db/schema';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 const jwtSecret   = process.env.JWT_SECRET!;
 const stripeSecret = process.env.STRIPE_SECRET_KEY!;
@@ -17,17 +18,6 @@ const stripeSecret = process.env.STRIPE_SECRET_KEY!;
 const stripe = new Stripe(stripeSecret, { apiVersion: '2026-05-27.dahlia' });
 
 const SUPPORTED_CURRENCIES = ['GBP', 'USD', 'EUR', 'AUD', 'CAD'];
-
-// Resolve the origin for Stripe success/cancel redirects. Prefer BASE_URL, but on
-// deploy previews (where BASE_URL may be scoped to production only) fall back to the
-// request's own host so checkout returns to the same deployment. Throwing at module
-// load here previously caused a 502 on environments without BASE_URL set.
-function resolveBaseUrl(event: Parameters<Handler>[0]): string | null {
-    if (process.env.BASE_URL) return process.env.BASE_URL.replace(/\/$/, '');
-    const host  = event.headers['x-forwarded-host'] || event.headers.host;
-    const proto = event.headers['x-forwarded-proto'] || 'https';
-    return host ? `${proto}://${host}` : null;
-}
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -46,7 +36,7 @@ export const handler: Handler = async (event) => {
         return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session' }) };
     }
 
-    const baseUrl = resolveBaseUrl(event);
+    const baseUrl = resolveBaseUrl(event.headers);
     if (!baseUrl) {
         console.error('[create-plan-checkout-intent] Could not resolve base URL (BASE_URL unset and no host header)');
         return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured: base URL unavailable' }) };

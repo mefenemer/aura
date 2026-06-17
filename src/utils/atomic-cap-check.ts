@@ -66,7 +66,7 @@ export async function atomicCapCheck(params: AtomicCapCheckParams): Promise<Atom
             RETURNING ${sql.raw(col)} AS new_value
         `);
 
-        const row = result.rows?.[0] as any;
+        const row = result[0] as any;
         if (row) {
             return { allowed: true, newValue: row.new_value };
         }

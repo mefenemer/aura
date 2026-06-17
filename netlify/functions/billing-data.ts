@@ -100,9 +100,11 @@ export const handler: Handler = async (event) => {
                 });
 
                 // Fallback: search by email
-                let customer: Stripe.Customer | null = null;
+                // Typed as `any` because the Stripe namespace types aren't resolvable under the
+                // project's classic module resolution (see note where this is reused).
+                let customer: any = null;
                 if (customers.data.length > 0) {
-                    customer = customers.data[0] as Stripe.Customer;
+                    customer = customers.data[0];
                 } else {
                     const [user] = await db.select({ email: users.email })
                         .from(users).where(eq(users.id, userId));
@@ -112,7 +114,7 @@ export const handler: Handler = async (event) => {
                         customer = byEmail.data.find(c =>
                             c.metadata?.userId === String(userId) ||
                             c.metadata?.auraUserId === String(userId)
-                        ) as Stripe.Customer || (byEmail.data[0] as Stripe.Customer) || null;
+                        ) || byEmail.data[0] || null;
                     }
                 }
 
@@ -128,12 +130,12 @@ export const handler: Handler = async (event) => {
                     });
 
                     stripeSubscriptions = subs.data.map(sub => {
-                        const pm = sub.default_payment_method as Stripe.PaymentMethod | null;
+                        const pm = sub.default_payment_method as any;
                         const card = pm?.card;
                         return {
                             id: sub.id,
                             status: sub.status,
-                            currentPeriodEnd: sub.current_period_end,
+                            currentPeriodEnd: sub.items.data[0]?.current_period_end ?? null,
                             cancelAtPeriodEnd: sub.cancel_at_period_end,
                             items: sub.items.data.map(i => ({
                                 priceId: i.price.id,
@@ -157,8 +159,11 @@ export const handler: Handler = async (event) => {
                         limit: 50,
                     });
                     invoices.data.forEach(inv => {
-                        if (inv.payment_intent && inv.hosted_invoice_url) {
-                            stripeInvoiceUrls[inv.payment_intent as string] = {
+                        // Stripe SDK v22 / API 2026-05-27 removed `payment_intent` from the Invoice type;
+                        // it's still present on the wire, so read it through a cast.
+                        const invoicePiId = (inv as any).payment_intent as string | undefined;
+                        if (invoicePiId && inv.hosted_invoice_url) {
+                            stripeInvoiceUrls[invoicePiId] = {
                                 hostedUrl: inv.hosted_invoice_url,
                                 pdfUrl: (inv as any).invoice_pdf || null,
                             };
@@ -174,7 +179,7 @@ export const handler: Handler = async (event) => {
                             const pi = await stripe.paymentIntents.retrieve(piIds[i], {
                                 expand: ['payment_method'],
                             });
-                            const pm = pi.payment_method as Stripe.PaymentMethod | null;
+                            const pm = pi.payment_method as any;
                             if (pm?.card) {
                                 stripePaymentMethods[piIds[i]] = {
                                     brand: pm.card.brand,
@@ -228,7 +233,7 @@ export const handler: Handler = async (event) => {
             const receiptUrl   = invoiceEntry?.hostedUrl || null;
             const receiptPdf   = invoiceEntry?.pdfUrl    || null;
 
-            let cardDetails: { brand: string; last4: string; expMonth: number; expYear: number } | null = null;
+            let cardDetails: { brand: string; last4: string; expMonth: number; expYear: number; postalCode?: string } | null = null;
             if (p.cardBrand && p.cardLast4) {
                 // DB-stored card details (authoritative)
                 cardDetails = {

@@ -10,13 +10,11 @@ import { createHmac, randomBytes } from 'crypto';
 import { getDb } from '../../db/client';
 import { systemConnections, notifications, users, auditLogs, userOrganisations } from '../../db/schema';
 import { storeSecret } from '../../src/utils/vault';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 const jwtSecret   = process.env.JWT_SECRET!;
 const metaAppId   = process.env.META_APP_ID!;
 const metaSecret  = process.env.META_APP_SECRET!;
-if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-const baseUrl     = process.env.BASE_URL;
-const REDIRECT_URI = `${baseUrl}/.netlify/functions/meta-oauth?action=callback`;
 const SCOPES      = 'instagram_basic,instagram_content_publish,pages_read_engagement,pages_manage_metadata,pages_messaging,pages_manage_posts';
 const TOKEN_TTL_DAYS = 60;
 
@@ -40,6 +38,10 @@ function validateStateCsrf(state: Record<string, string>, stored: string): boole
 
 export const handler: Handler = async (event) => {
     const action = event.queryStringParameters?.action;
+
+    const baseUrl = resolveBaseUrl(event.headers);
+    if (!baseUrl) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
+    const REDIRECT_URI = `${baseUrl}/.netlify/functions/meta-oauth?action=callback`;
 
     // ── START: redirect to Meta OAuth ─────────────────────────────────────────
     if (action === 'start') {

@@ -9,10 +9,9 @@ import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { getDb } from '../../db/client';
 import { storeSecret } from '../../src/utils/vault';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 const jwtSecret = process.env.JWT_SECRET!;
-if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-const baseUrl = process.env.BASE_URL;
 
 const CSRF_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -22,6 +21,9 @@ function buildState(payload: object): string {
 
 export const handler: Handler = async (event) => {
     const platform = event.queryStringParameters?.platform;
+
+    const baseUrl = resolveBaseUrl(event.headers);
+    if (!baseUrl) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
     if (!['linkedin', 'x'].includes(platform ?? '')) {
         return { statusCode: 400, body: JSON.stringify({ error: 'Unknown platform' }) };
     }

@@ -109,7 +109,7 @@ export const handler: Handler = async (event) => {
     // Plan limit check: no more than 50 queued/processing jobs per org at once
     const [{ jobCount }] = await db.execute<{ jobCount: number }>(
         `SELECT COUNT(*)::int AS "jobCount" FROM content_generation_jobs WHERE organisation_id = ${organisationId} AND status IN ('queued','processing')`
-    ).then(r => r.rows);
+    );
     if (jobCount >= 50) {
         return { statusCode: 429, body: JSON.stringify({ error: 'Too many pending generation jobs. Please wait for some to complete.' }) };
     }

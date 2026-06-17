@@ -67,7 +67,7 @@ export const handler: Handler = async (event) => {
                 .set({ status: 'cancelling', updatedAt: new Date() })
                 .where(eq(plans.id, currentPlan.id));
 
-            const periodEnd = new Date(sub.current_period_end * 1000).toLocaleDateString('en-GB', {
+            const periodEnd = new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toLocaleDateString('en-GB', {
                 day: 'numeric', month: 'long', year: 'numeric',
             });
 
@@ -86,7 +86,7 @@ export const handler: Handler = async (event) => {
                 body: JSON.stringify({
                     success: true,
                     action: 'paused',
-                    accessUntil: new Date(sub.current_period_end * 1000).toISOString(),
+                    accessUntil: new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toISOString(),
                     periodEndFormatted: periodEnd,
                 }),
             };

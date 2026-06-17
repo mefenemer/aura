@@ -88,7 +88,7 @@ export const handler: Handler = async (event) => {
                 name: masterPlans.name,
                 monthlyPriceGbp: masterPlans.monthlyPriceGbp,
                 assistantLimit: masterPlans.assistantLimit,
-                taskLimit: masterPlans.taskLimit,
+                monthlyTaskLimit: masterPlans.monthlyTaskLimit,
             })
             .from(masterPlans)
             .where(eq(masterPlans.isActive, true));
@@ -163,7 +163,7 @@ export const handler: Handler = async (event) => {
                         newMonthlyAmount: targetMp.monthlyPriceGbp,
                         features: {
                             assistantLimit: targetMp.assistantLimit,
-                            taskLimit: targetMp.taskLimit,
+                            monthlyTaskLimit: targetMp.monthlyTaskLimit,
                         },
                     },
                 }),
@@ -199,7 +199,7 @@ export const handler: Handler = async (event) => {
                         newMonthlyAmount: targetMp.monthlyPriceGbp,
                         features: {
                             assistantLimit: targetMp.assistantLimit,
-                            taskLimit: targetMp.taskLimit,
+                            monthlyTaskLimit: targetMp.monthlyTaskLimit,
                         },
                     },
                 }),
@@ -298,7 +298,7 @@ export const handler: Handler = async (event) => {
                     name: targetMp.name,
                     monthlyPriceGbp: targetMp.monthlyPriceGbp,
                     assistantLimit: targetMp.assistantLimit,
-                    taskLimit: targetMp.taskLimit,
+                    monthlyTaskLimit: targetMp.monthlyTaskLimit,
                 },
             }),
         };

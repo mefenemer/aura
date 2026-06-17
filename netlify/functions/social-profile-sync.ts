@@ -9,13 +9,15 @@ import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { systemConnections, organisations, aiAssistants, notifications, userOrganisations } from '../../db/schema';
 import { getSecret } from '../../src/utils/vault';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 const jwtSecret = process.env.JWT_SECRET!;
-if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-const baseUrl = process.env.BASE_URL;
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+
+    const baseUrl = resolveBaseUrl(event.headers);
+    if (!baseUrl) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
 
     // Accept auth from either session cookie (user-triggered) or internal call (organisationId in body)
     const cookieHeader = event.headers.cookie || '';

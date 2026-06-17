@@ -7,6 +7,7 @@ import { users, userProfiles } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { checkRateLimit, getClientIp } from '../../src/utils/rate-limit';
 import { getEmailStrings } from '../../src/utils/email-i18n';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 export const handler: Handler = async (event) => {
     const db = getDb();
@@ -15,7 +16,7 @@ export const handler: Handler = async (event) => {
         try {
             // SC2 — US-GAP-7.1.1: IP-level rate limit: 5 requests per IP per 60 seconds
             // (Email-level rate limiting is already handled atomically via lastMagicLinkSentAt.)
-            const ip = getClientIp(event.headers as Record<string, string | undefined>);
+            const ip = getClientIp(event.headers);
             const rl = await checkRateLimit(db, 'login', ip, { maxAttempts: 5, windowSecs: 60 });
             if (!rl.allowed) {
                 return {
@@ -74,9 +75,9 @@ export const handler: Handler = async (event) => {
                     return { statusCode: 200, body: JSON.stringify({ message: 'If an account exists, a link was sent.' }) };
                 }
 
-                // BUG-P1-3: Use BASE_URL env var — never trust the Host header for URL construction
-                if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-                const baseUrl = process.env.BASE_URL;
+                // Prefer BASE_URL; fall back to DEPLOY_PRIME_URL / request host for deploy previews.
+                const baseUrl = resolveBaseUrl(event.headers);
+                if (!baseUrl) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
                 const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}${postLoginRedirect ? `&redirect=${encodeURIComponent(postLoginRedirect)}` : ''}`;
 
                 // US-I18N-1.2 SC4: use user's preferred language for email subject/greeting

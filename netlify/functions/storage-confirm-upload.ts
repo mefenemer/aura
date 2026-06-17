@@ -68,7 +68,7 @@ async function _maybeWarnQuota(orgId: number, addedBytes: number): Promise<void>
         JOIN user_organisations uo ON uo.user_id = u.id
         WHERE uo.organisation_id = ${orgId} AND uo.role = 'owner'
         LIMIT 1
-    `).then(r => r.rows);
+    `);
     if (!owner?.email) return;
 
     // Mark warning sent before email (prevent race)

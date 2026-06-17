@@ -60,7 +60,7 @@ export const handler: Handler = async (event) => {
         previousState: null as any,
         newState: { sessionId: sessionId || payload.sessionId },
         reason: 'impersonation_session_ended',
-        ipAddress: getAdminIp(event.headers as any),
+        ipAddress: getAdminIp(event.headers),
         userAgent: event.headers['user-agent'] || undefined,
         metadata: {
             sessionId: sessionId || payload.sessionId,

@@ -26,7 +26,7 @@ import { sendEmail } from '../../src/utils/email';
 
 const jwtSecret = process.env.JWT_SECRET;
 const stripe    = process.env.STRIPE_SECRET_KEY
-    ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' as any })
+    ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' })
     : null;
 
 const ALLOWED_ROLES = ['billing_admin', 'platform_admin', 'super_admin'];
@@ -277,7 +277,7 @@ export const handler: Handler = async (event) => {
         previousState: auditPrev,
         newState:     auditNext,
         reason,
-        ipAddress:    getAdminIp(event.headers as any),
+        ipAddress:    getAdminIp(event.headers),
         userAgent:    event.headers['user-agent'] || undefined,
         metadata:     { stripeRef, ...auditMeta },
     });

@@ -120,7 +120,7 @@ async function run(event: any) {
                 LIMIT 20
             `);
 
-            const rows = runs.rows.map(r => ({
+            const rows = runs.map(r => ({
                 jobId:                    r.job_id,
                 platform:                 r.platform,
                 contextPrompt:            r.context_prompt,

@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, workspaceAssets } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -111,14 +112,16 @@ export const handler = async (event: HandlerEvent) => {
 
         // 6. Trigger Background Scraper/RAG Worker
         console.log(`[RAG TRIGGERED] Kicked off extraction job for Asset ID: ${newAsset.id}`);
-        if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-        const backgroundEndpoint = `${process.env.BASE_URL}/.netlify/functions/process-asset-background`;
-
-        fetch(backgroundEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ assetId: newAsset.id })
-        }).catch(err => console.error("Failed to trigger background worker:", err));
+        const uploadBaseUrl = resolveBaseUrl(event.headers);
+        if (uploadBaseUrl) {
+            fetch(`${uploadBaseUrl}/.netlify/functions/process-asset-background`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assetId: newAsset.id })
+            }).catch(err => console.error("Failed to trigger background worker:", err));
+        } else {
+            console.error('[upload-asset] Could not resolve base URL — background RAG worker not triggered for asset', newAsset.id);
+        }
 
         return { statusCode: 200, body: JSON.stringify({ success: true, asset: newAsset }) };
 

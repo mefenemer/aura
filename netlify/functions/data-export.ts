@@ -103,8 +103,8 @@ export const handler: Handler = async (event) => {
         .catch(() => [null]);
 
     const invoiceList = await db
-        .select({ invoiceNumber: invoices.invoiceNumber, amount: invoices.totalAmount,
-                  currency: invoices.currency, issuedAt: invoices.issuedAt })
+        .select({ invoiceNumber: invoices.invoiceNumber, amount: invoices.total,
+                  currency: invoices.currency, issueDate: invoices.issueDate })
         .from(invoices).where(eq(invoices.userId, userId))
         .catch(() => []);
 

@@ -101,7 +101,7 @@ export const handler: Handler = async () => {
             LIMIT 500
         `);
 
-        for (const row of neverOnboardedSql.rows) {
+        for (const row of neverOnboardedSql) {
             const res = await db.insert(leads)
                 .values({
                     email: row.email,
@@ -191,7 +191,7 @@ export const handler: Handler = async () => {
             LIMIT 200
         `);
 
-        for (const row of upgradeCandidates.rows) {
+        for (const row of upgradeCandidates) {
             const res = await db.insert(leads)
                 .values({
                     email: row.email,

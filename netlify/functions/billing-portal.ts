@@ -8,6 +8,7 @@ import Stripe from 'stripe';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users } from '../../db/schema';
+import { resolveBaseUrl } from '../../src/utils/base-url';
 
 const jwtSecret    = process.env.JWT_SECRET;
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
@@ -29,8 +30,9 @@ export const handler: Handler = async (event) => {
     }
 
     const body = JSON.parse(event.body || '{}');
-    if (!process.env.BASE_URL) throw new Error('CRITICAL: BASE_URL env var is not set');
-    const returnUrl = `${process.env.BASE_URL}/workspace.html#billing`;
+    const portalBaseUrl = resolveBaseUrl(event.headers);
+    if (!portalBaseUrl) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
+    const returnUrl = `${portalBaseUrl}/workspace.html#billing`;
 
     try {
         const db = getDb();

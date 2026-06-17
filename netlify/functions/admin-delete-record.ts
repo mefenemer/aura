@@ -113,7 +113,7 @@ export const handler: Handler = async (event) => {
             const result = await db.execute(sql.raw(
                 `SELECT COUNT(*) AS cnt FROM ${childTable} WHERE ${dep.fkColumn} = ${targetIds[0]} AND (is_active IS NULL OR is_active = true)`
             ));
-            const cnt = Number((result.rows?.[0] as any)?.cnt ?? 0);
+            const cnt = Number((result[0] as any)?.cnt ?? 0);
             if (cnt > 0) {
                 return {
                     statusCode: 409,
@@ -170,7 +170,7 @@ export const handler: Handler = async (event) => {
         } else {
             // Hard-delete or hard_confirmed
             const result = await db.execute(sql.raw(`DELETE FROM ${table} WHERE id IN (${idList}) RETURNING id`));
-            deletedCount = result.rows?.length ?? targetIds.length;
+            deletedCount = result.length ?? targetIds.length;
         }
     } catch (deleteErr: any) {
         failureReason = deleteErr?.message ?? 'Unknown error';

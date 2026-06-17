@@ -62,7 +62,7 @@ export const handler: Handler = async (event) => {
         RETURNING *
     `);
 
-    const row = result.rows?.[0] as any;
+    const row = result[0] as any;
     if (!row) {
         return {
             statusCode: 200,

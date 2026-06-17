@@ -31,7 +31,7 @@ import { purgeUserAssets } from '../../src/utils/gdpr-asset-purge';
 
 const jwtSecret    = process.env.JWT_SECRET;
 const stripe       = process.env.STRIPE_SECRET_KEY
-    ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-11-20.acacia' })
+    ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' })
     : null;
 const BASE_URL     = process.env.BASE_URL || 'https://aura-assist.com';
 
@@ -111,9 +111,11 @@ export const handler: Handler = async (event) => {
                     customer: activePlan.stripeCustomerId,
                     limit: 10,
                 });
-                const openDisputeCharges = customerCharges.data.filter(c =>
-                    c.disputed && c.dispute && (c.dispute as any).status !== 'lost' && (c.dispute as any).status !== 'won'
-                );
+                const disputedChargeIds = new Set(customerCharges.data.filter(c => c.disputed).map(c => c.id));
+                const openDisputeCharges = disputes.data.filter(d => {
+                    const chargeId = typeof d.charge === 'string' ? d.charge : d.charge?.id;
+                    return chargeId && disputedChargeIds.has(chargeId) && d.status !== 'lost' && d.status !== 'won';
+                });
                 if (openDisputeCharges.length > 0) {
                     return {
                         statusCode: 409,
@@ -265,7 +267,7 @@ export const handler: Handler = async (event) => {
                 lastName:  'User',
             },
             reason,
-            ipAddress: getAdminIp(event.headers as any),
+            ipAddress: getAdminIp(event.headers),
             userAgent: event.headers['user-agent'] || undefined,
             metadata: { erasureUuid },
         });

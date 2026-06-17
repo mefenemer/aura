@@ -80,7 +80,7 @@ export const handler: Handler = async () => {
 
     const summary: Record<number, { deletedCount: number; reclaimedBytes: number }> = {};
 
-    for (const row of candidates.rows) {
+    for (const row of candidates) {
         const deleted = await deleteFromR2(s3, row.r2_key || '');
         if (!deleted) {
             console.warn(`[storage-lifecycle-cleanup] Failed to delete R2 key ${row.r2_key} for asset ${row.id} — will retry next run`);

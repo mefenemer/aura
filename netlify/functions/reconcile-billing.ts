@@ -48,7 +48,7 @@ export interface ReconciliationMismatch {
 
 async function runReconciliation(): Promise<void> {
     const db = getDb();
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2024-11-20.acacia' });
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2026-05-27.dahlia' });
 
     let totalChecked = 0;
     const mismatches: ReconciliationMismatch[] = [];
