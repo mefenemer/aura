@@ -8,8 +8,23 @@ import postgres from 'postgres';
 // Ensure environment variables are loaded relative to runtime workspace execution
 config({ path: path.resolve(process.cwd(), '.env') });
 
+// Connection pool options shared by both roles. postgres-js keeps a single cached
+// connection per serverless instance (max: 1); timeouts prevent silent hangs.
+const POOL_OPTS = {
+    max: 1,
+    connect_timeout: 5,   // seconds — abort if DB unreachable within 5s
+    idle_timeout: 20,     // seconds — release idle connections between invocations
+    max_lifetime: 60 * 5, // seconds — rotate connections every 5 minutes
+} as const;
+
+// Owner connection (neondb_owner) — BYPASSES RLS. Used for auth/membership resolution,
+// cross-org cron/admin/webhook jobs, and any function not yet routed through withTenant.
 let sql: postgres.Sql | null = null;
 let db: PostgresJsDatabase<Record<string, never>> | null = null;
+
+// Least-privilege application connection (app_user) — SUBJECT to RLS. Used only by withTenant().
+let appSql: postgres.Sql | null = null;
+let appDb: PostgresJsDatabase<Record<string, never>> | null = null;
 
 export const withUpdatedAt = <T extends Record<string, unknown>>(set: T): T & { updatedAt: Date } =>
     ({ ...set, updatedAt: new Date() });
@@ -20,48 +35,55 @@ export function getDb() {
         if (!connectionString) {
             throw new Error("CRITICAL: NETLIFY_DATABASE_URL is missing from environment variables.");
         }
-        // Cache connections globally across serverless function invocations
-        // BUG-P1-6: Add timeouts to prevent silent serverless hangs on unreachable DB.
-        // connect_timeout: fail fast on cold-start; idle_timeout: release stale TCP sockets;
-        // max_lifetime: rotate connections to avoid accumulated stale state.
-        sql = postgres(connectionString, {
-            max: 1,
-            connect_timeout: 5,   // seconds — abort if DB unreachable within 5s
-            idle_timeout: 20,     // seconds — release idle connections between invocations
-            max_lifetime: 60 * 5, // seconds — rotate connections every 5 minutes
-        });
+        // Cache connections globally across serverless function invocations.
+        sql = postgres(connectionString, POOL_OPTS);
         db = drizzle({ client: sql });
     }
     return db;
 }
 
 /**
- * US-DB-1.3.1 (RLS foundation — defense-in-depth, not yet enforced).
+ * US-DB-1.4.1: the RLS-subject application connection (role `app_user`).
  *
- * Runs `fn` inside a transaction that sets the per-request tenant GUC
- * `app.current_org` (transaction-scoped via set_config(..., is_local=true)).
- * This is the connection-safe way to scope Postgres Row-Level Security on this
- * stack: `postgres-js` here keeps a single cached connection (max: 1), so only
- * transaction-local settings are safe under concurrent invocations — a
- * session-level `SET` would leak across requests sharing the connection.
+ * Returns a drizzle client bound to APP_DATABASE_URL. If APP_DATABASE_URL is not
+ * set, it FALLS BACK to the owner connection (getDb()) — so this code is safe to
+ * deploy before the app_user role is provisioned: withTenant() simply bypasses RLS
+ * (exactly today's behaviour) until APP_DATABASE_URL exists, at which point
+ * enforcement activates with no code change.
+ */
+export function getAppDb() {
+    const connectionString = process.env.APP_DATABASE_URL;
+    if (!connectionString) return getDb(); // not provisioned yet → owner (bypass)
+    if (!appDb) {
+        appSql = postgres(connectionString, POOL_OPTS);
+        appDb = drizzle({ client: appSql });
+    }
+    return appDb;
+}
+
+/**
+ * US-DB-1.4.1: run tenant-scoped DB work under Row-Level Security.
  *
- * Enablement path (the remaining, breaking step — do in a dedicated change):
- *   1. Add RLS policies to every tenant table:
- *        ALTER TABLE <t> ENABLE ROW LEVEL SECURITY;
- *        CREATE POLICY tenant_isolation ON <t>
- *          USING (organisation_id = current_setting('app.current_org')::int);
- *   2. Route ALL tenant queries through withTenant(orgId, ...). Any query that
- *      doesn't set the GUC will see zero rows once policies are enforced, so the
- *      routing must be complete before the policies are applied.
+ * Executes `fn` on the app_user connection (getAppDb()) inside a transaction that
+ * sets the per-request tenant GUC `app.current_org` (transaction-scoped via
+ * set_config(..., is_local=true)). Transaction-local is the only concurrency-safe
+ * option here because postgres-js keeps a single cached connection (max: 1) — a
+ * session-level SET would leak across requests sharing the connection.
  *
- * Until both steps land, the application-layer guard in src/utils/tenant.ts is
- * the active tenant boundary and this helper is unused infrastructure.
+ * Once RLS policies are enabled (db/rls/R1-crown-jewels.sql) and APP_DATABASE_URL
+ * points at the non-owner app_user role, queries inside `fn` are constrained to
+ * `orgId` by the database itself — a defence-in-depth backstop beneath the
+ * application-layer guard in src/utils/tenant.ts.
+ *
+ * Resolve the org with requireTenant()/resolveActiveOrg() on getDb() (owner) FIRST,
+ * then wrap the tenant-data queries here. Auth/membership lookups can't run under
+ * RLS because they execute before an org is known.
  */
 export async function withTenant<T>(orgId: number, fn: (tx: PostgresJsDatabase<Record<string, never>>) => Promise<T>): Promise<T> {
     if (!Number.isInteger(orgId) || orgId <= 0) {
         throw new Error('withTenant requires a valid positive organisation id.');
     }
-    return getDb().transaction(async (tx) => {
+    return getAppDb().transaction(async (tx) => {
         await tx.execute(sqlExpr`SELECT set_config('app.current_org', ${String(orgId)}, true)`);
         return fn(tx);
     });

@@ -5,7 +5,7 @@
 
 import { Handler } from '@netlify/functions';
 import { eq, and, desc } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withTenant } from '../../db/client';
 import { auditLogs, aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 
@@ -25,12 +25,15 @@ export const handler: Handler = async (event) => {
     const { organisationId: orgId } = ctx;
 
     try {
-        // ── IDOR guard: the assistant must belong to the caller's organisation ─────────
-        const [ownedAssistant] = await db
-            .select({ id: aiAssistants.id })
-            .from(aiAssistants)
-            .where(and(eq(aiAssistants.id, parseInt(assistantId)), eq(aiAssistants.organisationId, orgId)))
-            .limit(1);
+        // ── IDOR guard: the assistant must belong to the caller's organisation (RLS-enforced) ──
+        const ownedAssistant = await withTenant(orgId, async (tx) => {
+            const [row] = await tx
+                .select({ id: aiAssistants.id })
+                .from(aiAssistants)
+                .where(and(eq(aiAssistants.id, parseInt(assistantId)), eq(aiAssistants.organisationId, orgId)))
+                .limit(1);
+            return row ?? null;
+        });
         if (!ownedAssistant) {
             // Return 404 (not 403) to avoid leaking whether the assistant exists
             return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };

@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { eq, and } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withTenant } from '../../db/client';
 import { aiAssistants, auditLogs } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 
@@ -19,7 +19,8 @@ export const handler: Handler = async (event) => {
     if (!assistantId || !newContext) return { statusCode: 400, body: JSON.stringify({ error: 'Missing parameters.' }) };
 
     try {
-        await db.transaction(async (tx) => {
+        // RLS-enforced: the whole unit of work runs under withTenant (app_user + app.current_org).
+        await withTenant(orgId, async (tx) => {
             // Fetch Previous State
             const [existingAssistant] = await tx.select()
                 .from(aiAssistants)
