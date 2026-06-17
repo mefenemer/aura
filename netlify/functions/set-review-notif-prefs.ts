@@ -13,7 +13,7 @@
 import { Handler } from '@netlify/functions';
 import { and, eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
-import { getDb } from '../../db/client';
+import { getDb, withTenant } from '../../db/client';
 import { aiAssistants } from '../../db/schema';
 import { getSession } from '../../src/utils/session';
 import { resolveActiveOrg } from '../../src/utils/tenant';
@@ -81,10 +81,11 @@ export const handler: Handler = async (event) => {
     if (reviewDigestTime)      updates.reviewDigestTime      = reviewDigestTime;
     if (reviewCutoffHours != null) updates.reviewCutoffHours = Number(reviewCutoffHours);
 
-    const result = await db.update(aiAssistants)
+    // RLS-enforced update
+    const result = await withTenant(orgId, (tx) => tx.update(aiAssistants)
         .set(updates)
         .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
-        .returning({ id: aiAssistants.id });
+        .returning({ id: aiAssistants.id }));
 
     if (!result.length) {
         return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };

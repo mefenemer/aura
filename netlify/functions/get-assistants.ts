@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { eq } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withTenant } from '../../db/client';
 import { aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 
@@ -14,13 +14,14 @@ export const handler: Handler = async (event) => {
     const { organisationId: orgId } = ctx;
 
     try {
-        const assistants = await db.select({
+        // RLS-enforced: tenant-data queries run under withTenant (app_user + app.current_org).
+        const assistants = await withTenant(orgId, (tx) => tx.select({
             id: aiAssistants.id,
             name: aiAssistants.name,
             role: aiAssistants.aiAssistantJobRole,
             status: aiAssistants.provisioningStatus,
             isActive: aiAssistants.isActive
-        }).from(aiAssistants).where(eq(aiAssistants.organisationId, orgId));
+        }).from(aiAssistants).where(eq(aiAssistants.organisationId, orgId)));
 
         return { statusCode: 200, body: JSON.stringify({ assistants }) };
     } catch (e) {

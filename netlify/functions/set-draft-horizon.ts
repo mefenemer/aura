@@ -12,7 +12,7 @@
 import { Handler } from '@netlify/functions';
 import { and, eq, gt, lt, gte, lte } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
-import { getDb } from '../../db/client';
+import { getDb, withTenant } from '../../db/client';
 import { aiAssistants, notifications, scheduledPosts, taskRuns } from '../../db/schema';
 import { getSession } from '../../src/utils/session';
 import { resolveActiveOrg } from '../../src/utils/tenant';
@@ -68,12 +68,15 @@ export const handler: Handler = async (event) => {
     if (!org) return { statusCode: 403, body: JSON.stringify({ error: 'No organisation associated with this account.' }) };
     const orgId = org.organisationId;
 
-    // Load current assistant within the active organisation
-    const [assistant] = await db
-        .select({ id: aiAssistants.id, draftHorizonDays: aiAssistants.draftHorizonDays, name: aiAssistants.name })
-        .from(aiAssistants)
-        .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
-        .limit(1);
+    // Load current assistant within the active organisation (RLS-enforced)
+    const assistant = await withTenant(orgId, async (tx) => {
+        const [row] = await tx
+            .select({ id: aiAssistants.id, draftHorizonDays: aiAssistants.draftHorizonDays, name: aiAssistants.name })
+            .from(aiAssistants)
+            .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
+            .limit(1);
+        return row ?? null;
+    });
 
     if (!assistant) {
         return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
@@ -83,10 +86,10 @@ export const handler: Handler = async (event) => {
     const isExpanding = days > previousHorizon;
     const isShrinking = days < previousHorizon;
 
-    // Persist the new horizon value
-    await db.update(aiAssistants)
+    // Persist the new horizon value (RLS-enforced — only the org's own row is updatable)
+    await withTenant(orgId, (tx) => tx.update(aiAssistants)
         .set({ draftHorizonDays: days, updatedAt: new Date() })
-        .where(eq(aiAssistants.id, assistantId));
+        .where(eq(aiAssistants.id, assistantId)));
 
     // ── Horizon expanded → schedule a gap-fill task run ───────────────────────
     if (isExpanding) {

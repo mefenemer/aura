@@ -1,7 +1,7 @@
 // netlify/functions/check-assistant-name.ts
 import { HandlerEvent } from '@netlify/functions';
 import { eq, and, sql } from 'drizzle-orm';
-import { getDb } from '../../db/client';
+import { getDb, withTenant } from '../../db/client';
 import { aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 
@@ -18,12 +18,12 @@ export const handler = async (event: HandlerEvent) => {
     if (!name) return { statusCode: 400, body: JSON.stringify({ error: 'Name parameter is required.' }) };
 
     try {
-        // 2. Case-insensitive database check within the organisation
-        const existing = await db.select().from(aiAssistants)
+        // 2. Case-insensitive database check within the organisation (RLS-enforced)
+        const existing = await withTenant(orgId, (tx) => tx.select().from(aiAssistants)
             .where(and(
                 eq(aiAssistants.organisationId, orgId),
                 sql`LOWER(${aiAssistants.name}) = LOWER(${name})`
-            )).limit(1);
+            )).limit(1));
 
         return { statusCode: 200, body: JSON.stringify({ isUnique: existing.length === 0 }) };
 
