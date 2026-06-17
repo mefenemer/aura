@@ -285,11 +285,13 @@ export const handler: Handler = async (event) => {
                 };
             }
 
-            // Case 6: No plan, no assistants → honour post-login redirect if set (e.g. action=select-plan), else pricing
+            // Case 6: No plan, no assistants → send to the workspace and open the (non-dismissible)
+            // plan-selection gate via ?action=select-plan (workspace.html shows it immediately), rather
+            // than the standalone pricing page. Honour an explicit post-login redirect if present.
             return {
                 statusCode: 200,
                 headers: getHeaders(sessionCookie),
-                body: JSON.stringify({ success: true, redirect: postLoginRedirect ? `${baseUrl}${postLoginRedirect}` : `${baseUrl}/pricing.html?verified=true` })
+                body: JSON.stringify({ success: true, redirect: postLoginRedirect ? `${baseUrl}${postLoginRedirect}` : `${baseUrl}/workspace.html?action=select-plan` })
             };
         }
 
