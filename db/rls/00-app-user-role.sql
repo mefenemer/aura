@@ -21,8 +21,10 @@ BEGIN
 END;
 $$;
 
--- Never allow the app role to bypass RLS, and ensure it does not own objects.
-ALTER ROLE app_user NOBYPASSRLS;
+-- Note: a freshly created role is NOBYPASSRLS by default, so app_user is already
+-- subject to RLS. (On Neon you can't ALTER ... NOBYPASSRLS anyway — it's a
+-- superuser-only attribute and neondb_owner is not a superuser.) Just never grant
+-- BYPASSRLS to app_user and never let it own tables.
 
 -- Schema + existing objects
 GRANT USAGE ON SCHEMA public TO app_user;
