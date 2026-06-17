@@ -5,14 +5,13 @@
 // AC3: No ai_assistants or payments rows created here; those happen post-webhook.
 
 import { Handler } from '@netlify/functions';
-import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, masterPlans, planPrices } from '../../db/schema';
 import { resolveBaseUrl } from '../../src/utils/base-url';
+import { requireTenant } from '../../src/utils/tenant';
 
-const jwtSecret   = process.env.JWT_SECRET!;
 const stripeSecret = process.env.STRIPE_SECRET_KEY!;
 
 const stripe = new Stripe(stripeSecret, { apiVersion: '2026-05-27.dahlia' });
@@ -24,17 +23,11 @@ export const handler: Handler = async (event) => {
         return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
 
-    // Auth
-    const cookieHeader = event.headers.cookie || '';
-    const sessionToken = cookieHeader.match(/aura_session=([^;]+)/)?.[1];
-    if (!sessionToken) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
-
-    let currentUserId: number;
-    try {
-        currentUserId = (jwt.verify(sessionToken, jwtSecret) as { userId: number }).userId;
-    } catch {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session' }) };
-    }
+    const db = getDb();
+    // Auth + resolve the active organisation (verifies membership; never trusts the claim alone).
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { userId: currentUserId, organisationId: orgId } = ctx;
 
     const baseUrl = resolveBaseUrl(event.headers);
     if (!baseUrl) {
@@ -53,13 +46,12 @@ export const handler: Handler = async (event) => {
     if (!planId) return { statusCode: 400, body: JSON.stringify({ error: 'planId is required' }) };
 
     try {
-    const db = getDb();
     const currency = SUPPORTED_CURRENCIES.includes((requestedCurrency ?? '').toUpperCase())
         ? (requestedCurrency!).toUpperCase()
         : 'GBP';
 
     // Load user
-    const [user] = await db.select({ id: users.id, email: users.email, organisationId: users.organisationId, role: users.role })
+    const [user] = await db.select({ id: users.id, email: users.email, role: users.role })
         .from(users).where(eq(users.id, currentUserId)).limit(1);
     if (!user || !user.email) return { statusCode: 403, body: JSON.stringify({ error: 'User not found' }) };
 
@@ -104,7 +96,7 @@ export const handler: Handler = async (event) => {
         cancel_url: `${baseUrl}/workspace.html?plan_cancelled=true`,
         metadata: {
             userId: String(user.id),
-            organisationId: String(user.organisationId ?? ''),
+            organisationId: String(orgId),
             masterPlanId: String(plan.id),
             planName: plan.name,
             ...(referralCode ? { referralCode } : {}),

@@ -1,6 +1,5 @@
 // netlify/functions/support-tickets.ts
 import { HandlerEvent } from '@netlify/functions';
-import jwt from 'jsonwebtoken';
 import { eq, desc } from 'drizzle-orm';
 import { Resend } from 'resend';
 import { getDb } from '../../db/client';
@@ -8,37 +7,19 @@ import { users, supportTickets, notifications } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
 import { checkRateLimit } from '../../src/utils/rate-limit';
 import { checkEarlySupportTicket } from '../../src/utils/churn';
+import { requireTenant } from '../../src/utils/tenant';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || 'support@aura-assist.com';
 
-const jwtSecret = process.env.JWT_SECRET;
-
 export const handler = async (event: HandlerEvent) => {
-    if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
-
-    // 1. Authenticate Session
-    const rawCookieHeader = event.headers.cookie || '';
-    const cookies = Object.fromEntries(
-        rawCookieHeader.split(';').map(c => {
-            const [key, ...v] = c.trim().split('=');
-            return [key, decodeURIComponent(v.join('='))];
-        }).filter(([key]) => key !== '')
-    );
-
-    const sessionToken = cookies['aura_session'];
-    if (!sessionToken) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
-
-    let userId: number;
-    try {
-        const decoded = jwt.verify(sessionToken, jwtSecret) as { userId: number };
-        userId = decoded.userId;
-    } catch (err) {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) };
-    }
+    const db = getDb();
+    // Authenticate + resolve the active organisation (verifies membership; never trusts the claim alone).
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { userId, organisationId: orgId } = ctx;
 
     try {
-        const db = getDb();
 
         // -------------------------------------------------------------
         // GET: Fetch Ticket History
@@ -80,7 +61,7 @@ export const handler = async (event: HandlerEvent) => {
 
             const [newTicket] = await db.insert(supportTickets).values({
                 userId: userId,
-                organisationId: user.organisationId,
+                organisationId: orgId,
                 subject: subject.trim(),
                 category: category,
                 description: description.trim(),

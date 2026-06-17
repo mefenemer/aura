@@ -1,6 +1,5 @@
 import { config } from 'dotenv';
 import * as path from 'path';
-import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 
 config({ path: path.resolve(process.cwd(), '.env') });
@@ -21,11 +20,10 @@ import {
   onboardingDrafts,
   planPrices,
 } from '../../db/schema';
+import { requireTenant } from '../../src/utils/tenant';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
 if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
-const jwtSecret = process.env.JWT_SECRET;
-if (!jwtSecret) throw new Error('CRITICAL: JWT_SECRET is missing.');
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 if (!stripeSecret) throw new Error('CRITICAL: STRIPE_SECRET_KEY is missing.');
 
@@ -82,22 +80,13 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
   try {
-    // 1. AUTH
-    const cookieHeader = event.headers.cookie || '';
-    const match = cookieHeader.match(/aura_session=([^;]+)/);
-    const token = match ? match[1] : null;
-    if (!token) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
-
-    let currentUserId: number;
-    try {
-      const decoded = jwt.verify(token, jwtSecret) as { userId: number; email: string };
-      currentUserId = decoded.userId;
-    } catch {
-      return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized: Invalid session.' }) };
-    }
+    // 1. AUTH + resolve the active organisation (verifies membership; never trusts the claim alone).
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { userId: currentUserId, organisationId: orgId } = ctx;
 
     const [existingUser] = await db.select().from(users).where(eq(users.id, currentUserId)).limit(1);
-    if (!existingUser || existingUser.status !== 'active' || !existingUser.organisationId) {
+    if (!existingUser || existingUser.status !== 'active') {
       return { statusCode: 403, body: JSON.stringify({ error: 'Account pending verification.' }) };
     }
 
@@ -150,11 +139,11 @@ export const handler: Handler = async (event) => {
       await tx.update(userProfiles).set({ legalConsents: consents || {}, updatedAt: new Date() }).where(eq(userProfiles.userId, existingUser.id));
 
       if (businessName?.trim()) {
-        await tx.update(organisations).set({ name: sanitizeText(businessName.trim()), updatedAt: new Date() }).where(eq(organisations.id, existingUser.organisationId!));
+        await tx.update(organisations).set({ name: sanitizeText(businessName.trim()), updatedAt: new Date() }).where(eq(organisations.id, orgId));
       }
 
       const [newPlan] = await tx.insert(plans).values({
-        organisationId: existingUser.organisationId!,
+        organisationId: orgId,
         userId: existingUser.id,
         masterPlanId: masterPlan.id,
         planName: masterPlan.name,
@@ -175,7 +164,7 @@ export const handler: Handler = async (event) => {
       }
 
       const [newAssistant] = await tx.insert(aiAssistants).values({
-        organisationId: existingUser.organisationId!,
+        organisationId: orgId,
         userId: existingUser.id,
         masterAssistantId: assistantRecord?.id || null,
         name: targetName,
@@ -190,7 +179,7 @@ export const handler: Handler = async (event) => {
 
       const [newPayment] = await tx.insert(payments).values({
         userId: existingUser.id,
-        organisationId: existingUser.organisationId!,
+        organisationId: orgId,
         planId: newPlan.id,
         amount: String(priceAmount),
         currency: priceCurrency,

@@ -1,14 +1,11 @@
 // netlify/functions/upload-asset.ts
 import { HandlerEvent } from '@netlify/functions';
-import jwt from 'jsonwebtoken';
 import Busboy from 'busboy';
-import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, workspaceAssets } from '../../db/schema';
+import { workspaceAssets } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
 import { resolveBaseUrl } from '../../src/utils/base-url';
-
-const jwtSecret = process.env.JWT_SECRET;
+import { requireTenant } from '../../src/utils/tenant';
 
 const parseMultipartForm = (event: HandlerEvent): Promise<any> => {
     return new Promise((resolve, reject) => {
@@ -41,34 +38,14 @@ const parseMultipartForm = (event: HandlerEvent): Promise<any> => {
 
 export const handler = async (event: HandlerEvent) => {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
-    if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
 
-    const rawCookieHeader = event.headers.cookie || '';
-    const cookies = Object.fromEntries(
-        rawCookieHeader.split(';').map(c => {
-            const [key, ...v] = c.trim().split('=');
-            return [key, decodeURIComponent(v.join('='))];
-        }).filter(([key]) => key !== '')
-    );
-
-    const sessionToken = cookies['aura_session'];
-    if (!sessionToken) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
-
-    let userId: number;
-    try {
-        const decoded = jwt.verify(sessionToken, jwtSecret) as { userId: number };
-        userId = decoded.userId;
-    } catch (err) {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) };
-    }
+    const db = getDb();
+    // Authenticate + resolve the active organisation (verifies membership; never trusts the claim alone).
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { userId, organisationId: orgId } = ctx;
 
     try {
-        const db = getDb();
-        const [user] = await db.select().from(users).where(eq(users.id, userId));
-        if (!user || !user.organisationId) {
-            return { statusCode: 403, body: JSON.stringify({ error: 'Workspace context missing.' }) };
-        }
-
         const { fields, file, fileName } = await parseMultipartForm(event);
         const { category, url } = fields;
 
@@ -90,7 +67,7 @@ export const handler = async (event: HandlerEvent) => {
         }
 
         const [newAsset] = await db.insert(workspaceAssets).values({
-            organisationId: user.organisationId,
+            organisationId: orgId,
             uploaderId: userId,
             name: assetName,
             assetType: assetType,

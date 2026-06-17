@@ -1,6 +1,5 @@
 import { config } from 'dotenv';
 import * as path from 'path';
-import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 
 config({ path: path.resolve(process.cwd(), '.env') });
@@ -10,11 +9,10 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { eq } from 'drizzle-orm';
 import { users, masterPlans } from '../../db/schema';
+import { requireTenant } from '../../src/utils/tenant';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
 if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
-const jwtSecret = process.env.JWT_SECRET;
-if (!jwtSecret) throw new Error('CRITICAL: JWT_SECRET is missing.');
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 if (!stripeSecret) throw new Error('CRITICAL: STRIPE_SECRET_KEY is missing.');
 
@@ -40,22 +38,13 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
   try {
-    // 1. AUTH
-    const cookieHeader = event.headers.cookie || '';
-    const match = cookieHeader.match(/aura_session=([^;]+)/);
-    const token = match ? match[1] : null;
-    if (!token) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
-
-    let currentUserId: number;
-    try {
-      const decoded = jwt.verify(token, jwtSecret) as { userId: number; email: string };
-      currentUserId = decoded.userId;
-    } catch {
-      return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized: Invalid session.' }) };
-    }
+    // 1. AUTH + resolve the active organisation (verifies membership; never trusts the claim alone).
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { userId: currentUserId, organisationId: orgId } = ctx;
 
     const [user] = await db.select().from(users).where(eq(users.id, currentUserId)).limit(1);
-    if (!user || user.status !== 'active' || !user.organisationId) {
+    if (!user || user.status !== 'active') {
       return { statusCode: 403, body: JSON.stringify({ error: 'Account not active.' }) };
     }
 
@@ -146,7 +135,7 @@ export const handler: Handler = async (event) => {
       automatic_payment_methods: { enabled: true },
       metadata: {
         userId:           user.id.toString(),
-        organisationId:   user.organisationId.toString(),
+        organisationId:   orgId.toString(),
         tier:             tierKey,
         masterPlanId:     masterPlan.id.toString(),
         stripePriceId,

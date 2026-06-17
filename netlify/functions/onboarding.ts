@@ -1,6 +1,5 @@
 import { config } from 'dotenv';
 import * as path from 'path';
-import jwt from 'jsonwebtoken';
 
 config({ path: path.resolve(process.cwd(), '.env') });
 
@@ -22,11 +21,10 @@ import { CURRENT_DPA_VERSION } from './accept-dpa';
 import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
 import { checkRateLimit } from '../../src/utils/rate-limit';
 import { resolveBaseUrl } from '../../src/utils/base-url';
+import { requireTenant } from '../../src/utils/tenant';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
 if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
-const jwtSecret = process.env.JWT_SECRET;
-if (!jwtSecret) throw new Error('CRITICAL: JWT_SECRET is missing.');
 
 const pgClient = postgres(connectionString);
 const db = drizzle({ client: pgClient });
@@ -120,19 +118,10 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
   try {
-    // 1. AUTH
-    const cookieHeader = event.headers.cookie || '';
-    const match = cookieHeader.match(/aura_session=([^;]+)/);
-    const token = match ? match[1] : null;
-    if (!token) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
-
-    let currentUserId: number;
-    try {
-      const decoded = jwt.verify(token, jwtSecret) as { userId: number; email: string };
-      currentUserId = decoded.userId;
-    } catch {
-      return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized: Invalid session.' }) };
-    }
+    // 1. AUTH + resolve the active organisation (verifies membership; never trusts the claim alone).
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { userId: currentUserId, organisationId: orgId } = ctx;
 
     // SC3 — US-GAP-7.1.1: 3 onboarding submissions per userId per 60 seconds
     const rlOnboarding = await checkRateLimit(db, 'onboarding', `user:${currentUserId}`, { maxAttempts: 3, windowSecs: 60 });
@@ -145,7 +134,7 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
     }
 
     const [existingUser] = await db.select().from(users).where(eq(users.id, currentUserId)).limit(1);
-    if (!existingUser || existingUser.status !== 'active' || !existingUser.organisationId) {
+    if (!existingUser || existingUser.status !== 'active') {
       return { statusCode: 403, body: JSON.stringify({ error: 'Account pending verification or missing organisation.' }) };
     }
 
@@ -154,7 +143,7 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
       .select({ id: dpaAcceptances.id })
       .from(dpaAcceptances)
       .where(and(
-        eq(dpaAcceptances.organisationId, existingUser.organisationId!),
+        eq(dpaAcceptances.organisationId, orgId),
         eq(dpaAcceptances.version, CURRENT_DPA_VERSION),
       ))
       .limit(1);
@@ -206,7 +195,7 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
 
     if (Object.keys(orgUpdate).length > 0) {
       await db.update(organisations).set(orgUpdate)
-        .where(eq(organisations.id, existingUser.organisationId!));
+        .where(eq(organisations.id, orgId));
     }
 
     // 4. COMPILE SYSTEM PROMPT
@@ -230,7 +219,7 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
     let newAssistant: typeof aiAssistants.$inferSelect;
     try {
       const [inserted] = await db.insert(aiAssistants).values({
-        organisationId: existingUser.organisationId!,
+        organisationId: orgId,
         userId: existingUser.id,
         masterAssistantId: assistantRecord?.id || null,
         name: targetName,

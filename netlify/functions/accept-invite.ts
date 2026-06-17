@@ -136,7 +136,7 @@ export const handler: Handler = async (event) => {
     }).catch(() => {});
 
     // Issue a session JWT + redirect to workspace
-    const token = jwt.sign({ userId: user.id }, jwtSecret, { expiresIn: '7d' });
+    const token = jwt.sign({ userId: user.id, activeOrganisationId: orgId }, jwtSecret, { expiresIn: '7d' });
     const cookieOpts = [
         `aura_session=${token}`,
         'Path=/',

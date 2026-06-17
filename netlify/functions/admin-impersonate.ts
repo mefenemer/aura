@@ -22,6 +22,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
+import { resolveActiveOrg } from '../../src/utils/tenant';
 
 const jwtSecret = process.env.JWT_SECRET;
 const IMPERSONATION_TTL_SECONDS = 15 * 60; // 15 minutes
@@ -39,6 +40,7 @@ export interface ImpersonationPayload {
     targetUserName: string;
     sessionId: string;
     reason: ImpersonationReason;
+    activeOrganisationId?: number;   // target user's active org, so impersonated requests resolve a tenant
     iat?: number;
     exp?: number;
 }
@@ -146,6 +148,7 @@ export const handler: Handler = async (event) => {
 
         const sessionId = randomUUID();
         const targetUserName = [targetUser.firstName, targetUser.lastName].filter(Boolean).join(' ');
+        const targetOrg = await resolveActiveOrg(db, targetUserId);
 
         const payload: ImpersonationPayload = {
             scope:               'impersonate',
@@ -157,6 +160,7 @@ export const handler: Handler = async (event) => {
             targetUserName,
             sessionId,
             reason:              reason as ImpersonationReason,
+            ...(targetOrg ? { activeOrganisationId: targetOrg.organisationId } : {}),
         };
 
         const token = jwt.sign(payload, jwtSecret, { expiresIn: `${IMPERSONATION_TTL_SECONDS}s` });

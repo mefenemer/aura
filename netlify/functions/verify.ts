@@ -7,6 +7,7 @@ import { users, plans, aiAssistants, onboardingDrafts, notifications, userProfil
 import { sendEmail } from '../../src/utils/email';
 import { getEmailStrings } from '../../src/utils/email-i18n';
 import { resolveBaseUrl } from '../../src/utils/base-url';
+import { resolveActiveOrg } from '../../src/utils/tenant';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 
@@ -145,6 +146,9 @@ export const handler: Handler = async (event) => {
         const ADMIN_ROLES = ['admin', 'super_admin', 'platform_admin', 'billing_admin', 'support_agent'];
         const tokenPayload: Record<string, unknown> = { userId: user.id, email: user.email };
         if (user.role && ADMIN_ROLES.includes(user.role)) tokenPayload.adminRole = user.role;
+        // Select the active tenant for the session (sole / most-recently-joined membership).
+        const activeOrg = await resolveActiveOrg(db, user.id);
+        if (activeOrg) tokenPayload.activeOrganisationId = activeOrg.organisationId;
         const signedToken = jwt.sign(tokenPayload, jwtSecret, { expiresIn: '7d' });
         const sessionCookie = `aura_session=${signedToken}; Path=/; Secure; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}`;
 

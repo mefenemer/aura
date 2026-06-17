@@ -14,14 +14,14 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     users, userProfiles, plans, payments, invoices,
     aiAssistants, taskRuns, workspaceAssets, contentAssets,
     supportTickets, auditLogs, dataExportRequests, notifications,
     userNotifications, onboardingDrafts, scheduledPosts,
-    gdprErasureLog, tosAcceptances, dpaAcceptances,
+    gdprErasureLog, tosAcceptances, dpaAcceptances, userOrganisations,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 
@@ -92,8 +92,14 @@ export const handler: Handler = async (event) => {
     const notifs      = await db.select().from(notifications).where(eq(notifications.userId, targetUserId));
     const erasures    = await db.select().from(gdprErasureLog).where(eq(gdprErasureLog.requestedBy, adminId));
     const tosRecords  = await db.select().from(tosAcceptances).where(eq(tosAcceptances.userId, targetUserId));
-    const dpaRecords  = user.organisationId
-        ? await db.select().from(dpaAcceptances).where(eq(dpaAcceptances.organisationId, user.organisationId))
+    // Resolve the target user's org memberships from the junction (not the deprecated users.organisationId).
+    const targetOrgs = await db
+        .select({ organisationId: userOrganisations.organisationId })
+        .from(userOrganisations)
+        .where(eq(userOrganisations.userId, targetUserId));
+    const targetOrgIds = targetOrgs.map(o => o.organisationId);
+    const dpaRecords  = targetOrgIds.length
+        ? await db.select().from(dpaAcceptances).where(inArray(dpaAcceptances.organisationId, targetOrgIds))
         : [];
 
     // ── 4. Build the SAR package ───────────────────────────────────────────
