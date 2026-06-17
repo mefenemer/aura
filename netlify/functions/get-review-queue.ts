@@ -10,6 +10,8 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
 import { aiAssistants, scheduledPosts } from '../../db/schema';
+import { getSession } from '../../src/utils/session';
+import { resolveActiveOrg } from '../../src/utils/tenant';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
@@ -55,11 +57,16 @@ export const handler: Handler = async (event) => {
 
     const db = getDb();
 
-    // Verify assistant ownership
+    // Resolve the active organisation (member-shared assistant ownership; membership verified).
+    const org = await resolveActiveOrg(db, userId, getSession(event)?.activeOrganisationId);
+    if (!org) return { statusCode: 403, body: JSON.stringify({ error: 'No organisation associated with this account.' }) };
+    const orgId = org.organisationId;
+
+    // Verify the assistant belongs to the active organisation
     const [assistant] = await db
         .select({ id: aiAssistants.id, reviewCutoffHours: aiAssistants.reviewCutoffHours })
         .from(aiAssistants)
-        .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.userId, userId)))
+        .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
         .limit(1);
 
     if (!assistant) {

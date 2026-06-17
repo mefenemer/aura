@@ -6,36 +6,28 @@
 // so the user can modify their blueprint/setup answers.
 
 import { Handler } from '@netlify/functions';
-import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants } from '../../db/schema';
-
-const jwtSecret = process.env.JWT_SECRET;
-
-function getAuth(event: any): number | null {
-    if (!jwtSecret) return null;
-    const match = (event.headers.cookie || '').match(/aura_session=([^;]+)/);
-    if (!match) return null;
-    try { return (jwt.verify(match[1], jwtSecret) as { userId: number }).userId; } catch { return null; }
-}
+import { requireTenant } from '../../src/utils/tenant';
 
 export const handler: Handler = async (event) => {
-    const userId = getAuth(event);
-    if (!userId) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
+    const db = getDb();
+    // Managing a shared assistant (pause/resume/delete) is an owner/admin action within the org.
+    const ctx = await requireTenant(event, db, { roles: ['owner', 'admin'] });
+    if ('error' in ctx) return ctx.error;
+    const { organisationId: orgId } = ctx;
 
     const qs = event.queryStringParameters || {};
     const id = parseInt(qs.id || '');
     if (!id) return { statusCode: 400, body: JSON.stringify({ error: 'id is required.' }) };
 
-    const db = getDb();
-
-    // Ownership check helper
+    // Resolve the assistant within the active organisation (member-shared ownership).
     const findAssistant = async () => {
         const [row] = await db
             .select()
             .from(aiAssistants)
-            .where(and(eq(aiAssistants.id, id), eq(aiAssistants.userId, userId)));
+            .where(and(eq(aiAssistants.id, id), eq(aiAssistants.organisationId, orgId)));
         return row ?? null;
     };
 

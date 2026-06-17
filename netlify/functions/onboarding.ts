@@ -162,9 +162,9 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
 
     const targetName = customAssistantName?.trim() || 'Digital Assistant';
 
-    // 2. DEDUP CHECK — allow retry if previously incomplete
+    // 2. DEDUP CHECK — names are unique per organisation; allow retry if previously incomplete
     const [existingAssistant] = await db.select().from(aiAssistants).where(and(
-      eq(aiAssistants.userId, existingUser.id),
+      eq(aiAssistants.organisationId, orgId),
       sql`LOWER(${aiAssistants.name}) = LOWER(${targetName})`
     )).limit(1);
 
@@ -172,7 +172,7 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
       if (['pending_payment', 'pending'].includes(existingAssistant.provisioningStatus || '')) {
         await db.delete(aiAssistants).where(eq(aiAssistants.id, existingAssistant.id));
       } else {
-        return { statusCode: 409, body: JSON.stringify({ error: 'You already have an active Assistant with this name.' }) };
+        return { statusCode: 409, body: JSON.stringify({ error: 'An assistant with this name already exists in your organisation.' }) };
       }
     }
 
@@ -237,8 +237,8 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
       }).returning();
       newAssistant = inserted;
     } catch (insertErr: any) {
-      // PostgreSQL unique_violation error code 23505 = duplicate (userId, name)
-      if (insertErr?.code === '23505' || insertErr?.message?.includes('ai_assistants_user_name_unique')) {
+      // PostgreSQL unique_violation error code 23505 = duplicate (organisationId, name)
+      if (insertErr?.code === '23505' || insertErr?.message?.includes('ai_assistants_org_name_unique')) {
         console.warn('[onboarding] Duplicate assistant creation prevented by DB constraint:', targetName);
         return {
           statusCode: 409,

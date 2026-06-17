@@ -252,7 +252,9 @@ export const aiAssistants = pgTable("ai_assistants", {
   // provisioningStatus: 'pending' | 'complete' | 'failed' | 'cancelled' | 'paused_limit' | 'paused_payment'
   provisioningStatus: text("provisioning_status").default("pending"),
 }, (t) => [
-  unique("ai_assistants_user_name_unique").on(t.userId, t.name),
+  // US-DB-1.3.1: assistants are org-owned & member-shared — names are unique per organisation.
+  // (userId is retained as creator/attribution only.)
+  unique("ai_assistants_org_name_unique").on(t.organisationId, t.name),
   // US-DB-1.1.1: Hot-path indexes for assistant lookups
   index("ai_assistants_org_active_idx").on(t.organisationId, t.isActive),
   index("ai_assistants_user_active_idx").on(t.userId, t.isActive),

@@ -4,28 +4,14 @@
 // Used by the assistant detail page "Recent Activity" feed.
 
 import { Handler } from '@netlify/functions';
-import jwt from 'jsonwebtoken';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, auditLogs, aiAssistants } from '../../db/schema';
-
-const jwtSecret = process.env.JWT_SECRET;
+import { auditLogs, aiAssistants } from '../../db/schema';
+import { requireTenant } from '../../src/utils/tenant';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') {
         return { statusCode: 405, body: 'Method Not Allowed' };
-    }
-
-    // ── Auth ──────────────────────────────────────────────────────
-    if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
-    const cookie = (event.headers.cookie || '').match(/aura_session=([^;]+)/)?.[1];
-    if (!cookie) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
-
-    let userId: number;
-    try {
-        userId = (jwt.verify(cookie, jwtSecret) as { userId: number }).userId;
-    } catch {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) };
     }
 
     const assistantId = event.queryStringParameters?.id;
@@ -33,20 +19,17 @@ export const handler: Handler = async (event) => {
         return { statusCode: 400, body: JSON.stringify({ error: 'id parameter is required.' }) };
     }
 
+    const db = getDb();
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { organisationId: orgId } = ctx;
+
     try {
-        const db = getDb();
-
-        // Verify the user exists (basic auth check)
-        const [user] = await db.select({ id: users.id })
-            .from(users).where(eq(users.id, userId));
-        if (!user) return { statusCode: 403, body: JSON.stringify({ error: 'User not found.' }) };
-
-        // ── IDOR guard: verify caller owns this assistant ─────────
-        // Without this, any authenticated user can read another user's audit trail.
+        // ── IDOR guard: the assistant must belong to the caller's organisation ─────────
         const [ownedAssistant] = await db
             .select({ id: aiAssistants.id })
             .from(aiAssistants)
-            .where(and(eq(aiAssistants.id, parseInt(assistantId)), eq(aiAssistants.userId, userId)))
+            .where(and(eq(aiAssistants.id, parseInt(assistantId)), eq(aiAssistants.organisationId, orgId)))
             .limit(1);
         if (!ownedAssistant) {
             // Return 404 (not 403) to avoid leaking whether the assistant exists

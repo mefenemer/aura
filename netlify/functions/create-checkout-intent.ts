@@ -120,9 +120,9 @@ export const handler: Handler = async (event) => {
 
     const targetName = customAssistantName?.trim() || 'Digital Assistant';
 
-    // 3. DEDUP CHECK
+    // 3. DEDUP CHECK — names are unique per organisation
     const [existingAssistant] = await db.select().from(aiAssistants).where(and(
-      eq(aiAssistants.userId, existingUser.id),
+      eq(aiAssistants.organisationId, orgId),
       sql`LOWER(${aiAssistants.name}) = LOWER(${targetName})`
     )).limit(1);
 
@@ -130,7 +130,7 @@ export const handler: Handler = async (event) => {
       if (existingAssistant.provisioningStatus === 'pending_payment') {
         await db.delete(aiAssistants).where(eq(aiAssistants.id, existingAssistant.id));
       } else {
-        return { statusCode: 409, body: JSON.stringify({ error: 'You already have an active Assistant with this name.' }) };
+        return { statusCode: 409, body: JSON.stringify({ error: 'An assistant with this name already exists in your organisation.' }) };
       }
     }
 

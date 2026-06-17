@@ -23,6 +23,8 @@ import { Resend } from 'resend';
 import { getDb } from '../../db/client';
 import { taskRuns, aiAssistants, integrationAuthorizations, agentRunEvents, notifications } from '../../db/schema';
 import { injectAiFooter, FOOTER_VERSION } from '../../src/utils/ai-email-footer';
+import { getSession } from '../../src/utils/session';
+import { resolveActiveOrg } from '../../src/utils/tenant';
 
 const jwtSecret = process.env.JWT_SECRET;
 const resend    = new Resend(process.env.RESEND_API_KEY);
@@ -58,6 +60,11 @@ export const handler: Handler = async (event) => {
 
     const db = getDb();
 
+    // Resolve the active organisation (member-shared assistant ownership; membership verified).
+    const org = await resolveActiveOrg(db, userId, getSession(event)?.activeOrganisationId);
+    if (!org) return { statusCode: 403, body: JSON.stringify({ error: 'No organisation associated with this account.' }) };
+    const orgId = org.organisationId;
+
     // ── 3. Verify run ownership ────────────────────────────────────────────────
     const [run] = await db.select({ id: taskRuns.id })
         .from(taskRuns)
@@ -65,10 +72,10 @@ export const handler: Handler = async (event) => {
         .limit(1);
     if (!run) return { statusCode: 404, body: JSON.stringify({ error: 'Task run not found.' }) };
 
-    // ── 4. Load assistant name ─────────────────────────────────────────────────
+    // ── 4. Load assistant name (scoped to the active organisation) ─────────────
     const [assistant] = await db.select({ name: aiAssistants.name })
         .from(aiAssistants)
-        .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.userId, userId)))
+        .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
         .limit(1);
     if (!assistant) return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
 

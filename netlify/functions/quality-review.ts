@@ -19,6 +19,8 @@ import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, aiAssistants, plans, masterPlans } from '../../db/schema';
 import { logAiUsage } from '../../src/utils/ai-usage';
+import { getSession } from '../../src/utils/session';
+import { resolveActiveOrg } from '../../src/utils/tenant';
 
 const jwtSecret   = process.env.JWT_SECRET;
 const anthropic   = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -143,6 +145,12 @@ export const handler: Handler = async (event) => {
     }
 
     const db = getDb();
+
+    // Resolve the active organisation (member-shared assistant ownership; membership verified).
+    const org = await resolveActiveOrg(db, userId, getSession(event)?.activeOrganisationId);
+    if (!org) return { statusCode: 403, body: JSON.stringify({ error: 'No organisation associated with this account.' }) };
+    const orgId = org.organisationId;
+
     const tierKey = await getUserPlanTierKey(db, userId);
 
     // Tier 1 (buster) — upgrade callout
@@ -166,7 +174,7 @@ export const handler: Handler = async (event) => {
         const [assistant] = await db
             .select({ systemPrompt: aiAssistants.systemPrompt })
             .from(aiAssistants)
-            .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.userId, userId)))
+            .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
             .limit(1);
         if (assistant?.systemPrompt) brandVoice = assistant.systemPrompt.slice(0, 500);
     }

@@ -15,6 +15,8 @@ import { and, eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
 import { aiAssistants } from '../../db/schema';
+import { getSession } from '../../src/utils/session';
+import { resolveActiveOrg } from '../../src/utils/tenant';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const VALID_NOTIF_PREFS = new Set(['immediate', 'daily_digest', 'red_urgency_only']);
@@ -68,6 +70,12 @@ export const handler: Handler = async (event) => {
     }
 
     const db = getDb();
+
+    // Resolve the active organisation (member-shared assistant ownership; membership verified).
+    const org = await resolveActiveOrg(db, userId, getSession(event)?.activeOrganisationId);
+    if (!org) return { statusCode: 403, body: JSON.stringify({ error: 'No organisation associated with this account.' }) };
+    const orgId = org.organisationId;
+
     const updates: Record<string, any> = { updatedAt: new Date() };
     if (reviewNotifPreference) updates.reviewNotifPreference = reviewNotifPreference;
     if (reviewDigestTime)      updates.reviewDigestTime      = reviewDigestTime;
@@ -75,7 +83,7 @@ export const handler: Handler = async (event) => {
 
     const result = await db.update(aiAssistants)
         .set(updates)
-        .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.userId, userId)))
+        .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
         .returning({ id: aiAssistants.id });
 
     if (!result.length) {

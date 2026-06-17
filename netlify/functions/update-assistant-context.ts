@@ -1,46 +1,29 @@
 import { Handler } from '@netlify/functions';
-import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants, auditLogs } from '../../db/schema';
-
-const jwtSecret = process.env.JWT_SECRET;
+import { requireTenant } from '../../src/utils/tenant';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'PUT') return { statusCode: 405, body: 'Method Not Allowed' };
 
-    // 1. JWT Authentication Block
-    if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
-
-    const cookieHeader = event.headers.cookie || '';
-    const match = cookieHeader.match(/aura_session=([^;]+)/);
-    const token = match ? match[1] : null;
-
-    if (!token) {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
-    }
-
-    let currentUserId: number;
-    try {
-        const decoded = jwt.verify(token, jwtSecret) as { userId: number };
-        currentUserId = decoded.userId;
-    } catch (err) {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session.' }) };
-    }
+    const db = getDb();
+    // 1. Auth + resolve the active organisation (member-shared assistant ownership).
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { userId: currentUserId, organisationId: orgId } = ctx;
 
     // 2. Payload Extraction
     const { assistantId, newContext, newConfiguration, newName, appliedDefaults, disclosureText } = JSON.parse(event.body || '{}');
 
     if (!assistantId || !newContext) return { statusCode: 400, body: JSON.stringify({ error: 'Missing parameters.' }) };
 
-    const db = getDb();
-
     try {
         await db.transaction(async (tx) => {
             // Fetch Previous State
             const [existingAssistant] = await tx.select()
                 .from(aiAssistants)
-                .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.userId, currentUserId)))
+                .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
                 .limit(1);
 
             if (!existingAssistant) throw new Error("Assistant not found.");
