@@ -5,6 +5,12 @@
 -- This script provisions that role. Run it ONCE against the database (Neon SQL editor
 -- or psql) as an admin/owner role. Idempotent — safe to re-run.
 --
+-- ⚠️ NEON: create app_user with THIS SQL, never via the Neon Console "Roles" UI.
+-- Console-created roles are members of `neon_superuser` AND get the BYPASSRLS attribute,
+-- so they silently bypass every policy — and you cannot ALTER it off (superuser-only on
+-- Neon). A role created by plain CREATE ROLE (below) is NOBYPASSRLS and RLS-subject.
+-- The verification block at the end fails loudly if app_user can bypass RLS.
+--
 -- After running:
 --   1. Set a strong password below (replace CHANGE_ME).
 --   2. Put the app_user connection string in APP_DATABASE_URL (Netlify env + local .env),
@@ -43,3 +49,14 @@ REVOKE UPDATE, DELETE ON admin_audit_log   FROM app_user;
 REVOKE UPDATE, DELETE ON audit_logs         FROM app_user;
 REVOKE UPDATE, DELETE ON dpa_acceptances    FROM app_user;
 REVOKE UPDATE, DELETE ON gdpr_erasure_log   FROM app_user;
+
+-- Guard: refuse to "succeed" if app_user can bypass RLS (e.g. it was created via the
+-- Neon Console). If this raises, drop the role and recreate it with the CREATE ROLE
+-- statement above (DROP OWNED BY app_user; DROP ROLE app_user; then re-run this file).
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user' AND (rolbypassrls OR rolsuper)) THEN
+        RAISE EXCEPTION 'app_user has BYPASSRLS/SUPERUSER and will bypass every policy. Recreate it via SQL (not the Neon Console).';
+    END IF;
+END;
+$$;
