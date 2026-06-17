@@ -35,10 +35,13 @@ BEGIN
 
             -- Drop+recreate so the policy definition stays in sync on re-run.
             EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON public.%I', t);
+            -- NULLIF(..., '') is essential: a transaction-local set_config reverts a custom
+            -- GUC to '' (empty string), not NULL, and ''::int raises. Coalescing '' -> NULL
+            -- makes a missing tenant context match no rows (fail-closed) instead of erroring.
             EXECUTE format($f$
                 CREATE POLICY tenant_isolation ON public.%I
-                    USING      (organisation_id = current_setting('app.current_org', true)::int)
-                    WITH CHECK (organisation_id = current_setting('app.current_org', true)::int)
+                    USING      (organisation_id = NULLIF(current_setting('app.current_org', true), '')::int)
+                    WITH CHECK (organisation_id = NULLIF(current_setting('app.current_org', true), '')::int)
             $f$, t);
         END IF;
     END LOOP;
