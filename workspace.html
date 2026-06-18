@@ -886,7 +886,8 @@ function formatCurrency(amount, currency) {
       'my-content': { file: 'my-content.html', title: '| My Content' },
       'calendar': { file: 'calendar.html', title: '| Content Calendar' },
       'referral': { file: 'referral-content.html', title: '| Refer a Friend' },
-      'review-queue': { file: 'review-queue.html', title: '| Review Queue' }
+      'review-queue': { file: 'review-queue.html', title: '| Review Queue' },
+      'assistant-setup': { file: 'assistant-setup-checklist.html', title: '| Assistant Setup' }
     };
 
     // Consolidated DOM element hooks
@@ -1073,6 +1074,10 @@ function formatCurrency(amount, currency) {
 
         if (routeKey === 'assistant-detail' && typeof window.initAssistantDetail === 'function') {
           await window.initAssistantDetail(param, loadView);
+        }
+
+        if (routeKey === 'assistant-setup' && typeof window.initSetupChecklist === 'function') {
+          await window.initSetupChecklist(param);
         }
 
       } catch (error) {
@@ -2541,38 +2546,216 @@ function formatCurrency(amount, currency) {
   };
 
   // 2. Fetch Logic Helper
+  // ═══════════════════════════════════════════════════════════════════
+  //  Epic: Async Setup & Progress Tracking — In-Progress "Onboarding" cards
+  // ═══════════════════════════════════════════════════════════════════
+  const ONBOARDING_ROLE_META = {
+    social_media: { label: 'Social Media Manager', icon: '📣', wizard: 'onboarding-social-media.html' },
+    paid_ads:     { label: 'Performance Marketer', icon: '📈', wizard: 'onboarding-performance.html' },
+    data_entry:   { label: 'Inventory & Data',     icon: '🗂️', wizard: 'onboarding-inventory.html' },
+    custom:       { label: 'Custom Assistant',     icon: '🤖', wizard: 'onboarding-custom.html' },
+  };
+  window.ONBOARDING_ROLE_META = ONBOARDING_ROLE_META;
+
+  // Registry so a card's onclick can pass a stable key instead of a JSON blob.
+  window._inProgressItems = window._inProgressItems || {};
+
+  // AC1.2: in-progress card — role icon, name (or "Unnamed {Role}"), "Onboarding" badge.
+  window.generateInProgressCardHTML = function(item, key) {
+    const isDraft   = item.kind === 'draft';
+    const meta      = (isDraft ? ONBOARDING_ROLE_META[item.onboardingPath] : null) || { label: item.role || 'Assistant', icon: '🤖' };
+    const roleLabel = isDraft ? meta.label : (item.role || 'Assistant');
+    const name      = (isDraft ? item.displayName : item.name) || `Unnamed ${roleLabel}`;
+    const failed    = !isDraft && item.provisioningStatus === 'failed';
+    const badge = failed
+      ? `<div class="flex items-center gap-2 bg-red-50 text-red-700 px-3 py-1 rounded-full text-xs font-bold border border-red-200"><span class="w-2 h-2 rounded-full bg-red-500"></span>Setup Failed</div>`
+      : `<div class="flex items-center gap-2 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-200"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>Onboarding</div>`;
+    const sub = failed   ? 'Something went wrong during setup. Click to review.'
+              : isDraft  ? 'Setup in progress — click to continue your checklist.'
+              :            "We're prepping your assistant. Click to view progress.";
+    return `
+      <div class="bg-white rounded-2xl border-2 border-dashed border-amber-300 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all cursor-pointer" onclick="window.openSetupChecklist('${key}')">
+          <div class="p-6 flex justify-between items-start">
+              <div class="flex items-center gap-4">
+                  <div class="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-2xl">${meta.icon}</div>
+                  <div>
+                      <h2 class="text-xl font-bold text-gray-900">${name}</h2>
+                      <p class="text-sm text-gray-500 font-medium">${roleLabel}</p>
+                  </div>
+              </div>
+              ${badge}
+          </div>
+          <div class="px-6 pb-6 -mt-2"><p class="text-sm text-gray-500">${sub}</p></div>
+      </div>`;
+  };
+
+  // AC1.3 / AC4.2: clicking an in-progress card routes to the Setup Checklist (not the detail view).
+  window.openSetupChecklist = function(key) {
+    const item = (window._inProgressItems || {})[key];
+    if (item) window.loadView('assistant-setup', item);
+  };
+
+  // ── US4: poll while anything is still validating; toast when one goes "ready" ──
+  let _provPollTimer = null;
+  let _knownValidationIds = new Set();
+  window._lastValidationMeta = window._lastValidationMeta || {};
+
+  function _maybeStartProvisioningPoll(containerId, inProgress) {
+    const pending = inProgress.filter(i => i.kind === 'validation' && i.provisioningStatus === 'pending');
+    const validationIds = new Set(pending.map(i => i.assistantId));
+
+    // A previously-pending assistant that's no longer pending has cleared validation (AC4.3).
+    _knownValidationIds.forEach(id => {
+      if (!validationIds.has(id)) {
+        const role = window._lastValidationMeta[id]?.role || 'new';
+        window.showToast?.(`Your ${role} Assistant is fully trained and ready for work.`, { icon: '✅' });
+      }
+    });
+    _knownValidationIds = validationIds;
+    window._lastValidationMeta = {};
+    pending.forEach(i => { window._lastValidationMeta[i.assistantId] = { role: i.role || 'new' }; });
+
+    clearTimeout(_provPollTimer);
+    if (validationIds.size > 0) {
+      // Re-render in 15s; self-stops once the view changes (container disappears) or nothing is pending.
+      _provPollTimer = setTimeout(() => fetchAndRenderAssistants(containerId), 15000);
+    }
+  }
+
   async function fetchAndRenderAssistants(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
     try {
-      const res = await fetch('/.netlify/functions/get-assistants');
-      if (!res.ok) throw new Error("Failed to fetch");
+      const [aRes, ipRes] = await Promise.all([
+        fetch('/.netlify/functions/get-assistants'),
+        fetch('/.netlify/functions/get-in-progress-assistants'),
+      ]);
+      if (!aRes.ok) throw new Error('Failed to fetch');
+      const aData  = await aRes.json();
+      const ipData = ipRes.ok ? await ipRes.json() : { items: [] };
 
-      const data = await res.json();
+      const allAssistants = aData.assistants || [];
+      const inProgress    = ipData.items || [];
+
+      // AC1.4: any assistant (even provisioning) means onboarding is complete — unlock nav live.
+      if (allAssistants.length > 0) window.markOnboardingComplete?.();
+
       container.innerHTML = ''; // Clear loading state
 
-      // AC1.4: having ≥1 assistant means onboarding is complete — unlock the
-      // restricted nav live, no page refresh.
-      if (data.assistants && data.assistants.length > 0) {
-        window.markOnboardingComplete?.();
-      }
+      // US1 AC1.1: in-progress "Onboarding" cards render at the top on Dashboard + My Team.
+      inProgress.forEach(it => {
+        const key = it.kind === 'draft' ? `draft-${it.draftId}` : `val-${it.assistantId}`;
+        window._inProgressItems[key] = it;
+        container.insertAdjacentHTML('beforeend', window.generateInProgressCardHTML(it, key));
+      });
 
-      if (!data.assistants || data.assistants.length === 0) {
+      // Active assistants: exclude those still provisioning/failed (rendered as in-progress above).
+      const activeAssistants = allAssistants.filter(a => a.status !== 'pending' && a.status !== 'failed');
+      activeAssistants.forEach(assistant => {
+        container.insertAdjacentHTML('beforeend', window.generateAssistantCardHTML(assistant));
+      });
+
+      if (inProgress.length === 0 && activeAssistants.length === 0) {
         container.innerHTML = `
                 <div class="col-span-full py-12 text-center text-gray-500 font-medium bg-white rounded-2xl border border-gray-100 shadow-sm">
                     You haven't hired any assistants yet. <a href="#" onclick="loadView('catalog')" class="text-emerald-600 hover:underline">Browse the catalog</a>.
                 </div>`;
-        return;
       }
 
-      data.assistants.forEach(assistant => {
-        container.insertAdjacentHTML('beforeend', window.generateAssistantCardHTML(assistant));
-      });
+      _maybeStartProvisioningPoll(containerId, inProgress);
     } catch (error) {
       container.innerHTML = `<div class="col-span-full text-center text-red-500">Failed to load team data.</div>`;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  US2: Assistant Setup Checklist UI  +  US3: deep-linking to a step
+  // ═══════════════════════════════════════════════════════════════════
+  window.initSetupChecklist = async function(item) {
+    const root = document.getElementById('setup-checklist-root');
+    if (!root) return;
+
+    if (!item || (item.kind !== 'draft' && item.kind !== 'validation')) {
+      root.innerHTML = `<div class="text-center text-gray-500 py-16">This setup is no longer available. <a href="#" onclick="loadView('dashboard')" class="text-emerald-600 hover:underline">Back to dashboard</a>.</div>`;
+      return;
+    }
+
+    const isDraft   = item.kind === 'draft';
+    const path      = isDraft ? item.onboardingPath : null;
+    const meta      = (path && ONBOARDING_ROLE_META[path]) || { label: item.role || 'Assistant', icon: '🤖', wizard: 'onboarding.html' };
+    const roleLabel = isDraft ? meta.label : (item.role || 'Assistant');
+    const name      = (isDraft ? item.displayName : item.name) || `Unnamed ${roleLabel}`;
+    const cs        = isDraft ? (item.currentStep || 1) : 99;
+    const failed    = !isDraft && item.provisioningStatus === 'failed';
+
+    // AC2.1: four sequential buckets. `step` = the wizard step a deep-link jumps to.
+    const STEPS = [
+      { label: 'Role Selection',                 done: true,   step: 1 },
+      { label: 'Brand & Strategy Configuration', done: cs > 4, step: 1 },
+      { label: 'App Connections',                done: cs > 6, step: 5 },
+      { label: 'AI Readiness Validation',        ai: true },
+    ];
+    if (!isDraft) { STEPS[1].done = STEPS[2].done = true; } // forms submitted
+
+    // First incomplete non-AI step is "Action Required" (drafts only).
+    const actionIdx = isDraft ? STEPS.findIndex(s => !s.ai && !s.done) : -1;
+
+    const nodeFor = (state) => {
+      if (state === 'completed') return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></span>`;
+      if (state === 'processing') return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100"><svg class="animate-spin w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>`;
+      if (state === 'failed')    return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-600 font-bold">!</span>`;
+      if (state === 'action')    return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-white text-sm font-bold animate-pulse">→</span>`;
+      return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400 text-sm font-bold">○</span>`; // pending
+    };
+
+    const rows = STEPS.map((s, i) => {
+      let state;
+      if (s.ai)              state = failed ? 'failed' : (!isDraft ? 'processing' : 'pending');
+      else if (s.done)       state = 'completed';
+      else if (i === actionIdx) state = 'action';
+      else                   state = 'pending';
+
+      const isLast = i === STEPS.length - 1;
+      const titleCls = state === 'action' ? 'font-bold text-gray-900'
+                     : state === 'pending' ? 'font-medium text-gray-400'
+                     : 'font-semibold text-gray-700';
+
+      let detail = '';
+      if (state === 'completed') detail = `<p class="text-xs text-emerald-600 mt-0.5">Completed</p>`;
+      else if (state === 'action') {
+        detail = `<p class="text-xs text-amber-600 font-semibold mt-0.5">Action required</p>
+          <a href="${meta.wizard}?draftId=${item.draftId}&step=${s.step}" class="inline-flex items-center gap-1 mt-2 px-3 py-1.5 bg-emerald-700 text-white text-xs font-semibold rounded-lg hover:bg-emerald-800 transition">Continue this step →</a>`;
+      }
+      else if (state === 'processing') {
+        // AC2.3: active loading state + reassurance copy.
+        detail = `<div class="mt-1"><div class="h-2 w-40 max-w-full rounded-full bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 animate-pulse"></div>
+          <p class="text-xs text-gray-500 mt-2 leading-relaxed">We are prepping your assistant. You can leave this page—we'll notify you when they are ready to work.</p></div>`;
+      }
+      else if (state === 'failed') detail = `<p class="text-xs text-red-600 mt-0.5">Setup failed — our team has been notified.</p>`;
+      else detail = `<p class="text-xs text-gray-400 mt-0.5">Pending</p>`;
+
+      return `
+        <li class="relative flex gap-4 ${isLast ? '' : 'pb-6'}">
+          ${isLast ? '' : '<span class="absolute left-4 top-9 -ml-px h-full w-0.5 bg-gray-200"></span>'}
+          <div class="relative z-10">${nodeFor(state)}</div>
+          <div class="pt-1"><p class="text-sm ${titleCls}">${i + 1}. ${s.label}</p>${detail}</div>
+        </li>`;
+    }).join('');
+
+    root.innerHTML = `
+      <button onclick="loadView('dashboard')" class="text-sm text-gray-500 hover:text-gray-800 mb-6 inline-flex items-center gap-1">← Back to dashboard</button>
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+        <div class="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
+          <div class="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-2xl">${meta.icon}</div>
+          <div>
+            <h1 class="text-xl font-bold text-gray-900">${name}</h1>
+            <p class="text-sm text-gray-500 font-medium">${roleLabel} · <span class="text-amber-600 font-semibold">Onboarding</span></p>
+          </div>
+        </div>
+        <ul class="list-none">${rows}</ul>
+      </div>`;
+  };
 
   // 3. Attach to SPA Router Initialization
   window.initDashboard = async function() {

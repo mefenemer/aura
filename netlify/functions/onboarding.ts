@@ -152,7 +152,7 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
     }
 
     const body = JSON.parse(event.body || '{}');
-    const { clientName, businessName, assistantName, customAssistantName, rawInputs, onboardingContext, consents, hourlyRateGbp } = body;
+    const { clientName, businessName, assistantName, customAssistantName, rawInputs, onboardingContext, consents, hourlyRateGbp, draftId } = body;
 
     if (assistantName === 'Social Media Manager') {
       if (!onboardingContext?.target_audience || !onboardingContext?.content_pillars || !onboardingContext?.tone_of_voice || !onboardingContext?.primary_platforms?.length) {
@@ -250,7 +250,13 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
     }
 
     // 7. CLEAR DRAFT & NOTIFY
-    await db.delete(onboardingDrafts).where(eq(onboardingDrafts.userId, existingUser.id));
+    // Drafts are now multi-row — clear the specific draft this submission came from.
+    // Fall back to clearing all of the user's drafts only when no id was supplied (legacy clients).
+    if (typeof draftId === 'number') {
+      await db.delete(onboardingDrafts).where(and(eq(onboardingDrafts.id, draftId), eq(onboardingDrafts.userId, existingUser.id)));
+    } else {
+      await db.delete(onboardingDrafts).where(eq(onboardingDrafts.userId, existingUser.id));
+    }
 
     await db.insert(notifications).values({
       userId: existingUser.id,

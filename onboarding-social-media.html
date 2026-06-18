@@ -727,6 +727,13 @@
   // --- 1. CONFIG & STATE ---
   let currentStep = 1;
   const totalSteps = 8;
+
+  // Multi-draft support: this wizard edits one specific draft, identified by ?draftId.
+  // A fresh hire arrives with no id and creates one on first autosave; resuming arrives
+  // with ?draftId (and optionally ?step from the Setup Checklist deep-link).
+  const _draftParams = new URLSearchParams(window.location.search);
+  let draftId = _draftParams.get('draftId') ? Number(_draftParams.get('draftId')) : null;
+  const _resumeStep = _draftParams.get('step') ? Number(_draftParams.get('step')) : null;
   let workflowStepCount = 1;
   const missingFallback = "⚠️ [MISSING - PLEASE UPDATE]";
 
@@ -841,15 +848,39 @@
   async function saveDraftToBackend() {
     updateDraftStatus('saving');
     try {
-      const res = await fetch('/.netlify/functions/onboarding-draft', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentStep: currentStep,
-          onboardingPath: 'social_media',
-          draftData: getFormData()
-        })
-      });
+      const payload = {
+        currentStep: currentStep,
+        onboardingPath: 'social_media',
+        roleKey: 'social_media',
+        displayName: sessionStorage.getItem('aura_assistant_name') || document.getElementById('val_assistant_name')?.value || null,
+        draftData: getFormData()
+      };
+
+      let res;
+      if (draftId) {
+        // Resume / continue: patch the existing draft.
+        res = await fetch(`/.netlify/functions/onboarding-draft?id=${draftId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        // First save of a fresh hire: create the draft and remember its id.
+        res = await fetch('/.netlify/functions/onboarding-draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const created = await res.json();
+          draftId = created.id;
+          // Reflect the id in the URL so a refresh keeps editing the same draft.
+          const u = new URL(window.location.href);
+          u.searchParams.set('draftId', String(draftId));
+          window.history.replaceState({}, '', u);
+        }
+      }
+
       if (res.ok) updateDraftStatus('saved');
     } catch (e) { console.error("Draft save failed", e); }
   }
@@ -864,8 +895,9 @@
   }
 
   async function hydrateDraft() {
+    if (!draftId) return; // Fresh hire — nothing to resume.
     try {
-      const res = await fetch('/.netlify/functions/onboarding-draft');
+      const res = await fetch(`/.netlify/functions/onboarding-draft?id=${draftId}`);
       if (res.ok) {
         const resData = await res.json();
         if (resData.draft && resData.draft.onboardingPath === 'social_media') {
@@ -938,8 +970,8 @@
             if(chk) toggleHandleInput(`${p}_handle_container`, chk.checked);
           });
 
-          // 5. Resume User Location
-          currentStep = resData.draft.currentStep || 1;
+          // 5. Resume User Location — a ?step deep-link from the Setup Checklist wins.
+          currentStep = _resumeStep || resData.draft.currentStep || 1;
           updateUI();
           if (currentStep >= 7) generateSummary();
         }
@@ -1379,6 +1411,7 @@
       assistantName: sessionStorage.getItem('aura_assistant_name') || 'Social Media Manager',
       customAssistantName: document.getElementById('val_assistant_name')?.value || 'Digital Assistant',
       tier: currentTierKey,
+      ...(draftId ? { draftId } : {}),
       rawInputs: window.globalRawInputs,
       onboardingContext: structuredContext,
       ...(hourlyRateRaw > 0 ? { hourlyRateGbp: hourlyRateRaw } : {}),
@@ -1624,7 +1657,7 @@
   async function clearDraftAndRestart() {
     if (confirm("Are you sure? This will delete your current progress and restart onboarding.")) {
       try {
-        await fetch('/.netlify/functions/onboarding-draft', { method: 'DELETE' }); // You may need to add a DELETE case to onboarding-draft.ts
+        if (draftId) await fetch(`/.netlify/functions/onboarding-draft?id=${draftId}`, { method: 'DELETE' });
         window.location.href = 'onboarding.html?restart=true';
       } catch (e) { alert("Could not clear draft."); }
     }

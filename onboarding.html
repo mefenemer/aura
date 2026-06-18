@@ -279,31 +279,10 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
         loadComponent("footer-placeholder", "./components/footer.html");
-// NEW: Resume Draft Logic (Scenario 2)
-        // If the URL has ?restart=true, we skip this to prevent an infinite routing loop
-        const urlParams = new URLSearchParams(window.location.search);
-        if (!urlParams.has('restart')) {
-            try {
-                const res = await fetch('/.netlify/functions/onboarding-draft');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.draft && data.draft.onboardingPath) {
-                        const routeMap = {
-                            'social_media': 'onboarding-social-media.html',
-                            'paid_ads': 'onboarding-performance.html',
-                            'data_entry': 'onboarding-inventory.html',
-                            'custom': 'onboarding-custom.html'
-                        };
-                        const target = routeMap[data.draft.onboardingPath];
-                        if (target) {
-                            // Automatically route them back into the specific wizard
-                            window.location.href = target;
-                            return;
-                        }
-                    }
-                }
-            } catch(e) { /* Ignore and continue to Step 1 */ }
-        }
+        // Drafts are now multi-row: this role-selection page always starts a NEW assistant.
+        // Resuming an existing draft happens explicitly via its "Onboarding" card → Setup
+        // Checklist → deep-link (onboarding-<path>.html?draftId=N&step=M), so we no longer
+        // auto-redirect into the most recent draft here (which would hijack a fresh hire).
         const badge = document.getElementById('tier-badge');
         if (badge && activeTier.name !== '') {
             badge.innerText = activeTier.name;

@@ -755,16 +755,28 @@ export const userNotifications = pgTable("user_notifications", {
   // US-DB-1.1.1: Notification inbox query — userId + isRead + createdAt
   index("user_notifications_user_read_idx").on(t.userId, t.isRead, t.createdAt),
 ]);
-// Onboarding Drafts Table — Stores auto-save progress for incomplete setups
+// Onboarding Drafts Table — Stores auto-save progress for incomplete setups.
+// Multi-row: a user (and org) may have several in-progress assistant drafts at once,
+// each rendered as an "Onboarding" card. (Previously keyed by user_id = one draft/user.)
 export const onboardingDrafts = pgTable("onboarding_drafts", {
-  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Org that owns the draft — lets the My Team view list drafts org-wide. Nullable so legacy
+  // rows survive the migration; populated on create going forward.
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
   currentStep: integer("current_step").default(2).notNull(),
   onboardingPath: text("onboarding_path").notNull(),
+  // Card metadata: role icon key + chosen name (null → "Unnamed {Role}").
+  roleKey: text("role_key"),
+  displayName: text("display_name"),
   draftData: jsonb("draft_data").default({}).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   // Tracks when the last abandoned-onboarding reminder was sent to avoid duplicate emails
   reminderSentAt: timestamp("reminder_sent_at"),
-});
+}, (t) => [
+  index("onboarding_drafts_user_idx").on(t.userId),
+  index("onboarding_drafts_org_idx").on(t.organisationId),
+]);
 
 // Content Assets Table — Media Hub (My Content)
 // Stores user-uploaded images, videos, and external links for assistant use
