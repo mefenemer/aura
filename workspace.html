@@ -2471,28 +2471,9 @@ function formatCurrency(amount, currency) {
   }
   // In workspace.html or dashboard.js
   async function initDashboard() {
-    const widgetContainer = document.getElementById('onboarding-widget-container');
-    const resumeBtn = document.getElementById('resume-onboarding-btn');
-    if (!widgetContainer) return;
-
-    try {
-      const res = await fetch('/.netlify/functions/get-onboarding-status');
-      if (!res.ok) return;
-
-      const data = await res.json();
-      // Scenario 2: Show widget if not complete (< 100%)
-      if (!data.isComplete) {
-        widgetContainer.classList.remove('hidden');
-        if (resumeBtn) {
-          resumeBtn.addEventListener('click', () => {
-            // Route back to the assistant onboarding wizard
-            window.location.href = '/onboarding-social-media.html';
-          });
-        }
-      }
-    } catch (e) {
-      console.error("Dashboard widget initialization failed", e);
-    }
+    // US1.1 + US2.1: render the 3-step onboarding widget + Time Saved card, then the team grid.
+    await window._renderDashboardEngagement();
+    await fetchAndRenderAssistants('dashboard-assistants-grid');
   }
   // 1. Shared Card Generator
   window.generateAssistantCardHTML = function(assistant) {
@@ -2836,28 +2817,81 @@ function formatCurrency(amount, currency) {
   };
 
   // 3. Attach to SPA Router Initialization
-  window.initDashboard = async function() {
-    // Show resume-onboarding banner if setup is not yet complete
-    try {
-      const statusRes = await fetch('/.netlify/functions/get-onboarding-status');
-      if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        if (!statusData.isComplete) {
-          const widgetContainer = document.getElementById('onboarding-widget-container');
-          if (widgetContainer) {
-            widgetContainer.classList.remove('hidden');
-            const resumeBtn = document.getElementById('resume-onboarding-btn');
-            if (resumeBtn && !resumeBtn.dataset.bound) {
-              resumeBtn.dataset.bound = 'true';
-              resumeBtn.addEventListener('click', () => {
-                window.location.href = '/onboarding-social-media.html';
-              });
-            }
-          }
-        }
-      }
-    } catch (e) { console.warn('Onboarding status check failed:', e); }
+  // Lightweight global confetti (AC1.1.3 celebration) — inline canvas, no CDN.
+  window.fireConfetti = function () {
+    const c = document.createElement('canvas');
+    c.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:12000;';
+    document.body.appendChild(c);
+    const ctx = c.getContext('2d');
+    c.width = window.innerWidth; c.height = window.innerHeight;
+    const colors = ['#00e55c', '#059669', '#fbbf24', '#f43f5e', '#3b82f6'];
+    const parts = Array.from({ length: 140 }, () => ({
+      x: c.width / 2, y: c.height / 3, vx: (Math.random() - 0.5) * 12, vy: Math.random() * -12 - 4,
+      size: Math.random() * 8 + 4, color: colors[Math.floor(Math.random() * colors.length)],
+      rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
+    }));
+    let frame = 0;
+    (function anim() {
+      ctx.clearRect(0, 0, c.width, c.height);
+      parts.forEach(p => { p.vy += 0.3; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size); ctx.restore(); });
+      if (++frame < 160) requestAnimationFrame(anim); else c.remove();
+    })();
+  };
 
+  // US1.1 + US2.1: render the onboarding progress widget and the Time Saved card.
+  window._renderDashboardEngagement = async function () {
+    // ── Onboarding 3-step widget ──
+    try {
+      const res = await fetch('/.netlify/functions/get-onboarding-progress');
+      if (res.ok) {
+        const data = await res.json();
+        const container = document.getElementById('onboarding-widget-container');
+        if (container && !data.onboardingCompleted && Array.isArray(data.steps) && data.steps.length) {
+          const done = data.steps.filter(s => s.done).length;
+          const pct  = Math.round((done / data.steps.length) * 100);
+          const pctEl = document.getElementById('onboarding-progress-pct');
+          const barEl = document.getElementById('onboarding-progress-bar');
+          if (pctEl) pctEl.textContent = pct + '%';
+          if (barEl) barEl.style.width = pct + '%';
+          const ACTION = { brand_voice: ['assets', 'Set up'], connection: ['integrations', 'Connect'], first_assistant: ['catalog', 'Hire'] };
+          const ul = document.getElementById('onboarding-steps');
+          if (ul) ul.innerHTML = data.steps.map(s => {
+            const node = s.done
+              ? '<span class="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></span>'
+              : '<span class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-gray-300 shrink-0"></span>';
+            const act = (!s.done && ACTION[s.key]) ? `<button onclick="window.loadView('${ACTION[s.key][0]}')" class="ml-auto text-xs font-semibold text-emerald-700 hover:underline cursor-pointer">${ACTION[s.key][1]} →</button>` : '';
+            return `<li class="flex items-center gap-3">${node}<span class="text-sm ${s.done ? 'text-gray-400 line-through' : 'font-medium text-gray-800'}">${s.label}</span>${act}</li>`;
+          }).join('');
+          container.classList.remove('hidden');
+        } else if (container) {
+          container.classList.add('hidden'); // completed → never renders again (AC1.1.3)
+        }
+        if (data.justCompleted) { window.showToast?.('Workspace setup complete! 🎉', { icon: '🎉' }); window.fireConfetti?.(); }
+      }
+    } catch (e) { console.warn('Onboarding progress failed:', e); }
+
+    // ── Time Saved card ──
+    try {
+      const res = await fetch('/.netlify/functions/get-time-saved');
+      if (res.ok) {
+        const d = await res.json();
+        const card = document.getElementById('time-saved-card');
+        const hoursEl = document.getElementById('time-saved-hours');
+        const monthEl = document.getElementById('time-saved-month');
+        const bd = document.getElementById('time-saved-breakdown');
+        if (hoursEl) hoursEl.textContent = d.hoursSaved ?? 0;
+        if (monthEl) monthEl.textContent = d.month ? `· ${d.month}` : '';
+        if (bd) bd.innerHTML = (d.breakdown || []).map(b =>
+          `<div class="flex justify-between text-sm"><span class="text-gray-600">${b.label}</span><span class="font-semibold text-gray-900">${b.hours} h</span></div>`).join('');
+        if (card) card.classList.remove('hidden');
+      }
+    } catch (e) { console.warn('Time saved failed:', e); }
+  };
+
+  window.initDashboard = async function() {
+    await window._renderDashboardEngagement();
     await fetchAndRenderAssistants('dashboard-assistants-grid');
   };
 

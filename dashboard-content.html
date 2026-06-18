@@ -41,19 +41,20 @@
       </div>
     </div>
 
-    <!-- Resume in-progress onboarding banner -->
+    <!-- US1.1: Dynamic onboarding progress widget (3 steps) -->
     <div id="onboarding-widget-container" class="mb-8 hidden">
-      <div class="bg-gradient-to-r from-emerald-600 to-emerald-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between shadow-lg text-white">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl">🚀</div>
+      <div class="bg-white border border-emerald-200 rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4 gap-3">
           <div>
-            <h3 class="text-lg font-bold">Finish setting up your Assistant</h3>
-            <p class="text-emerald-100 text-sm">You are 50% through the setup process. Complete it now to start automating.</p>
+            <h3 class="text-lg font-bold text-gray-900">Get started — set up your workspace</h3>
+            <p class="text-sm text-gray-500">A few quick steps to start getting value from your digital team.</p>
           </div>
+          <span id="onboarding-progress-pct" class="text-2xl font-extrabold text-emerald-600">0%</span>
         </div>
-        <button id="resume-onboarding-btn" class="mt-4 sm:mt-0 px-6 py-2 bg-white text-emerald-800 font-bold rounded-lg hover:bg-emerald-50 transition shadow-sm">
-          Resume Setup
-        </button>
+        <div class="h-2 w-full rounded-full bg-gray-100 overflow-hidden mb-5">
+          <div id="onboarding-progress-bar" class="h-2 rounded-full bg-emerald-500 transition-all duration-500" style="width:0%"></div>
+        </div>
+        <ul id="onboarding-steps" class="space-y-2.5"></ul>
       </div>
     </div>
 
@@ -128,6 +129,16 @@
   </header>
 
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pb-20">
+
+    <!-- US2.1: "Hours Saved" this month -->
+    <div id="time-saved-card" class="hidden mb-8 bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-2xl p-6 shadow-sm">
+      <div class="flex items-baseline gap-3 flex-wrap">
+        <p class="text-sm font-semibold text-indigo-500 uppercase tracking-wider w-full">Time Saved</p>
+        <span id="time-saved-hours" class="text-4xl font-extrabold text-gray-900">0</span>
+        <span class="text-lg font-bold text-gray-700">Hours Saved <span id="time-saved-month" class="text-gray-400 font-medium"></span></span>
+      </div>
+      <div id="time-saved-breakdown" class="mt-4 space-y-1.5"></div>
+    </div>
 
     <!-- Dynamic Assistants Grid -->
     <div id="dashboard-assistants-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-8">

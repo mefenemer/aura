@@ -34,6 +34,10 @@ export const organisations = pgTable('organisations', {
   // Referral Program Expansion: extra assistant slots unlocked by redeeming referral tokens.
   // Stacks ON TOP of the Stripe tier's assistantLimit, so plan syncing is never touched (AC2.2/AC4.2).
   bonusAssistants: integer('bonus_assistants').notNull().default(0),
+  // Gamification & Engagement:
+  onboardingCompleted: boolean('onboarding_completed').notNull().default(false), // AC1.1.3 — 3-step widget done
+  betaAccess: boolean('beta_access').notNull().default(false),                    // AC3.1.2 — 50h-saved milestone
+  bonusReferralTokens: integer('bonus_referral_tokens').notNull().default(0),     // AC3.1.3 — milestone token drops into the vault
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -612,6 +616,21 @@ export const rewardRedemptions = pgTable("reward_redemptions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   index("reward_redemptions_user_idx").on(t.userId),
+]);
+
+// ── Reward Audits — Gamification & Engagement (AC4.2.1) ──────────────────────
+// Every milestone reward grant is logged here. The unique (organisation_id,
+// trigger_event) constraint doubles as the milestone dedup: a milestone fires
+// once per workspace, which also prevents double token/beta grants.
+export const rewardAudits = pgTable("reward_audits", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  rewardType: text("reward_type").notNull(),       // 'referral_token' | 'beta_access'
+  triggerEvent: text("trigger_event").notNull(),   // e.g. 'milestone:100_leads' | 'milestone:50_hours'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  unique("reward_audits_org_trigger_unique").on(t.organisationId, t.triggerEvent),
+  index("reward_audits_created_idx").on(t.createdAt),
 ]);
 
 // US-HELP-1.3.1: Help articles for the public Help Center
