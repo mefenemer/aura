@@ -133,10 +133,12 @@ export const handler: Handler = async (event) => {
 
         // Add referral bonus assistants to the tier limit (null tier = unlimited, bonus moot).
         let bonusAssistants = 0;
+        let betaAccess = false;
         if (orgId) {
-            const [org] = await db.select({ bonusAssistants: organisations.bonusAssistants })
+            const [org] = await db.select({ bonusAssistants: organisations.bonusAssistants, betaAccess: organisations.betaAccess })
                 .from(organisations).where(eq(organisations.id, orgId)).limit(1);
             bonusAssistants = org?.bonusAssistants ?? 0;
+            betaAccess = org?.betaAccess ?? false;
             if (assistantLimit !== null) assistantLimit += bonusAssistants;
         }
 
@@ -312,6 +314,7 @@ export const handler: Handler = async (event) => {
                 assistantCount,
                 assistantLimit,
                 bonusAssistants,
+                betaAccess,
                 taskCount,
                 taskLimit: monthlyTaskLimit,
                 tokenUsage,

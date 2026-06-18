@@ -10,6 +10,7 @@ import { getDb } from '../../db/client';
 import { leads, scheduledPosts, taskRuns, aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 import { getTimeMultipliers } from '../../src/utils/platform-config';
+import { evaluateMilestones } from '../../src/utils/gamification';
 
 const json = (statusCode: number, body: unknown) => ({
     statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -62,6 +63,9 @@ export const handler: Handler = async (event) => {
     breakdown.sort((a, b) => b.hours - a.hours);
 
     const totalMinutes = leadMinutes + Array.from(minutesByAssistant.values()).reduce((s, m) => s + m, 0);
+
+    // US3.1: evaluate milestones on dashboard load (idempotent; honours the emergency stop). Non-blocking.
+    await evaluateMilestones(db, orgId, ctx.userId).catch(() => {});
 
     return json(200, {
         hoursSaved: Math.round(totalMinutes / 60),

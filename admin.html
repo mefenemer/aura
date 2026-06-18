@@ -857,6 +857,32 @@
         </div>
       </section>
 
+      <!-- ── US4.1: Gamification Settings ─────────────────────────────── -->
+      <section id="view-gamification" class="admin-view hidden">
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 flex items-center gap-3">
+          <span class="text-2xl">🎮</span>
+          <p class="text-sm text-amber-800">Tune the Time-Saved multipliers and milestone thresholds. Changes apply across the platform within ~30 seconds — no deploy needed.</p>
+        </div>
+        <div id="gamification-form" class="bg-white border border-gray-200 rounded-xl p-6 max-w-xl space-y-4">
+          <div class="text-gray-400 animate-pulse text-sm">Loading…</div>
+        </div>
+      </section>
+
+      <!-- ── US4.2: Reward Distribution Audit & Reporting ────────────── -->
+      <section id="view-reward-audits" class="admin-view hidden">
+        <div id="reward-audits-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"></div>
+        <div class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+          <p class="text-sm font-bold text-gray-700 mb-3">Tokens via Milestones vs Paid Subscriptions</p>
+          <div id="reward-audits-graph" class="space-y-3"></div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-100 font-semibold text-gray-800">Recent reward grants</div>
+          <div id="reward-audits-table" class="divide-y divide-gray-50">
+            <div class="px-6 py-8 text-center text-gray-400 text-sm animate-pulse">Loading…</div>
+          </div>
+        </div>
+      </section>
+
       <!-- ── US-ADM-2.3.1: Billing Reconciliation Queue ──────────────── -->
       <section id="view-reconciliation" class="admin-view hidden">
         <div id="reconciliation-header" class="flex items-center justify-between mb-5">
@@ -1572,6 +1598,7 @@ const VIEW_LABELS = {
   logs: 'System Logs', 'audit-log': 'Audit Log', cogs: 'COGS Dashboard',
   reconciliation: 'Stripe Reconciliation', dunning: 'Dunning Queue',
   'manage-admins': 'Admin Accounts', 'kill-switches': 'Emergency Controls',
+  gamification: 'Gamification Settings', 'reward-audits': 'Reward Audits',
   'feature-flags': 'Feature Flags', 'sales-pipeline': 'Sales Pipeline',
   'breach-response': 'Breach Response', 'master-data': 'Master Data',
   workspaces: 'Workspaces', 'workspace-detail': 'Workspace Detail',
@@ -1604,6 +1631,8 @@ const ADMIN_CATS = {
     { view: 'master-data',          icon: '🗂️', label: 'Master Data' },
     { view: 'feature-flags',        icon: '🚩', label: 'Feature Flags' },
     { view: 'kill-switches',        icon: '🚨', label: 'Emergency Controls' },
+    { view: 'gamification',         icon: '🎮', label: 'Gamification Settings' },
+    { view: 'reward-audits',        icon: '🏆', label: 'Reward Audits' },
     { view: 'publish-pipeline',     icon: '📡', label: 'Publishing Pipeline' },
   ]},
   security: { label: 'Security', roles: ['admin','super_admin'], children: [
@@ -1746,6 +1775,8 @@ function adminNav(view) {
   if (view === 'manage-admins')   loadManageAdmins();
   if (view === 'sales-pipeline')  loadSalesPipeline();
   if (view === 'kill-switches')   loadKillSwitches();
+  if (view === 'gamification')    loadGamificationSettings();
+  if (view === 'reward-audits')   loadRewardAudits();
   if (view === 'feature-flags')   loadFeatureFlags();
   if (view === 'breach-response') loadBreachResponse();
   if (view === 'master-data')     { if (!_mdActiveTab) mdSwitchTab('plans'); else mdLoadTab(_mdActiveTab); }
@@ -2652,6 +2683,64 @@ async function api(url, opts) {
   const r = await fetch(url, opts);
   if (!r.ok) { const d = await r.json().catch(()=>({})); throw new Error(d.error || r.statusText); }
   return r.json();
+}
+
+// ── US4.1: Gamification Settings ────────────────────────────────────────────
+async function loadGamificationSettings() {
+  const form = document.getElementById('gamification-form');
+  form.innerHTML = '<div class="text-gray-400 animate-pulse text-sm">Loading…</div>';
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=gamification-config');
+    const m = d.timeMultipliers, ms = d.milestones;
+    const num = (id, val, label, hint) => `<label class="block"><span class="text-sm font-semibold text-gray-700">${label}</span>${hint ? `<span class="block text-xs text-gray-400">${hint}</span>` : ''}<input id="${id}" type="number" min="0" value="${val}" class="mt-1 w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm"></label>`;
+    form.innerHTML = `
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Time multipliers (minutes per action)</p>
+      ${num('gm-leads', m.leads_generated, 'Lead generated')}
+      ${num('gm-drafts', m.content_drafted, 'Content / email drafted')}
+      ${num('gm-tasks', m.tasks_completed, 'Task completed')}
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-wider pt-3">Milestone thresholds</p>
+      ${num('gm-leads-token', ms.leads_for_token, 'Leads → bonus referral token')}
+      ${num('gm-hours-beta', ms.hours_for_beta, 'Hours saved → Beta access')}
+      <label class="flex items-center gap-2 pt-3"><input id="gm-paused" type="checkbox" ${d.rewardsPaused ? 'checked' : ''} class="w-4 h-4"><span class="text-sm font-semibold text-gray-700">⛔ Pause milestone rewards (emergency stop)</span></label>
+      <p class="text-xs text-gray-400">When paused, users still see Time Saved, but token drops and beta unlocks are suspended.</p>
+      <div class="pt-2"><button onclick="saveGamificationSettings(this)" class="px-5 py-2 bg-emerald-700 text-white text-sm font-semibold rounded-lg hover:bg-emerald-800 cursor-pointer">Save settings</button><span id="gm-save-status" class="ml-3 text-sm"></span></div>`;
+  } catch (e) { form.innerHTML = `<div class="text-red-500 text-sm">${e.message}</div>`; }
+}
+
+async function saveGamificationSettings(btn) {
+  const val = id => Number(document.getElementById(id).value);
+  const payload = {
+    timeMultipliers: { leads_generated: val('gm-leads'), content_drafted: val('gm-drafts'), tasks_completed: val('gm-tasks') },
+    milestones: { leads_for_token: val('gm-leads-token'), hours_for_beta: val('gm-hours-beta') },
+    rewardsPaused: document.getElementById('gm-paused').checked,
+  };
+  btn.disabled = true;
+  const status = document.getElementById('gm-save-status');
+  try {
+    await api('/.netlify/functions/admin-api?resource=gamification-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    status.textContent = '✓ Saved'; status.className = 'ml-3 text-sm text-emerald-600';
+  } catch (e) { status.textContent = e.message; status.className = 'ml-3 text-sm text-red-600'; }
+  btn.disabled = false;
+}
+
+// ── US4.2: Reward Audits & Reporting ────────────────────────────────────────
+async function loadRewardAudits() {
+  const sEl = document.getElementById('reward-audits-summary');
+  const gEl = document.getElementById('reward-audits-graph');
+  const tEl = document.getElementById('reward-audits-table');
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=reward-audits');
+    const s = d.summary;
+    sEl.innerHTML = [['Milestone tokens', s.milestoneTokens, '🎟️'], ['Beta unlocks', s.betaUnlocks, '🚀'], ['Paid subscriptions', s.paidSubscriptions, '💳']]
+      .map(([l, v, i]) => `<div class="bg-white border border-gray-200 rounded-xl p-4"><div class="text-2xl">${i}</div><div class="text-2xl font-extrabold text-gray-900 mt-1">${v}</div><div class="text-xs text-gray-500">${l}</div></div>`).join('');
+    const max = Math.max(s.milestoneTokens, s.paidSubscriptions, 1);
+    const bar = (label, v, color) => `<div><div class="flex justify-between text-xs mb-0.5"><span>${label}</span><span class="font-semibold">${v}</span></div><div class="h-3 bg-gray-100 rounded-full overflow-hidden"><div class="h-3 rounded-full" style="width:${Math.round(v / max * 100)}%;background:${color}"></div></div></div>`;
+    gEl.innerHTML = bar('Milestone tokens', s.milestoneTokens, '#f59e0b') + bar('Paid subscriptions', s.paidSubscriptions, '#059669');
+    const audits = d.audits || [];
+    tEl.innerHTML = audits.length
+      ? audits.map(a => `<div class="px-6 py-3 flex justify-between text-sm"><span class="text-gray-700">Workspace #${a.organisationId} · <span class="font-semibold">${a.rewardType}</span></span><span class="text-gray-400">${a.triggerEvent} · ${new Date(a.createdAt).toLocaleDateString('en-GB')}</span></div>`).join('')
+      : '<div class="px-6 py-8 text-center text-gray-400 text-sm">No rewards distributed yet.</div>';
+  } catch (e) { tEl.innerHTML = `<div class="px-6 py-8 text-center text-red-500 text-sm">${e.message}</div>`; }
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────

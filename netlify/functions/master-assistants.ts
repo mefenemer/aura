@@ -16,7 +16,7 @@ import jwt from 'jsonwebtoken';
 import { eq, and, ilike, or } from 'drizzle-orm';
 import { Resend } from 'resend';
 import { getDb } from '../../db/client';
-import { masterAssistants, waitlist, userProfiles, notifications } from '../../db/schema';
+import { masterAssistants, waitlist, userProfiles, notifications, organisations, userOrganisations } from '../../db/schema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || 'hello@aura-assist.com';
@@ -261,6 +261,18 @@ export const handler: Handler = async (event) => {
             filtered = filtered.filter(r => r.category === catParam);
         }
 
+        // AC3.1.2: pre-release ('beta' lifecycle) assistants are visible only to orgs that
+        // unlocked Beta access via the 50-hours milestone. Everything else is unchanged.
+        let betaAccess = false;
+        if (callerId) {
+            const [orgRow] = await db.select({ beta: organisations.betaAccess })
+                .from(userOrganisations)
+                .leftJoin(organisations, eq(userOrganisations.organisationId, organisations.id))
+                .where(eq(userOrganisations.userId, callerId)).limit(1);
+            betaAccess = orgRow?.beta ?? false;
+        }
+        filtered = filtered.filter(r => r.lifecycleState !== 'beta' || betaAccess);
+
         const assistants = filtered.map(r => ({
             id: r.id,
             roleKey: r.roleKey,
@@ -270,6 +282,7 @@ export const handler: Handler = async (event) => {
             iconKey: r.iconKey,
             iconColor: r.iconColor,
             comingSoon: r.comingSoon,
+            beta: r.lifecycleState === 'beta', // UI can badge these as Beta Program early access
             waitlistCount: countMap[r.id] || 0,
             onWaitlist: callerId ? userSet.has(r.id) : false,
         }));

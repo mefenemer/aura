@@ -33,6 +33,7 @@ import {
     billingOverrides, payments, assistantVersions,
     agentAnomalies, agentAnomalyThresholds, taskRuns,
     legalHolds, jwtBlocklist, stripeDisputes, storageUsage, helpArticles,
+    rewardAudits,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { sendMagicLinkEmail } from '../../src/utils/email';
@@ -898,6 +899,53 @@ export const handler: Handler = async (event) => {
 
                 return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
             }
+        }
+
+        // ── Gamification settings (US4.1) + reward audit/reporting (US4.2) ──────
+        if (resource === 'gamification-config') {
+            const permErr = requirePermission(adminRole, 'platform_config');
+            if (permErr) return permErr;
+
+            const KEYS = { mult: 'gamification.time_multipliers', miles: 'gamification.milestones', paused: 'gamification.rewards_paused' };
+
+            if (event.httpMethod === 'GET') {
+                const rows = await db.select().from(platformConfig).where(inArray(platformConfig.key, [KEYS.mult, KEYS.miles, KEYS.paused]));
+                const map: Record<string, any> = Object.fromEntries(rows.map(r => [r.key, r.value]));
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+                    timeMultipliers: map[KEYS.mult] ?? { leads_generated: 3, content_drafted: 5, tasks_completed: 2 },
+                    milestones:      map[KEYS.miles] ?? { leads_for_token: 100, hours_for_beta: 50 },
+                    rewardsPaused:   map[KEYS.paused] === true,
+                }) };
+            }
+
+            if (event.httpMethod === 'POST') {
+                const body = JSON.parse(event.body || '{}');
+                const upsert = async (key: string, value: unknown) => {
+                    const [prev] = await db.select({ value: platformConfig.value }).from(platformConfig).where(eq(platformConfig.key, key)).limit(1);
+                    await db.insert(platformConfig)
+                        .values({ key, value, updatedBy: adminId, updatedAt: new Date() })
+                        .onConflictDoUpdate({ target: platformConfig.key, set: { value, updatedBy: adminId, updatedAt: new Date() } });
+                    await insertAdminAuditLog({ adminId, action: 'gamification_config_update', targetType: 'platform_config', targetId: key,
+                        previousState: { value: prev?.value ?? null }, newState: { value }, ipAddress: getAdminIp(event.headers) });
+                };
+                if (body.timeMultipliers) await upsert(KEYS.mult, body.timeMultipliers);
+                if (body.milestones)      await upsert(KEYS.miles, body.milestones);
+                if (typeof body.rewardsPaused === 'boolean') await upsert(KEYS.paused, body.rewardsPaused); // AC4.2.3 emergency stop
+                return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };
+            }
+        }
+
+        if (resource === 'reward-audits' && event.httpMethod === 'GET') {
+            const permErr = requirePermission(adminRole, 'platform_config');
+            if (permErr) return permErr;
+            const audits = await db.select().from(rewardAudits).orderBy(desc(rewardAudits.createdAt)).limit(200);
+            const [tokenGrants] = await db.select({ c: count() }).from(rewardAudits).where(eq(rewardAudits.rewardType, 'referral_token'));
+            const [betaGrants]  = await db.select({ c: count() }).from(rewardAudits).where(eq(rewardAudits.rewardType, 'beta_access'));
+            const [paidSubs]    = await db.select({ c: count() }).from(plans).where(eq(plans.status, 'active'));
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+                audits,
+                summary: { milestoneTokens: Number(tokenGrants.c), betaUnlocks: Number(betaGrants.c), paidSubscriptions: Number(paidSubs.c) },
+            }) };
         }
 
         // ── GET / POST: Billing Reconciliation — US-ADM-2.3.1 ───────────────────

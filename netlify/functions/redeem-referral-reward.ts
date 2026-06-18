@@ -10,7 +10,7 @@
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { getDb } from '../../db/client';
 import { plans, organisations, userReferrals, userOrganisations, rewardRedemptions } from '../../db/schema';
@@ -70,13 +70,25 @@ export const handler: Handler = async (event) => {
                 .filter(r => activeSet.has(r.referredUserId) && r.qualifiedAt && r.qualifiedAt <= matureCutoff)
                 .sort((a, b) => a.qualifiedAt!.getTime() - b.qualifiedAt!.getTime());
 
-            if (matured.length < tokensNeeded) {
-                return { ok: false as const, status: 400, error: `Not enough referral tokens. You have ${matured.length}, need ${tokensNeeded}.` };
-            }
-
-            const spendIds = matured.slice(0, tokensNeeded).map(r => r.id);
             const orgId = (await tx.select({ organisationId: userOrganisations.organisationId })
                 .from(userOrganisations).where(eq(userOrganisations.userId, callerId)).limit(1))[0]?.organisationId ?? null;
+
+            // Milestone bonus tokens are spent before referral tokens. Lock the org row.
+            let bonusTokens = 0;
+            if (orgId) {
+                const [orgRow] = await tx.select({ bonus: organisations.bonusReferralTokens })
+                    .from(organisations).where(eq(organisations.id, orgId)).for('update').limit(1);
+                bonusTokens = orgRow?.bonus ?? 0;
+            }
+
+            const available = matured.length + bonusTokens;
+            if (available < tokensNeeded) {
+                return { ok: false as const, status: 400, error: `Not enough referral tokens. You have ${available}, need ${tokensNeeded}.` };
+            }
+
+            const bonusToSpend = Math.min(bonusTokens, tokensNeeded);
+            const referralToSpend = tokensNeeded - bonusToSpend;
+            const spendIds = matured.slice(0, referralToSpend).map(r => r.id);
 
             let stripeBalanceTxId: string | null = null;
             let newBonus: number | null = null;
@@ -105,13 +117,22 @@ export const handler: Handler = async (event) => {
                 newBonus = org?.bonusAssistants ?? null;
             }
 
-            // Consume the tokens (guarded so a racing tx that already flipped them yields fewer rows).
-            const spent = await tx.update(userReferrals)
-                .set({ status: 'spent' })
-                .where(and(inArray(userReferrals.id, spendIds), eq(userReferrals.status, 'qualified')))
-                .returning({ id: userReferrals.id });
-            if (spent.length !== tokensNeeded) {
-                throw new Error('Token race detected — rolling back.'); // rollback
+            // Consume bonus tokens first (guarded against a concurrent spend).
+            if (bonusToSpend > 0 && orgId) {
+                const dec = await tx.update(organisations)
+                    .set({ bonusReferralTokens: sql`${organisations.bonusReferralTokens} - ${bonusToSpend}` })
+                    .where(and(eq(organisations.id, orgId), gte(organisations.bonusReferralTokens, bonusToSpend)))
+                    .returning({ bonus: organisations.bonusReferralTokens });
+                if (dec.length === 0) throw new Error('Bonus-token race — rolling back.');
+            }
+
+            // Consume referral tokens (guarded so a racing tx that already flipped them yields fewer rows).
+            if (referralToSpend > 0) {
+                const spent = await tx.update(userReferrals)
+                    .set({ status: 'spent' })
+                    .where(and(inArray(userReferrals.id, spendIds), eq(userReferrals.status, 'qualified')))
+                    .returning({ id: userReferrals.id });
+                if (spent.length !== referralToSpend) throw new Error('Token race detected — rolling back.');
             }
 
             // Audit ledger row (AC2.3).
@@ -123,7 +144,7 @@ export const handler: Handler = async (event) => {
                 stripeBalanceTxId,
             });
 
-            return { ok: true as const, type, tokensSpent: tokensNeeded, remainingTokens: matured.length - tokensNeeded, newBonus };
+            return { ok: true as const, type, tokensSpent: tokensNeeded, remainingTokens: available - tokensNeeded, newBonus };
         });
 
         if (!result.ok) return json(result.status, { error: result.error });

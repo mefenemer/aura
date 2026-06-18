@@ -22,6 +22,7 @@ export type AdminAction =
     | 'comp_credit'
     | 'refund_issued'
     | 'kill_switch_toggle'
+    | 'gamification_config_update'
     | 'feature_flag_toggle'
     | 'gdpr_erasure'
     | 'admin_role_change'
