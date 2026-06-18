@@ -136,17 +136,25 @@
 
   // ── Load ────────────────────────────────────────────────────────────
   async function load() {
+    // Capture the view root so we can bail if the user navigates away before the
+    // async response arrives (loadView swaps the DOM out from under us, otherwise
+    // the callbacks below hit removed elements and throw "textContent of null").
+    const root = document.getElementById('team-management-root');
     try {
       const res = await fetch('/.netlify/functions/manage-members');
+      if (!root || !root.isConnected) return; // view was navigated away
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       _members   = data.members || [];
       _seatLimit = data.seatLimit;
       render(data);
     } catch (e) {
+      if (!root || !root.isConnected) return; // don't touch DOM that navigation removed
       const el = document.getElementById('team-error');
-      el.textContent = 'Failed to load team data. ' + (e.message || '');
-      el.classList.remove('hidden');
+      if (el) {
+        el.textContent = 'Failed to load team data. ' + (e.message || '');
+        el.classList.remove('hidden');
+      }
     }
   }
 
