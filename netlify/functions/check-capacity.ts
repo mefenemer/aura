@@ -69,6 +69,7 @@ export const handler: Handler = async (event) => {
                 monthlyTokenLimit: masterPlans.monthlyTokenLimit,
                 appConnectionLimit: masterPlans.appConnectionLimit,
                 seatLimit: masterPlans.seatLimit,
+                features: masterPlans.features,
             })
             .from(plans)
             .leftJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
@@ -95,6 +96,7 @@ export const handler: Handler = async (event) => {
                     monthlyTokenLimit: masterPlans.monthlyTokenLimit,
                     appConnectionLimit: masterPlans.appConnectionLimit,
                     seatLimit: masterPlans.seatLimit,
+                    features: masterPlans.features,
                 })
                 .from(plans)
                 .leftJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
@@ -315,6 +317,7 @@ export const handler: Handler = async (event) => {
                 assistantLimit,
                 bonusAssistants,
                 betaAccess,
+                features: (plan as any)?.features ?? {}, // AC3.2.4: active plan's feature unlocks
                 taskCount,
                 taskLimit: monthlyTaskLimit,
                 tokenUsage,

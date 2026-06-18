@@ -428,6 +428,10 @@ export const masterPlans = pgTable("master_plans", {
   appConnectionLimit: integer("app_connection_limit"),  // max OAuth/API integrations per assistant; null = unlimited
   seatLimit: integer("seat_limit"),                     // max workspace members (users in the same org); null = solo only (1 seat)
   storageLimitBytes: integer("storage_limit_bytes"),    // US-STOR-1.1.2: max object storage per org; null = unlimited
+  // Dynamic Product Catalog: Stripe Product id (created when the admin saves a plan) +
+  // freeform feature flags beyond the numeric limits, e.g. { unlock_trending_audio: true }.
+  stripeProductId: text("stripe_product_id"),
+  features: jsonb("features").notNull().default({}),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

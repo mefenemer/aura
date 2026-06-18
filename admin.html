@@ -4754,7 +4754,9 @@ const MD_FIELDS = {
     { key: 'name',              label: 'Name',              type: 'text',   required: true },
     { key: 'description',       label: 'Description',       type: 'text' },
     { key: 'monthlyPriceGbp',   label: 'Monthly Price (GBP)', type: 'number', required: true },
+    { key: 'interval',          label: 'Billing Cycle (month/year)', type: 'text', placeholder: 'month' },
     { key: 'tierKey',           label: 'Tier Key',          type: 'text',   required: true },
+    { key: 'features',          label: 'Features (JSON)',   type: 'json',   placeholder: '{ "unlock_trending_audio": true, "bonus_assistants": 1 }' },
     { key: 'isActive',          label: 'Active',            type: 'checkbox' },
   ],
   'plan-prices': [
@@ -4951,6 +4953,7 @@ function mdRenderForm(tab, record) {
     const val = record[f.key] ?? '';
     if (f.type === 'checkbox') return `<label class="flex items-center gap-2 sm:col-span-2"><input type="checkbox" id="md-f-${f.key}" class="w-4 h-4 accent-indigo-600" ${val ? 'checked' : ''}><span class="text-sm text-gray-700">${f.label}</span></label>`;
     if (f.type === 'textarea') return `<div class="sm:col-span-2"><label class="block text-xs font-bold text-gray-500 mb-1">${f.label}${f.required?' <span class=\'text-red-500\'>*</span>':''}</label><textarea id="md-f-${f.key}" rows="4" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none font-mono text-xs">${val}</textarea></div>`;
+    if (f.type === 'json') { const jv = val && typeof val === 'object' ? JSON.stringify(val, null, 2) : (val || ''); return `<div class="sm:col-span-2"><label class="block text-xs font-bold text-gray-500 mb-1">${f.label}</label><textarea id="md-f-${f.key}" rows="4" placeholder="${(f.placeholder||'').replace(/"/g,'&quot;')}" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none font-mono text-xs">${jv}</textarea></div>`; }
     return `<div><label class="block text-xs font-bold text-gray-500 mb-1">${f.label}${f.required?' <span class="text-red-500">*</span>':''}</label><input id="md-f-${f.key}" type="${f.type}" value="${String(val).replace(/"/g,'&quot;')}" placeholder="${f.placeholder||''}" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"></div>`;
   }).join('');
   document.getElementById('md-form-panel').classList.remove('hidden');
@@ -4966,6 +4969,10 @@ async function mdSaveRecord() {
     if (!el) continue;
     if (f.type === 'checkbox') body[f.key] = el.checked;
     else if (f.type === 'number') body[f.key] = el.value !== '' ? Number(el.value) : null;
+    else if (f.type === 'json') {
+      try { body[f.key] = el.value.trim() ? JSON.parse(el.value) : {}; }
+      catch { alert(f.label + ' must be valid JSON.'); el.focus(); return; }
+    }
     else body[f.key] = el.value;
     if (f.required && (body[f.key] === '' || body[f.key] === null)) {
       alert(f.label + ' is required.');
