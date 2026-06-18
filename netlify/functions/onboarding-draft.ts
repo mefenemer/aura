@@ -90,6 +90,9 @@ export const handler: Handler = async (event) => {
                 // Backfill org if it wasn't known at create time.
                 organisationId: existing.organisationId ?? organisationId,
                 updatedAt: new Date(),
+                // AC2.4: saving progress resets the 30-day clock — re-arm the nudge so an
+                // abandoned-again draft is reminded afresh next cycle.
+                reminderSentAt: null,
             }).where(eq(onboardingDrafts.id, draftId));
 
             return json(200, { success: true });

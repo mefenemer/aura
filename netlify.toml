@@ -104,3 +104,8 @@ node_bundler = "esbuild"
 # US-ONB-2.1.2: Hourly onboarding reminder emails (24h + 72h after signup, no plan)
 [functions.send-onboarding-reminders]
   schedule = "0 * * * *"
+
+# Abandoned assistant-draft cleanup — daily 00:00 UTC. Sends the 23-day re-engagement
+# nudge and deletes drafts inactive for 30+ days.
+[functions.cleanup-abandoned-drafts]
+  schedule = "0 0 * * *"

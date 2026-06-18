@@ -1798,7 +1798,16 @@ function formatCurrency(amount, currency) {
     // Deep-link: ?view=<route> (e.g. ?view=catalog from the public "Hire Assistant" CTA,
     // or ?view=billing as the fallback target for invoice notifications). Any valid route works.
     const viewParam = qs.get('view');
-    if (viewParam && routes[viewParam]) {
+    if (viewParam === 'assistant-setup' && qs.get('draftId')) {
+      // Re-engagement email CTA → open this draft's Setup Checklist (build the item from the id).
+      history.replaceState(null, '', window.location.pathname);
+      try {
+        const r = await fetch(`/.netlify/functions/onboarding-draft?id=${Number(qs.get('draftId'))}`);
+        const d = r.ok ? (await r.json()).draft : null;
+        if (d) await loadView('assistant-setup', { kind: 'draft', draftId: d.id, onboardingPath: d.onboardingPath, displayName: d.displayName, currentStep: d.currentStep });
+        else await loadView('dashboard');
+      } catch { await loadView('dashboard'); }
+    } else if (viewParam && routes[viewParam]) {
       history.replaceState(null, '', window.location.pathname);
       await loadView(viewParam);
     }
@@ -2573,8 +2582,12 @@ function formatCurrency(amount, currency) {
     const sub = failed   ? 'Something went wrong during setup. Click to review.'
               : isDraft  ? 'Setup in progress — click to continue your checklist.'
               :            "We're prepping your assistant. Click to view progress.";
+    // US3 AC3.1: drafts get a destructive "Cancel Setup" action right on the card.
+    const cancelBtn = isDraft
+      ? `<button onclick="event.stopPropagation(); window.cancelDraftSetup('${key}')" class="text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-200 transition cursor-pointer">Cancel Setup</button>`
+      : '';
     return `
-      <div class="bg-white rounded-2xl border-2 border-dashed border-amber-300 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all cursor-pointer" onclick="window.openSetupChecklist('${key}')">
+      <div id="ip-card-${key}" class="bg-white rounded-2xl border-2 border-dashed border-amber-300 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all cursor-pointer" onclick="window.openSetupChecklist('${key}')">
           <div class="p-6 flex justify-between items-start">
               <div class="flex items-center gap-4">
                   <div class="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-2xl">${meta.icon}</div>
@@ -2585,7 +2598,10 @@ function formatCurrency(amount, currency) {
               </div>
               ${badge}
           </div>
-          <div class="px-6 pb-6 -mt-2"><p class="text-sm text-gray-500">${sub}</p></div>
+          <div class="px-6 pb-6 -mt-2 flex items-end justify-between gap-3">
+            <p class="text-sm text-gray-500">${sub}</p>
+            ${cancelBtn}
+          </div>
       </div>`;
   };
 
@@ -2593,6 +2609,64 @@ function formatCurrency(amount, currency) {
   window.openSetupChecklist = function(key) {
     const item = (window._inProgressItems || {})[key];
     if (item) window.loadView('assistant-setup', item);
+  };
+
+  // ── US3: destructive confirm modal + draft cancellation ──────────────
+  // Generic confirm modal (inline styles — arbitrary Tailwind classes aren't in the prebuilt CSS).
+  window.showConfirmModal = function(message, onConfirm, opts = {}) {
+    document.getElementById('aura-confirm-modal')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'aura-confirm-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:11500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);padding:1rem;';
+    const title   = opts.title   || 'Cancel setup?';
+    const confirm = opts.confirmLabel || 'Yes, delete draft';
+    const cancel  = opts.cancelLabel  || 'Keep editing';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:1rem;max-width:24rem;width:100%;padding:1.5rem;box-shadow:0 20px 50px rgba(0,0,0,.25);">
+        <h3 style="font-size:1.05rem;font-weight:700;color:#111827;margin:0 0 .5rem;">${title}</h3>
+        <p style="font-size:.875rem;color:#4b5563;margin:0 0 1.25rem;line-height:1.5;">${message}</p>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+          <button id="acm-cancel" style="cursor:pointer;font-size:.875rem;font-weight:600;color:#374151;background:#fff;border:1px solid #d1d5db;padding:.5rem .9rem;border-radius:.6rem;">${cancel}</button>
+          <button id="acm-confirm" style="cursor:pointer;font-size:.875rem;font-weight:600;color:#fff;background:#dc2626;border:none;padding:.5rem .9rem;border-radius:.6rem;">${confirm}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#acm-cancel').addEventListener('click', close);
+    overlay.querySelector('#acm-confirm').addEventListener('click', async () => { close(); await onConfirm(); });
+  };
+
+  async function _deleteDraft(draftId) {
+    const res = await fetch(`/.netlify/functions/onboarding-draft?id=${draftId}`, { method: 'DELETE' });
+    return res.ok;
+  }
+
+  // From an "Onboarding" card (Dashboard / My Team). AC3.2 + AC3.3.
+  window.cancelDraftSetup = function(key) {
+    const item = (window._inProgressItems || {})[key];
+    if (!item || item.kind !== 'draft') return;
+    window.showConfirmModal('Are you sure you want to cancel this setup? All progress will be lost.', async () => {
+      if (await _deleteDraft(item.draftId)) {
+        document.getElementById(`ip-card-${key}`)?.remove(); // AC3.3: instant removal, no refresh
+        delete window._inProgressItems[key];
+        window.showToast?.('Setup cancelled.', { icon: '🗑️' });
+      } else {
+        window.showToast?.('Could not cancel setup. Please try again.');
+      }
+    });
+  };
+
+  // From inside the Setup Checklist view. AC3.2 + AC3.3 (route back to dashboard).
+  window.cancelDraftFromChecklist = function(draftId) {
+    window.showConfirmModal('Are you sure you want to cancel this setup? All progress will be lost.', async () => {
+      if (await _deleteDraft(draftId)) {
+        window.showToast?.('Setup cancelled.', { icon: '🗑️' });
+        window.loadView('dashboard');
+      } else {
+        window.showToast?.('Could not cancel setup. Please try again.');
+      }
+    });
   };
 
   // ── US4: poll while anything is still validating; toast when one goes "ready" ──
@@ -2754,6 +2828,10 @@ function formatCurrency(amount, currency) {
           </div>
         </div>
         <ul class="list-none">${rows}</ul>
+        ${isDraft ? `
+        <div class="mt-6 pt-6 border-t border-gray-100 flex justify-end">
+          <button onclick="window.cancelDraftFromChecklist(${item.draftId})" class="text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg border border-red-200 transition cursor-pointer">Cancel Setup</button>
+        </div>` : ''}
       </div>`;
   };
 
