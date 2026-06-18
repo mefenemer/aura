@@ -633,6 +633,23 @@ export const rewardAudits = pgTable("reward_audits", {
   index("reward_audits_created_idx").on(t.createdAt),
 ]);
 
+// ── Security Audits — Explicit AI Refusal & Moderation (US2 AC2.3) ───────────
+// Records prompts hard-blocked by the OpenAI Moderation pre-check, so admins can
+// review accounts repeatedly attempting severe-violation content. Owner-role access
+// only (written by backend functions) → not in the RLS crown-jewels set.
+export const securityAudits = pgTable("security_audits", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "set null" }),
+  source: text("source").notNull(),                      // entry point, e.g. 'quality-review' | 'generate-post'
+  flaggedCategories: jsonb("flagged_categories").notNull(), // string[] of moderation categories
+  promptExcerpt: text("prompt_excerpt"),                 // first ~200 chars for review context
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("security_audits_user_idx").on(t.userId),
+  index("security_audits_created_idx").on(t.createdAt),
+]);
+
 // US-HELP-1.3.1: Help articles for the public Help Center
 export const helpArticles = pgTable('help_articles', {
   id: uuid('id').defaultRandom().primaryKey(),

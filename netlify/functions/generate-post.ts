@@ -8,6 +8,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../db/client';
 import { aiBlueprints, aiAssistants, contentGenerationJobs, notifications } from '../../db/schema';
+import { enforcePromptModeration } from '../../src/utils/moderation';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -75,6 +76,12 @@ export const handler: Handler = async (event) => {
 
     if (contextPrompt && contextPrompt.length > 500) {
         return { statusCode: 400, body: JSON.stringify({ error: 'contextPrompt must be 500 characters or fewer.' }) };
+    }
+
+    // US2: hard-block severe-violation prompts before generation (AC2.1–2.3).
+    if (contextPrompt) {
+        const modBlock = await enforcePromptModeration({ text: contextPrompt, userId, organisationId, source: 'generate-post' });
+        if (modBlock) return modBlock;
     }
 
     // Verify assistant belongs to this org

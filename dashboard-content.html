@@ -376,7 +376,10 @@
         }
 
       } catch (err) {
-        if (errorEl) { errorEl.textContent = err.message || 'Something went wrong. Please try again.'; errorEl.classList.remove('hidden'); }
+        const msg = err.message || 'Something went wrong. Please try again.';
+        if (errorEl) { errorEl.textContent = msg; errorEl.classList.remove('hidden'); }
+        // AC2.2: surface the safety block (and other errors) as a toast too.
+        if (window.showToast) window.showToast(msg, { icon: '⚠️' });
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Run Task →'; }
       }
     };
