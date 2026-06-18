@@ -49,6 +49,33 @@ window.initNotifications = async function() {
         return icons[type] || `<svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>`;
     };
 
+    // Navigate to Invoice History inside the workspace shell (billing is a VIEW fragment).
+    // Falls back to a deep-link if loadView isn't available (e.g. viewed outside the workspace).
+    const routeToBilling = () => {
+        if (typeof window.loadView === 'function') {
+            Promise.resolve(window.loadView('billing')).then(() => {
+                document.getElementById('invoice-history-section')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        } else {
+            window.location.href = 'workspace.html?view=billing';
+        }
+    };
+
+    // Resolve a notification's "click for more information" destination, if any.
+    // Returns { label, run } for actionable notifications, or null for passive ones.
+    // The label drives the visible affordance so users can tell which rows go somewhere.
+    const getNotificationAction = (notif) => {
+        const meta = notif.metadata || {};
+        if (notif.type === 'invoice_ready' || meta.action === 'view_invoices') {
+            return { label: 'View invoice', run: routeToBilling };
+        }
+        if (notif.type === 'ticket_created' || meta.action === 'view_ticket') {
+            return { label: 'View ticket', run: () => window.routeToSupportTicket?.() };
+        }
+        return null;
+    };
+
     const loadData = async () => {
         try {
             const response = await fetch('/.netlify/functions/notifications');
@@ -86,12 +113,27 @@ window.initNotifications = async function() {
 
         filtered.forEach(notif => {
             const dateStr = new Date(notif.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const action = getNotificationAction(notif);
             const li = document.createElement('li');
             const bgClass = notif.isRead ? 'bg-white hover:bg-gray-50' : 'bg-emerald-50/30 hover:bg-emerald-50/50';
             const textClass = notif.isRead ? 'text-gray-600 font-normal' : 'text-gray-900 font-bold';
             const dotIndicator = notif.isRead ? '' : `<div class="w-2.5 h-2.5 rounded-full bg-emerald-600 shrink-0 mt-1.5"></div>`;
 
-            li.className = `p-5 transition-colors cursor-pointer flex gap-4 ${bgClass}`;
+            // Actionable notifications get a labelled call-to-action plus a trailing
+            // chevron so it's obvious they lead somewhere; passive ones get neither.
+            const ctaHtml = action
+                ? `<p class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 mt-2">
+                       ${action.label}
+                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path></svg>
+                   </p>`
+                : '';
+            const chevronHtml = action
+                ? `<div class="flex items-center shrink-0">
+                       <svg class="w-5 h-5 text-gray-300 group-hover:text-emerald-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                   </div>`
+                : '';
+
+            li.className = `group p-5 transition-colors ${action ? 'cursor-pointer' : 'cursor-default'} flex gap-4 ${bgClass}`;
             li.innerHTML = `
                 ${dotIndicator}
                 <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0 border border-gray-200 shadow-sm">
@@ -101,25 +143,14 @@ window.initNotifications = async function() {
                     <p class="text-sm ${textClass}">${notif.title}</p>
                     ${notif.message ? `<p class="text-sm text-gray-500 mt-1 line-clamp-2">${notif.message}</p>` : ''}
                     <p class="text-xs text-gray-400 mt-2">${dateStr}</p>
+                    ${ctaHtml}
                 </div>
+                ${chevronHtml}
             `;
 
             li.addEventListener('click', () => {
                 markAsRead(notif.id);
-                // Route invoice_ready notifications to Invoice History in billing.
-                // billing.html is a workspace VIEW fragment — load it inside the workspace
-                // shell (formatted), not as a standalone page. Fall back to a workspace
-                // deep-link if loadView isn't available (e.g. viewed outside the workspace).
-                if (notif.type === 'invoice_ready' || notif.metadata?.action === 'view_invoices') {
-                    if (typeof window.loadView === 'function') {
-                        Promise.resolve(window.loadView('billing')).then(() => {
-                            document.getElementById('invoice-history-section')
-                                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        });
-                    } else {
-                        window.location.href = 'workspace.html?view=billing';
-                    }
-                }
+                if (action) action.run();
             });
             listEl.appendChild(li);
         });

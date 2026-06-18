@@ -15,6 +15,21 @@ import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, userOrganisations, workspaceAssets, storageUsage, organisations, plans, masterPlans } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
+import { resolveBaseUrl } from '../../src/utils/base-url';
+
+// Fire-and-forget the AI extraction job so the assistant learns from uploaded brand docs.
+function triggerExtraction(headers: Record<string, string | undefined>, assetId: number): void {
+    const baseUrl = resolveBaseUrl(headers);
+    if (!baseUrl) {
+        console.error('[storage-confirm-upload] Could not resolve base URL — extraction not triggered for asset', assetId);
+        return;
+    }
+    fetch(`${baseUrl}/.netlify/functions/process-asset-background`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId }),
+    }).catch(err => console.error('[storage-confirm-upload] Failed to trigger extraction:', err));
+}
 
 const JWT_SECRET  = process.env.JWT_SECRET;
 const R2_ENDPOINT = process.env.R2_ENDPOINT;
@@ -153,6 +168,7 @@ export const handler: Handler = async (event) => {
     // Mock mode — skip R2 HEAD check
     if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET) {
         await db.update(workspaceAssets).set({ status: 'confirmed', updatedAt: new Date() }).where(eq(workspaceAssets.id, assetId));
+        triggerExtraction(event.headers, assetId);
         return { statusCode: 200, body: JSON.stringify({ assetId, assetType: asset.assetType, fileSizeBytes: asset.fileSizeBytes, mock: true }) };
     }
 
@@ -187,6 +203,9 @@ export const handler: Handler = async (event) => {
         // AC4: send 80% quota warning email (once per 7-day window)
         void _maybeWarnQuota(asset.organisationId, asset.fileSizeBytes).catch(() => {});
     }
+
+    // Kick off AI context extraction now the object is confirmed in R2.
+    triggerExtraction(event.headers, assetId);
 
     return {
         statusCode: 200,

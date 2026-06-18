@@ -2,13 +2,25 @@
 import { HandlerEvent } from '@netlify/functions';
 import { eq } from 'drizzle-orm';
 import * as cheerio from 'cheerio';
-// pdf-parse is only needed by the real S3 extraction block below (currently
-// stubbed with simulated content). Re-enable alongside that block — note pdf-parse
-// v2 uses a named `PDFParse` class, not a default export.
-// import { PDFParse } from 'pdf-parse';
+import { PDFParse } from 'pdf-parse'; // pdf-parse v2 exports a named PDFParse class
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getDb } from '../../db/client';
 import { workspaceAssets } from '../../db/schema';
 import { logAuditEvent } from '../../src/utils/audit';
+
+const R2_ENDPOINT          = process.env.R2_ENDPOINT;
+const R2_ACCESS_KEY_ID     = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_BUCKET            = process.env.R2_BUCKET_NAME;
+const r2Configured = !!(R2_ENDPOINT && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET);
+
+function getR2Client(): S3Client {
+    return new S3Client({
+        region: 'auto',
+        endpoint: R2_ENDPOINT,
+        credentials: { accessKeyId: R2_ACCESS_KEY_ID!, secretAccessKey: R2_SECRET_ACCESS_KEY! },
+    });
+}
 
 // ── Prompt-injection sanitiser ─────────────────────────────────────────────
 // Strips patterns commonly used to hijack LLM system prompts embedded in
@@ -84,7 +96,34 @@ export const handler = async (event: HandlerEvent) => {
                 extractedText = _stripPromptInjection(extractedText);
             }
                 // ---------------------------------------------------------
-                // EXTRACTION LOGIC B: PHYSICAL FILES (PDF, TXT, CSV)
+                // EXTRACTION LOGIC B: R2-STORED FILES (PDF / TXT / CSV; images skipped)
+            // ---------------------------------------------------------
+            else if (asset.r2Key) {
+                const fname = (asset.name || asset.originalFilename || '').toLowerCase();
+                const mime  = (asset.mimeType || '').toLowerCase();
+                const isPdf  = mime.includes('pdf')    || fname.endsWith('.pdf');
+                const isText = mime.startsWith('text/') || fname.endsWith('.txt') || fname.endsWith('.csv');
+
+                if (!r2Configured) {
+                    extractedText = `[Simulated content for: ${asset.name}]`;
+                } else if (isPdf || isText) {
+                    const s3  = getR2Client();
+                    const obj = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: asset.r2Key }));
+                    const buffer = Buffer.from(await obj.Body!.transformToByteArray());
+                    if (isPdf) {
+                        const parser = new PDFParse({ data: buffer });
+                        try { extractedText = (await parser.getText()).text.replace(/\s+/g, ' ').trim(); }
+                        finally { await parser.destroy(); }
+                    } else {
+                        extractedText = buffer.toString('utf-8').trim();
+                    }
+                } else {
+                    // Images (brand_logo) / other binaries — nothing textual for the assistant.
+                    extractedText = '';
+                }
+            }
+                // ---------------------------------------------------------
+                // EXTRACTION LOGIC C (legacy): mock storageUrl path
             // ---------------------------------------------------------
             else if (asset.assetType === 'file' && asset.storageUrl) {
 
@@ -110,8 +149,8 @@ export const handler = async (event: HandlerEvent) => {
                 extractedText = `[Simulated Document Content for: ${asset.name}]. This text represents the brand guidelines that the AI will use to maintain consistency.`;
             }
 
-            // Also sanitise file-extracted text
-            if (asset.assetType === 'file') {
+            // Also sanitise file-extracted text (legacy 'file' assets and new R2-keyed ones)
+            if (asset.assetType === 'file' || asset.r2Key) {
                 extractedText = _stripPromptInjection(extractedText);
             }
 
