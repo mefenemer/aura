@@ -31,6 +31,9 @@ export const organisations = pgTable('organisations', {
   // US-LEGAL-3.1: EU AI Act Art.50 — outbound AI content footer
   aiDisclosureFooterEnabled: boolean('ai_disclosure_footer_enabled').notNull().default(false),
   aiDisclosureFooterText: text('ai_disclosure_footer_text'),
+  // Referral Program Expansion: extra assistant slots unlocked by redeeming referral tokens.
+  // Stacks ON TOP of the Stripe tier's assistantLimit, so plan syncing is never touched (AC2.2/AC4.2).
+  bonusAssistants: integer('bonus_assistants').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -592,6 +595,24 @@ export const userReferrals = pgTable("user_referrals", {
 }, (t) => ({
   uniqueReferred: unique("user_referrals_referred_unique").on(t.referredUserId),
 }));
+
+// ── Reward Redemptions — Referral Program Expansion ──────────────────────────
+// Audit trail + double-spend guard for the referral token vault. Each row records
+// a redemption: 'credit_10' (1 token → £10 Stripe credit) or 'free_assistant'
+// (5 tokens → +1 bonus_assistants). availableTokens = matured qualified referrals
+// minus SUM(tokensSpent) here. Written only by owner-role backend functions, so it
+// stays out of the RLS crown-jewels set (like user_referrals).
+export const rewardRedemptions = pgTable("reward_redemptions", {
+  id: serial().primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),                  // 'credit_10' | 'free_assistant'
+  tokensSpent: integer("tokens_spent").notNull(),
+  stripeBalanceTxId: text("stripe_balance_tx_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("reward_redemptions_user_idx").on(t.userId),
+]);
 
 // US-HELP-1.3.1: Help articles for the public Help Center
 export const helpArticles = pgTable('help_articles', {

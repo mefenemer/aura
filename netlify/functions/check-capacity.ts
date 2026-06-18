@@ -26,7 +26,7 @@ import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 import { eq, and, gte, gt, count, sum, asc, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { plans, masterPlans, planPrices, aiAssistants, taskRuns, usageCounters, userOrganisations, users, systemConnections } from '../../db/schema';
+import { plans, masterPlans, planPrices, aiAssistants, taskRuns, usageCounters, userOrganisations, users, systemConnections, organisations } from '../../db/schema';
 import { getPeriodStart } from '../../src/utils/atomic-cap-check';
 
 const stripe = process.env.STRIPE_SECRET_KEY
@@ -114,7 +114,9 @@ export const handler: Handler = async (event) => {
             : [];
 
         const plan = activePlan[0] ?? pastDuePlan[0] ?? null;
-        const assistantLimit: number | null = plan?.assistantLimit ?? null;
+        // Referral Program Expansion: bonus_assistants (earned via referral tokens) stacks on
+        // top of the tier limit below, once orgId is resolved (AC2.2/AC4.2).
+        let assistantLimit: number | null = plan?.assistantLimit ?? null;
         const monthlyTaskLimit: number | null = plan?.monthlyTaskLimit ?? null;
         const monthlyTokenLimit: number | null = plan?.monthlyTokenLimit ?? null;
         const appConnectionLimit: number | null = plan?.appConnectionLimit ?? null;
@@ -128,6 +130,15 @@ export const handler: Handler = async (event) => {
             .limit(1);
 
         const orgId = userOrg?.organisationId ?? null;
+
+        // Add referral bonus assistants to the tier limit (null tier = unlimited, bonus moot).
+        let bonusAssistants = 0;
+        if (orgId) {
+            const [org] = await db.select({ bonusAssistants: organisations.bonusAssistants })
+                .from(organisations).where(eq(organisations.id, orgId)).limit(1);
+            bonusAssistants = org?.bonusAssistants ?? 0;
+            if (assistantLimit !== null) assistantLimit += bonusAssistants;
+        }
 
         let seatCount = 1;
         if (orgId) {
@@ -300,6 +311,7 @@ export const handler: Handler = async (event) => {
             body: JSON.stringify({
                 assistantCount,
                 assistantLimit,
+                bonusAssistants,
                 taskCount,
                 taskLimit: monthlyTaskLimit,
                 tokenUsage,

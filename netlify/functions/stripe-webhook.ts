@@ -162,7 +162,9 @@ export const handler: Handler = async (event) => {
             metadata: { ctaLabel: 'Open User Guide', ctaUrl: '/help.html' },
         }).catch(() => {});
 
-        // US-GAP-8.2: referral qualification + £10 reward (keyed on the referred user, like the PI path)
+        // Referral Program Expansion: earn a referral TOKEN (not an instant £10 credit).
+        // The token matures after the 14-day refund window and is then spendable in the
+        // Reward Vault for £10 credit or a free assistant.
         try {
             const [pendingReferral] = await db
                 .select({ id: userReferrals.id, referrerId: userReferrals.referrerId })
@@ -171,36 +173,21 @@ export const handler: Handler = async (event) => {
                 .limit(1);
 
             if (pendingReferral) {
-                const [referrerPlan] = await db
-                    .select({ stripeCustomerId: plans.stripeCustomerId })
-                    .from(plans)
-                    .where(and(eq(plans.userId, pendingReferral.referrerId), eq(plans.status, 'active')))
-                    .limit(1);
-
-                let balanceTxId: string | null = null;
-                if (referrerPlan?.stripeCustomerId) {
-                    const balanceTx = await stripe.customers.createBalanceTransaction(
-                        referrerPlan.stripeCustomerId,
-                        { amount: -1000, currency: (session.currency || 'gbp').toLowerCase(), description: 'Referral reward — friend made their first payment' },
-                    );
-                    balanceTxId = balanceTx.id;
-                }
-
                 await db.update(userReferrals)
-                    .set({ status: 'rewarded', qualifiedAt: new Date(), rewardedAt: new Date(), stripeBalanceTxId: balanceTxId })
+                    .set({ status: 'qualified', qualifiedAt: new Date() })
                     .where(eq(userReferrals.id, pendingReferral.id));
 
                 await db.insert(notifications).values({
                     userId: pendingReferral.referrerId,
                     type: 'referral_reward',
-                    title: '🎉 Referral Reward Earned — £10 Credit Applied',
-                    message: 'A friend you referred has signed up and made their first payment. We\'ve added a £10 credit to your account — it will be applied to your next invoice.',
+                    title: '🎉 Referral Token Earned',
+                    message: 'A friend you referred just made their first payment — you\'ve earned a referral token! It unlocks after their 14-day refund window. Save up 5 for a free assistant, or redeem 1 for £10 credit.',
                     isRead: false,
-                    metadata: { referralId: pendingReferral.id, rewardGbp: 10 },
+                    metadata: { referralId: pendingReferral.id },
                 });
             }
         } catch (refErr) {
-            console.warn('[stripe-webhook] checkout.session referral reward failed (non-blocking):', refErr);
+            console.warn('[stripe-webhook] checkout.session referral token grant failed (non-blocking):', refErr);
         }
 
         return { statusCode: 200, body: JSON.stringify({ received: true, activated: true }) };
@@ -422,9 +409,10 @@ export const handler: Handler = async (event) => {
             metadata: { ctaLabel: 'Open User Guide', ctaUrl: '/help.html' },
         }).catch(() => {});
 
-        // ── US-GAP-8.2: Referral qualification + £10 reward ──────────
-        // If this new paying user was referred, mark the referral 'qualified' and
-        // apply a £10 Stripe customer balance credit to the referrer.
+        // ── Referral Program Expansion: earn a referral TOKEN ────────
+        // The referred friend's first payment qualifies the referral. We no longer apply
+        // an instant £10 credit — the referrer gets a token (matures after the 14-day
+        // refund window) to spend in the Reward Vault for £10 credit or a free assistant.
         try {
             const [pendingReferral] = await db
                 .select({ id: userReferrals.id, referrerId: userReferrals.referrerId })
@@ -433,41 +421,21 @@ export const handler: Handler = async (event) => {
                 .limit(1);
 
             if (pendingReferral) {
-                // Look up referrer's Stripe customer id from their active plan
-                const [referrerPlan] = await db
-                    .select({ stripeCustomerId: plans.stripeCustomerId })
-                    .from(plans)
-                    .where(and(eq(plans.userId, pendingReferral.referrerId), eq(plans.status, 'active')))
-                    .limit(1);
-
-                let balanceTxId: string | null = null;
-
-                if (referrerPlan?.stripeCustomerId) {
-                    // Apply £10 credit (negative amount = credit in Stripe)
-                    const balanceTx = await stripe.customers.createBalanceTransaction(
-                        referrerPlan.stripeCustomerId,
-                        { amount: -1000, currency: (pi.currency || 'gbp').toLowerCase(), description: 'Referral reward — friend made their first payment' },
-                    );
-                    balanceTxId = balanceTx.id;
-                }
-
-                // Update referral row
                 await db.update(userReferrals)
-                    .set({ status: 'rewarded', qualifiedAt: new Date(), rewardedAt: new Date(), stripeBalanceTxId: balanceTxId })
+                    .set({ status: 'qualified', qualifiedAt: new Date() })
                     .where(eq(userReferrals.id, pendingReferral.id));
 
-                // Notify referrer
                 await db.insert(notifications).values({
                     userId: pendingReferral.referrerId,
                     type: 'referral_reward',
-                    title: '🎉 Referral Reward Earned — £10 Credit Applied',
-                    message: 'A friend you referred has signed up and made their first payment. We\'ve added a £10 credit to your account — it will be applied to your next invoice.',
+                    title: '🎉 Referral Token Earned',
+                    message: 'A friend you referred just made their first payment — you\'ve earned a referral token! It unlocks after their 14-day refund window. Save up 5 for a free assistant, or redeem 1 for £10 credit.',
                     isRead: false,
-                    metadata: { referralId: pendingReferral.id, rewardGbp: 10 },
+                    metadata: { referralId: pendingReferral.id },
                 });
             }
         } catch (refErr) {
-            console.warn('[stripe-webhook] Referral reward failed (non-blocking):', refErr);
+            console.warn('[stripe-webhook] Referral token grant failed (non-blocking):', refErr);
         }
     }
 

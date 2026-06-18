@@ -4,7 +4,7 @@
   <!-- Header -->
   <div>
     <h1 class="text-2xl font-bold text-gray-900">Refer a Friend</h1>
-    <p class="mt-1 text-gray-500">Earn <strong>£10 account credit</strong> for every friend who signs up and starts a paid subscription — it'll be applied to your next invoice automatically.</p>
+    <p class="mt-1 text-gray-500">Earn a <strong>referral token</strong> for every friend who signs up and starts a paid subscription. Redeem <strong>1 token for £10 credit</strong> — or save <strong>5 for a free assistant</strong>.</p>
   </div>
 
   <!-- No-plan empty state (US-GAP-BUG: shown when user has no active subscription) -->
@@ -23,6 +23,42 @@
 
   <!-- Plan-gated content (shown only when user has an active plan) -->
   <div id="ref-plan-content" class="hidden space-y-8">
+
+    <!-- Reward Vault (Referral Program Expansion) — US1 -->
+    <div id="ref-vault" class="hidden bg-gradient-to-br from-emerald-50 to-white border border-emerald-200 rounded-xl p-6 shadow-sm space-y-5">
+      <div class="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h2 class="font-bold text-gray-900 text-lg">Your Reward Vault</h2>
+          <p class="text-sm text-gray-500">Earn 1 token per paying referral. Spend them your way.</p>
+        </div>
+        <div class="text-right">
+          <p id="vault-token-count" class="text-3xl font-extrabold text-emerald-600">0</p>
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Available Tokens</p>
+        </div>
+      </div>
+
+      <!-- Milestone progress to free assistant (AC1.2) -->
+      <div>
+        <div class="flex justify-between items-baseline mb-1 gap-2">
+          <span id="vault-milestone-label" class="text-sm font-semibold text-gray-700">0/5 referrals until your free assistant!</span>
+          <span id="vault-maturing-note" class="hidden text-xs text-amber-600 font-medium whitespace-nowrap"></span>
+        </div>
+        <div class="h-3 w-full rounded-full bg-gray-100 overflow-hidden">
+          <div id="vault-progress-bar" class="h-3 rounded-full bg-emerald-500 transition-all duration-500" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Redemption CTAs (AC1.3 / AC1.4) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button id="vault-redeem-credit" class="px-4 py-3 rounded-lg font-semibold text-sm border border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+          Redeem £10 Credit <span class="text-xs font-normal text-gray-400">(1 token)</span>
+        </button>
+        <button id="vault-redeem-assistant" class="px-4 py-3 rounded-lg font-semibold text-sm text-white bg-emerald-600 hover:bg-emerald-700 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+          Unlock Free Assistant <span class="text-xs font-normal opacity-80">(5 tokens)</span>
+        </button>
+      </div>
+      <p id="vault-limit-note" class="text-xs text-gray-500"></p>
+    </div>
 
     <!-- US-GAP-8.3.1: Who referred me (AC7–AC12) -->
     <div id="ref-referred-by-section" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl px-6 py-4">
@@ -97,10 +133,10 @@
         </li>
         <li class="flex gap-3">
           <span class="shrink-0 w-6 h-6 rounded-full bg-[#e6faf0] text-[#00b347] font-bold flex items-center justify-center text-xs">3</span>
-          <span>You automatically receive a <strong>£10 credit</strong> on your account, deducted from your next invoice.</span>
+          <span>Once they pass their 14-day refund window, a <strong>referral token</strong> lands in your Reward Vault to spend on £10 credit or a free assistant.</span>
         </li>
       </ol>
-      <p class="mt-4 text-xs text-gray-400">Credits are applied automatically. There's no limit to how many friends you can refer.</p>
+      <p class="mt-4 text-xs text-gray-400">Tokens unlock after the referred friend's 14-day refund window. There's no limit to how many friends you can refer.</p>
     </div>
 
     <!-- Activity table -->
@@ -156,6 +192,9 @@
     // Active plan — reveal plan-gated content
     document.getElementById('ref-plan-content').classList.remove('hidden');
 
+    // Reward Vault (Referral Program Expansion) — US1
+    renderVault(data);
+
     // US-GAP-8.3.1: Who referred me
     if (data.referredBy) {
       const dateStr = new Date(data.referredBy.joinedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -207,6 +246,98 @@
       }).join('');
       document.getElementById('ref-table').classList.remove('hidden');
     }
+  }
+
+  // ── Reward Vault (Referral Program Expansion) ──────────────────────
+  function renderVault(data) {
+    const vault = document.getElementById('ref-vault');
+    if (!vault) return;
+    const tokens    = data.availableTokens || 0;
+    const threshold = data.freeAssistantThreshold || 5;
+    const maturing  = data.maturingTokens || 0;
+
+    vault.classList.remove('hidden');
+    document.getElementById('vault-token-count').textContent = tokens;
+
+    // AC1.2: milestone progress
+    document.getElementById('vault-milestone-label').textContent = tokens >= threshold
+      ? "You've unlocked a free assistant! 🎉"
+      : `${tokens}/${threshold} referrals until your free assistant!`;
+    document.getElementById('vault-progress-bar').style.width =
+      Math.min(100, Math.round((tokens / threshold) * 100)) + '%';
+
+    const matNote = document.getElementById('vault-maturing-note');
+    if (maturing > 0) {
+      matNote.textContent = `${maturing} pending the 14-day window`;
+      matNote.classList.remove('hidden');
+    } else { matNote.classList.add('hidden'); }
+
+    // AC1.3 / AC1.4: redemption CTA states
+    document.getElementById('vault-redeem-credit').disabled    = tokens < 1;
+    document.getElementById('vault-redeem-assistant').disabled = tokens < threshold;
+
+    if (data.assistantLimit != null) {
+      const bonus = data.bonusAssistants || 0;
+      document.getElementById('vault-limit-note').textContent =
+        `Your plan currently allows ${data.assistantLimit} assistant${data.assistantLimit === 1 ? '' : 's'}` +
+        (bonus ? ` (includes ${bonus} bonus from referrals).` : '.');
+    }
+  }
+
+  async function redeem(type, btn) {
+    const orig = btn.innerHTML;
+    btn.disabled = true; btn.textContent = 'Redeeming…';
+    try {
+      const res = await fetch(`${BASE}/redeem-referral-reward`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        window.showToast?.(d.error || 'Could not redeem your tokens.');
+        btn.innerHTML = orig; btn.disabled = false;
+        return;
+      }
+      if (type === 'credit_10') {
+        window.showToast?.('£10 credit redeemed — it will be applied to your next invoice.', { icon: '💷' });
+      } else {
+        window.showToast?.('Free assistant unlocked! 🎉', { icon: '🎉' });
+        fireConfetti();
+      }
+      btn.innerHTML = orig;          // restore label; renderVault re-sets disabled state
+      await loadReferral();          // AC2.4: refresh counts/bar/limit without a page refresh
+    } catch {
+      window.showToast?.('Something went wrong. Please try again.');
+      btn.innerHTML = orig; btn.disabled = false;
+    }
+  }
+
+  document.getElementById('vault-redeem-credit').addEventListener('click', (e) => redeem('credit_10', e.currentTarget));
+  document.getElementById('vault-redeem-assistant').addEventListener('click', (e) => redeem('free_assistant', e.currentTarget));
+
+  // Dependency-free confetti burst (AC2.4) — inline canvas, no CDN.
+  function fireConfetti() {
+    const c = document.createElement('canvas');
+    c.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:12000;';
+    document.body.appendChild(c);
+    const ctx = c.getContext('2d');
+    c.width = window.innerWidth; c.height = window.innerHeight;
+    const colors = ['#00e55c', '#059669', '#fbbf24', '#f43f5e', '#3b82f6'];
+    const parts = Array.from({ length: 140 }, () => ({
+      x: c.width / 2, y: c.height / 3,
+      vx: (Math.random() - 0.5) * 12, vy: Math.random() * -12 - 4,
+      size: Math.random() * 8 + 4, color: colors[Math.floor(Math.random() * colors.length)],
+      rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
+    }));
+    let frame = 0;
+    (function anim() {
+      ctx.clearRect(0, 0, c.width, c.height);
+      parts.forEach(p => {
+        p.vy += 0.3; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.fillStyle = p.color; ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size); ctx.restore();
+      });
+      if (++frame < 160) requestAnimationFrame(anim); else c.remove();
+    })();
   }
 
   // Copy button
