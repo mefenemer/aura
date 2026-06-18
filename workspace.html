@@ -911,6 +911,19 @@ function formatCurrency(amount, currency) {
       const route = routes[routeKey];
       if (!route) return;
 
+      // ── US2 (AC2.1/2.2/2.3): Onboarding route guard (anti-snooping) ──
+      // Catches deep links (?view=calendar) and any programmatic navigation into a
+      // restricted area before onboarding is complete. Nav-link clicks are handled
+      // separately (AC1.3) so they don't trigger a redirect.
+      if (ONBOARDING_RESTRICTED.includes(routeKey)) {
+        const complete = await ensureOnboardingStatus();
+        if (!complete) {
+          window.showToast(ONBOARDING_LOCK_MESSAGE);
+          if (routeKey !== 'dashboard') await loadView('dashboard'); // redirect to a safe area
+          return;
+        }
+      }
+
       try {
         const response = await fetch(`./${route.file}`);
         if (!response.ok) throw new Error('Network component not found');
@@ -1644,16 +1657,115 @@ function formatCurrency(amount, currency) {
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    //  Epic: Workspace Onboarding Guardrails — US1 (Visual Menu Locking)
+    //  + the client half of US2 (route guard state). Onboarding is "complete"
+    //  once the user has at least one AI assistant (get-onboarding-status).
+    // ═══════════════════════════════════════════════════════════════════
+    const ONBOARDING_RESTRICTED = ['review-queue', 'calendar', 'instructions'];
+    const ONBOARDING_LOCK_MESSAGE = 'Please complete your onboarding checklist to unlock this feature.';
+    window._onboardingComplete = false; // pessimistic until status loads
+    let _onboardingLoaded = false;
+
+    // Lightweight, dependency-free toast. Inline styles on purpose: arbitrary
+    // Tailwind classes aren't in the prebuilt style.css, so they'd no-op here.
+    window.showToast = function (message, opts = {}) {
+      let container = document.getElementById('aura-toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'aura-toast-container';
+        container.style.cssText = 'position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:11000;display:flex;flex-direction:column;gap:.5rem;align-items:center;pointer-events:none;';
+        document.body.appendChild(container);
+      }
+      const toast = document.createElement('div');
+      toast.setAttribute('role', 'status');
+      toast.style.cssText = 'pointer-events:auto;max-width:90vw;background:#1f2937;color:#fff;padding:.75rem 1rem;border-radius:.75rem;box-shadow:0 10px 25px rgba(0,0,0,.18);font-size:.875rem;font-weight:500;display:flex;align-items:center;gap:.5rem;opacity:0;transform:translateY(.5rem);transition:opacity .2s ease,transform .2s ease;';
+      const icon = document.createElement('span');
+      icon.textContent = opts.icon || '🔒';
+      const text = document.createElement('span');
+      text.textContent = message;
+      toast.append(icon, text);
+      container.appendChild(toast);
+      requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(.5rem)';
+        setTimeout(() => toast.remove(), 250);
+      }, opts.duration || 4000);
+    };
+
+    const _LOCK_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>';
+
+    // AC1.2: dim restricted items + show padlock. AC1.4: idempotent — removing
+    // the lock on unlock requires no page refresh.
+    function _renderNavLocks() {
+      ONBOARDING_RESTRICTED.forEach(key => {
+        const link = navLinks[key];
+        if (!link) return;
+        const locked = !window._onboardingComplete;
+        link.dataset.onboardingLocked = locked ? '1' : '';
+        link.style.opacity = locked ? '0.5' : '';
+        link.title = locked ? ONBOARDING_LOCK_MESSAGE : '';
+        let lock = link.querySelector('.nav-lock-icon');
+        if (locked && !lock) {
+          lock = document.createElement('span');
+          lock.className = 'nav-lock-icon ml-auto text-gray-400';
+          lock.setAttribute('aria-label', 'Locked until onboarding is complete');
+          lock.innerHTML = _LOCK_SVG;
+          link.appendChild(lock);
+        } else if (!locked && lock) {
+          lock.remove();
+        }
+      });
+    }
+
+    async function refreshOnboardingLock() {
+      try {
+        const res = await fetch('/.netlify/functions/get-onboarding-status');
+        if (res.ok) {
+          const data = await res.json();
+          window._onboardingComplete = !!data.isComplete;
+        }
+      } catch { /* stay pessimistic — locked is the safe default */ }
+      _onboardingLoaded = true;
+      _renderNavLocks();
+      return window._onboardingComplete;
+    }
+    window.refreshOnboardingLock = refreshOnboardingLock;
+
+    // Used by the loadView route guard. Resolves the flag at most once, then caches.
+    async function ensureOnboardingStatus() {
+      if (_onboardingLoaded) return window._onboardingComplete;
+      return await refreshOnboardingLock();
+    }
+
+    // AC1.4: instant unlock without a page refresh. Called the moment we observe
+    // the user has an assistant (e.g. dashboard team grid renders one).
+    window.markOnboardingComplete = function () {
+      if (window._onboardingComplete) return;
+      window._onboardingComplete = true;
+      _onboardingLoaded = true;
+      _renderNavLocks();
+    };
+
     Object.keys(navLinks).forEach(key => {
       const link = navLinks[key];
       if (link) {
         link.addEventListener('click', async (e) => {
           if (key === 'help') return; // opens /help.html in new tab via href
           e.preventDefault();
+          // AC1.3: clicking a locked item does NOT navigate — just toasts.
+          if (link.dataset.onboardingLocked === '1') {
+            window.showToast(ONBOARDING_LOCK_MESSAGE);
+            return;
+          }
           await loadView(key);
         });
       }
     });
+
+    // Render locks ASAP on boot (non-blocking).
+    refreshOnboardingLock();
 
     // Fire the initial landing layout
     await loadView('dashboard');
@@ -2439,6 +2551,12 @@ function formatCurrency(amount, currency) {
 
       const data = await res.json();
       container.innerHTML = ''; // Clear loading state
+
+      // AC1.4: having ≥1 assistant means onboarding is complete — unlock the
+      // restricted nav live, no page refresh.
+      if (data.assistants && data.assistants.length > 0) {
+        window.markOnboardingComplete?.();
+      }
 
       if (!data.assistants || data.assistants.length === 0) {
         container.innerHTML = `

@@ -81,6 +81,13 @@ async function _loadAndRender() {
         if (res.ok) {
             const data = await res.json();
             _posts = data.posts || [];
+        } else if (res.status === 403) {
+            // US3 AC3.3: onboarding guard rejected this — surface it gracefully, don't crash.
+            const body = await res.json().catch(() => ({}));
+            if (body.error === 'onboarding_incomplete') {
+                window.showToast?.(body.message || 'Please complete your onboarding checklist to unlock this feature.');
+            }
+            _posts = [];
         }
     } catch (e) { console.warn('Calendar load error:', e); }
     _render();

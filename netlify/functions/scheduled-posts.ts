@@ -13,6 +13,7 @@ import { getDb } from '../../db/client';
 import { users, scheduledPosts, contentAssets, contentProvenance, userOrganisations } from '../../db/schema';
 import { createHmac, createHash, randomUUID } from 'crypto';
 import { propagateAssetStatuses } from './content-assets';
+import { requireOnboarding } from '../../src/utils/onboarding-guard';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -30,6 +31,11 @@ export const handler: Handler = async (event) => {
     if (!userId) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
 
     const db = getDb();
+
+    // US3 (AC3.1/AC3.2): the Content Calendar is gated until onboarding is complete.
+    const denied = await requireOnboarding(db, userId);
+    if (denied) return denied;
+
     const [user] = await db.select({ id: users.id, organisationId: userOrganisations.organisationId })
         .from(users).leftJoin(userOrganisations, eq(users.id, userOrganisations.userId)).where(eq(users.id, userId));
     if (!user) return { statusCode: 403, body: JSON.stringify({ error: 'User not found.' }) };
