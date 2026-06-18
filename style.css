@@ -3964,6 +3964,9 @@ input[type="radio"]:checked + div .radio-indicator {
   cursor: not-allowed !important;
   filter: grayscale(100%);
 }
+button:not(:disabled), [role="button"]:not([aria-disabled="true"]), summary {
+  cursor: pointer;
+}
 @property --tw-translate-x {
   syntax: "*";
   inherits: false;
