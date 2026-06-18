@@ -106,9 +106,19 @@ window.initNotifications = async function() {
 
             li.addEventListener('click', () => {
                 markAsRead(notif.id);
-                // Route invoice_ready notifications to Invoice History in billing
+                // Route invoice_ready notifications to Invoice History in billing.
+                // billing.html is a workspace VIEW fragment — load it inside the workspace
+                // shell (formatted), not as a standalone page. Fall back to a workspace
+                // deep-link if loadView isn't available (e.g. viewed outside the workspace).
                 if (notif.type === 'invoice_ready' || notif.metadata?.action === 'view_invoices') {
-                    window.location.href = 'billing.html#invoice-history';
+                    if (typeof window.loadView === 'function') {
+                        Promise.resolve(window.loadView('billing')).then(() => {
+                            document.getElementById('invoice-history-section')
+                                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        });
+                    } else {
+                        window.location.href = 'workspace.html?view=billing';
+                    }
                 }
             });
             listEl.appendChild(li);

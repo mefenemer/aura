@@ -1678,11 +1678,12 @@ function formatCurrency(amount, currency) {
       history.replaceState(null, '', window.location.pathname);
     }
 
-    // Deep-link: ?view=catalog (e.g. from public /assistants.html "Hire Assistant" CTA)
+    // Deep-link: ?view=<route> (e.g. ?view=catalog from the public "Hire Assistant" CTA,
+    // or ?view=billing as the fallback target for invoice notifications). Any valid route works.
     const viewParam = qs.get('view');
-    if (viewParam === 'catalog') {
+    if (viewParam && routes[viewParam]) {
       history.replaceState(null, '', window.location.pathname);
-      await loadView('catalog');
+      await loadView(viewParam);
     }
 
     // US-ONB-2.2.1: First-login welcome modal (AC5–AC20)
