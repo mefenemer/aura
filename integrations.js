@@ -102,72 +102,19 @@ let _connToDelete = null;
 let _userConnections = [];
 
 // ── Per-assistant relevance ──────────────────────────────────────
-// Every current connector is a social platform. Map an assistant's role to the
-// connector categories that make sense for it, and show only those (hide the rest).
+// The relevance policy is owned and ENFORCED server-side (src/utils/connection-map.ts).
+// The page passes the selected assistantId to the integrations GET and renders only the
+// connectors the server returns in `allowedServices` — no policy is duplicated here.
 const _esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-// Connector → category. Tag every connector; new connectors appear for an
-// assistant automatically once their category is listed in ROLE_CONNECTIONS.
-const CONNECTOR_CATEGORY = { Facebook: 'social', Instagram: 'social', LinkedIn: 'social', X: 'social' };
-
-// Assistant role → relevant connection categories — the single source of truth for
-// "which connections align with which assistant" (the Assistant Connection Map).
-// EXTENSIBLE: add a new assistant by adding its roleKey here; add a new connector by
-// tagging it in CONNECTOR_CATEGORY (+ PLATFORMS). Categories beyond 'social' have no
-// connectors built yet, so those assistants show the empty state until they're added.
-const ROLE_CONNECTIONS = {
-    social_media_manager:      ['social'],
-    review_reputation_manager: ['reviews', 'social'],
-    inbox_manager:             ['email'],
-    calendar_coordinator:      ['calendar', 'email'],
-    travel_logistics_booker:   ['email', 'calendar'],
-    document_organizer:        ['knowledge'],
-    lead_qualifier:            ['crm', 'email'],
-    crm_enricher:              ['crm'],
-    seo_content_strategist:    ['cms', 'search_console', 'knowledge'],
-    newsletter_editor:         ['email', 'cms'],
-    vendor_communications_rep: ['email'],
-    inventory_tracker:         ['inventory'],
-    sop_writer:                ['knowledge'],
-    tier1_support_agent:       ['support', 'chat'],
-    client_onboarding_guide:   ['email', 'esign', 'knowledge'],
-    standup_summarizer:        ['chat', 'project_mgmt'],
-    meeting_note_taker:        ['calendar', 'knowledge'],
-    status_report_generator:   ['project_mgmt', 'chat'],
-    accounts_receivable_clerk: ['payments', 'accounting'],
-    expense_categorizer:       ['accounting'],
-};
 
 let _assistants = [];
 let _selectedAssistantId = null;
-
-// Fallback for assistants created before roleKey was stored (configuration.type).
-function _categoriesFromName(roleName) {
-    const r = (roleName || '').toLowerCase();
-    const c = new Set();
-    if (/social|community|brand|post/.test(r)) c.add('social');
-    if (/review|reputation/.test(r)) { c.add('reviews'); c.add('social'); }
-    if (/inbox|email|mail/.test(r)) c.add('email');
-    if (/calendar|schedul/.test(r)) c.add('calendar');
-    if (/crm|lead|sales/.test(r)) c.add('crm');
-    if (/support|ticket|helpdesk/.test(r)) { c.add('support'); c.add('chat'); }
-    if (/seo|content|cms/.test(r)) c.add('cms');
-    if (/project|sprint|stand-?up|status/.test(r)) c.add('project_mgmt');
-    if (/invoice|account|expense|billing|receivable/.test(r)) { c.add('accounting'); c.add('payments'); }
-    return c;
-}
-
-function _assistantCategories(a) {
-    if (!a) return null;
-    const byKey = a.roleKey && ROLE_CONNECTIONS[a.roleKey];
-    if (byKey) return new Set(byKey);
-    return _categoriesFromName(a.role); // legacy / custom roles
-}
+let _allowedServices = null; // null = no assistant scope → show all
 
 function _relevantPlatforms() {
-    const a = _assistants.find(x => String(x.id) === String(_selectedAssistantId));
-    const cats = _assistantCategories(a);
-    if (!cats) return PLATFORMS; // no assistant context → show all (shouldn't happen once gated)
-    return PLATFORMS.filter(p => cats.has(CONNECTOR_CATEGORY[p.id]));
+    if (!_allowedServices) return PLATFORMS;
+    const allow = new Set(_allowedServices);
+    return PLATFORMS.filter(p => allow.has(p.id));
 }
 
 async function _loadAssistantsForFilter() {
@@ -214,10 +161,15 @@ async function _loadConnections() {
     if (!grid) return;
 
     try {
-        const res = await fetch('/.netlify/functions/integrations');
+        const url = _selectedAssistantId
+            ? `/.netlify/functions/integrations?assistantId=${encodeURIComponent(_selectedAssistantId)}`
+            : '/.netlify/functions/integrations';
+        const res = await fetch(url);
         if (!res.ok) throw new Error('fetch failed');
         const data = await res.json();
         _userConnections = (data.connections || []).filter(c => c.userId !== null);
+        // Server-authoritative relevance allow-list (undefined when no assistant scope).
+        _allowedServices = Array.isArray(data.allowedServices) ? data.allowedServices : null;
     } catch (e) {
         console.warn('Could not load connections:', e);
     }
@@ -516,7 +468,7 @@ window._intSubmit = async function (e) {
         const res = await fetch('/.netlify/functions/integrations', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ serviceName, connectionType: 'api_key', apiKey: token, handle }),
+            body: JSON.stringify({ serviceName, connectionType: 'api_key', apiKey: token, handle, assistantId: _selectedAssistantId || undefined }),
         });
 
         if (res.ok) {

@@ -1,9 +1,21 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, and, or, isNull } from 'drizzle-orm';
+import { eq, and, or, isNull, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { systemConnections, scheduledPosts, notifications, users, userOrganisations, auditLogs } from '../../db/schema';
+import { systemConnections, scheduledPosts, notifications, users, userOrganisations, auditLogs, aiAssistants } from '../../db/schema';
 import { storeSecret, deleteSecret, buildRefKey } from '../../src/utils/vault';
+import { isServiceAllowedForAssistant, allowedServiceNames, type AssistantRole } from '../../src/utils/connection-map';
+
+// Resolve an assistant (org-scoped) to its role for connection-policy enforcement.
+// Returns null when the id is missing or doesn't belong to the org.
+async function resolveAssistantRole(db: ReturnType<typeof getDb>, orgId: number | null, assistantId: number): Promise<AssistantRole | null> {
+    if (!orgId || !Number.isFinite(assistantId)) return null;
+    const [a] = await db.select({
+        role: aiAssistants.aiAssistantJobRole,
+        roleKey: sql<string | null>`(${aiAssistants.configuration} ->> 'type')`,
+    }).from(aiAssistants).where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId))).limit(1);
+    return a ?? null;
+}
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -66,16 +78,40 @@ export const handler: Handler = async (event) => {
                 }
             });
 
+            // Server-side connection sandboxing: when scoped to an assistant, return
+            // only the connectors relevant to its role (defence in depth — the UI also
+            // filters, but the server is authoritative). Invalid assistant → 400.
+            const assistantIdParam = event.queryStringParameters?.assistantId;
+            if (assistantIdParam) {
+                const assistant = await resolveAssistantRole(db, currentOrgId, parseInt(assistantIdParam, 10));
+                if (!assistant) return { statusCode: 400, body: JSON.stringify({ error: 'Unknown assistant.' }) };
+                const visible = merged.filter(m => isServiceAllowedForAssistant(m.serviceName, assistant));
+                const allowedServices = allowedServiceNames(assistant, merged.map(m => m.serviceName));
+                return { statusCode: 200, body: JSON.stringify({ connections: visible, allowedServices }) };
+            }
+
             return { statusCode: 200, body: JSON.stringify({ connections: merged }) };
         }
 
         // --- POST: SECURE CONNECTION CREATION ---
         if (event.httpMethod === 'POST') {
             const body = JSON.parse(event.body || '{}');
-            const { serviceName, connectionType, apiKey, handle, pageUrl, scopes } = body;
+            const { serviceName, connectionType, apiKey, handle, pageUrl, scopes, assistantId } = body;
 
             if (!serviceName || !apiKey) {
                 return { statusCode: 400, body: JSON.stringify({ error: 'Service name and access token are required.' }) };
+            }
+
+            // Server-side connection sandboxing: if this connection is being made in the
+            // context of an assistant, the service must be relevant to that assistant's
+            // role (e.g. a Social Media Manager cannot connect an HR/CRM service).
+            if (assistantId !== undefined && assistantId !== null) {
+                const assistant = await resolveAssistantRole(db, currentOrgId, parseInt(String(assistantId), 10));
+                if (!assistant) return { statusCode: 400, body: JSON.stringify({ error: 'Unknown assistant.' }) };
+                if (!isServiceAllowedForAssistant(serviceName, assistant)) {
+                    console.warn(`[integrations] Sandbox violation blocked: ${serviceName} not allowed for assistant ${assistantId} (${assistant.roleKey ?? assistant.role})`);
+                    return { statusCode: 403, body: JSON.stringify({ error: `${serviceName} is not a relevant connection for this assistant.`, code: 'CONNECTION_NOT_RELEVANT' }) };
+                }
             }
 
             // ── Scope Creep guard: whitelist permitted scopes per service ────
