@@ -204,6 +204,163 @@ window.initBrandAssets = function() {
         });
     }
 
-    // Initial load of existing assets so they survive a page refresh.
+    // ── Business profile ──────────────────────────────────────────────────────
+    async function loadBusinessProfile() {
+        const nameEl = document.getElementById('bp-input-name');
+        if (!nameEl) return; // section not on page
+        try {
+            const res = await fetch('/.netlify/functions/organisation-profile');
+            if (!res.ok) return;
+            const { profile } = await res.json();
+            if (!profile) return;
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+            set('bp-input-name', profile.businessName);
+            set('bp-input-industry', profile.industry);
+            set('bp-input-website', profile.websiteUrl);
+            set('bp-input-social', profile.socialLinks);
+            set('bp-input-description', profile.businessDescription);
+            set('bp-input-audience', profile.targetAudience);
+        } catch { /* non-fatal */ }
+    }
+
+    window._businessProfileSave = async function () {
+        const saveBtn = document.getElementById('bp-save-btn');
+        const errorEl = document.getElementById('bp-error');
+        const savedEl = document.getElementById('bp-saved');
+        const val = (id) => document.getElementById(id)?.value.trim() || '';
+        errorEl?.classList.add('hidden');
+        savedEl?.classList.add('hidden');
+
+        const businessName = val('bp-input-name');
+        if (!businessName) {
+            if (errorEl) { errorEl.textContent = 'Business name is required.'; errorEl.classList.remove('hidden'); }
+            return;
+        }
+
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.classList.add('opacity-75', 'cursor-not-allowed'); }
+        try {
+            const res = await fetch('/.netlify/functions/organisation-profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    businessName,
+                    industry:            val('bp-input-industry'),
+                    websiteUrl:          val('bp-input-website'),
+                    socialLinks:         val('bp-input-social'),
+                    businessDescription: val('bp-input-description'),
+                    targetAudience:      val('bp-input-audience'),
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            if (savedEl) { savedEl.classList.remove('hidden'); setTimeout(() => savedEl.classList.add('hidden'), 3000); }
+        } catch (e) {
+            console.error('[business-profile-save]', e);
+            if (errorEl) { errorEl.textContent = e.message || 'Failed to save. Please try again.'; errorEl.classList.remove('hidden'); }
+        } finally {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.classList.remove('opacity-75', 'cursor-not-allowed'); }
+        }
+    };
+
+    // ── Legal & billing details (data stays in billing_information) ────────────
+    let _billingInfo = null;
+
+    function _renderBillingDetails(info) {
+        const emptyEl = document.getElementById('billing-details-empty');
+        const infoEl  = document.getElementById('billing-details-info');
+        if (!emptyEl || !infoEl) return;
+        if (!info) {
+            emptyEl.classList.remove('hidden');
+            infoEl.classList.add('hidden');
+            return;
+        }
+        emptyEl.classList.add('hidden');
+        infoEl.classList.remove('hidden');
+        document.getElementById('bd-name').textContent  = info.fullName || '—';
+        document.getElementById('bd-email').textContent = info.email || '—';
+        document.getElementById('bd-vat').textContent   = info.vatNumber || '—';
+        const addrParts = [info.addressLine1, info.addressLine2, info.city, info.state, info.postalCode, info.country].filter(Boolean);
+        document.getElementById('bd-address').textContent = addrParts.join('\n') || '—';
+    }
+
+    async function loadBillingDetails() {
+        if (!document.getElementById('billing-details-display')) return; // section not on page
+        try {
+            const res = await fetch('/.netlify/functions/billing-information');
+            if (!res.ok) return;
+            const { billingInfo } = await res.json();
+            _billingInfo = billingInfo || null;
+            _renderBillingDetails(_billingInfo);
+        } catch { /* non-fatal */ }
+    }
+
+    window._billingDetailsEdit = function () {
+        const info = _billingInfo;
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+        set('bd-input-name', info?.fullName);
+        set('bd-input-email', info?.email);
+        set('bd-input-vat', info?.vatNumber);
+        set('bd-input-addr1', info?.addressLine1);
+        set('bd-input-addr2', info?.addressLine2);
+        set('bd-input-city', info?.city);
+        set('bd-input-postal', info?.postalCode);
+        set('bd-input-state', info?.state);
+        set('bd-input-country', info?.country);
+        document.getElementById('billing-details-display')?.classList.add('hidden');
+        document.getElementById('billing-details-form')?.classList.remove('hidden');
+        document.getElementById('btn-edit-billing-details')?.classList.add('hidden');
+        document.getElementById('bd-form-error')?.classList.add('hidden');
+    };
+
+    window._billingDetailsCancel = function () {
+        document.getElementById('billing-details-display')?.classList.remove('hidden');
+        document.getElementById('billing-details-form')?.classList.add('hidden');
+        document.getElementById('btn-edit-billing-details')?.classList.remove('hidden');
+    };
+
+    window._billingDetailsSave = async function () {
+        const saveBtn = document.getElementById('btn-save-billing-details');
+        const errorEl = document.getElementById('bd-form-error');
+        errorEl?.classList.add('hidden');
+        const fullName = document.getElementById('bd-input-name').value.trim();
+        if (!fullName) {
+            if (errorEl) { errorEl.textContent = 'Legal name / company name is required.'; errorEl.classList.remove('hidden'); }
+            return;
+        }
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+        try {
+            const val = (id) => document.getElementById(id).value.trim();
+            const body = {
+                fullName,
+                email:        val('bd-input-email'),
+                vatNumber:    val('bd-input-vat'),
+                addressLine1: val('bd-input-addr1'),
+                addressLine2: val('bd-input-addr2'),
+                city:         val('bd-input-city'),
+                postalCode:   val('bd-input-postal'),
+                state:        val('bd-input-state'),
+                country:      val('bd-input-country'),
+            };
+            const res  = await fetch('/.netlify/functions/billing-information', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            _billingInfo = data.billingInfo || body;
+            _renderBillingDetails(_billingInfo);
+            window._billingDetailsCancel();
+        } catch (e) {
+            console.error('[billing-details-save]', e);
+            if (errorEl) { errorEl.textContent = e.message || 'Failed to save. Please try again.'; errorEl.classList.remove('hidden'); }
+        } finally {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save Details`; }
+        }
+    };
+
+    // Initial load of existing assets, business profile, and billing details.
     loadAssets();
+    loadBusinessProfile();
+    loadBillingDetails();
 };

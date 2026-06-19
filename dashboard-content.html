@@ -1,26 +1,6 @@
 <div class="flex flex-col">
 
-  <!-- Post-payment welcome modal (shown once when ?payment=success) -->
-  <div id="welcome-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 text-center">
-      <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <svg class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-      </div>
-      <h2 class="text-2xl font-extrabold text-gray-900 mb-2">You're all set!</h2>
-      <p class="text-gray-500 mb-2">Your subscription is now active.</p>
-      <p class="text-gray-600 mb-8">Now let's build your Digital Assistant. It takes about 5 minutes — just answer a few plain-English questions and our team takes care of the rest.</p>
-      <a href="onboarding-social-media.html"
-         class="w-full inline-block text-center px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition text-base">
-        Set Up My Assistant
-      </a>
-      <button onclick="document.getElementById('welcome-modal').classList.add('hidden'); document.getElementById('welcome-modal').classList.remove('flex');"
-        class="mt-3 w-full text-sm text-gray-400 hover:text-gray-600 transition">
-        I'll do this later
-      </button>
-    </div>
-  </div>
+  <!-- Post-payment / first-login welcome is handled by the single #payment-welcome-modal in workspace.html -->
 
   <header class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
 
@@ -56,51 +36,6 @@
         </div>
         <ul id="onboarding-steps" class="space-y-2.5"></ul>
       </div>
-    </div>
-
-    <!-- US-AUD-1.1.1 SC6: "First task" skip banner — shown until milestone complete -->
-    <div id="first-task-banner" class="hidden mb-6 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <span class="text-emerald-600 text-xl">🚀</span>
-        <div>
-          <p class="text-sm font-semibold text-emerald-900">Complete your first task to unlock the full library</p>
-          <p id="first-task-banner-desc" class="text-xs text-emerald-700"></p>
-        </div>
-      </div>
-      <div class="flex items-center gap-2 shrink-0">
-        <button onclick="window._showFirstTaskScreen()"
-          class="px-4 py-2 bg-emerald-700 text-white text-xs font-bold rounded-lg hover:bg-emerald-800 transition cursor-pointer">
-          Start task
-        </button>
-        <button onclick="window._dismissFirstTaskBanner()"
-          class="text-gray-400 hover:text-gray-600 transition cursor-pointer" title="Dismiss">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- US-AUD-1.1.1 SC1: First-task focused screen (shown post-payment, before milestone) -->
-    <div id="first-task-screen" class="hidden mb-8 bg-white rounded-2xl border border-emerald-200 shadow-md p-8 text-center max-w-xl mx-auto">
-      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-        </svg>
-      </div>
-      <h2 class="text-2xl font-extrabold text-gray-900 mb-1">Let's complete your first task</h2>
-      <p id="ft-task-title" class="text-base font-semibold text-emerald-700 mb-2"></p>
-      <p id="ft-task-desc" class="text-sm text-gray-500 mb-5"></p>
-      <textarea id="ft-task-input" rows="4"
-        class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none mb-4"
-        placeholder="Describe what you need…"></textarea>
-      <p id="ft-task-error" class="hidden text-xs text-red-600 font-medium mb-2"></p>
-      <button onclick="window._submitFirstTask()"
-        class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition cursor-pointer mb-2">
-        Run Task →
-      </button>
-      <button onclick="window._skipFirstTask()"
-        class="w-full text-sm text-gray-400 hover:text-gray-600 transition cursor-pointer py-1">
-        Skip for now
-      </button>
     </div>
 
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -158,19 +93,8 @@
 
 <script>
   (function () {
-    const params = new URLSearchParams(window.location.search);
-
-    if (params.get('payment') === 'success') {
-      // Show the welcome modal
-      const modal = document.getElementById('welcome-modal');
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      }
-      // Clean the URL so a refresh doesn't re-trigger it
-      const cleanUrl = window.location.pathname;
-      history.replaceState(null, '', cleanUrl);
-    }
+    // Note: the post-payment / first-login welcome modal is owned solely by
+    // workspace.html (#payment-welcome-modal); this partial no longer triggers one.
 
     // US-AUD-1.2.1: Full ROI widget — £ value, break-even messaging, period toggle
     let _roiPeriod = 'month';
@@ -230,158 +154,5 @@
     };
 
     window._roiRender();
-
-    // US-AUD-1.1.1: First-task onboarding milestone
-    (async function initFirstTask() {
-      try {
-        const res = await fetch('/.netlify/functions/first-task');
-        if (!res.ok) return;
-        const d = await res.json();
-
-        if (d.milestoneComplete) return; // SC7: never show again once done
-
-        // SC1: Post-payment focused screen (only if within first 24h of plan activation)
-        const planAge = d.planActivatedAt
-          ? (Date.now() - new Date(d.planActivatedAt).getTime()) / (1000 * 60 * 60)
-          : 999;
-        const isNewUser = planAge < 24;
-
-        // Populate task details
-        const ftTaskTitle = document.getElementById('ft-task-title');
-        const ftTaskDesc = document.getElementById('ft-task-desc');
-        const ftInput = document.getElementById('ft-task-input');
-        if (ftTaskTitle) ftTaskTitle.textContent = d.starterTask.title;
-        if (ftTaskDesc) ftTaskDesc.textContent = d.starterTask.description;
-        if (ftInput) ftInput.placeholder = d.starterTask.placeholder;
-
-        if (isNewUser && !d.milestoneSkipped) {
-          // Show the focused first-task screen
-          document.getElementById('first-task-screen')?.classList.remove('hidden');
-        } else if (!d.milestoneSkipped) {
-          // SC6: Show the banner (previously skipped users already saw it; re-check sessionStorage)
-          const dismissed = sessionStorage.getItem('first_task_banner_dismissed');
-          if (!dismissed) {
-            const banner = document.getElementById('first-task-banner');
-            const bannerDesc = document.getElementById('first-task-banner-desc');
-            if (banner) banner.classList.remove('hidden');
-            if (bannerDesc) bannerDesc.textContent = d.starterTask.description;
-          }
-        }
-
-        // SC3: Gate the assistant library until first task is complete
-        if (!d.milestoneComplete && !d.milestoneSkipped) {
-          const catalogBtn = document.getElementById('route-to-catalog');
-          if (catalogBtn) {
-            catalogBtn.removeAttribute('href');
-            catalogBtn.style.cssText += ';opacity:0.5;cursor:not-allowed;pointer-events:none;position:relative;';
-            catalogBtn.title = 'Complete your first task to unlock the full library.';
-            catalogBtn.setAttribute('aria-disabled', 'true');
-            // Tooltip wrapper
-            const wrapper = document.createElement('span');
-            wrapper.style.cssText = 'position:relative;display:inline-block;';
-            const tip = document.createElement('span');
-            tip.style.cssText = 'position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;background:#1f2937;color:#fff;font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:20;';
-            tip.textContent = 'Complete your first task to unlock the full library.';
-            catalogBtn.parentNode.insertBefore(wrapper, catalogBtn);
-            wrapper.appendChild(catalogBtn);
-            wrapper.appendChild(tip);
-            wrapper.addEventListener('mouseenter', () => { tip.style.opacity = '1'; });
-            wrapper.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
-          }
-        }
-      } catch { /* fail silently */ }
-    })();
-
-    window._showFirstTaskScreen = function () {
-      document.getElementById('first-task-banner')?.classList.add('hidden');
-      document.getElementById('first-task-screen')?.classList.remove('hidden');
-    };
-
-    window._dismissFirstTaskBanner = function () {
-      document.getElementById('first-task-banner')?.classList.add('hidden');
-      sessionStorage.setItem('first_task_banner_dismissed', '1');
-    };
-
-    window._skipFirstTask = async function () {
-      document.getElementById('first-task-screen')?.classList.add('hidden');
-      // SC6: Show banner instead
-      const banner = document.getElementById('first-task-banner');
-      if (banner) banner.classList.remove('hidden');
-      await fetch('/.netlify/functions/first-task', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'skip' }),
-      }).catch(() => {});
-    };
-
-    window._submitFirstTask = async function () {
-      const input    = document.getElementById('ft-task-input')?.value?.trim();
-      const submitBtn = document.querySelector('#first-task-screen button[onclick*="_submitFirstTask"]');
-      const errorEl  = document.getElementById('ft-task-error');
-
-      if (!input) {
-        if (errorEl) { errorEl.textContent = 'Please describe what you need first.'; errorEl.classList.remove('hidden'); }
-        return;
-      }
-      if (errorEl) errorEl.classList.add('hidden');
-
-      // Disable button + show spinner
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Running task…'; }
-
-      try {
-        // Run the task via quality-review
-        const res = await fetch('/.netlify/functions/quality-review', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: input }),
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || 'Task failed. Please try again.');
-        }
-
-        // Mark milestone complete (fire-and-forget)
-        fetch('/.netlify/functions/first-task', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'complete' }),
-        }).catch(() => {});
-
-        // SC4: In-app congratulatory notification
-        fetch('/.netlify/functions/notifications', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'milestone_first_task',
-            title: 'Your assistant just saved you time. Explore what else it can do.',
-          }),
-        }).catch(() => {});
-
-        // Hide the task screen and show the result inline
-        const screen = document.getElementById('first-task-screen');
-        if (screen) {
-          screen.innerHTML = `
-            <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-              </svg>
-            </div>
-            <h2 class="text-xl font-extrabold text-gray-900 mb-3">Your assistant delivered ✨</h2>
-            <div class="text-left bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap mb-5 max-h-64 overflow-y-auto">${(data.result || data.output || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-            <button onclick="if(window.loadView) window.loadView('assistants')"
-              class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition cursor-pointer">
-              See My Assistants →
-            </button>`;
-        }
-
-      } catch (err) {
-        const msg = err.message || 'Something went wrong. Please try again.';
-        if (errorEl) { errorEl.textContent = msg; errorEl.classList.remove('hidden'); }
-        // AC2.2: surface the safety block (and other errors) as a toast too.
-        if (window.showToast) window.showToast(msg, { icon: '⚠️' });
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Run Task →'; }
-      }
-    };
   })();
 </script>

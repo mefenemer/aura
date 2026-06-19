@@ -387,14 +387,9 @@ async function submitTosAcceptance(btn) {
       </div>
       <!-- AC6: personalised heading -->
       <h2 class="text-2xl font-extrabold text-gray-900 mb-2">Welcome to Be More Swan, <span id="welcome-first-name">there</span>!</h2>
-      <p class="text-gray-500 mb-4 text-sm">Your workspace is live and ready. Here's what you can do right now:</p>
-      <!-- AC7: plan-tier bullets -->
-      <ul id="welcome-bullets" class="mb-6 space-y-2 text-sm text-gray-700">
-        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Set up your first AI Digital Assistant</li>
-        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Connect your social media accounts</li>
-        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Upload your brand assets</li>
-        <li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> Review and approve AI-generated content</li>
-      </ul>
+      <p class="text-gray-500 mb-4 text-sm">Your workspace is live. Here's how to get started — just 3 quick steps:</p>
+      <!-- 3-step setup checklist (mirrors the welcome email + the dashboard widget) -->
+      <ul id="welcome-bullets" class="mb-6 space-y-2.5 text-sm text-gray-700"></ul>
       <!-- AC8: "Open User Guide" — opens in new tab, does NOT close modal (AC8) -->
       <a id="welcome-guide-btn" href="/help.html" target="_blank" rel="noopener noreferrer"
         class="block w-full text-center px-6 py-3 sm:py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition text-base sm:min-h-[48px] leading-normal">
@@ -875,7 +870,7 @@ function formatCurrency(amount, currency) {
       'assistants': { file: 'assistants-directory.html', title: '| My Assistants' },
       'assistant-detail': { file: 'assistant-detail.html', title: '| Board Room' },
       'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
-      'assets': { file: 'assets.html', title: '| Brand Assets' },
+      'assets': { file: 'assets.html', title: '| Business Information' },
       'integrations': { file: 'integrations.html', title: '| Integrations' },
       'instructions': { file: 'instructions.html', title: '| Assistant Instructions' },
       'notifications': { file: 'notifications.html', title: '| Notifications' },
@@ -1778,9 +1773,6 @@ function formatCurrency(amount, currency) {
     // Arriving from Stripe after successful payment
     const qs = new URLSearchParams(window.location.search);
     if (qs.get('payment') === 'success') {
-      document.getElementById('payment-welcome-modal').classList.remove('hidden');
-      document.getElementById('payment-welcome-modal').classList.add('flex');
-
       // Stripe appends payment_intent to the return_url — use it to guarantee
       // the plan record exists even if the webhook hasn't fired yet.
       const piId = qs.get('payment_intent');
@@ -1791,6 +1783,17 @@ function formatCurrency(amount, currency) {
           body: JSON.stringify({ paymentIntentId: piId }),
         }).catch(e => console.warn('confirm-payment call failed:', e));
       }
+
+      // Show the single unified welcome modal, populated with the 3-step setup
+      // checklist. (showWelcomeModal is a hoisted declaration defined below.)
+      (async () => {
+        let profile = {};
+        try {
+          const pRes = await fetch('/.netlify/functions/update-profile');
+          if (pRes.ok) profile = await pRes.json();
+        } catch { /* non-fatal — fall back to defaults */ }
+        showWelcomeModal(profile);
+      })();
 
       history.replaceState(null, '', window.location.pathname);
     }
@@ -1829,19 +1832,34 @@ function formatCurrency(amount, currency) {
       const guideBtn = document.getElementById('welcome-guide-btn');
       if (guideBtn) guideBtn.setAttribute('href', WELCOME_GUIDE_URL);
 
-      // AC7: tier-specific bullets based on active plan name
-      const tier = (tierName || '').toLowerCase();
-      const TIER_BULLETS = {
-        buster:   ['Set up your first AI Digital Assistant', 'Connect your social media accounts', 'Schedule & publish posts automatically', 'Access your content library'],
-        saver:    ['Set up multiple AI Digital Assistants', 'Connect all your social platforms', 'Schedule & publish posts automatically', 'Upload brand assets & manage your library', 'Invite team members to collaborate'],
-        employee: ['Unlimited AI Digital Assistants', 'Full social platform integration', 'Advanced analytics & content insights', 'Custom brand kit & full library access', 'Team seats with role-based access', 'Priority support'],
-      };
-      const bullets = TIER_BULLETS[tier] || ['Set up your first AI Digital Assistant', 'Connect your social media accounts', 'Upload your brand assets', 'Review and approve AI-generated content'];
+      // 3-step setup checklist — wording mirrors the welcome email (verify.ts) and the
+      // dashboard onboarding widget. Each step deep-links to the relevant workspace view.
+      const SETUP_STEPS = [
+        { view: 'assets',       title: 'Complete your business profile', desc: 'Tell us about your business so your assistant understands your brand.' },
+        { view: 'catalog',      title: 'Choose your assistant', desc: 'Pick the role that matches the work you want automated.' },
+        { view: 'integrations', title: 'Connect your tools',    desc: 'Link your social accounts, calendar, or CRM to let your assistant get to work.' },
+      ];
       const bulletsEl = document.getElementById('welcome-bullets');
       if (bulletsEl) {
-        bulletsEl.innerHTML = bullets.map(b =>
-          `<li class="flex items-start gap-2"><span class="text-emerald-600 font-bold mt-0.5">✓</span> ${b}</li>`
-        ).join('');
+        bulletsEl.innerHTML = SETUP_STEPS.map((s, i) => `
+          <li>
+            <button type="button" data-view="${s.view}"
+              class="welcome-step-btn w-full text-left flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:border-emerald-300 hover:bg-emerald-50 transition cursor-pointer">
+              <span class="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm shrink-0">${i + 1}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block font-semibold text-gray-900">${s.title}</span>
+                <span class="block text-xs text-gray-500">${s.desc}</span>
+              </span>
+              <span class="text-emerald-600 font-bold self-center shrink-0">→</span>
+            </button>
+          </li>`).join('');
+        bulletsEl.querySelectorAll('.welcome-step-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const v = btn.getAttribute('data-view');
+            dismissWelcomeModal();
+            if (window.loadView) window.loadView(v);
+          });
+        });
       }
 
       // Show modal — desktop: centred flex, mobile: bottom sheet slides up
@@ -2863,7 +2881,7 @@ function formatCurrency(amount, currency) {
           const barEl = document.getElementById('onboarding-progress-bar');
           if (pctEl) pctEl.textContent = pct + '%';
           if (barEl) barEl.style.width = pct + '%';
-          const ACTION = { brand_voice: ['assets', 'Set up'], connection: ['integrations', 'Connect'], first_assistant: ['catalog', 'Hire'] };
+          const ACTION = { business_profile: ['assets', 'Set up'], connection: ['integrations', 'Connect'], first_assistant: ['catalog', 'Hire'] };
           const ul = document.getElementById('onboarding-steps');
           if (ul) ul.innerHTML = data.steps.map(s => {
             const node = s.done

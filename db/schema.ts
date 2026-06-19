@@ -34,6 +34,13 @@ export const organisations = pgTable('organisations', {
   // Referral Program Expansion: extra assistant slots unlocked by redeeming referral tokens.
   // Stacks ON TOP of the Stripe tier's assistantLimit, so plan syncing is never touched (AC2.2/AC4.2).
   bonusAssistants: integer('bonus_assistants').notNull().default(0),
+  // Business profile — assistant-facing context captured on the Business Information page.
+  // (Legal/tax/registered-address details live in `billingInformation`, not here.)
+  industry: text('industry'),
+  businessDescription: text('business_description'),
+  websiteUrl: text('website_url'),
+  socialLinks: text('social_links'),
+  targetAudience: text('target_audience'),
   // Gamification & Engagement:
   onboardingCompleted: boolean('onboarding_completed').notNull().default(false), // AC1.1.3 — 3-step widget done
   betaAccess: boolean('beta_access').notNull().default(false),                    // AC3.1.2 — 50h-saved milestone

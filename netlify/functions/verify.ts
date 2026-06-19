@@ -126,7 +126,7 @@ export const handler: Handler = async (event) => {
                        <p>Your email is verified — welcome to Be More Swan! You're moments away from having your own AI team member handling the work you don't have time for.</p>
                        <h3 style="margin-top:24px;">Here's how to get started in 3 steps:</h3>
                        <ol style="padding-left:1.2rem;line-height:2">
-                         <li><strong>Complete your profile</strong> — tell us about your business so your assistant understands your brand</li>
+                         <li><strong>Complete your business profile</strong> — tell us about your business so your assistant understands your brand</li>
                          <li><strong>Choose your assistant</strong> — pick the role that matches the work you want automated</li>
                          <li><strong>Connect your tools</strong> — link your social accounts, calendar, or CRM to let your assistant get to work</li>
                        </ol>

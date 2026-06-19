@@ -178,9 +178,12 @@ async function assembleBlueprint(assistantId: number, compiledBy: string, trigge
         businessName: org?.name ?? null,
         displayName: profile?.displayName ?? null,
         language: profile?.timezone ?? null,
-        // Extended fields come from onboardingContext when not yet normalised on organisations
-        industry: (onboardingCtx.industry as string | null) ?? null,
-        targetAudience: (onboardingCtx.target_audience as string | null) ?? null,
+        // Prefer the normalised Business Information fields on organisations;
+        // fall back to onboardingContext for assistants set up before they existed.
+        industry: (org?.industry as string | null) ?? (onboardingCtx.industry as string | null) ?? null,
+        businessDescription: (org?.businessDescription as string | null) ?? null,
+        website: (org?.websiteUrl as string | null) ?? null,
+        targetAudience: (org?.targetAudience as string | null) ?? (onboardingCtx.target_audience as string | null) ?? null,
         brandVoice: (onboardingCtx.brand_voice as string | null) ?? (onboardingCtx.tone_of_voice as string | null) ?? null,
         toneOfVoice: (onboardingCtx.tone_of_voice as string | null) ?? null,
     };

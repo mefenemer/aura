@@ -7,7 +7,7 @@
 import { Handler } from '@netlify/functions';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { organisations, workspaceAssets, systemConnections, aiAssistants } from '../../db/schema';
+import { organisations, systemConnections, aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 
 const json = (statusCode: number, body: unknown) => ({
@@ -22,26 +22,34 @@ export const handler: Handler = async (event) => {
     if ('error' in ctx) return ctx.error;
     const orgId = ctx.organisationId;
 
-    const [org] = await db.select({ onboardingCompleted: organisations.onboardingCompleted })
-        .from(organisations).where(eq(organisations.id, orgId)).limit(1);
+    const [org] = await db.select({
+        onboardingCompleted: organisations.onboardingCompleted,
+        industry:            organisations.industry,
+        businessDescription: organisations.businessDescription,
+        targetAudience:      organisations.targetAudience,
+    }).from(organisations).where(eq(organisations.id, orgId)).limit(1);
 
     // Already finished — widget must never render again.
     if (org?.onboardingCompleted) {
         return json(200, { onboardingCompleted: true, allDone: true, justCompleted: false, steps: [] });
     }
 
+    // Step 1 ticks once the core business-profile fields are filled in (Business
+    // Information page). The other two auto-check once a row exists.
+    const businessProfile = Boolean(org?.industry && org?.businessDescription && org?.targetAudience);
+
     const exists = async (rows: Promise<{ id: number | string }[]>) => (await rows).length > 0;
-    const [brandVoice, connection, firstAssistant] = await Promise.all([
-        exists(db.select({ id: workspaceAssets.id }).from(workspaceAssets).where(eq(workspaceAssets.organisationId, orgId)).limit(1)),
+    const [connection, firstAssistant] = await Promise.all([
         exists(db.select({ id: systemConnections.id }).from(systemConnections).where(eq(systemConnections.organisationId, orgId)).limit(1)),
         exists(db.select({ id: aiAssistants.id }).from(aiAssistants).where(eq(aiAssistants.organisationId, orgId)).limit(1)),
     ]);
 
-    // AC1.1.1: the three core steps.
+    // AC1.1.1: the three core steps. Labels mirror the welcome email
+    // (verify.ts) so the in-app checklist reads identically to what users receive.
     const steps = [
-        { key: 'brand_voice',     label: 'Set Brand Voice',                    done: brandVoice },
-        { key: 'connection',      label: 'Connect a CRM/Export Destination',   done: connection },
-        { key: 'first_assistant', label: 'Hire Your First Assistant',          done: firstAssistant },
+        { key: 'business_profile', label: 'Complete your business profile', done: businessProfile },
+        { key: 'first_assistant',  label: 'Choose your assistant',          done: firstAssistant },
+        { key: 'connection',       label: 'Connect your tools',             done: connection },
     ];
     const allDone = steps.every(s => s.done);
 
