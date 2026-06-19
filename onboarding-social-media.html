@@ -27,6 +27,23 @@
   </div>
 </div>
 
+<!-- US3: In-app feature-unlock modal (prorated upgrade, no page change) -->
+<div id="unlock-feature-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+    <div class="flex justify-between items-center mb-2">
+      <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-2xl">🔒</div>
+      <button onclick="closeUnlockModal()" class="text-gray-400 hover:text-gray-800 text-3xl leading-none transition">&times;</button>
+    </div>
+    <h3 class="text-2xl font-extrabold text-gray-900 mt-4 mb-1">Unlock <span id="unlock-feature-name">this feature</span></h3>
+    <p id="unlock-feature-desc" class="text-gray-600 mb-4 leading-relaxed"></p>
+    <div id="unlock-cost" class="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-6 text-sm text-emerald-900">Calculating your upgrade cost…</div>
+    <div class="flex flex-col sm:flex-row gap-3">
+      <button onclick="closeUnlockModal()" class="px-5 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-lg transition w-full sm:w-auto">Maybe later</button>
+      <button id="unlock-upgrade-btn" onclick="doUnlockUpgrade()" class="px-5 py-3 bg-emerald-600 text-white text-center font-bold rounded-lg shadow hover:bg-emerald-700 transition w-full disabled:opacity-50">Upgrade Now</button>
+    </div>
+  </div>
+</div>
+
 <nav class="bg-white shadow-sm sticky top-0 z-40">
   <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between h-16 items-center">
@@ -548,8 +565,8 @@
               </div>
               <input type="text" id="algo_custom_tags_fb" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #FacebookTips #Community">
               <hr class="border-gray-100">
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Facebook Group Optimization')">
-                <input type="checkbox" id="fb_opt_groups" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm font-bold text-emerald-900">Draft version for niche Facebook Groups (Saver+)</span>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" data-feature="fb_opt_groups">
+                <input type="checkbox" id="fb_opt_groups" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm font-bold text-emerald-900">Draft versions for niche Facebook Groups</span>
               </label>
             </div>
 
@@ -560,15 +577,15 @@
                 <option value="mix">Optimize for a Mix (Reels, Carousels, Static)</option>
                 <option value="reels">Prioritize Reels</option>
               </select>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Trending Audio Monitoring')">
-                <input type="checkbox" id="ig_opt_audio" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Suggest trending audio concepts (Saver+)</span>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" data-feature="ig_opt_audio">
+                <input type="checkbox" id="ig_opt_audio" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Suggest trending audio concepts</span>
               </label>
             </div>
 
             <div id="algo_block_li" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
               <h4 class="font-bold text-gray-800 text-sm mb-2">LinkedIn Strategy</h4>
               <label class="flex items-center cursor-pointer hover:text-emerald-800 transition"><input type="checkbox" id="li_opt_links" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Anti-Penalty: URLs in first comment</span></label>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'PDF Slider Generation')"><input type="checkbox" id="li_opt_sliders" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">PDF Slider/Carousel outlines (Saver+)</span></label>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" data-feature="li_opt_sliders"><input type="checkbox" id="li_opt_sliders" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">PDF Slider/Carousel outlines</span></label>
             </div>
 
             <div id="algo_block_x" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
@@ -576,7 +593,7 @@
               <select id="x_opt_length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
                 <option value="mix">Mix of Threads and Single Posts</option>
               </select>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" onclick="return checkTier('saver', 'Automated Media Sourcing')"><input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Include placeholders for media (Saver+)</span></label>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" data-feature="x_opt_media"><input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Include placeholders for media</span></label>
             </div>
           </div>
         </div>
@@ -758,6 +775,9 @@
 
     // Resume existing draft
     await hydrateDraft();
+
+    // US1–US3: gate premium feature toggles by the user's real subscription tier.
+    initFeatureGating();
 
     // Show cancel-recovery banner when returning from Stripe checkout cancellation
     const urlParams = new URLSearchParams(window.location.search);
@@ -1489,6 +1509,123 @@
     }
     return true;
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  Assistant Onboarding & Feature Gating (US1–US3)
+  // ══════════════════════════════════════════════════════════════════════════
+  const TIER_RANK = { buster: 0, saver: 1, employee: 2 };
+  const GATED_FEATURE_META = {
+    fb_opt_groups:  { tier: 'saver', name: 'Facebook Group drafts',      desc: 'Drafts tailored versions of your post for niche Facebook Groups to maximise reach in targeted communities.' },
+    ig_opt_audio:   { tier: 'saver', name: 'Trending audio suggestions', desc: 'AI analyses TikTok/Instagram trends to recommend viral audio tracks for your reels.' },
+    li_opt_sliders: { tier: 'saver', name: 'PDF carousel outlines',      desc: 'Generates multi-slide PDF carousel outlines that boost LinkedIn dwell time and engagement.' },
+    x_opt_media:    { tier: 'saver', name: 'Media placeholders',         desc: 'Inserts smart media placeholders so every post ships with eye-catching visuals.' },
+  };
+  let _gatingTier = currentTierKey;   // AC1.1 — refined from check-capacity on load
+  let _pendingUnlock = null;          // { featureKey, tier }
+
+  function _tierMeets(userTier, requiredTier) {
+    const u = TIER_RANK[userTier] ?? 99;   // unknown/higher tiers count as owned
+    const r = TIER_RANK[requiredTier] ?? 0;
+    return u >= r;
+  }
+
+  async function initFeatureGating() {
+    // AC1.1: read the real subscription tier from the workspace context.
+    try {
+      const res = await fetch('/.netlify/functions/check-capacity');
+      if (res.ok) { const cap = await res.json(); if (cap.tierKey) _gatingTier = cap.tierKey; }
+    } catch { /* fall back to the sessionStorage tier */ }
+    applyFeatureGating();
+  }
+
+  function applyFeatureGating() {
+    Object.entries(GATED_FEATURE_META).forEach(([key, meta]) => {
+      const input = document.getElementById(key);
+      const label = input?.closest('label');
+      if (!input || !label) return;
+      const owned = _tierMeets(_gatingTier, meta.tier);
+
+      label.querySelector('.gate-pill')?.remove();
+      label.onclick = null;            // neutralise the legacy inline checkTier handler
+      label.title = owned ? '' : meta.desc;   // AC2.3: hover tooltip describing the value
+
+      if (owned) {
+        // AC1.2: clean, active checkbox — no badge, no lock.
+        input.disabled = false;
+        label.style.opacity = '';
+      } else {
+        // AC2.1/2.2: disabled + greyed + "Upgrade to Unlock" pill.
+        input.disabled = true;
+        input.checked = false;
+        label.style.opacity = '0.6';
+        const pill = document.createElement('span');
+        pill.className = 'gate-pill';
+        pill.style.cssText = 'margin-left:8px;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:9999px;padding:2px 8px;white-space:nowrap;';
+        pill.textContent = '🔒 Upgrade to Unlock';
+        label.appendChild(pill);
+        // AC3.1: clicking the locked row opens the unlock modal instead of toggling.
+        label.onclick = (e) => { e.preventDefault(); openUnlockModal(key); };
+      }
+    });
+  }
+
+  async function openUnlockModal(featureKey) {
+    const meta = GATED_FEATURE_META[featureKey];
+    if (!meta) return;
+    _pendingUnlock = { featureKey, tier: meta.tier };
+    document.getElementById('unlock-feature-name').textContent = meta.name;
+    document.getElementById('unlock-feature-desc').textContent = meta.desc;
+    const costEl = document.getElementById('unlock-cost');
+    costEl.textContent = 'Calculating your upgrade cost…';
+    document.getElementById('unlock-feature-modal').classList.remove('hidden');
+    // AC3.2: prorated cost from the existing billing-upgrade preview.
+    try {
+      const res = await fetch(`/.netlify/functions/billing-upgrade?preview=1&targetTierKey=${encodeURIComponent(meta.tier)}`);
+      const data = await res.json();
+      if (res.ok && data.preview) {
+        const p = data.preview;
+        costEl.innerHTML = `Upgrade to <strong>${p.targetPlanName}</strong> — <strong>£${p.proratedAmountGbp} due today</strong> <span class="text-emerald-700">(${p.proratedNote})</span>, then £${p.newMonthlyAmount}/mo.`;
+      } else {
+        costEl.textContent = data.error || 'Upgrading unlocks this feature instantly.';
+      }
+    } catch {
+      costEl.textContent = 'Upgrading unlocks this feature instantly.';
+    }
+  }
+
+  function closeUnlockModal() {
+    document.getElementById('unlock-feature-modal').classList.add('hidden');
+    _pendingUnlock = null;
+  }
+
+  async function doUnlockUpgrade() {
+    if (!_pendingUnlock) return;
+    const btn = document.getElementById('unlock-upgrade-btn');
+    btn.disabled = true; btn.textContent = 'Upgrading…';
+    const wantedKey = _pendingUnlock.featureKey;
+    try {
+      // AC3.3: Stripe billing update (in-place, prorated — no redirect, form state preserved).
+      const res = await fetch('/.netlify/functions/billing-upgrade', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetTierKey: _pendingUnlock.tier }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upgrade failed.');
+      // AC3.4: re-read the tier and re-apply gating immediately — no page refresh.
+      await initFeatureGating();
+      sessionStorage.setItem('aura_tier', _gatingTier);
+      closeUnlockModal();
+      btn.disabled = false; btn.textContent = 'Upgrade Now';
+      const cb = document.getElementById(wantedKey);
+      if (cb && !cb.disabled) cb.checked = true; // pre-tick the feature they tried to use
+    } catch (e) {
+      btn.disabled = false; btn.textContent = 'Upgrade Now';
+      document.getElementById('unlock-cost').textContent = (e.message || 'Upgrade failed.') + ' Please try again.';
+    }
+  }
+  window.openUnlockModal = openUnlockModal;
+  window.closeUnlockModal = closeUnlockModal;
+  window.doUnlockUpgrade = doUnlockUpgrade;
 
   function toggleScheduleDetails() {
     const triggerEl = document.querySelector('input[name="trigger_type"][value="scheduled"]');
