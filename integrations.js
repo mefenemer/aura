@@ -117,6 +117,14 @@ function _relevantPlatforms() {
     return PLATFORMS.filter(p => allow.has(p.id));
 }
 
+// Append the selected assistant so the OAuth flow binds the connection to it
+// (and the server can enforce relevance). oauthUrl already carries a query string.
+function _oauthUrl(platform) {
+    return _selectedAssistantId
+        ? `${platform.oauthUrl}&assistantId=${encodeURIComponent(_selectedAssistantId)}`
+        : platform.oauthUrl;
+}
+
 async function _loadAssistantsForFilter() {
     const bar = document.getElementById('conn-assistant-bar');
     const sel = document.getElementById('conn-assistant-select');
@@ -213,11 +221,11 @@ function _platformCard(platform, conn) {
 
     // US-SMM-4.1.1 / 4.1.2: OAuth platforms use redirect; manual token entry kept for non-OAuth
     const connectBtn = platform.oauthPlatform
-        ? `<a href="${platform.oauthUrl}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer inline-block">Connect with ${platform.label}</a>`
+        ? `<a href="${_oauthUrl(platform)}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer inline-block">Connect with ${platform.label}</a>`
         : `<button onclick="window._intOpenModal('${platform.id}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer" type="button">Connect</button>`;
 
     const reconnectBtn = platform.oauthPlatform
-        ? `<a href="${platform.oauthUrl}" class="text-sm font-bold text-gray-500 hover:text-gray-800 transition cursor-pointer">Reconnect</a>`
+        ? `<a href="${_oauthUrl(platform)}" class="text-sm font-bold text-gray-500 hover:text-gray-800 transition cursor-pointer">Reconnect</a>`
         : `<button onclick="window._intOpenModal('${platform.id}')" class="text-sm font-bold text-gray-500 hover:text-gray-800 transition cursor-pointer" type="button">Update token</button>`;
 
     // US-SMM-4.3.2: preflight audit status badge
@@ -386,7 +394,7 @@ window._intOpenModal = function (platformId) {
 
     // US-SMM-4.1.1: OAuth platforms redirect instead of showing the token modal
     if (platform.oauthPlatform) {
-        window.location.href = platform.oauthUrl;
+        window.location.href = _oauthUrl(platform);
         return;
     }
 

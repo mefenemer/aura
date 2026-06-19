@@ -9,6 +9,8 @@ import { getDb } from '../../db/client';
 import { systemConnections, notifications, auditLogs, users, userOrganisations } from '../../db/schema';
 import { storeSecret, getSecret, deleteSecret } from '../../src/utils/vault';
 import { resolveBaseUrl } from '../../src/utils/base-url';
+import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
+import { resolveAssistantRole } from '../../src/utils/assistant-role';
 
 function parseState(raw: string): Record<string, string> | null {
     try { return JSON.parse(Buffer.from(raw, 'base64url').toString()); }
@@ -39,7 +41,7 @@ export const handler: Handler = async (event) => {
 
     // AC1.1.2: verify CSRF against server-side vault entry and enforce 10-minute TTL
     const csrfKey = `oauth_csrf:${userId}:${platform}`;
-    const storedState = await getSecret(db, csrfKey).catch(() => null) as { csrf?: string; expiresAt?: number; organisationId?: string; codeVerifier?: string } | null;
+    const storedState = await getSecret(db, csrfKey).catch(() => null) as { csrf?: string; expiresAt?: number; organisationId?: string; codeVerifier?: string; assistantId?: string } | null;
     await deleteSecret(db, csrfKey).catch(() => {}); // consume regardless — one-time use
 
     if (!storedState || storedState.csrf !== state.csrf || !storedState.expiresAt || Date.now() > storedState.expiresAt) {
@@ -47,6 +49,17 @@ export const handler: Handler = async (event) => {
     }
 
     const organisationId = parseInt(storedState.organisationId ?? '0');
+    const assistantId = storedState.assistantId ? parseInt(storedState.assistantId) : null;
+
+    // Connection sandboxing: if connecting for a specific assistant, this platform
+    // must be relevant to that assistant's role.
+    if (assistantId) {
+        const assistant = await resolveAssistantRole(db, organisationId, assistantId);
+        if (!assistant || !isServiceAllowedForAssistant(platform, assistant)) {
+            return { statusCode: 302, headers: { Location: `/workspace.html?oauth_error=connection_not_relevant&platform=${platform}` }, body: '' };
+        }
+    }
+
     const callbackUri = `${baseUrl}/.netlify/functions/social-oauth-callback?platform=${platform}`;
 
     // ── LinkedIn ──────────────────────────────────────────────────────────────
@@ -85,9 +98,9 @@ export const handler: Handler = async (event) => {
 
         const scopes = 'r_organization_social,w_organization_social,r_basicprofile';
         if (existing) {
-            await db.update(systemConnections).set({ vaultRefKey: refKey, externalUserId: linkedinId, tokenExpiresAt, status: 'active', isActive: true, scopes, updatedAt: new Date() }).where(eq(systemConnections.id, existing.id));
+            await db.update(systemConnections).set({ vaultRefKey: refKey, externalUserId: linkedinId, tokenExpiresAt, status: 'active', isActive: true, scopes, ...(assistantId ? { assistantId } : {}), updatedAt: new Date() }).where(eq(systemConnections.id, existing.id));
         } else {
-            await db.insert(systemConnections).values({ organisationId, userId, serviceName: 'linkedin', connectionType: 'oauth', vaultRefKey: refKey, externalUserId: linkedinId, tokenExpiresAt, status: 'active', isActive: true, scopes });
+            await db.insert(systemConnections).values({ organisationId, userId, assistantId, serviceName: 'linkedin', connectionType: 'oauth', vaultRefKey: refKey, externalUserId: linkedinId, tokenExpiresAt, status: 'active', isActive: true, scopes });
         }
 
         await db.insert(notifications).values({ userId, type: 'linkedin_connected', title: existing ? 'LinkedIn reconnected' : 'LinkedIn connected', message: 'LinkedIn connected successfully. Your assistant can now post on your behalf.' });
@@ -139,9 +152,9 @@ export const handler: Handler = async (event) => {
 
         const scopes = 'tweet.read,tweet.write,users.read,offline.access';
         if (existing) {
-            await db.update(systemConnections).set({ vaultRefKey: refKey, externalUserId: xUsername || xUserId, tokenExpiresAt, status: 'active', isActive: true, scopes, updatedAt: new Date() }).where(eq(systemConnections.id, existing.id));
+            await db.update(systemConnections).set({ vaultRefKey: refKey, externalUserId: xUsername || xUserId, tokenExpiresAt, status: 'active', isActive: true, scopes, ...(assistantId ? { assistantId } : {}), updatedAt: new Date() }).where(eq(systemConnections.id, existing.id));
         } else {
-            await db.insert(systemConnections).values({ organisationId, userId, serviceName: 'x', connectionType: 'oauth', vaultRefKey: refKey, externalUserId: xUsername || xUserId, tokenExpiresAt, status: 'active', isActive: true, scopes });
+            await db.insert(systemConnections).values({ organisationId, userId, assistantId, serviceName: 'x', connectionType: 'oauth', vaultRefKey: refKey, externalUserId: xUsername || xUserId, tokenExpiresAt, status: 'active', isActive: true, scopes });
         }
 
         await db.insert(notifications).values({ userId, type: 'x_connected', title: existing ? 'X reconnected' : 'X connected', message: 'X (Twitter) connected successfully. Your assistant can now post on your behalf.' });

@@ -14,6 +14,8 @@ import { users, scheduledPosts, contentAssets, contentProvenance, userOrganisati
 import { createHmac, createHash, randomUUID } from 'crypto';
 import { propagateAssetStatuses } from './content-assets';
 import { requireOnboarding } from '../../src/utils/onboarding-guard';
+import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
+import { resolveAssistantRole } from '../../src/utils/assistant-role';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -96,6 +98,15 @@ export const handler: Handler = async (event) => {
 
             if (!platform || !postFormat || !publishDate) {
                 return { statusCode: 400, body: JSON.stringify({ error: 'platform, postFormat, and publishDate are required.' }) };
+            }
+
+            // Runtime connection sandboxing: an assistant may only publish to platforms
+            // relevant to its role (e.g. a non-social assistant cannot schedule posts).
+            if (assistantId) {
+                const assistant = await resolveAssistantRole(db, user.organisationId, parseInt(String(assistantId), 10));
+                if (assistant && !isServiceAllowedForAssistant(platform, assistant)) {
+                    return { statusCode: 403, body: JSON.stringify({ error: `This assistant is not permitted to publish to ${platform}.`, code: 'CONNECTION_NOT_RELEVANT' }) };
+                }
             }
 
             const finalStatus = status || 'draft';

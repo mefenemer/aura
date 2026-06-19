@@ -1,21 +1,11 @@
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, and, or, isNull, sql } from 'drizzle-orm';
+import { eq, and, or, isNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { systemConnections, scheduledPosts, notifications, users, userOrganisations, auditLogs, aiAssistants } from '../../db/schema';
+import { systemConnections, scheduledPosts, notifications, users, userOrganisations, auditLogs } from '../../db/schema';
 import { storeSecret, deleteSecret, buildRefKey } from '../../src/utils/vault';
-import { isServiceAllowedForAssistant, allowedServiceNames, type AssistantRole } from '../../src/utils/connection-map';
-
-// Resolve an assistant (org-scoped) to its role for connection-policy enforcement.
-// Returns null when the id is missing or doesn't belong to the org.
-async function resolveAssistantRole(db: ReturnType<typeof getDb>, orgId: number | null, assistantId: number): Promise<AssistantRole | null> {
-    if (!orgId || !Number.isFinite(assistantId)) return null;
-    const [a] = await db.select({
-        role: aiAssistants.aiAssistantJobRole,
-        roleKey: sql<string | null>`(${aiAssistants.configuration} ->> 'type')`,
-    }).from(aiAssistants).where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId))).limit(1);
-    return a ?? null;
-}
+import { isServiceAllowedForAssistant, allowedServiceNames } from '../../src/utils/connection-map';
+import { resolveAssistantRole } from '../../src/utils/assistant-role';
 
 const jwtSecret = process.env.JWT_SECRET;
 

@@ -11,6 +11,8 @@ import { getDb } from '../../db/client';
 import { systemConnections, notifications, users, auditLogs, userOrganisations } from '../../db/schema';
 import { storeSecret } from '../../src/utils/vault';
 import { resolveBaseUrl } from '../../src/utils/base-url';
+import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
+import { resolveAssistantRole } from '../../src/utils/assistant-role';
 
 const jwtSecret   = process.env.JWT_SECRET!;
 const metaAppId   = process.env.META_APP_ID!;
@@ -90,6 +92,15 @@ export const handler: Handler = async (event) => {
 
         const organisationId = parseInt(state.organisationId);
         const assistantId   = state.assistantId ? parseInt(state.assistantId) : null;
+
+        // Connection sandboxing: if this connect was initiated for a specific
+        // assistant, Instagram must be relevant to that assistant's role.
+        if (assistantId) {
+            const assistant = await resolveAssistantRole(getDb(), organisationId, assistantId);
+            if (!assistant || !isServiceAllowedForAssistant('instagram', assistant)) {
+                return { statusCode: 302, headers: { Location: '/workspace.html?meta_error=connection_not_relevant' }, body: '' };
+            }
+        }
 
         // Exchange short-lived code for long-lived token
         const tokenRes = await fetch(
@@ -171,6 +182,7 @@ export const handler: Handler = async (event) => {
                 status: 'active',
                 isActive: true,
                 metadata: { accountType, fbPageId },
+                ...(assistantId ? { assistantId } : {}),
                 updatedAt: new Date(),
             }).where(eq(systemConnections.id, existing.id));
         } else {

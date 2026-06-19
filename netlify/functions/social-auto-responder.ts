@@ -10,6 +10,7 @@ import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants, systemConnections, organisations, userOrganisations } from '../../db/schema';
 import { getSecret } from '../../src/utils/vault';
+import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
 
 const jwtSecret  = process.env.JWT_SECRET!;
 const anthropic  = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -42,6 +43,11 @@ export const handler: Handler = async (event) => {
         .limit(1);
 
     if (!assistant) return { statusCode: 404, body: JSON.stringify({ error: 'No active assistant found' }) };
+
+    // Runtime connection sandboxing: this assistant may only drive social connections.
+    if (!isServiceAllowedForAssistant('instagram', { roleKey: (assistant.configuration as { type?: string } | null)?.type, role: assistant.name })) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'This assistant is not permitted to use social connections.', code: 'CONNECTION_NOT_RELEVANT' }) };
+    }
 
     const [org] = await db.select({ name: organisations.name }).from(organisations).where(eq(organisations.id, organisationId)).limit(1);
     const businessName = org?.name ?? 'your business';

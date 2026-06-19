@@ -42,6 +42,9 @@ export const handler: Handler = async (event) => {
         return { statusCode: 302, headers: { Location: '/workspace.html?oauth_error=invalid_session' }, body: '' };
     }
 
+    // Bind this connection to the assistant it's being connected for (optional).
+    const assistantId = event.queryStringParameters?.assistantId || '';
+
     const csrf = randomBytes(32).toString('hex');
     const expiresAt = Date.now() + CSRF_TTL_MS;
 
@@ -56,7 +59,7 @@ export const handler: Handler = async (event) => {
 
         // AC1.1.2: store CSRF state server-side with TTL
         const csrfKey = `oauth_csrf:${userId}:linkedin`;
-        await storeSecret(db, csrfKey, { csrf, expiresAt, organisationId: String(organisationId) });
+        await storeSecret(db, csrfKey, { csrf, expiresAt, organisationId: String(organisationId), assistantId });
 
         // AC1.1.3: minimum required scopes only
         const scopes = 'r_organization_social,w_organization_social,r_basicprofile';
@@ -73,7 +76,7 @@ export const handler: Handler = async (event) => {
 
         // AC1.1.2: store CSRF state + PKCE verifier server-side with TTL
         const csrfKey = `oauth_csrf:${userId}:x`;
-        await storeSecret(db, csrfKey, { csrf, expiresAt, organisationId: String(organisationId), codeVerifier });
+        await storeSecret(db, csrfKey, { csrf, expiresAt, organisationId: String(organisationId), codeVerifier, assistantId });
 
         const state = buildState({ platform, userId: String(userId), csrf });
         const scopes = 'tweet.read tweet.write users.read offline.access';
