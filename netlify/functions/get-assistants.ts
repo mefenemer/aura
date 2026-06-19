@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
 import { aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
@@ -19,6 +19,9 @@ export const handler: Handler = async (event) => {
             id: aiAssistants.id,
             name: aiAssistants.name,
             role: aiAssistants.aiAssistantJobRole,
+            // roleKey drives the connection-relevance map (connection-map.js).
+            // Stored in configuration.type at creation (onboarding.ts).
+            roleKey: sql<string | null>`(${aiAssistants.configuration} ->> 'type')`,
             status: aiAssistants.provisioningStatus,
             isActive: aiAssistants.isActive
         }).from(aiAssistants).where(eq(aiAssistants.organisationId, orgId)));
