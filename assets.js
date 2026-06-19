@@ -70,51 +70,73 @@ window.initBrandAssets = function() {
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(file);
             inputFile.files = dataTransfer.files;
+            // Auto-upload as soon as a file is chosen — no Upload button needed.
+            // If no category is picked yet, hold until the category is selected.
+            if (document.getElementById('asset-category').value) submitAsset();
+            else setAssetStatus('Choose a category above to upload.', 'pending');
         }
     }
 
-    // --- FORM SUBMISSION ---
+    // --- AUTO UPLOAD (no button) ---
     const form = document.getElementById('asset-upload-form');
-    const submitBtn = document.getElementById('submit-asset-btn');
+    const categorySelect = document.getElementById('asset-category');
+    const assetStatusEl = document.getElementById('asset-upload-status');
+    let _uploading = false;
 
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const category = document.getElementById('asset-category').value;
-        if (!category) return alert("Please select an asset category.");
+    function setAssetStatus(msg, kind) {
+        if (!assetStatusEl) return;
+        if (!msg) { assetStatusEl.classList.add('hidden'); return; }
+        assetStatusEl.textContent = msg;
+        assetStatusEl.classList.remove('hidden', 'text-emerald-700', 'text-red-600', 'text-gray-400');
+        assetStatusEl.classList.add(kind === 'error' ? 'text-red-600' : kind === 'pending' ? 'text-gray-400' : 'text-emerald-700');
+    }
 
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Uploading...';
-        submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
-
+    async function submitAsset() {
+        if (_uploading) return;
+        const category = categorySelect.value;
+        if (!category) { setAssetStatus('Select a category first.', 'error'); return; }
+        _uploading = true;
         try {
             if (currentMode === 'file') {
                 const file = inputFile.files[0];
-                if (!file) throw new Error("Please select a file to upload.");
+                if (!file) { setAssetStatus('Choose a file to upload.', 'error'); return; }
+                setAssetStatus(`Uploading ${file.name}…`, 'pending');
                 await uploadFileToR2(file, category);
             } else {
                 const url = inputUrl.value.trim();
-                if (!url) throw new Error("Please enter a valid URL.");
+                if (!url) { setAssetStatus('Enter a URL first.', 'error'); return; }
+                setAssetStatus('Adding URL…', 'pending');
                 const payload = new FormData();
                 payload.append('category', category);
                 payload.append('url', url);
                 const response = await fetch('/.netlify/functions/upload-asset', { method: 'POST', body: payload });
-                if (!response.ok) throw new Error("Failed to save URL asset.");
+                if (!response.ok) throw new Error('Failed to save URL asset.');
             }
-
             await loadAssets();
             form.reset();
             fileNameDisplay.classList.add('hidden');
             inputFile.value = '';
             updateTabs('file');
+            setAssetStatus('Added ✓', 'success');
+            setTimeout(() => setAssetStatus(''), 2500);
         } catch (error) {
             console.error('Save failed:', error);
-            alert(error.message || "Failed to save asset. Please try again.");
+            setAssetStatus(error.message || 'Upload failed. Please try again.', 'error');
         } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Upload Asset';
-            submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            _uploading = false;
         }
+    }
+
+    // A category chosen after the file → upload now.
+    categorySelect.addEventListener('change', () => {
+        if (currentMode === 'file' && inputFile.files && inputFile.files[0]) submitAsset();
     });
+    // URL mode: add on Enter.
+    inputUrl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); submitAsset(); }
+    });
+    // No submit button, but guard against an implicit submit (Enter in a field).
+    form.addEventListener('submit', (e) => e.preventDefault());
 
     // 3-step presigned R2 upload: request → PUT to R2 → confirm.
     async function uploadFileToR2(file, category) {
@@ -204,40 +226,35 @@ window.initBrandAssets = function() {
         });
     }
 
-    // ── Business profile ──────────────────────────────────────────────────────
-    async function loadBusinessProfile() {
-        const nameEl = document.getElementById('bp-input-name');
-        if (!nameEl) return; // section not on page
-        try {
-            const res = await fetch('/.netlify/functions/organisation-profile');
-            if (!res.ok) return;
-            const { profile } = await res.json();
-            if (!profile) return;
-            const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
-            set('bp-input-name', profile.businessName);
-            set('bp-input-industry', profile.industry);
-            set('bp-input-website', profile.websiteUrl);
-            set('bp-input-social', profile.socialLinks);
-            set('bp-input-description', profile.businessDescription);
-            set('bp-input-audience', profile.targetAudience);
-        } catch { /* non-fatal */ }
+    // ── Auto-save helpers (no save buttons on this page) ──────────────────────
+    const val = (id) => document.getElementById(id)?.value.trim() || '';
+    const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+    function setStatus(id, msg, kind) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (!msg) { el.textContent = ''; return; }
+        el.textContent = msg;
+        el.classList.remove('text-emerald-600', 'text-red-600', 'text-gray-400');
+        el.classList.add(kind === 'error' ? 'text-red-600' : kind === 'success' ? 'text-emerald-600' : 'text-gray-400');
     }
 
-    window._businessProfileSave = async function () {
-        const saveBtn = document.getElementById('bp-save-btn');
-        const errorEl = document.getElementById('bp-error');
-        const savedEl = document.getElementById('bp-saved');
-        const val = (id) => document.getElementById(id)?.value.trim() || '';
-        errorEl?.classList.add('hidden');
-        savedEl?.classList.add('hidden');
+    // Legal Name defaults to the Business name: when the legal field is blank or
+    // still mirrors the previous business name, keep it in step. Returns true if changed.
+    let _prevBusinessName = '';
+    function syncLegalName(newName) {
+        const el = document.getElementById('bd-input-name');
+        if (!el) return false;
+        const cur = el.value.trim();
+        if (!cur || cur === _prevBusinessName) { el.value = newName; return true; }
+        return false;
+    }
 
+    // ── Business profile (auto-save) ──────────────────────────────────────────
+    async function saveBusinessProfile() {
+        if (!document.getElementById('bp-input-name')) return;
         const businessName = val('bp-input-name');
-        if (!businessName) {
-            if (errorEl) { errorEl.textContent = 'Business name is required.'; errorEl.classList.remove('hidden'); }
-            return;
-        }
-
-        if (saveBtn) { saveBtn.disabled = true; saveBtn.classList.add('opacity-75', 'cursor-not-allowed'); }
+        if (!businessName) { setStatus('bp-status', 'Add a business name to save', 'error'); return; }
+        setStatus('bp-status', 'Saving…', 'pending');
         try {
             const res = await fetch('/.netlify/functions/organisation-profile', {
                 method: 'POST',
@@ -253,114 +270,108 @@ window.initBrandAssets = function() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-            if (savedEl) { savedEl.classList.remove('hidden'); setTimeout(() => savedEl.classList.add('hidden'), 3000); }
+            // Mirror the business name into the legal name (and persist it) if linked.
+            const mirrored = syncLegalName(businessName);
+            _prevBusinessName = businessName;
+            setStatus('bp-status', 'Saved ✓', 'success');
+            setTimeout(() => setStatus('bp-status', ''), 2500);
+            if (mirrored) saveBilling();
         } catch (e) {
             console.error('[business-profile-save]', e);
-            if (errorEl) { errorEl.textContent = e.message || 'Failed to save. Please try again.'; errorEl.classList.remove('hidden'); }
-        } finally {
-            if (saveBtn) { saveBtn.disabled = false; saveBtn.classList.remove('opacity-75', 'cursor-not-allowed'); }
+            setStatus('bp-status', e.message || 'Save failed', 'error');
         }
-    };
-
-    // ── Legal & billing details (data stays in billing_information) ────────────
-    let _billingInfo = null;
-
-    function _renderBillingDetails(info) {
-        const emptyEl = document.getElementById('billing-details-empty');
-        const infoEl  = document.getElementById('billing-details-info');
-        if (!emptyEl || !infoEl) return;
-        if (!info) {
-            emptyEl.classList.remove('hidden');
-            infoEl.classList.add('hidden');
-            return;
-        }
-        emptyEl.classList.add('hidden');
-        infoEl.classList.remove('hidden');
-        document.getElementById('bd-name').textContent  = info.fullName || '—';
-        document.getElementById('bd-email').textContent = info.email || '—';
-        document.getElementById('bd-vat').textContent   = info.vatNumber || '—';
-        const addrParts = [info.addressLine1, info.addressLine2, info.city, info.state, info.postalCode, info.country].filter(Boolean);
-        document.getElementById('bd-address').textContent = addrParts.join('\n') || '—';
     }
 
-    async function loadBillingDetails() {
-        if (!document.getElementById('billing-details-display')) return; // section not on page
+    // ── Legal & billing details (auto-save; data stays in billing_information) ──
+    async function saveBilling() {
+        if (!document.getElementById('bd-input-name')) return;
+        const fullName = val('bd-input-name');
+        if (!fullName) { setStatus('bd-status', 'Add a legal name to save', 'error'); return; }
+        setStatus('bd-status', 'Saving…', 'pending');
         try {
-            const res = await fetch('/.netlify/functions/billing-information');
-            if (!res.ok) return;
-            const { billingInfo } = await res.json();
-            _billingInfo = billingInfo || null;
-            _renderBillingDetails(_billingInfo);
-        } catch { /* non-fatal */ }
-    }
-
-    window._billingDetailsEdit = function () {
-        const info = _billingInfo;
-        const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
-        set('bd-input-name', info?.fullName);
-        set('bd-input-email', info?.email);
-        set('bd-input-vat', info?.vatNumber);
-        set('bd-input-addr1', info?.addressLine1);
-        set('bd-input-addr2', info?.addressLine2);
-        set('bd-input-city', info?.city);
-        set('bd-input-postal', info?.postalCode);
-        set('bd-input-state', info?.state);
-        set('bd-input-country', info?.country);
-        document.getElementById('billing-details-display')?.classList.add('hidden');
-        document.getElementById('billing-details-form')?.classList.remove('hidden');
-        document.getElementById('btn-edit-billing-details')?.classList.add('hidden');
-        document.getElementById('bd-form-error')?.classList.add('hidden');
-    };
-
-    window._billingDetailsCancel = function () {
-        document.getElementById('billing-details-display')?.classList.remove('hidden');
-        document.getElementById('billing-details-form')?.classList.add('hidden');
-        document.getElementById('btn-edit-billing-details')?.classList.remove('hidden');
-    };
-
-    window._billingDetailsSave = async function () {
-        const saveBtn = document.getElementById('btn-save-billing-details');
-        const errorEl = document.getElementById('bd-form-error');
-        errorEl?.classList.add('hidden');
-        const fullName = document.getElementById('bd-input-name').value.trim();
-        if (!fullName) {
-            if (errorEl) { errorEl.textContent = 'Legal name / company name is required.'; errorEl.classList.remove('hidden'); }
-            return;
-        }
-        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
-        try {
-            const val = (id) => document.getElementById(id).value.trim();
-            const body = {
-                fullName,
-                email:        val('bd-input-email'),
-                vatNumber:    val('bd-input-vat'),
-                addressLine1: val('bd-input-addr1'),
-                addressLine2: val('bd-input-addr2'),
-                city:         val('bd-input-city'),
-                postalCode:   val('bd-input-postal'),
-                state:        val('bd-input-state'),
-                country:      val('bd-input-country'),
-            };
-            const res  = await fetch('/.netlify/functions/billing-information', {
+            const res = await fetch('/.netlify/functions/billing-information', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
+                body: JSON.stringify({
+                    fullName,
+                    email:        val('bd-input-email'),
+                    vatNumber:    val('bd-input-vat'),
+                    addressLine1: val('bd-input-addr1'),
+                    addressLine2: val('bd-input-addr2'),
+                    city:         val('bd-input-city'),
+                    postalCode:   val('bd-input-postal'),
+                    state:        val('bd-input-state'),
+                    country:      val('bd-input-country'),
+                }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-            _billingInfo = data.billingInfo || body;
-            _renderBillingDetails(_billingInfo);
-            window._billingDetailsCancel();
+            setStatus('bd-status', 'Saved ✓', 'success');
+            setTimeout(() => setStatus('bd-status', ''), 2500);
         } catch (e) {
             console.error('[billing-details-save]', e);
-            if (errorEl) { errorEl.textContent = e.message || 'Failed to save. Please try again.'; errorEl.classList.remove('hidden'); }
-        } finally {
-            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save Details`; }
+            setStatus('bd-status', e.message || 'Save failed', 'error');
         }
-    };
+    }
 
-    // Initial load of existing assets, business profile, and billing details.
+    // ── Load + wire auto-save ─────────────────────────────────────────────────
+    async function initBusinessSections() {
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+
+        // Business profile
+        if (document.getElementById('bp-input-name')) {
+            try {
+                const res = await fetch('/.netlify/functions/organisation-profile');
+                if (res.ok) {
+                    const { profile } = await res.json();
+                    if (profile) {
+                        set('bp-input-name', profile.businessName);
+                        set('bp-input-industry', profile.industry);
+                        set('bp-input-website', profile.websiteUrl);
+                        set('bp-input-social', profile.socialLinks);
+                        set('bp-input-description', profile.businessDescription);
+                        set('bp-input-audience', profile.targetAudience);
+                        _prevBusinessName = profile.businessName || '';
+                    }
+                }
+            } catch { /* non-fatal */ }
+        }
+
+        // Legal & billing details
+        if (document.getElementById('bd-input-name')) {
+            try {
+                const res = await fetch('/.netlify/functions/billing-information');
+                if (res.ok) {
+                    const { billingInfo: b } = await res.json();
+                    if (b) {
+                        set('bd-input-name', b.fullName);
+                        set('bd-input-email', b.email);
+                        set('bd-input-vat', b.vatNumber);
+                        set('bd-input-addr1', b.addressLine1);
+                        set('bd-input-addr2', b.addressLine2);
+                        set('bd-input-city', b.city);
+                        set('bd-input-postal', b.postalCode);
+                        set('bd-input-state', b.state);
+                        set('bd-input-country', b.country);
+                    }
+                }
+            } catch { /* non-fatal */ }
+            // Prefill legal name from the business name when none is stored yet.
+            const legalEl = document.getElementById('bd-input-name');
+            if (legalEl && !legalEl.value.trim() && _prevBusinessName) legalEl.value = _prevBusinessName;
+        }
+
+        // Wire debounced auto-save on every field.
+        const bpSave = debounce(saveBusinessProfile, 700);
+        ['bp-input-name','bp-input-industry','bp-input-website','bp-input-social','bp-input-description','bp-input-audience']
+            .forEach(id => document.getElementById(id)?.addEventListener('input', bpSave));
+
+        const bdSave = debounce(saveBilling, 700);
+        ['bd-input-name','bd-input-email','bd-input-vat','bd-input-addr1','bd-input-addr2','bd-input-city','bd-input-postal','bd-input-state','bd-input-country']
+            .forEach(id => document.getElementById(id)?.addEventListener('input', bdSave));
+    }
+
+    // Initial load of existing assets + business/billing sections.
     loadAssets();
-    loadBusinessProfile();
-    loadBillingDetails();
+    initBusinessSections();
 };
