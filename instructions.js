@@ -27,7 +27,7 @@ window.initInstructions = function() {
         {
             id: 'core_knowledge',
             title: 'Core Business Facts',
-            placeholder: 'e.g., "Our flagship service is Aura-Assist, an AI-driven task delegation platform designed for SaaS teams."'
+            placeholder: 'e.g., "Our flagship service is Be More Swan, an AI-driven task delegation platform designed for SaaS teams."'
         },
         {
             id: 'target_audience',

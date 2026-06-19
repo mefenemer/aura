@@ -102,9 +102,9 @@ async function refreshToken(db: ReturnType<typeof getDb>, conn: {
             await sendEmail({
                 to: orgUser.email,
                 subject: 'Action required: Reconnect your Instagram account',
-                html: `<p>Your Instagram account connected to Aura-Assist needs to be reconnected — your token could not be automatically refreshed.</p>
+                html: `<p>Your Instagram account connected to Be More Swan needs to be reconnected — your token could not be automatically refreshed.</p>
                        <p>Your scheduled posts have been paused and will resume once you reconnect.</p>
-                       <p><a href="${process.env.BASE_URL || 'https://aura-assist.com'}/workspace.html?reconnect=instagram">Reconnect Instagram →</a></p>`,
+                       <p><a href="${process.env.BASE_URL || 'https://bemoreswan.com'}/workspace.html?reconnect=instagram">Reconnect Instagram →</a></p>`,
             });
         }
 

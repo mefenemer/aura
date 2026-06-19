@@ -16,7 +16,7 @@ import { users, supportTickets, ticketReplies, notifications, auditLogs } from '
 
 const jwtSecret = process.env.JWT_SECRET;
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = process.env.FROM_EMAIL || 'support@aura-assist.com';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'support@bemoreswan.com';
 
 // 24-hour SLA threshold (ms)
 const SLA_MS = 24 * 60 * 60 * 1000;
@@ -132,7 +132,7 @@ export const handler: Handler = async (event) => {
                         html: `
 <div style="font-family:-apple-system,sans-serif;max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
   <div style="background:#111827;padding:24px 32px">
-    <span style="color:#10b981;font-size:22px;font-weight:800">Aura</span><span style="color:#fff;font-size:22px;font-weight:800">-Assist</span>
+    <span style="color:#10b981;font-size:22px;font-weight:800">Be More Swan</span>
   </div>
   <div style="padding:32px">
     <h2 style="margin:0 0 12px;color:#111827">Your support request is resolved</h2>
@@ -189,7 +189,7 @@ export const handler: Handler = async (event) => {
                             html: `
 <div style="font-family:-apple-system,sans-serif;max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
   <div style="background:#111827;padding:24px 32px">
-    <span style="color:#10b981;font-size:22px;font-weight:800">Aura</span><span style="color:#fff;font-size:22px;font-weight:800">-Assist</span>
+    <span style="color:#10b981;font-size:22px;font-weight:800">Be More Swan</span>
   </div>
   <div style="padding:32px">
     <p style="margin:0 0 8px;color:#6b7280;font-size:13px">Ticket #${ticketId} — ${ticket.subject}</p>

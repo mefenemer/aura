@@ -12,7 +12,7 @@ import { users, contentAssets, userOrganisations } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
-// ── Aura Safe Content Benchmark ───────────────────────────────────────────────
+// ── Be More Swan Safe Content Benchmark ───────────────────────────────────────────────
 // Runs a safety check on a newly uploaded asset.
 // Primary path: OpenAI Moderation API (https://platform.openai.com/docs/guides/moderation)
 // Fallback:     rule-based keyword scan on name/mimeType when no API key is set.

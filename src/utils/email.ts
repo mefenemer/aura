@@ -23,7 +23,7 @@ export const sendEmail = async ({ to, subject, html }: SendEmailParams) => {
 
     try {
         const data = await resend.emails.send({
-            from: 'Aura Assist <noreply@aura-assist.com>',
+            from: 'Be More Swan <noreply@bemoreswan.com>',
             to,
             subject,
             html,
@@ -39,11 +39,11 @@ export const sendEmail = async ({ to, subject, html }: SendEmailParams) => {
 export function buildAnnualRenewalEmail(firstName: string, renewalDay: string, amount: string): string {
     return `
         <p>Hi ${firstName},</p>
-        <p>Your Aura-Assist annual subscription will automatically renew on <strong>${renewalDay}</strong>${amount ? ` for <strong>${amount}</strong>` : ''}.</p>
-        <p>If you wish to cancel before this date, you can do so at any time from your <a href="${process.env.BASE_URL || 'https://aura-assist.com'}/billing.html">account settings</a>. Cancellations take effect at the end of your current billing period.</p>
+        <p>Your Be More Swan annual subscription will automatically renew on <strong>${renewalDay}</strong>${amount ? ` for <strong>${amount}</strong>` : ''}.</p>
+        <p>If you wish to cancel before this date, you can do so at any time from your <a href="${process.env.BASE_URL || 'https://bemoreswan.com'}/billing.html">account settings</a>. Cancellations take effect at the end of your current billing period.</p>
         <p>If you have any questions, reply to this email or contact our support team.</p>
-        <p>Thank you for being an Aura-Assist customer.</p>
-        <p>— The Aura-Assist Team</p>
+        <p>Thank you for being an Be More Swan customer.</p>
+        <p>— The Be More Swan Team</p>
     `;
 }
 
@@ -59,9 +59,9 @@ export function buildDunningEmail(firstName: string, amount: string, nextRetryLi
               </a>
             </p>
             <p style="margin-top:16px;font-size:0.875rem;color:#6b7280;">
-              Questions? <a href="mailto:hello@aura-assist.com">Contact our support team</a>.
+              Questions? <a href="mailto:hello@bemoreswan.com">Contact our support team</a>.
             </p>
-            <p>The Aura Team</p>`;
+            <p>The Be More Swan Team</p>`;
 }
 
 export const sendMagicLinkEmail = async ({ to, subject, html }: SendEmailParams) => {
@@ -73,7 +73,7 @@ export const sendMagicLinkEmail = async ({ to, subject, html }: SendEmailParams)
     try {
         const data = await resend.emails.send({
             // IMPORTANT: You must verify this domain in your Resend dashboard
-            from: 'Aura Assist <noreply@aura-assist.com>',
+            from: 'Be More Swan <noreply@bemoreswan.com>',
             to,
             subject,
             html,

@@ -176,7 +176,7 @@ export const handler: Handler = async (event) => {
                     userId: updated.userId,
                     type: 'provisioning_complete',
                     title: 'Workspace Provisioned',
-                    message: `Onboarding your digital assistant is complete. Your Aura Assist setup is complete — ${updated.name} is ready to work.`,
+                    message: `Onboarding your digital assistant is complete. Your Be More Swan setup is complete — ${updated.name} is ready to work.`,
                 });
             } catch (notifErr) {
                 console.warn('[provision-assistant-async] Notification insert failed (non-blocking):', notifErr);
@@ -212,7 +212,7 @@ export const handler: Handler = async (event) => {
                                <p style="margin-top:12px;font-size:0.875rem;">
                                  Want to get more from ${updated.name}? <a href="${intUrl}">Connect your tools</a> to enable automations.
                                </p>
-                               <p>The Aura Team</p>`,
+                               <p>The Be More Swan Team</p>`,
                     }).catch(() => {});
                 }
             } catch (emailErr) {
@@ -249,7 +249,7 @@ export const handler: Handler = async (event) => {
                            <p>Unfortunately, we encountered an issue while setting up <strong>${failed.name || 'your assistant'}</strong>. Our team has been automatically notified and will investigate.</p>
                            <p>We'll be in touch shortly to resolve this. In the meantime, if you have any questions please reply to this email or visit <a href="${baseUrl}/billing.html">your billing page</a>.</p>
                            <p>We're sorry for the inconvenience.</p>
-                           <p>The Aura Team</p>`,
+                           <p>The Be More Swan Team</p>`,
                 }).catch(() => {});
 
                 // SC4b: auto-create support ticket

@@ -33,7 +33,7 @@ const jwtSecret    = process.env.JWT_SECRET;
 const stripe       = process.env.STRIPE_SECRET_KEY
     ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' })
     : null;
-const BASE_URL     = process.env.BASE_URL || 'https://aura-assist.com';
+const BASE_URL     = process.env.BASE_URL || 'https://bemoreswan.com';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -275,10 +275,10 @@ export const handler: Handler = async (event) => {
         // ── 13. Send confirmation email to original address ───────────────────
         await sendEmail({
             to:      originalEmail,
-            subject: 'Your Aura-Assist account data has been erased',
-            html:    `<p>This is to confirm that your personal data has been permanently erased from Aura-Assist as requested.</p>
+            subject: 'Your Be More Swan account data has been erased',
+            html:    `<p>This is to confirm that your personal data has been permanently erased from Be More Swan as requested.</p>
                       <p>Your account can no longer be accessed. Financial records required by law have been retained for the statutory period.</p>
-                      <p>If you have any questions, contact our Data Protection Officer at <a href="mailto:privacy@aura-assist.com">privacy@aura-assist.com</a>.</p>`,
+                      <p>If you have any questions, contact our Data Protection Officer at <a href="mailto:privacy@bemoreswan.com">privacy@bemoreswan.com</a>.</p>`,
         }).catch(err => console.warn('[admin-gdpr-erase] Confirmation email failed (non-blocking):', err));
 
         return {

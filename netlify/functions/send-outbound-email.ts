@@ -28,7 +28,7 @@ import { resolveActiveOrg } from '../../src/utils/tenant';
 
 const jwtSecret = process.env.JWT_SECRET;
 const resend    = new Resend(process.env.RESEND_API_KEY);
-const FROM_DOMAIN = process.env.OUTBOUND_EMAIL_DOMAIN || 'outbound.aura-assist.com';
+const FROM_DOMAIN = process.env.OUTBOUND_EMAIL_DOMAIN || 'outbound.bemoreswan.com';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -101,7 +101,7 @@ export const handler: Handler = async (event) => {
 
     if (process.env.RESEND_API_KEY) {
         const result = await resend.emails.send({
-            from: `${assistant.name} via Aura-Assist <assistant@${FROM_DOMAIN}>`,
+            from: `${assistant.name} via Be More Swan <assistant@${FROM_DOMAIN}>`,
             to,
             subject,
             text: finalText,

@@ -305,7 +305,7 @@
         // If no Stripe subscription ID, direct to support
         if (!stripeSubscriptionId) {
             if (errEl) {
-                errEl.textContent = 'Please contact support@aura-assist.com to cancel this subscription.';
+                errEl.textContent = 'Please contact support@bemoreswan.com to cancel this subscription.';
                 errEl.classList.remove('hidden');
             }
             if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Yes, Cancel'; }

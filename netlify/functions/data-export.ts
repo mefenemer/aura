@@ -167,7 +167,7 @@ export const handler: Handler = async (event) => {
     // SC4: Send email with download link
     sendEmail({
         to: user?.email || '',
-        subject: 'Your Aura data export is ready',
+        subject: 'Your Be More Swan data export is ready',
         html: `<p>Hi ${user?.firstName || 'there'},</p>
                <p>Your personal data export is ready. Click the button below to download it — the link is valid for 24 hours.</p>
                <p style="margin-top:20px;">
@@ -176,7 +176,7 @@ export const handler: Handler = async (event) => {
                  </a>
                </p>
                <p style="font-size:0.8rem;color:#9ca3af;margin-top:12px;">This link expires in 24 hours. After that, you can request a new export from your account settings.</p>
-               <p>The Aura Team</p>`,
+               <p>The Be More Swan Team</p>`,
     }).catch(() => {});
 
     return {

@@ -1,3 +1,18 @@
+# Brand transition (US5.2 / AC5.2): permanent 301 from the legacy domain to Be More Swan.
+# Effective once both aura-assist.com and bemoreswan.com are attached to the Netlify site
+# and DNS (AC5.1, external) points at Netlify.
+[[redirects]]
+  from = "https://aura-assist.com/*"
+  to = "https://bemoreswan.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.aura-assist.com/*"
+  to = "https://bemoreswan.com/:splat"
+  status = 301
+  force = true
+
 # US-HELP-1.1.1 AC14: canonical URL aliases for the help centre
 [[redirects]]
   from = "/help"

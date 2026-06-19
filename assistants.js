@@ -123,7 +123,7 @@ function _detailHydrate(data) {
     _detailSetVal('edit_audience', ctx.target_audience || '');
     _detailSetVal('edit_tone', ctx.tone_of_voice || '');
     _detailSetVal('edit_pillars', ctx.content_pillars || '');
-    // workflowText is Aura-Assist IP — not displayed to the user
+    // workflowText is Be More Swan IP — not displayed to the user
 
     // Radios — trigger
     const triggerVal = inputs.trigger_type || '';

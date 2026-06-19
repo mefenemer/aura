@@ -65,7 +65,7 @@ export const handler: Handler = async (event) => {
     const ctx = (assistant?.onboardingContext as Record<string, unknown>) ?? {};
     // AC: use stored business_bio field if set; fall back to derived value
     const businessBio: string = (ctx.business_bio as string)
-        || ((ctx.target_audience as string) ? `Serving ${ctx.target_audience}. ${ctx.tone_of_voice ?? ''}` : `${org.name} — managed via Aura-Assist.`);
+        || ((ctx.target_audience as string) ? `Serving ${ctx.target_audience}. ${ctx.tone_of_voice ?? ''}` : `${org.name} — managed via Be More Swan.`);
     const websiteUrl  = baseUrl;
 
     // AC: business hours in Meta page-level format (day_of_week: { open, close })

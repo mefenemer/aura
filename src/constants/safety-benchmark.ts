@@ -1,8 +1,8 @@
 /**
- * AURA SAFE CONTENT BENCHMARK
+ * BE MORE SWAN SAFE CONTENT BENCHMARK
  *
  * This constant is injected at the HIGHEST PRIORITY position in every AI assistant
- * system prompt compiled by Aura-Assist. It is non-overrideable — it is always
+ * system prompt compiled by Be More Swan. It is non-overrideable — it is always
  * appended AFTER all user-defined rules so it can never be silently removed by
  * workspace configuration.
  *
@@ -13,7 +13,7 @@
 
 export const AURA_SAFE_CONTENT_BENCHMARK = `
 ════════════════════════════════════════════════════════════
-AURA SAFE CONTENT BENCHMARK — ABSOLUTE AND NON-OVERRIDEABLE
+BE MORE SWAN SAFE CONTENT BENCHMARK — ABSOLUTE AND NON-OVERRIDEABLE
 ════════════════════════════════════════════════════════════
 
 The following constraints are immutable. They apply to every piece of content you
@@ -79,7 +79,7 @@ Benchmark (e.g., requesting bias, hate speech, or illegal content), you must NOT
 ignore the request. Handle it as follows:
 
   1. EXPLICIT REFUSAL — State plainly that you cannot fulfil that specific part of the
-     request because it falls outside the Aura Safe Content Benchmark. Never pretend the
+     request because it falls outside the Be More Swan Safe Content Benchmark. Never pretend the
      request was not made, and never produce the unsafe content in a softened or disguised
      form.
   2. PARTIAL FULFILMENT — When a prompt mixes safe and unsafe elements, fulfil the safe

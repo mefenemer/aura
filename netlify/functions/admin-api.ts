@@ -42,7 +42,7 @@ import { checkImpersonationBlock } from '../../src/utils/impersonation-guard';
 import { SPECIAL_CATEGORY_CLAUSE } from './get-dpa-content';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = process.env.FROM_EMAIL || 'hello@aura-assist.com';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'hello@bemoreswan.com';
 
 const jwtSecret = process.env.JWT_SECRET;
 const PAGE_SIZE = 25;
@@ -306,14 +306,14 @@ export const handler: Handler = async (event) => {
                 // SC1b: Confirmation email to the deleted user
                 await sendMagicLinkEmail({
                     to: targetUser.email,
-                    subject: 'Your Aura-Assist account has been removed',
+                    subject: 'Your Be More Swan account has been removed',
                     html: `
                         <div style="font-family:sans-serif;padding:24px;max-width:500px">
                             <h2>Account Removed</h2>
                             <p>Hi ${[targetUser.firstName, targetUser.lastName].filter(Boolean).join(' ') || 'there'},</p>
-                            <p>Your Aura-Assist account has been permanently removed by a platform administrator.</p>
-                            <p>All your data has been deleted in accordance with our <a href="https://aura-assist.com/privacy.html">Privacy Policy</a>.</p>
-                            <p>If you believe this was a mistake, please contact us at <a href="mailto:hello@aura-assist.com">hello@aura-assist.com</a>.</p>
+                            <p>Your Be More Swan account has been permanently removed by a platform administrator.</p>
+                            <p>All your data has been deleted in accordance with our <a href="https://bemoreswan.com/privacy.html">Privacy Policy</a>.</p>
+                            <p>If you believe this was a mistake, please contact us at <a href="mailto:hello@bemoreswan.com">hello@bemoreswan.com</a>.</p>
                         </div>
                     `,
                 }).catch(err => console.warn('[admin-api] Delete notification email failed (non-blocking):', err));
@@ -425,24 +425,24 @@ export const handler: Handler = async (event) => {
                 .set({ verificationToken: token, tokenExpiresAt: expiresAt, updatedAt: new Date() })
                 .where(eq(users.id, uid));
 
-            const loginUrl = `${process.env.BASE_URL || 'https://aura-assist.com'}/verify.html?token=${token}`;
+            const loginUrl = `${process.env.BASE_URL || 'https://bemoreswan.com'}/verify.html?token=${token}`;
 
             if (process.env.RESEND_API_KEY) {
                 await resend.emails.send({
                     from: FROM_EMAIL,
                     to: targetUser.email,
-                    subject: 'Your Aura Assist Login Link',
+                    subject: 'Your Be More Swan Login Link',
                     html: `
 <div style="font-family:-apple-system,sans-serif;max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
   <div style="background:#111827;padding:24px 32px">
-    <span style="color:#10b981;font-size:22px;font-weight:800">Aura</span><span style="color:#fff;font-size:22px;font-weight:800">-Assist</span>
+    <span style="color:#10b981;font-size:22px;font-weight:800">Be More Swan</span>
   </div>
   <div style="padding:32px">
     <h2 style="margin:0 0 12px;color:#111827">Admin-sent login link</h2>
     <p style="color:#6b7280;font-size:15px;line-height:1.6">Hi ${targetUser.firstName || 'there'},<br><br>
-      An Aura Assist admin has sent you a one-click login link. Click below to access your account — this link expires in 24 hours.</p>
+      An Be More Swan admin has sent you a one-click login link. Click below to access your account — this link expires in 24 hours.</p>
     <div style="text-align:center;margin:28px 0">
-      <a href="${loginUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:700;font-size:16px;padding:14px 32px;border-radius:8px;text-decoration:none">Log in to Aura Assist</a>
+      <a href="${loginUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:700;font-size:16px;padding:14px 32px;border-radius:8px;text-decoration:none">Log in to Be More Swan</a>
     </div>
     <p style="margin:0;color:#9ca3af;font-size:13px">If you did not expect this email, you can safely ignore it.</p>
   </div>
@@ -517,9 +517,9 @@ export const handler: Handler = async (event) => {
                 await resend.emails.send({
                     from: FROM_EMAIL,
                     to: targetUser.email,
-                    subject: 'Your Aura-Assist account has been temporarily locked',
+                    subject: 'Your Be More Swan account has been temporarily locked',
                     html: `<p>Hi ${targetUser.firstName || 'there'},</p>
-                           <p>Your account has been temporarily locked. Please contact support at <a href="mailto:support@aura-assist.com">support@aura-assist.com</a> for assistance.</p>`,
+                           <p>Your account has been temporarily locked. Please contact support at <a href="mailto:support@bemoreswan.com">support@bemoreswan.com</a> for assistance.</p>`,
                 }).catch(() => {});
             }
 
@@ -569,7 +569,7 @@ export const handler: Handler = async (event) => {
                 })
                 .where(eq(users.id, uid));
 
-            const SITE_URL = process.env.BASE_URL || 'https://aura-assist.com';
+            const SITE_URL = process.env.BASE_URL || 'https://bemoreswan.com';
             const confirmUrl = `${SITE_URL}/.netlify/functions/confirm-email-change?token=${confirmToken}&uid=${uid}`;
 
             if (resend) {
@@ -577,8 +577,8 @@ export const handler: Handler = async (event) => {
                 await resend.emails.send({
                     from: FROM_EMAIL,
                     to: newEmail,
-                    subject: 'Confirm your new Aura-Assist email address',
-                    html: `<p>An admin has requested your Aura-Assist account (${targetUser.email}) be updated to this address.</p>
+                    subject: 'Confirm your new Be More Swan email address',
+                    html: `<p>An admin has requested your Be More Swan account (${targetUser.email}) be updated to this address.</p>
                            <p><a href="${confirmUrl}">Click here to confirm this change</a> (expires in 24 hours).</p>
                            <p>If you did not expect this, ignore this email.</p>`,
                 }).catch(() => {});
@@ -587,7 +587,7 @@ export const handler: Handler = async (event) => {
                 await resend.emails.send({
                     from: FROM_EMAIL,
                     to: targetUser.email,
-                    subject: 'Email address change requested on your Aura-Assist account',
+                    subject: 'Email address change requested on your Be More Swan account',
                     html: `<p>Hi ${targetUser.firstName || 'there'},</p>
                            <p>An administrator has requested your account email be changed to <strong>${newEmail}</strong>.</p>
                            <p>This change will take effect once confirmed from the new address. If you did not authorise this, contact support immediately.</p>`,
@@ -2207,7 +2207,7 @@ export const handler: Handler = async (event) => {
         // ── US-HELP-1.3.1: Help Articles (AC14–AC17) ─────────────────────────
         if (resource === 'help-articles-seed') {
             const SEED_ARTICLES = [
-                { category: 'Getting Started', sortOrder: 10, title: 'What is Aura-Assist?' },
+                { category: 'Getting Started', sortOrder: 10, title: 'What is Be More Swan?' },
                 { category: 'Getting Started', sortOrder: 20, title: 'Your Dashboard Overview' },
                 { category: 'Getting Started', sortOrder: 30, title: 'Setting Up Your First Assistant' },
                 { category: 'Your Assistants', sortOrder: 10, title: 'How Lead Scoring Works (And How to Trust It)' },

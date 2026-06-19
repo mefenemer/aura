@@ -17,7 +17,7 @@ import { getDb } from '../../db/client';
 import { auditLogs, onboardingDrafts, users } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 
-const BASE_URL = process.env.BASE_URL || 'https://aura-assist.com';
+const BASE_URL = process.env.BASE_URL || 'https://bemoreswan.com';
 const NUDGE_DAYS = 23;
 const DELETE_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -56,9 +56,9 @@ export const handler: Handler = async () => {
 
             await sendEmail({
                 to: user.email,
-                // AC2.2: action-required subject. (Brand kept as Aura-Assist to match every other
+                // AC2.2: action-required subject. (Brand kept as Be More Swan to match every other
                 // transactional email; the ticket's "Be More Swan" reads as a placeholder brand.)
-                subject: `Action required: Finish setting up your Aura-Assist Assistant`,
+                subject: `Action required: Finish setting up your Be More Swan Assistant`,
                 html: `
                     <p>Hi ${user.firstName || 'there'},</p>
                     <p>You started setting up <strong>${label}</strong> but haven't finished yet. Your
@@ -72,7 +72,7 @@ export const handler: Handler = async () => {
                     <p style="margin-top:16px;font-size:0.875rem;color:#6b7280;">
                       If you no longer want this assistant, you can safely ignore this email and the draft will be removed automatically.
                     </p>
-                    <p>The Aura Team</p>`,
+                    <p>The Be More Swan Team</p>`,
             }).catch((e) => console.warn('[cleanup-abandoned-drafts] nudge email failed (non-blocking):', e));
 
             await db.update(onboardingDrafts)

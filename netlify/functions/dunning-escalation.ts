@@ -107,7 +107,7 @@ async function runDunningEscalation() {
                 to: userRecord.email,
                 subject: `Payment failed — please update your details`,
                 html: `<p>Hi ${name},</p>
-                       <p>We were unable to process your Aura subscription payment. This can happen when a card expires or a bank declines an automated charge.</p>
+                       <p>We were unable to process your Be More Swan subscription payment. This can happen when a card expires or a bank declines an automated charge.</p>
                        <p>Your assistants remain active for now, but <strong>please update your payment details as soon as possible</strong> to avoid any interruption to your service.</p>
                        <p style="margin-top:24px;">
                          <a href="${portalUrl}" style="background:#f59e0b;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
@@ -115,9 +115,9 @@ async function runDunningEscalation() {
                          </a>
                        </p>
                        <p style="margin-top:16px;font-size:0.875rem;color:#6b7280;">
-                         Need help? <a href="mailto:hello@aura-assist.com">Contact our support team</a>.
+                         Need help? <a href="mailto:hello@bemoreswan.com">Contact our support team</a>.
                        </p>
-                       <p>The Aura Team</p>`,
+                       <p>The Be More Swan Team</p>`,
             }).catch(err => console.warn('[dunning-escalation] Day 1 email failed:', err));
 
         } else if (isDay3) {
@@ -126,7 +126,7 @@ async function runDunningEscalation() {
                 to: userRecord.email,
                 subject: `Your assistants are paused — update payment to restore access`,
                 html: `<p>Hi ${name},</p>
-                       <p>We still haven't been able to process your subscription payment, and <strong>your Aura assistants are currently paused</strong>.</p>
+                       <p>We still haven't been able to process your subscription payment, and <strong>your Be More Swan assistants are currently paused</strong>.</p>
                        <p>⚠️ If payment isn't resolved within the next <strong>4 days</strong>, your account will be cancelled and access to your assistants will be permanently removed.</p>
                        <p>Don't lose the work you've built — update your payment details now to restore access immediately.</p>
                        <p style="margin-top:24px;">
@@ -135,9 +135,9 @@ async function runDunningEscalation() {
                          </a>
                        </p>
                        <p style="margin-top:16px;font-size:0.875rem;color:#6b7280;">
-                         Need help? <a href="mailto:hello@aura-assist.com">Contact our support team</a>.
+                         Need help? <a href="mailto:hello@bemoreswan.com">Contact our support team</a>.
                        </p>
-                       <p>The Aura Team</p>`,
+                       <p>The Be More Swan Team</p>`,
             }).catch(err => console.warn('[dunning-escalation] Day 3 email failed:', err));
 
         } else {
@@ -160,9 +160,9 @@ async function runDunningEscalation() {
                          </a>
                        </p>
                        <p style="margin-top:16px;font-size:0.875rem;color:#6b7280;">
-                         Would you like to discuss your situation? <a href="mailto:hello@aura-assist.com">Contact our support team</a> — we may be able to help.
+                         Would you like to discuss your situation? <a href="mailto:hello@bemoreswan.com">Contact our support team</a> — we may be able to help.
                        </p>
-                       <p>The Aura Team</p>`,
+                       <p>The Be More Swan Team</p>`,
             }).catch(err => console.warn('[dunning-escalation] Day 7 email failed:', err));
         }
     }

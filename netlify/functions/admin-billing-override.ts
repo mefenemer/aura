@@ -239,7 +239,7 @@ export const handler: Handler = async (event) => {
                     html: `<p>Hi ${targetUser.firstName || 'there'},</p>
                            <p>${pauseMessage}</p>
                            <p>If you have any questions, please reply to this email or contact our support team.</p>
-                           <p>The Aura Team</p>`,
+                           <p>The Be More Swan Team</p>`,
                 }).catch(() => {});
 
                 stripeRef   = activePlan.stripeSubscriptionId!;

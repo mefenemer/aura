@@ -107,7 +107,7 @@ export const handler: Handler = async (event) => {
                 .limit(1);
             // AC3/AC15: hide referrer if their account has been soft-deleted
             if (referrer && !referrer.pendingDeletion) {
-                const name = [referrer.firstName, referrer.lastName].filter(Boolean).join(' ') || 'An Aura-Assist member';
+                const name = [referrer.firstName, referrer.lastName].filter(Boolean).join(' ') || 'An Be More Swan member';
                 referredBy = {
                     displayName: name,
                     joinedAt: (user.createdAt as Date).toISOString(), // AC10: current user's join date

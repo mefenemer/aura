@@ -26,7 +26,7 @@ import {
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 
 const jwtSecret = process.env.JWT_SECRET;
-const BASE_URL  = process.env.BASE_URL || 'https://aura-assist.com';
+const BASE_URL  = process.env.BASE_URL || 'https://bemoreswan.com';
 
 const ALLOWED_ROLES = ['billing_admin', 'platform_admin', 'super_admin'];
 

@@ -100,9 +100,9 @@ async function runWeeklyDigest() {
 
         await sendEmail({
             to: row.email,
-            subject: `Your Aura weekly digest — ${weeklyTaskCount} task${weeklyTaskCount === 1 ? '' : 's'} completed`,
+            subject: `Your Be More Swan weekly digest — ${weeklyTaskCount} task${weeklyTaskCount === 1 ? '' : 's'} completed`,
             html: `<p>Hi ${name},</p>
-                   <p>Here's what your Aura assistants have been up to this week:</p>
+                   <p>Here's what your Be More Swan assistants have been up to this week:</p>
                    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin:16px 0;">
                      <p>✅ <strong>Tasks completed (last 7 days):</strong> ${weeklyTaskCount}</p>
                      ${postsLine}
@@ -119,7 +119,7 @@ async function runWeeklyDigest() {
                      You're receiving this because you have weekly digests enabled.
                      <a href="${BASE_URL}/workspace.html#notifications" style="color:#9ca3af;">Manage preferences</a>
                    </p>
-                   <p>The Aura Team</p>`,
+                   <p>The Be More Swan Team</p>`,
         }).then(() => { sent++; }).catch(err => {
             console.warn(`[weekly-digest] Email failed for userId=${row.userId}:`, err);
             skipped++;

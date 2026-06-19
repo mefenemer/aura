@@ -323,7 +323,7 @@ function _listRow(post) {
     </div>`;
 }
 
-// ── Open Aura Format panel ────────────────────────────────────────
+// ── Open Format panel ────────────────────────────────────────
 window._calOpenPost = async function (postId) {
     _openPostId = postId;
     _editMode = false;
@@ -471,7 +471,7 @@ window._calOpenPost = async function (postId) {
 
     // ── Section 3: Governance ─────────────────────────────────────
     document.getElementById('panel-gov-status').textContent = sm.label;
-    document.getElementById('panel-gov-owner').textContent = post.ownerLabel || 'Aura-Assist';
+    document.getElementById('panel-gov-owner').textContent = post.ownerLabel || 'Be More Swan';
     document.getElementById('panel-gov-campaign').textContent = post.campaign || '—';
     document.getElementById('panel-gov-pillar').textContent = post.pillar || '—';
 

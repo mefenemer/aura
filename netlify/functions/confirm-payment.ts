@@ -64,7 +64,7 @@ export const handler: Handler = async (event) => {
         const amountGbp = pi.amount ? (pi.amount / 100).toFixed(2) : '0.00';
 
         // 4. Look up plan name
-        let planName = tier ? `Aura-Assist (${tier})` : 'Aura-Assist Subscription';
+        let planName = tier ? `Be More Swan (${tier})` : 'Be More Swan Subscription';
         if (masterPlanIdInt) {
             const [mp] = await db.select().from(masterPlans).where(eq(masterPlans.id, masterPlanIdInt)).limit(1);
             if (mp) planName = mp.name;

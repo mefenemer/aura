@@ -115,7 +115,7 @@
     const titleKeyEl = document.querySelector('[data-i18n-title-key]');
     if (titleKeyEl) {
       const val = resolve(titleKeyEl.getAttribute('data-i18n-title-key'));
-      if (val) document.title = val + ' | Aura-Assist';
+      if (val) document.title = val + ' | Be More Swan';
     }
 
     // Meta description

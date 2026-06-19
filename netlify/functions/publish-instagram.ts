@@ -110,7 +110,7 @@ export const handler: Handler = async () => {
             // Build caption with hashtags
             const fullCaption = [post.caption, post.hashtags].filter(Boolean).join('\n\n');
             const isVideo = ['reel', 'video'].includes(post.post_format?.toLowerCase() ?? '');
-            const mediaProxyBase = `${process.env.BASE_URL || 'https://aura-assist.com'}/.netlify/functions/media-proxy?postId=${post.id}`;
+            const mediaProxyBase = `${process.env.BASE_URL || 'https://bemoreswan.com'}/.netlify/functions/media-proxy?postId=${post.id}`;
 
             // Step 1: create media container (image or video)
             const containerBody: Record<string, string> = {

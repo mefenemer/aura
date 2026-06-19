@@ -15,7 +15,7 @@ const PLATFORMS = [
         handlePlaceholder: 'https://facebook.com/yourpagename',
         handleHelp: 'The full URL of the Facebook Page you want this assistant to post to.',
         tokenLabel: 'Page Access Token',
-        tokenHelp: 'A token that authorises Aura-Assist to post on behalf of your Page. Never expires if generated correctly.',
+        tokenHelp: 'A token that authorises Be More Swan to post on behalf of your Page. Never expires if generated correctly.',
         steps: [
             { text: 'Open the Meta Graph API Explorer', url: 'https://developers.facebook.com/tools/explorer/' },
             { text: 'Sign in with the Facebook account that has <strong>Admin</strong> access to your Page.' },

@@ -74,7 +74,7 @@ export const handler = async (event: HandlerEvent) => {
             // ---------------------------------------------------------
             if (asset.assetType === 'url' && asset.externalUrl) {
                 const response = await fetch(asset.externalUrl, {
-                    headers: { 'User-Agent': 'Aura-Assist RAG Bot (Mozilla/5.0)' }
+                    headers: { 'User-Agent': 'Be More Swan RAG Bot (Mozilla/5.0)' }
                 });
 
                 if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);

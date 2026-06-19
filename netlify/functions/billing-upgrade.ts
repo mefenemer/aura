@@ -286,7 +286,7 @@ export const handler: Handler = async (event) => {
                            <p>Going forward, your monthly renewal will be <strong>£${targetMp.monthlyPriceGbp}/month</strong>.</p>
                            ${invoiceUrl ? `<p><a href="${invoiceUrl}">View your invoice →</a></p>` : ''}
                            <p><a href="${BASE_URL}/billing.html">View your billing page →</a></p>
-                           <p>The Aura Team</p>`,
+                           <p>The Be More Swan Team</p>`,
                 }).catch(() => { /* non-critical */ });
             }
         }

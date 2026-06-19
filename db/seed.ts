@@ -75,13 +75,13 @@ import { helpArticles } from './schema'; // Adjust path if necessary
         await db.insert(helpArticles).values([
             {
                 title: "Understanding Your Workspace",
-                description: "A complete tour of the Aura-Assist dashboard, metrics, and how to interpret your digital team's time-saved analytics.",
+                description: "A complete tour of the Be More Swan dashboard, metrics, and how to interpret your digital team's time-saved analytics.",
                 category: "Getting Started",
                 icon: "layout",
                 readTime: "4 min read"
             },
             {
-                title: "Aura-Assist Glossary of Terms",
+                title: "Be More Swan Glossary of Terms",
                 description: "Definitions for commonly used terms including Compute Power, Automations, Workflows, and Active vs. Resting states.",
                 category: "Getting Started",
                 icon: "book",
@@ -117,7 +117,7 @@ import { helpArticles } from './schema'; // Adjust path if necessary
             },
             {
                 title: "Managing Notification Preferences",
-                description: "Control how often Aura-Assist interrupts you. Set up daily digests, billing alerts, and waitlist updates.",
+                description: "Control how often Be More Swan interrupts you. Set up daily digests, billing alerts, and waitlist updates.",
                 category: "Account & Settings",
                 icon: "bell",
                 readTime: "3 min read"

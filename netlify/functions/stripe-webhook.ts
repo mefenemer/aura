@@ -79,7 +79,7 @@ export const handler: Handler = async (event) => {
         const masterPlanIdInt  = masterPlanId ? parseInt(masterPlanId) : null;
         const stripeCustomerId = typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
         const stripeSubscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null;
-        const planName = metaPlanName || 'Aura-Assist Subscription';
+        const planName = metaPlanName || 'Be More Swan Subscription';
 
         // Create the active plan record — unique-constraint guard mirrors the payment_intent path
         let newPlan: typeof plans.$inferSelect;
@@ -156,7 +156,7 @@ export const handler: Handler = async (event) => {
         await db.insert(notifications).values({
             userId: userIdInt,
             type: 'welcome',
-            title: 'Welcome to Aura-Assist!',
+            title: 'Welcome to Be More Swan!',
             message: 'Your workspace is ready. Open your User Guide to get started.',
             isRead: false,
             metadata: { ctaLabel: 'Open User Guide', ctaUrl: '/help.html' },
@@ -233,7 +233,7 @@ export const handler: Handler = async (event) => {
         }
 
         // Look up plan name + keep masterPlan record for subscription creation below
-        let planName = tier ? `Aura-Assist (${tier})` : 'Aura-Assist Subscription';
+        let planName = tier ? `Be More Swan (${tier})` : 'Be More Swan Subscription';
         let masterPlan: typeof masterPlans.$inferSelect | null = null;
         if (masterPlanIdInt) {
             const [mp] = await db.select().from(masterPlans).where(eq(masterPlans.id, masterPlanIdInt)).limit(1);
@@ -403,7 +403,7 @@ export const handler: Handler = async (event) => {
         await db.insert(notifications).values({
             userId: userIdInt,
             type: 'welcome',
-            title: 'Welcome to Aura-Assist!',
+            title: 'Welcome to Be More Swan!',
             message: 'Your workspace is ready. Open your User Guide to get started.',
             isRead: false,
             metadata: { ctaLabel: 'Open User Guide', ctaUrl: '/help.html' },
@@ -492,7 +492,7 @@ export const handler: Handler = async (event) => {
                     if (userRow?.email) {
                         await sendEmail({
                             to: userRow.email,
-                            subject: `Your Aura-Assist™ annual plan renews on ${renewalDay}`,
+                            subject: `Your Be More Swan annual plan renews on ${renewalDay}`,
                             html: buildAnnualRenewalEmail(userRow.firstName || 'there', renewalDay, amount),
                         // BUG-P1-1: Log at error level so this surfaces in alerts — compliance-critical email
                         }).catch(err => console.error('[stripe-webhook] Annual renewal compliance email failed:', { userId, err: (err as any)?.message }));
@@ -599,7 +599,7 @@ export const handler: Handler = async (event) => {
             const renewInv = await _createInvoice({
                 userId,
                 planId:               renewPlanRecord?.id ?? null,
-                planName:             renewPlanRecord?.planName ?? 'Aura-Assist Subscription',
+                planName:             renewPlanRecord?.planName ?? 'Be More Swan Subscription',
                 amountPence:          invoice.amount_paid || 0,
                 currency:             invoice.currency || 'gbp',
                 billingPeriodStart:   periodStart,

@@ -1582,7 +1582,7 @@ export const biasSamplingReports = pgTable("bias_sampling_reports", {
 export const contentProvenance = pgTable("content_provenance", {
   id: serial("id").primaryKey(),
   contentId: text("content_id").notNull().unique(),      // stable UUID assigned at generation time
-  creatorSystem: text("creator_system").notNull().default("Aura-Assist"),
+  creatorSystem: text("creator_system").notNull().default("Be More Swan"),
   assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),
   organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
   workspaceIdHash: text("workspace_id_hash").notNull(), // pseudonymised org identifier (HMAC)

@@ -357,7 +357,7 @@
           <!-- Security note -->
           <div class="flex items-center gap-2 text-xs text-gray-400">
             <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-            Card number and CVC are encrypted by Stripe and never stored on Aura's servers. Only the last 4 digits are retained.
+            Card number and CVC are encrypted by Stripe and never stored on Be More Swan's servers. Only the last 4 digits are retained.
           </div>
 
         </div><!-- /card-form-fields -->
@@ -441,7 +441,7 @@
       <!-- Enterprise CTA -->
       <div id="change-plan-enterprise" class="hidden text-center py-4">
         <p class="text-sm text-gray-500 mb-3">You're on our highest available plan.</p>
-        <a href="mailto:hello@aura-assist.com?subject=Enterprise enquiry" class="inline-flex items-center px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-black transition">Contact us for Enterprise →</a>
+        <a href="mailto:hello@bemoreswan.com?subject=Enterprise enquiry" class="inline-flex items-center px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-black transition">Contact us for Enterprise →</a>
       </div>
       <div id="change-plan-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5"></div>
       <div id="change-plan-actions" class="hidden flex gap-3 justify-end">
@@ -598,7 +598,7 @@
         return;
       }
       if (higher.length === 0) {
-        html += `<p class="text-xs text-gray-400 mt-3">To upgrade, <a href="mailto:hello@aura-assist.com" class="underline text-emerald-700">contact us for Enterprise</a>.</p>`;
+        html += `<p class="text-xs text-gray-400 mt-3">To upgrade, <a href="mailto:hello@bemoreswan.com" class="underline text-emerald-700">contact us for Enterprise</a>.</p>`;
       }
       document.getElementById('change-plan-tiers').innerHTML = html;
     } catch (e) {

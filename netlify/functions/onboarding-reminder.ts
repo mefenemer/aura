@@ -42,7 +42,7 @@ function buildReminderEmail(firstName: string, resumeUrl: string): string {
           <tr>
             <td style="background:linear-gradient(135deg,#064e3b 0%,#065f46 100%);padding:36px 40px;">
               <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">
-                Aura<span style="color:#6ee7b7;">-Assist</span>
+                Be More Swan
               </div>
             </td>
           </tr>
@@ -88,7 +88,7 @@ function buildReminderEmail(firstName: string, resumeUrl: string): string {
               </table>
 
               <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.6;">
-                This link expires in 15 minutes for security. If you didn't start an Aura-Assist onboarding,
+                This link expires in 15 minutes for security. If you didn't start an Be More Swan onboarding,
                 you can safely ignore this email.
               </p>
             </td>
@@ -98,8 +98,8 @@ function buildReminderEmail(firstName: string, resumeUrl: string): string {
           <tr>
             <td style="padding:20px 40px;background:#f9fafb;border-top:1px solid #f3f4f6;">
               <p style="margin:0;font-size:12px;color:#9ca3af;">
-                Aura-Assist · 85 Great Portland Street, London, W1W 7LT ·
-                <a href="mailto:support@aura-assist.com" style="color:#059669;text-decoration:none;">support@aura-assist.com</a>
+                Be More Swan · 85 Great Portland Street, London, W1W 7LT ·
+                <a href="mailto:support@bemoreswan.com" style="color:#059669;text-decoration:none;">support@bemoreswan.com</a>
               </p>
             </td>
           </tr>
@@ -120,7 +120,7 @@ export default async (req: Request): Promise<Response> => {
         return new Response('RESEND_API_KEY missing', { status: 500 });
     }
 
-    const baseUrl = process.env.BASE_URL || 'https://aura-assist.com';
+    const baseUrl = process.env.BASE_URL || 'https://bemoreswan.com';
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
         console.error('[onboarding-reminder] JWT_SECRET missing.');

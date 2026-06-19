@@ -78,14 +78,14 @@ async function runRenewalReminder() {
 
             await sendEmail({
                 to: user.email,
-                subject: `Reminder: Your Aura-Assist™ subscription renews in 14 days`,
+                subject: `Reminder: Your Be More Swan subscription renews in 14 days`,
                 html: `
                     <p>Hi ${[user.firstName, user.lastName].filter(Boolean).join(' ') || 'there'},</p>
-                    <p>This is a reminder that your Aura-Assist subscription will automatically renew on <strong>${renewalDate}</strong>${amount ? ` for <strong>${amount}/${interval}</strong>` : ''}.</p>
+                    <p>This is a reminder that your Be More Swan subscription will automatically renew on <strong>${renewalDate}</strong>${amount ? ` for <strong>${amount}/${interval}</strong>` : ''}.</p>
                     <p>If you wish to cancel before this date, you can do so at any time from your <a href="${BASE_URL}/user-settings.html">Settings → Billing</a>. Cancellations take effect at the end of your current billing period — you keep access until ${renewalDate}.</p>
                     <p>If you have any questions, reply to this email or contact our support team.</p>
-                    <p>Thank you for being an Aura-Assist customer.</p>
-                    <p>— The Aura-Assist Team</p>
+                    <p>Thank you for being an Be More Swan customer.</p>
+                    <p>— The Be More Swan Team</p>
                 `,
             }).catch(err => console.warn('[renewal-reminder] Email send failed:', err?.message));
 

@@ -95,7 +95,7 @@ async function _maybeWarnQuota(orgId: number, addedBytes: number): Promise<void>
     const pctLabel = Math.round(pct * 100);
     await sendMagicLinkEmail({
         to: owner.email,
-        subject: `Aura: You've used ${pctLabel}% of your storage quota`,
+        subject: `Be More Swan: You've used ${pctLabel}% of your storage quota`,
         html: `
             <div style="font-family:sans-serif;padding:32px 20px;background:#fdfcf9;">
               <div style="max-width:520px;margin:0 auto;background:#fff;padding:36px;border-radius:14px;border:1px solid #eae4d7;">
@@ -110,7 +110,7 @@ async function _maybeWarnQuota(orgId: number, addedBytes: number): Promise<void>
                   Once you reach 100%, new uploads will be blocked. You can free up space by removing
                   unused assets or upgrade your plan to increase your quota.
                 </p>
-                <a href="${process.env.BASE_URL || 'https://aura-assist.com'}/billing.html"
+                <a href="${process.env.BASE_URL || 'https://bemoreswan.com'}/billing.html"
                    style="display:inline-block;margin:16px 0;padding:12px 24px;background:#00e55c;color:#fff;font-weight:bold;border-radius:8px;text-decoration:none;">
                   View billing &amp; upgrade →
                 </a>
