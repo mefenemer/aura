@@ -776,6 +776,10 @@
     // Resume existing draft
     await hydrateDraft();
 
+    // Single source of truth: prefill social handles from connected accounts
+    // (only platforms the draft didn't already set).
+    await prefillSocialsFromConnections();
+
     // US1–US3: gate premium feature toggles by the user's real subscription tier.
     initFeatureGating();
 
@@ -1174,6 +1178,39 @@
     // Toggle master container
     const hasPlatform = ['fb', 'ig', 'li', 'x'].some(p => document.getElementById(`chk_${p}`)?.checked);
     document.getElementById('algorithm_helpers_container').classList.toggle('hidden', !hasPlatform);
+  }
+
+  // Single source of truth for social handles = Connections. Prefill the platform
+  // handles from already-connected accounts so we never ask for them twice. Only
+  // fills platforms the draft hasn't already set — never overrides the user.
+  async function prefillSocialsFromConnections() {
+    const MAP = {
+      instagram: { p: 'ig', base: 'https://instagram.com/' },
+      facebook:  { p: 'fb', base: 'https://facebook.com/' },
+      linkedin:  { p: 'li', base: 'https://linkedin.com/in/' },
+      x:         { p: 'x',  base: 'https://x.com/' },
+      twitter:   { p: 'x',  base: 'https://x.com/' },
+    };
+    try {
+      const res = await fetch('/.netlify/functions/integrations');
+      if (!res.ok) return;
+      const { connections } = await res.json();
+      (connections || []).forEach(c => {
+        if (!c.connected) return;
+        const m = MAP[(c.serviceName || '').toLowerCase()];
+        if (!m) return;
+        const chk = document.getElementById(`chk_${m.p}`);
+        const input = document.getElementById(`${m.p}_handle`);
+        if (!chk || !input || chk.checked || input.value.trim()) return; // draft wins
+        let url = (c.externalUserId || '').trim();
+        if (!url) return;
+        if (!/^https?:\/\//i.test(url)) url = m.base + url.replace(/^@/, '');
+        chk.checked = true;
+        toggleHandleInput(`${m.p}_handle_container`, true);
+        input.value = url;
+        input.dispatchEvent(new Event('input', { bubbles: true })); // validate + autosave
+      });
+    } catch { /* non-fatal */ }
   }
 
   function addWorkflowStep() {

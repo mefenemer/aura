@@ -101,8 +101,56 @@ const PLATFORMS = [
 let _connToDelete = null;
 let _userConnections = [];
 
+// ── Per-assistant relevance ──────────────────────────────────────
+// Every current connector is a social platform. Map an assistant's role to the
+// connector categories that make sense for it, and show only those (hide the rest).
+const _esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const SERVICE_CATEGORY = { Facebook: 'social', Instagram: 'social', LinkedIn: 'social', X: 'social' };
+let _assistants = [];
+let _selectedAssistantId = null;
+
+function _categoriesForRole(roleName) {
+    const r = (roleName || '').toLowerCase();
+    const cats = new Set();
+    if (/social|marketing|content|community|newsletter|seo|brand|post|engage/.test(r)) cats.add('social');
+    // Future connector types: CRM/lead → 'crm'; calendar/schedule → 'calendar'; review → 'reviews'
+    return cats;
+}
+
+function _relevantPlatforms() {
+    const a = _assistants.find(x => String(x.id) === String(_selectedAssistantId));
+    if (!a) return PLATFORMS; // no assistant context → show all (shouldn't happen once gated)
+    const cats = _categoriesForRole(a.role);
+    return PLATFORMS.filter(p => cats.has(SERVICE_CATEGORY[p.id]));
+}
+
+async function _loadAssistantsForFilter() {
+    const bar = document.getElementById('conn-assistant-bar');
+    const sel = document.getElementById('conn-assistant-select');
+    try {
+        const res = await fetch('/.netlify/functions/get-assistants');
+        if (res.ok) {
+            const data = await res.json();
+            _assistants = (data.assistants || []).filter(a => a.isActive !== false);
+        }
+    } catch { /* non-fatal */ }
+    if (!sel) return;
+    if (!_assistants.length) { if (bar) bar.classList.add('hidden'); return; }
+    sel.innerHTML = _assistants.map(a =>
+        `<option value="${a.id}">${_esc(a.name)}${a.role ? ' — ' + _esc(a.role) : ''}</option>`).join('');
+    const urlId = new URLSearchParams(location.search).get('assistantId');
+    _selectedAssistantId = (urlId && _assistants.some(a => String(a.id) === urlId)) ? urlId : String(_assistants[0].id);
+    sel.value = _selectedAssistantId;
+    if (bar) bar.classList.remove('hidden');
+    if (!sel.dataset.bound) {
+        sel.dataset.bound = '1';
+        sel.addEventListener('change', () => { _selectedAssistantId = sel.value; _loadConnections(); });
+    }
+}
+
 // ── Init ─────────────────────────────────────────────────────────
 window.initIntegrations = async function () {
+    await _loadAssistantsForFilter();
     await _loadConnections();
 
     // Disconnect confirm button
@@ -129,7 +177,12 @@ async function _loadConnections() {
     }
 
     grid.innerHTML = '';
-    PLATFORMS.forEach(platform => {
+    const platforms = _relevantPlatforms();
+    if (!platforms.length) {
+        grid.innerHTML = '<div class="col-span-full bg-white border border-gray-200 rounded-2xl p-10 text-center text-sm text-gray-500">No connectors are relevant to this assistant yet. As we add more integrations (CRM, calendar, reviews), the right ones will appear here.</div>';
+        return;
+    }
+    platforms.forEach(platform => {
         const conn = _userConnections.find(c => c.serviceName === platform.id);
         grid.insertAdjacentHTML('beforeend', _platformCard(platform, conn));
     });

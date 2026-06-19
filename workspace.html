@@ -1662,7 +1662,9 @@ function formatCurrency(amount, currency) {
     //  + the client half of US2 (route guard state). Onboarding is "complete"
     //  once the user has at least one AI assistant (get-onboarding-status).
     // ═══════════════════════════════════════════════════════════════════
-    const ONBOARDING_RESTRICTED = ['review-queue', 'calendar', 'instructions', 'my-content'];
+    // 'integrations' (Connections) is gated too: connections only make sense once an
+    // assistant is selected and its brief is generated (isComplete in get-onboarding-status).
+    const ONBOARDING_RESTRICTED = ['review-queue', 'calendar', 'instructions', 'my-content', 'integrations'];
     const ONBOARDING_LOCK_MESSAGE = 'Please complete your onboarding checklist to unlock this feature.';
     window._onboardingComplete = false; // pessimistic until status loads
     let _onboardingLoaded = false;

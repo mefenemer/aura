@@ -314,6 +314,30 @@ window.initBrandAssets = function() {
         }
     }
 
+    // ── Connected social accounts (read-only; source of truth = Connections) ───
+    const SOCIAL_SERVICES = ['instagram', 'facebook', 'linkedin', 'x', 'twitter', 'tiktok', 'youtube', 'pinterest', 'threads'];
+    async function loadConnectedSocials() {
+        const box = document.getElementById('bp-connected-socials');
+        if (!box) return;
+        try {
+            const res = await fetch('/.netlify/functions/integrations');
+            if (!res.ok) throw new Error();
+            const { connections } = await res.json();
+            const socials = (connections || []).filter(c =>
+                c.connected && SOCIAL_SERVICES.includes((c.serviceName || '').toLowerCase()));
+            if (!socials.length) {
+                box.innerHTML = '<span class="text-gray-400">No social accounts connected yet — add them in Connections.</span>';
+                return;
+            }
+            box.innerHTML = socials.map(c => {
+                const handle = c.externalUserId ? `<span class="text-gray-500">${escHtml(c.externalUserId)}</span>` : '';
+                return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-800 capitalize">${escHtml(c.serviceName)} ${handle}</span>`;
+            }).join('');
+        } catch {
+            box.innerHTML = '<span class="text-gray-400">Couldn’t load connected accounts.</span>';
+        }
+    }
+
     // ── Load + wire auto-save ─────────────────────────────────────────────────
     async function initBusinessSections() {
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
@@ -374,4 +398,5 @@ window.initBrandAssets = function() {
     // Initial load of existing assets + business/billing sections.
     loadAssets();
     initBusinessSections();
+    loadConnectedSocials();
 };
