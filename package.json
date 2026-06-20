@@ -11,6 +11,7 @@
     "test:rls": "tsx tests/rls-enforcement.test.ts",
     "test:connection-policy": "tsx tests/connection-policy.test.ts",
     "test:webhook-verify": "tsx tests/webhook-verify.test.ts",
+    "test:bias-parity": "tsx tests/bias-parity.test.ts",
     "db:push": "drizzle-kit push",
     "db:seed-catalog": "npx tsx db/seed-catalog.ts",
     "build:css": "tailwindcss -i ./input.css -o ./style.css --watch",
