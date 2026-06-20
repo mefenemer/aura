@@ -33,19 +33,18 @@ export const sendEmail = async ({ to, subject, html }: SendEmailParams) => {
         return null;
     }
 
-    try {
-        const data = await resend.emails.send({
-            from: 'Be More Swan <noreply@bemoreswan.com>',
-            to,
-            subject,
-            html,
-        });
+    // resend v6 returns { data, error } for API-level failures (it does NOT throw on a
+    // rejected send); only network/runtime problems throw. Normalise both into `error` so
+    // the real reason is always logged verbatim and never silently swallowed.
+    const { data, error } = await resend.emails
+        .send({ from: 'Be More Swan <noreply@bemoreswan.com>', to, subject, html })
+        .catch((err: any) => ({ data: null, error: { name: 'ResendException', message: err?.message ?? String(err) } }));
 
-        return data;
-    } catch (error) {
-        console.error('Resend API Error:', error);
-        throw new Error('Failed to send email.');
+    if (error) {
+        console.error(`[email] Resend rejected message to ${to} (subject: "${subject}"): ${error.name ?? 'Error'} — ${error.message ?? JSON.stringify(error)}`);
+        throw new Error(`Resend error: ${error.message ?? error.name ?? 'unknown'}`);
     }
+    return data;
 };
 
 export function buildAnnualRenewalEmail(firstName: string, renewalDay: string, amount: string): string {
@@ -82,20 +81,19 @@ export const sendMagicLinkEmail = async ({ to, subject, html }: SendEmailParams)
         return null;
     }
 
-    try {
-        const data = await resend.emails.send({
-            // IMPORTANT: You must verify this domain in your Resend dashboard
-            from: 'Be More Swan <noreply@bemoreswan.com>',
-            to,
-            subject,
-            html,
-        });
+    // resend v6 returns { data, error } for API-level failures (it does NOT throw on a
+    // rejected send); only network/runtime problems throw. Normalise both so the real
+    // reason is always logged verbatim instead of a generic "Failed to send email."
+    const { data, error } = await resend.emails
+        // IMPORTANT: the `from` domain must be verified in the Resend dashboard.
+        .send({ from: 'Be More Swan <noreply@bemoreswan.com>', to, subject, html })
+        .catch((err: any) => ({ data: null, error: { name: 'ResendException', message: err?.message ?? String(err) } }));
 
-        return data;
-    } catch (error) {
-        console.error('Resend API Error:', error);
-        throw new Error('Failed to send email.');
+    if (error) {
+        console.error(`[email] Resend rejected magic-link to ${to} (subject: "${subject}"): ${error.name ?? 'Error'} — ${error.message ?? JSON.stringify(error)}`);
+        throw new Error(`Resend error: ${error.message ?? error.name ?? 'unknown'}`);
     }
+    return data;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
