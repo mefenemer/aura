@@ -21,6 +21,26 @@ window.updateNotificationBadge = async function() {
     }
 };
 
+// Mark the onboarding/welcome notifications as read once setup is complete, so the
+// Notifications area stops prompting the user to finish onboarding. Called by the
+// Getting Started checklist when every step is done. Safe to call repeatedly.
+window.resolveOnboardingNotifications = async function() {
+    try {
+        const res = await fetch('/.netlify/functions/notifications');
+        if (!res.ok) return;
+        const { notifications } = await res.json();
+        const stale = (notifications || []).filter(
+            n => !n.isRead && (n.type === 'onboarding_prompt' || n.type === 'welcome'));
+        if (!stale.length) return;
+        await Promise.all(stale.map(n => fetch('/.netlify/functions/notifications', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notificationId: n.id }),
+        }).catch(() => {})));
+        if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
+    } catch { /* non-fatal */ }
+};
+
 window.initNotifications = async function() {
     const listEl = document.getElementById('notif-list');
     const loadingEl = document.getElementById('notif-loading');

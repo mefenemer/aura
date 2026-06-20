@@ -2624,36 +2624,46 @@ function formatCurrency(amount, currency) {
     // Connecting accounts is NOT a standalone step: social handles are captured on
     // Business Information, and the actual connections are made inside the assistant
     // onboarding wizard (Connections unlocks once an assistant is selected).
+    // `key` maps to get-onboarding-progress so each step ticks once actually done.
     const SETUP_STEPS = [
-      { view: 'assets',  title: 'Complete your business profile', desc: 'Tell us about your business and add your social handles so your assistant understands your brand.' },
-      { view: 'catalog', title: 'Choose & set up your assistant', desc: 'Pick the role that matches the work you want automated — you’ll connect your accounts during setup.' },
+      { view: 'assets',  key: 'business_profile', title: 'Complete your business profile', desc: 'Tell us about your business and add your social handles so your assistant understands your brand.' },
+      { view: 'catalog', key: 'first_assistant',  title: 'Choose & set up your assistant', desc: 'Pick the role that matches the work you want automated — you’ll connect your accounts during setup.' },
     ];
 
-    let firstName = '';
-    try {
-      const pRes = await fetch('/.netlify/functions/update-profile');
-      if (pRes.ok) {
-        const profile = await pRes.json();
-        firstName = profile?.firstName || (profile?.email || '').split('@')[0] || '';
-      }
-    } catch { /* non-fatal — greeting falls back to a generic heading */ }
+    // Pull live completion state + first name in parallel (both non-fatal).
+    const [profile, progress] = await Promise.all([
+      fetch('/.netlify/functions/update-profile').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/.netlify/functions/get-onboarding-progress').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+    const firstName = profile?.firstName || (profile?.email || '').split('@')[0] || '';
+    const doneByKey = {};
+    (progress?.steps || []).forEach(s => { doneByKey[s.key] = !!s.done; });
+    const allDone = progress?.allDone === true ||
+      (SETUP_STEPS.every(s => doneByKey[s.key]) && (progress?.steps || []).length > 0);
+
+    const tick = `<span class="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-600 text-white shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></span>`;
 
     root.innerHTML = `
       <h1 class="text-2xl font-extrabold text-gray-900 mb-1">Welcome to Be More Swan${firstName ? ', ' + firstName : ''}!</h1>
-      <p class="text-gray-500 mb-6">A couple of quick steps to get your assistant working for you.</p>
+      <p class="text-gray-500 mb-6">${allDone ? "You're all set — your assistant is ready to work. You can revisit any step below." : 'A couple of quick steps to get your assistant working for you.'}</p>
       <ul class="space-y-2.5 mb-8">
-        ${SETUP_STEPS.map((s, i) => `
+        ${SETUP_STEPS.map((s, i) => {
+          // Once onboarding is fully complete the API returns no per-step flags, so
+          // fall back to allDone to keep every step ticked on later visits.
+          const done = allDone || !!doneByKey[s.key];
+          return `
           <li>
             <button type="button" data-view="${s.view}"
-              class="getting-started-step-btn w-full text-left flex items-start gap-3 p-4 rounded-xl border border-gray-100 hover:border-emerald-300 hover:bg-emerald-50 transition cursor-pointer">
-              <span class="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm shrink-0">${i + 1}</span>
+              class="getting-started-step-btn w-full text-left flex items-start gap-3 p-4 rounded-xl border ${done ? 'border-emerald-200 bg-emerald-50/40' : 'border-gray-100'} hover:border-emerald-300 hover:bg-emerald-50 transition cursor-pointer">
+              ${done ? tick : `<span class="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm shrink-0">${i + 1}</span>`}
               <span class="min-w-0 flex-1">
                 <span class="block font-semibold text-gray-900">${s.title}</span>
-                <span class="block text-xs text-gray-500">${s.desc}</span>
+                <span class="block text-xs ${done ? 'text-emerald-700 font-semibold' : 'text-gray-500'}">${done ? 'Completed' : s.desc}</span>
               </span>
               <span class="text-emerald-600 font-bold self-center shrink-0">&rarr;</span>
             </button>
-          </li>`).join('')}
+          </li>`;
+        }).join('')}
       </ul>
       <a href="/help.html" target="_blank" rel="noopener noreferrer"
          class="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline">
@@ -2666,6 +2676,12 @@ function formatCurrency(amount, currency) {
         if (window.loadView) window.loadView(v);
       });
     });
+
+    // Once every onboarding step is done, clear the onboarding/welcome notifications
+    // so the Notifications area no longer nags the user to complete setup.
+    if (allDone && typeof window.resolveOnboardingNotifications === 'function') {
+      window.resolveOnboardingNotifications();
+    }
   };
 
   window.initSetupChecklist = async function(item) {

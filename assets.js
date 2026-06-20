@@ -55,6 +55,10 @@ window.initBrandAssets = function() {
         dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-emerald-500', 'bg-emerald-50'), false);
     });
     dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+    // Click anywhere in the drop zone opens the file picker. The input is sr-only and
+    // nested in a <span> (not a <label>), so it isn't triggered on click natively. Guard
+    // against the input's own programmatic click bubbling back here (would re-open in a loop).
+    dropZone.addEventListener('click', (e) => { if (e.target !== inputFile) inputFile.click(); });
     inputFile.addEventListener('change', function() { handleFiles(this.files); });
 
     function handleFiles(files) {
