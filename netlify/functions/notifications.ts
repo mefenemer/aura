@@ -7,6 +7,24 @@ import { users, notifications } from '../../db/schema';
 
 const jwtSecret = process.env.JWT_SECRET;
 
+// Notification "kind" classification. ACTION items require the user to DO something and
+// are cleared by completing the task (not by reading); everything else is informational
+// (FYI, read/unread). The Notifications UI splits these into "Action required" / "Updates"
+// tabs and the sidebar badge counts open actions. Unknown types default to 'info'.
+const ACTION_TYPES = new Set<string>([
+    'onboarding_prompt', 'onboarding_incomplete',
+    'hitl_approval_required', 'review_red_urgency',
+    'billing_payment_failed', 'missing_stripe_sub', 'stripe_cancelled_but_db_active',
+    'tier_mismatch', 'subscription_paused', 'assistants_paused_downgrade',
+    'social_oauth_revoked', 'instagram_token_refresh_failed', 'integration_alert',
+    'post_publish_failed', 'post_missed', 'post_generation_failed',
+    'trial_expiring_soon', 'trial_expired',
+    'task_limit_reached', 'task_limit_warning',
+    'run_budget_suspended', 'run_cost_warning',
+    'security', 'agent_anomaly', 'risk_assessment_submitted',
+]);
+const kindOf = (type: string): 'action' | 'info' => (ACTION_TYPES.has(type) ? 'action' : 'info');
+
 export const handler = async (event: HandlerEvent) => {
     if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
 
@@ -43,13 +61,18 @@ export const handler = async (event: HandlerEvent) => {
                 .where(eq(notifications.userId, userId))
                 .orderBy(desc(notifications.createdAt));
 
-            // NEW: Return just the unread count for the sidebar badge
+            // Counts for the sidebar badge. actionCount = open (unread) action items —
+            // the meaningful "things you must deal with" number the badge now reflects.
             if (queryStringParameters && queryStringParameters.action === 'count') {
                 const unread = allNotes.filter(n => !n.isRead).length;
-                return { statusCode: 200, body: JSON.stringify({ unreadCount: unread }) };
+                const actionCount = allNotes.filter(n => !n.isRead && kindOf(n.type) === 'action').length;
+                return { statusCode: 200, body: JSON.stringify({ unreadCount: unread, actionCount }) };
             }
 
-            return { statusCode: 200, body: JSON.stringify({ notifications: allNotes }) };
+            // Annotate each notification with its kind so the client can split the list
+            // into Action required / Updates without duplicating the classification.
+            const annotated = allNotes.map(n => ({ ...n, kind: kindOf(n.type) }));
+            return { statusCode: 200, body: JSON.stringify({ notifications: annotated }) };
         }
 
         // -------------------------------------------------------------
