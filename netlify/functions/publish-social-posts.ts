@@ -2,24 +2,23 @@
 // Publish due LinkedIn & X (Twitter) posts every minute — the non-Instagram half of the
 // social publisher. Mirrors publish-instagram's orchestration (claim FOR UPDATE SKIP
 // LOCKED → 'publishing' → API call → 'published' | retry/backoff | 'failed'), minus the
-// Meta media-container flow. Text/caption posts only for now; per-platform media upload
-// (LinkedIn assets, X media/upload) is a follow-up.
+// Meta media-container flow. Posts the attached image when present (best-effort; falls
+// back to text-only if media upload fails). Refreshes expired X tokens on 401 and retries.
 //
-// NOTE: the per-platform API calls follow the documented contracts but have NOT been
-// validated against the live LinkedIn/X APIs — verify with real connected accounts before
-// relying on them. Facebook is intentionally excluded: it has no distinct connection yet
-// (the FB card routes through meta-oauth → serviceName 'instagram').
+// NOTE: the per-platform API calls (incl. media upload) follow the documented contracts
+// but have NOT been validated against the live LinkedIn/X APIs — verify with real
+// connected accounts. Facebook is excluded: it has no distinct connection yet.
 
 import { Handler } from '@netlify/functions';
 import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { scheduledPosts, systemConnections, rateLimitStates, publishCronLog, notifications } from '../../db/schema';
 import { getSecret } from '../../src/utils/vault';
+import { resolvePostImage, refreshXToken, fetchImageBytes, type PostImage } from '../../src/utils/social-publish';
 
 const BATCH = 100;
 const BACKOFF_MINS = [2, 8, 30];
 const MAX_ATTEMPTS = 3;
-const PLATFORMS = ['linkedin', 'x'];
 const LABEL: Record<string, string> = { linkedin: 'LinkedIn', x: 'X (Twitter)' };
 const X_MAX = 280;
 
@@ -27,8 +26,9 @@ type FailureReason = { httpStatus: number | null; errorMessage: string; isRetrya
 type PostRow = {
     id: number; user_id: number; organisation_id: number; caption: string | null;
     hashtags: string | null; connection_id: number | null; attempt_count: number;
-    publish_date: string; platform: string;
+    publish_date: string; platform: string; content_asset_ids: unknown;
 };
+type DriverResult = { ok: true; id: string } | { ok: false; status: number | null; error: string };
 
 const isRetryable = (s: number | null) => s === 429 || (s != null && s >= 500);
 const esc = (s: string) => s.replace(/'/g, "''");
@@ -41,7 +41,7 @@ export const handler: Handler = async () => {
 
     const posts = await db.execute<PostRow>(
         `SELECT id, user_id, organisation_id, caption, hashtags, connection_id,
-                attempt_count, publish_date, platform
+                attempt_count, publish_date, platform, content_asset_ids
          FROM scheduled_posts
          WHERE status = 'scheduled'
            AND platform IN ('linkedin','x')
@@ -63,8 +63,7 @@ export const handler: Handler = async () => {
 
     await Promise.allSettled(posts.map(async post => {
         try {
-            // Resolve the connection — by id if the post carries one, else the org's active
-            // connection for this platform (generated posts may not pin a connection_id).
+            // Resolve connection — by id, else the org's active connection for the platform.
             const connWhere = post.connection_id
                 ? eq(systemConnections.id, post.connection_id)
                 : and(
@@ -73,21 +72,33 @@ export const handler: Handler = async () => {
                     eq(systemConnections.isActive, true),
                   );
             const [conn] = await db.select({
+                id: systemConnections.id,
                 vaultRefKey: systemConnections.vaultRefKey,
                 externalUserId: systemConnections.externalUserId,
             }).from(systemConnections).where(connWhere).limit(1);
             if (!conn?.vaultRefKey) throw new Error(`No active ${post.platform} connection for this post.`);
 
             const secret = await getSecret(db, conn.vaultRefKey);
-            const token = secret?.token as string | undefined;
+            let token = secret?.token as string | undefined;
             if (!token) throw new Error('No token in vault for connection.');
 
             const text = [post.caption, post.hashtags].filter(Boolean).join('\n\n').trim();
             if (!text) throw new Error('Post has no text to publish.');
 
-            const result = post.platform === 'x'
-                ? await publishX(text, token)
-                : await publishLinkedIn(text, token, conn.externalUserId);
+            // Attached image (best-effort — text-only if absent/unresolvable).
+            const image = await resolvePostImage(db, post.content_asset_ids).catch(() => null);
+
+            let result: DriverResult;
+            if (post.platform === 'x') {
+                result = await publishX(text, token, image);
+                // Token expired → refresh once and retry.
+                if (!result.ok && result.status === 401) {
+                    const fresh = await refreshXToken(db, conn.vaultRefKey);
+                    if (fresh) { token = fresh; result = await publishX(text, token, image); }
+                }
+            } else {
+                result = await publishLinkedIn(text, token, conn.externalUserId, image);
+            }
 
             if (!result.ok) {
                 await handleFailure(db, post, { httpStatus: result.status, errorMessage: result.error, isRetryable: isRetryable(result.status) }, now);
@@ -118,40 +129,57 @@ export const handler: Handler = async () => {
     return { statusCode: 200, body: JSON.stringify({ processed, succeeded, failed, durationMs }) };
 };
 
-// ── Per-platform drivers (text posts) ────────────────────────────────────────
-type DriverResult = { ok: true; id: string } | { ok: false; status: number | null; error: string };
+// ── X (Twitter) ──────────────────────────────────────────────────────────────
+async function publishX(text: string, token: string, image: PostImage | null): Promise<DriverResult> {
+    let mediaId: string | null = null;
+    if (image) { try { mediaId = await uploadXMedia(image, token); } catch { /* text-only on media failure */ } }
 
-async function publishX(text: string, token: string): Promise<DriverResult> {
+    const body: Record<string, unknown> = { text: text.slice(0, X_MAX) };
+    if (mediaId) body.media = { media_ids: [mediaId] };
+
     const res = await fetch('https://api.twitter.com/2/tweets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ text: text.slice(0, X_MAX) }),
+        body: JSON.stringify(body),
     });
     const data: any = await res.json().catch(() => ({}));
     if (res.ok && data?.data?.id) return { ok: true, id: String(data.data.id) };
     return { ok: false, status: res.status, error: data?.detail || data?.title || `X API error (${res.status})` };
 }
 
-async function publishLinkedIn(text: string, token: string, authorId: string | null): Promise<DriverResult> {
+// Simple upload via media_data (base64). Returns media_id_string or null (→ text-only).
+async function uploadXMedia(image: PostImage, token: string): Promise<string | null> {
+    const bytes = await fetchImageBytes(image.url);
+    const res = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: `Bearer ${token}` },
+        body: new URLSearchParams({ media_data: Buffer.from(bytes).toString('base64') }),
+    });
+    const data: any = await res.json().catch(() => ({}));
+    return res.ok ? (data?.media_id_string ?? null) : null;
+}
+
+// ── LinkedIn ─────────────────────────────────────────────────────────────────
+async function publishLinkedIn(text: string, token: string, authorId: string | null, image: PostImage | null): Promise<DriverResult> {
     if (!authorId) return { ok: false, status: null, error: 'No LinkedIn author URN on connection.' };
-    // urn:li:person:<id> for the connected member. (Org pages would use urn:li:organization:<id>.)
     const author = authorId.startsWith('urn:') ? authorId : `urn:li:person:${authorId}`;
+
+    let assetUrn: string | null = null;
+    if (image) { try { assetUrn = await uploadLinkedInImage(image, token, author); } catch { /* text-only on media failure */ } }
+
+    const shareContent: Record<string, unknown> = {
+        shareCommentary: { text },
+        shareMediaCategory: assetUrn ? 'IMAGE' : 'NONE',
+    };
+    if (assetUrn) shareContent.media = [{ status: 'READY', media: assetUrn }];
+
     const res = await fetch('https://api.linkedin.com/v2/ugcPosts', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-            'X-Restli-Protocol-Version': '2.0.0',
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Restli-Protocol-Version': '2.0.0' },
         body: JSON.stringify({
             author,
             lifecycleState: 'PUBLISHED',
-            specificContent: {
-                'com.linkedin.ugc.ShareContent': {
-                    shareCommentary: { text },
-                    shareMediaCategory: 'NONE',
-                },
-            },
+            specificContent: { 'com.linkedin.ugc.ShareContent': shareContent },
             visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
         }),
     });
@@ -161,6 +189,33 @@ async function publishLinkedIn(text: string, token: string, authorId: string | n
     }
     const data: any = await res.json().catch(() => ({}));
     return { ok: false, status: res.status, error: data?.message || `LinkedIn API error (${res.status})` };
+}
+
+// registerUpload → PUT bytes → return the asset URN (or null → text-only).
+async function uploadLinkedInImage(image: PostImage, token: string, owner: string): Promise<string | null> {
+    const reg = await fetch('https://api.linkedin.com/v2/assets?action=registerUpload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Restli-Protocol-Version': '2.0.0' },
+        body: JSON.stringify({
+            registerUploadRequest: {
+                recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
+                owner,
+                serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],
+            },
+        }),
+    });
+    const regData: any = await reg.json().catch(() => ({}));
+    const asset: string | undefined = regData?.value?.asset;
+    const uploadUrl: string | undefined =
+        regData?.value?.uploadMechanism?.['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']?.uploadUrl;
+    if (!asset || !uploadUrl) return null;
+
+    const put = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': image.mimeType },
+        body: await fetchImageBytes(image.url),
+    });
+    return put.ok ? asset : null;
 }
 
 // ── Failure handling (rate-limit defer / retry backoff / permanent fail) ──────
