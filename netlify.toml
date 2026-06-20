@@ -112,6 +112,10 @@ node_bundler = "esbuild"
 [functions.publish-instagram]
   schedule = "* * * * *"
 
+# Publish due LinkedIn & X posts — every minute (non-Instagram social publisher)
+[functions.publish-social-posts]
+  schedule = "* * * * *"
+
 # Drain inbound webhook events (intake → sandbox → connector handlers) — every minute
 [functions.process-webhook-events]
   schedule = "* * * * *"
