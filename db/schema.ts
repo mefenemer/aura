@@ -42,6 +42,10 @@ export const organisations = pgTable('organisations', {
   businessDescription: text('business_description'),
   websiteUrl: text('website_url'),
   socialLinks: text('social_links'),
+  // Per-platform social handles/URLs captured on Business Information, keyed by
+  // lowercase platform slug ({ instagram, facebook, linkedin, x, tiktok, ... }).
+  // Single source of truth for handles; gates which Connections can be enabled.
+  socialHandles: jsonb('social_handles').$type<Record<string, string>>(),
   targetAudience: text('target_audience'),
   // Gamification & Engagement:
   onboardingCompleted: boolean('onboarding_completed').notNull().default(false), // AC1.1.3 — 3-step widget done

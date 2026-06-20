@@ -2621,10 +2621,12 @@ function formatCurrency(amount, currency) {
     const root = document.getElementById('getting-started-root');
     if (!root) return;
 
+    // Connecting accounts is NOT a standalone step: social handles are captured on
+    // Business Information, and the actual connections are made inside the assistant
+    // onboarding wizard (Connections unlocks once an assistant is selected).
     const SETUP_STEPS = [
-      { view: 'assets',       title: 'Complete your business profile', desc: 'Tell us about your business so your assistant understands your brand.' },
-      { view: 'catalog',      title: 'Choose your assistant',          desc: 'Pick the role that matches the work you want automated.' },
-      { view: 'integrations', title: 'Connect your tools',             desc: 'Link your social accounts, calendar, or CRM to let your assistant get to work.' },
+      { view: 'assets',  title: 'Complete your business profile', desc: 'Tell us about your business and add your social handles so your assistant understands your brand.' },
+      { view: 'catalog', title: 'Choose & set up your assistant', desc: 'Pick the role that matches the work you want automated — you’ll connect your accounts during setup.' },
     ];
 
     let firstName = '';
@@ -2638,7 +2640,7 @@ function formatCurrency(amount, currency) {
 
     root.innerHTML = `
       <h1 class="text-2xl font-extrabold text-gray-900 mb-1">Welcome to Be More Swan${firstName ? ', ' + firstName : ''}!</h1>
-      <p class="text-gray-500 mb-6">Three quick steps to get your assistant working for you.</p>
+      <p class="text-gray-500 mb-6">A couple of quick steps to get your assistant working for you.</p>
       <ul class="space-y-2.5 mb-8">
         ${SETUP_STEPS.map((s, i) => `
           <li>

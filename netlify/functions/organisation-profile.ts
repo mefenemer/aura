@@ -21,6 +21,25 @@ const clip = (v: unknown, max: number): string | null => {
     return s ? s.slice(0, max) : null;
 };
 
+// Future-proof set of social platforms whose handles/URLs are captured on Business
+// Information. Only a subset are connectable today (see integrations.js catalogue);
+// the rest are accepted now so the handle is ready the moment a connector ships.
+const SOCIAL_PLATFORMS = ['instagram', 'facebook', 'linkedin', 'x', 'tiktok', 'youtube', 'pinterest', 'threads'];
+
+// Sanitise the per-platform handles object: keep only known slugs, trim, cap length,
+// drop blanks. Returns null when nothing usable was supplied.
+const cleanHandles = (v: unknown): Record<string, string> | null => {
+    if (!v || typeof v !== 'object') return null;
+    const src = v as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const p of SOCIAL_PLATFORMS) {
+        const raw = src[p];
+        const s = typeof raw === 'string' ? raw.trim().slice(0, 300) : '';
+        if (s) out[p] = s;
+    }
+    return Object.keys(out).length ? out : null;
+};
+
 export const handler: Handler = async (event) => {
     if (!['GET', 'POST'].includes(event.httpMethod || '')) return json(405, { error: 'Method Not Allowed' });
 
@@ -37,6 +56,7 @@ export const handler: Handler = async (event) => {
                 businessDescription: organisations.businessDescription,
                 websiteUrl:          organisations.websiteUrl,
                 socialLinks:         organisations.socialLinks,
+                socialHandles:       organisations.socialHandles,
                 targetAudience:      organisations.targetAudience,
             }).from(organisations).where(eq(organisations.id, orgId)).limit(1);
 
@@ -61,6 +81,7 @@ export const handler: Handler = async (event) => {
             businessDescription: clip(body.businessDescription, 2000),
             websiteUrl:          clip(body.websiteUrl, 500),
             socialLinks:         clip(body.socialLinks, 1000),
+            socialHandles:       cleanHandles(body.socialHandles),
             targetAudience:      clip(body.targetAudience, 1000),
             updatedAt:           new Date(),
         };
@@ -73,6 +94,7 @@ export const handler: Handler = async (event) => {
                 businessDescription: organisations.businessDescription,
                 websiteUrl:          organisations.websiteUrl,
                 socialLinks:         organisations.socialLinks,
+                socialHandles:       organisations.socialHandles,
                 targetAudience:      organisations.targetAudience,
             });
 

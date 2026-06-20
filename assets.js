@@ -264,6 +264,7 @@ window.initBrandAssets = function() {
                     industry:            val('bp-input-industry'),
                     websiteUrl:          val('bp-input-website'),
                     socialLinks:         val('bp-input-social'),
+                    socialHandles:       collectSocialHandles(),
                     businessDescription: val('bp-input-description'),
                     targetAudience:      val('bp-input-audience'),
                 }),
@@ -314,28 +315,23 @@ window.initBrandAssets = function() {
         }
     }
 
-    // ── Connected social accounts (read-only; source of truth = Connections) ───
-    const SOCIAL_SERVICES = ['instagram', 'facebook', 'linkedin', 'x', 'twitter', 'tiktok', 'youtube', 'pinterest', 'threads'];
-    async function loadConnectedSocials() {
-        const box = document.getElementById('bp-connected-socials');
-        if (!box) return;
-        try {
-            const res = await fetch('/.netlify/functions/integrations');
-            if (!res.ok) throw new Error();
-            const { connections } = await res.json();
-            const socials = (connections || []).filter(c =>
-                c.connected && SOCIAL_SERVICES.includes((c.serviceName || '').toLowerCase()));
-            if (!socials.length) {
-                box.innerHTML = '<span class="text-gray-400">No social accounts connected yet — add them in Connections.</span>';
-                return;
-            }
-            box.innerHTML = socials.map(c => {
-                const handle = c.externalUserId ? `<span class="text-gray-500">${escHtml(c.externalUserId)}</span>` : '';
-                return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-800 capitalize">${escHtml(c.serviceName)} ${handle}</span>`;
-            }).join('');
-        } catch {
-            box.innerHTML = '<span class="text-gray-400">Couldn’t load connected accounts.</span>';
-        }
+    // ── Social media handles (Business Information is the source of truth) ──────
+    // Each input carries data-platform="<slug>". Collect them into a { slug: value }
+    // object for organisation-profile; these gate which Connections can be enabled.
+    function collectSocialHandles() {
+        const out = {};
+        document.querySelectorAll('#bp-social-grid input[data-platform]').forEach(el => {
+            const v = (el.value || '').trim();
+            if (v) out[el.dataset.platform] = v;
+        });
+        return out;
+    }
+
+    function fillSocialHandles(handles) {
+        const map = handles || {};
+        document.querySelectorAll('#bp-social-grid input[data-platform]').forEach(el => {
+            el.value = map[el.dataset.platform] || '';
+        });
     }
 
     // ── Load + wire auto-save ─────────────────────────────────────────────────
@@ -353,6 +349,7 @@ window.initBrandAssets = function() {
                         set('bp-input-industry', profile.industry);
                         set('bp-input-website', profile.websiteUrl);
                         set('bp-input-social', profile.socialLinks);
+                        fillSocialHandles(profile.socialHandles);
                         set('bp-input-description', profile.businessDescription);
                         set('bp-input-audience', profile.targetAudience);
                         _prevBusinessName = profile.businessName || '';
@@ -389,6 +386,9 @@ window.initBrandAssets = function() {
         const bpSave = debounce(saveBusinessProfile, 700);
         ['bp-input-name','bp-input-industry','bp-input-website','bp-input-social','bp-input-description','bp-input-audience']
             .forEach(id => document.getElementById(id)?.addEventListener('input', bpSave));
+        // Per-platform social handle inputs share the same auto-save.
+        document.querySelectorAll('#bp-social-grid input[data-platform]')
+            .forEach(el => el.addEventListener('input', bpSave));
 
         const bdSave = debounce(saveBilling, 700);
         ['bd-input-name','bd-input-email','bd-input-vat','bd-input-addr1','bd-input-addr2','bd-input-city','bd-input-postal','bd-input-state','bd-input-country']
@@ -398,5 +398,4 @@ window.initBrandAssets = function() {
     // Initial load of existing assets + business/billing sections.
     loadAssets();
     initBusinessSections();
-    loadConnectedSocials();
 };

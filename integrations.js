@@ -110,6 +110,24 @@ const _esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
 let _assistants = [];
 let _selectedAssistantId = null;
 let _allowedServices = null; // null = no assistant scope → show all
+// Social handles captured on Business Information (lowercase platform slug → handle).
+// A platform can only be connected once a handle has been entered there.
+let _socialHandles = {};
+
+async function _loadSocialHandles() {
+    try {
+        const res = await fetch('/.netlify/functions/organisation-profile');
+        if (res.ok) {
+            const { profile } = await res.json();
+            _socialHandles = (profile && profile.socialHandles) || {};
+        }
+    } catch { /* non-fatal — gating falls back to "add handle first" */ }
+}
+
+function _handleFor(platform) {
+    const v = _socialHandles[(platform.id || '').toLowerCase()];
+    return (typeof v === 'string' && v.trim()) ? v.trim() : '';
+}
 
 function _relevantPlatforms() {
     if (!_allowedServices) return PLATFORMS;
@@ -151,6 +169,7 @@ async function _loadAssistantsForFilter() {
 
 // ── Init ─────────────────────────────────────────────────────────
 window.initIntegrations = async function () {
+    await _loadSocialHandles();
     await _loadAssistantsForFilter();
     await _loadConnections();
 
@@ -219,8 +238,18 @@ function _platformCard(platform, conn) {
             : `<span class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Needs attention</span>`;
     }
 
+    // A platform can only be connected once its handle has been entered on Business
+    // Information (single source of truth). Without one, show a disabled prompt that
+    // points the user there instead of letting them start a connection.
+    const hasHandle = !!_handleFor(platform);
+
     // US-SMM-4.1.1 / 4.1.2: OAuth platforms use redirect; manual token entry kept for non-OAuth
-    const connectBtn = platform.oauthPlatform
+    const connectBtn = !hasHandle
+        ? `<div class="flex flex-col gap-1.5">
+               <button disabled class="px-4 py-2 bg-gray-100 text-gray-400 text-sm font-bold rounded-lg cursor-not-allowed self-start" type="button">Connect with ${platform.label}</button>
+               <button onclick="window.loadView && window.loadView('assets')" class="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer self-start" type="button">Add your ${platform.label} handle in Business Information first →</button>
+           </div>`
+        : platform.oauthPlatform
         ? `<a href="${_oauthUrl(platform)}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer inline-block">Connect with ${platform.label}</a>`
         : `<button onclick="window._intOpenModal('${platform.id}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer" type="button">Connect</button>`;
 
@@ -429,7 +458,8 @@ window._intOpenModal = function (platformId) {
     document.getElementById('handle-label').textContent = platform.handleLabel;
     document.getElementById('handle-help').textContent = platform.handleHelp;
     document.getElementById('conn-handle').placeholder = platform.handlePlaceholder;
-    document.getElementById('conn-handle').value = existing?.externalUserId || '';
+    // Prefill the handle from Business Information (source of truth) so it's never asked twice.
+    document.getElementById('conn-handle').value = existing?.externalUserId || _handleFor(platform) || '';
     document.getElementById('token-label').textContent = platform.tokenLabel;
     document.getElementById('token-help').textContent = platform.tokenHelp;
     document.getElementById('conn-token').value = '';
