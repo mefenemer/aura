@@ -112,6 +112,10 @@ node_bundler = "esbuild"
 [functions.publish-instagram]
   schedule = "* * * * *"
 
+# Drain inbound webhook events (intake → sandbox → connector handlers) — every minute
+[functions.process-webhook-events]
+  schedule = "* * * * *"
+
 # US-LEGAL-1.5: 14-day pre-renewal email reminder — 07:00 UTC every day
 [functions.renewal-reminder]
   schedule = "0 7 * * *"
