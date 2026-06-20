@@ -38,8 +38,11 @@ export const handler: Handler = async (event) => {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
+    // TEMP DEBUG (staging): track how far we get so a 500 names the failing phase. Remove after diagnosis.
+    let phase = 'init';
     try {
         // SC1 — US-GAP-7.1.1: IP-level rate limit: 5 requests per IP per 60 seconds
+        phase = 'rate-limit';
         const db = getDb();
         const ip = getClientIp(event.headers);
         const rl = await checkRateLimit(db, 'register', ip, { maxAttempts: 5, windowSecs: 60 });
@@ -56,6 +59,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 403, body: JSON.stringify({ error: 'New registrations are temporarily paused. Please check back soon.' }) };
         }
 
+        phase = 'parse-validate';
         const body = JSON.parse(event.body || '{}');
 
         const rawEmail = body.email || '';
@@ -88,6 +92,7 @@ export const handler: Handler = async (event) => {
 
         // --- SCENARIO 5: ENUMERATION PROTECTION ---
         // Check if user already exists BEFORE doing anything else
+        phase = 'duplicate-check';
         const existingUsers = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
         if (existingUsers.length > 0) {
             // Silently return success to the UI to prevent scraping, do not create a duplicate
@@ -106,6 +111,7 @@ export const handler: Handler = async (event) => {
         const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
         const tokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
+        phase = 'transaction';
         // --- SCENARIO 2: NEW REGISTRATION & DATA CAPTURE ---
         const resultUser = await db.transaction(async (tx) => {
 
@@ -202,6 +208,7 @@ export const handler: Handler = async (event) => {
         // must NOT 500 the request and orphan an account the user can never get into. We record
         // whether it actually sent so the client can surface a "Resend verification" affordance.
         // (sendMagicLinkEmail returns null when no Resend key is configured — nothing was sent.)
+        phase = 'send-email';
         let emailSent = false;
         try {
             const sendResult = await sendMagicLinkEmail({
@@ -283,10 +290,17 @@ export const handler: Handler = async (event) => {
     } catch (error: any) {
         // BUG-P1-5: Log full error server-side but never return internal detail to the client.
         // DB constraint names, column names, and query fragments aid attacker reconnaissance.
-        console.error('[register] Unhandled error:', error);
+        console.error(`[register] Unhandled error at phase "${phase}":`, error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Registration failed. Please try again.' }),
+            headers: { 'Content-Type': 'application/json' },
+            // TEMP DEBUG (staging): _debug surfaces the failing phase + error message in the
+            // response so it can be read from the Network tab while function logs are unavailable.
+            // REMOVE _debug (and the phase tracking) once the cause is identified.
+            body: JSON.stringify({
+                error: 'Registration failed. Please try again.',
+                _debug: { phase, detail: String(error?.message || error) },
+            }),
         };
     }
 };
