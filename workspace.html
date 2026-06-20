@@ -363,48 +363,9 @@ async function submitTosAcceptance(btn) {
   </div>
 </div>
 
-<!-- Post-payment welcome modal (US-ONB-2.2.1: also shown on first login after plan activation) -->
-<!-- US-ONB-2.2.1: First-login welcome modal — shown once after plan activation (AC5–AC20) -->
-<div id="payment-welcome-modal" class="hidden fixed inset-0 z-50 items-end sm:items-center justify-center p-0 sm:p-4 bg-gray-900/60 backdrop-blur-sm">
-  <!-- Mobile: full-width bottom sheet; Desktop: centred card capped at 32rem.
-       max-width is set inline because the prebuilt style.css does not include the
-       sm:max-w-lg responsive variant (it would no-op and the card would span full width). -->
-  <div id="welcome-modal-sheet" class="bg-white w-full sm:rounded-2xl shadow-2xl relative
-       rounded-t-2xl transition-transform duration-300" style="max-width:32rem">
-
-    <!-- X close button (AC5) -->
-    <button id="welcome-modal-close-btn" aria-label="Close"
-      class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <div class="p-6 sm:p-8">
-      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-        <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-      </div>
-      <!-- AC6: personalised heading -->
-      <h2 class="text-2xl font-extrabold text-gray-900 mb-2">Welcome to Be More Swan, <span id="welcome-first-name">there</span>!</h2>
-      <p class="text-gray-500 mb-4 text-sm">Your workspace is live. Here's how to get started — just 3 quick steps:</p>
-      <!-- 3-step setup checklist (mirrors the welcome email + the dashboard widget) -->
-      <ul id="welcome-bullets" class="mb-6 space-y-2.5 text-sm text-gray-700"></ul>
-      <!-- AC8: "Open User Guide" — opens in new tab, does NOT close modal (AC8) -->
-      <a id="welcome-guide-btn" href="/help.html" target="_blank" rel="noopener noreferrer"
-        class="block w-full text-center px-6 py-3 sm:py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition text-base sm:min-h-[48px] leading-normal">
-        Open User Guide
-      </a>
-      <!-- AC10: secondary dismiss link -->
-      <button id="payment-welcome-dismiss-btn"
-        class="mt-3 w-full text-sm text-gray-400 hover:text-gray-600 transition py-2">
-        I'll explore on my own
-      </button>
-      <!-- AC11: footer note -->
-      <p class="mt-3 text-xs text-gray-400 text-center">You can always find this guide in the Help section of your workspace.</p>
-    </div>
-  </div>
-</div>
+<!-- First-login welcome modal retired (US-ONB-2.2.1): the welcome + 3-step setup
+     checklist now live in the Notifications area and the Getting Started view
+     (getting-started.html / initGettingStarted). -->
 
 <!-- US-ONB-2.1.1: Plan selection gate — non-dismissible, shows live plan cards from DB (AC5–AC18) -->
 <div id="plan-gate-modal" class="hidden fixed inset-0 z-[10000] backdrop-blur-sm flex items-center justify-center p-4" style="z-index:10000;background-color:rgba(20,18,15,0.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding-top:max(1rem,env(safe-area-inset-top));padding-bottom:max(1rem,env(safe-area-inset-bottom))">
@@ -882,7 +843,8 @@ function formatCurrency(amount, currency) {
       'calendar': { file: 'calendar.html', title: '| Content Calendar' },
       'referral': { file: 'referral-content.html', title: '| Refer a Friend' },
       'review-queue': { file: 'review-queue.html', title: '| Review Queue' },
-      'assistant-setup': { file: 'assistant-setup-checklist.html', title: '| Assistant Setup' }
+      'assistant-setup': { file: 'assistant-setup-checklist.html', title: '| Assistant Setup' },
+      'getting-started': { file: 'getting-started.html', title: '| Getting Started' }
     };
 
     // Consolidated DOM element hooks
@@ -1073,6 +1035,10 @@ function formatCurrency(amount, currency) {
 
         if (routeKey === 'assistant-setup' && typeof window.initSetupChecklist === 'function') {
           await window.initSetupChecklist(param);
+        }
+
+        if (routeKey === 'getting-started' && typeof window.initGettingStarted === 'function') {
+          window.initGettingStarted();
         }
 
       } catch (error) {
@@ -1786,16 +1752,10 @@ function formatCurrency(amount, currency) {
         }).catch(e => console.warn('confirm-payment call failed:', e));
       }
 
-      // Show the single unified welcome modal, populated with the 3-step setup
-      // checklist. (showWelcomeModal is a hoisted declaration defined below.)
-      (async () => {
-        let profile = {};
-        try {
-          const pRes = await fetch('/.netlify/functions/update-profile');
-          if (pRes.ok) profile = await pRes.json();
-        } catch { /* non-fatal — fall back to defaults */ }
-        showWelcomeModal(profile);
-      })();
+      // Onboarding welcome no longer auto-pops a modal. The welcome + setup
+      // checklist now live in the Notifications area (seeded by verify.ts as
+      // 'welcome' + 'onboarding_prompt'); the latter deep-links to the
+      // Getting Started checklist view. See initGettingStarted / notifications.js.
 
       history.replaceState(null, '', window.location.pathname);
     }
@@ -1817,107 +1777,14 @@ function formatCurrency(amount, currency) {
       await loadView(viewParam);
     }
 
-    // US-ONB-2.2.1: First-login welcome modal (AC5–AC20)
-    const WELCOME_GUIDE_URL = '/help.html'; // AC9: configurable constant
-    const WELCOME_LS_KEY = 'aura_welcome_seen';
+    // US-ONB-2.2.1: First-login welcome modal retired. Welcome + the 3-step setup
+    // checklist now live in the Notifications area (verify.ts seeds 'welcome' +
+    // 'onboarding_prompt'); the onboarding notification opens the Getting Started
+    // view (getting-started.html / window.initGettingStarted, defined below).
 
-    function showWelcomeModal(profileData, tierName) {
-      const modal = document.getElementById('payment-welcome-modal');
-      if (!modal) return;
-
-      // AC6: personalised heading — first name from firstName field or email local-part
-      const firstName = profileData?.firstName || (profileData?.email || '').split('@')[0] || '';
-      const nameEl = document.getElementById('welcome-first-name');
-      if (nameEl && firstName) nameEl.textContent = firstName;
-
-      // AC9: wire guide button to WELCOME_GUIDE_URL constant
-      const guideBtn = document.getElementById('welcome-guide-btn');
-      if (guideBtn) guideBtn.setAttribute('href', WELCOME_GUIDE_URL);
-
-      // 3-step setup checklist — wording mirrors the welcome email (verify.ts) and the
-      // dashboard onboarding widget. Each step deep-links to the relevant workspace view.
-      const SETUP_STEPS = [
-        { view: 'assets',       title: 'Complete your business profile', desc: 'Tell us about your business so your assistant understands your brand.' },
-        { view: 'catalog',      title: 'Choose your assistant', desc: 'Pick the role that matches the work you want automated.' },
-        { view: 'integrations', title: 'Connect your tools',    desc: 'Link your social accounts, calendar, or CRM to let your assistant get to work.' },
-      ];
-      const bulletsEl = document.getElementById('welcome-bullets');
-      if (bulletsEl) {
-        bulletsEl.innerHTML = SETUP_STEPS.map((s, i) => `
-          <li>
-            <button type="button" data-view="${s.view}"
-              class="welcome-step-btn w-full text-left flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:border-emerald-300 hover:bg-emerald-50 transition cursor-pointer">
-              <span class="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm shrink-0">${i + 1}</span>
-              <span class="min-w-0 flex-1">
-                <span class="block font-semibold text-gray-900">${s.title}</span>
-                <span class="block text-xs text-gray-500">${s.desc}</span>
-              </span>
-              <span class="text-emerald-600 font-bold self-center shrink-0">→</span>
-            </button>
-          </li>`).join('');
-        bulletsEl.querySelectorAll('.welcome-step-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const v = btn.getAttribute('data-view');
-            dismissWelcomeModal();
-            if (window.loadView) window.loadView(v);
-          });
-        });
-      }
-
-      // Show modal — desktop: centred flex, mobile: bottom sheet slides up
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-    }
-
-    function dismissWelcomeModal() {
-      const modal = document.getElementById('payment-welcome-modal');
-      if (!modal) return;
-      // AC12: optimistic update BEFORE closing
-      localStorage.setItem(WELCOME_LS_KEY, '1'); // AC13: localStorage fallback
-      fetch('/.netlify/functions/update-profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fieldKey: 'firstLoginWelcomeSeen', value: true }),
-      }).catch(() => {});
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    }
-
-    (function initWelcomeModal() {
-      const modal = document.getElementById('payment-welcome-modal');
-      if (!modal) return;
-
-      // X button, "I'll explore on my own" link (AC5, AC10)
-      document.getElementById('welcome-modal-close-btn')?.addEventListener('click', dismissWelcomeModal);
-      document.getElementById('payment-welcome-dismiss-btn')?.addEventListener('click', dismissWelcomeModal);
-
-      // Backdrop click dismiss (AC5)
-      modal.addEventListener('click', (e) => { if (e.target === modal) dismissWelcomeModal(); });
-
-      // Escape key dismiss (AC5)
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !modal.classList.contains('hidden')) dismissWelcomeModal();
-      });
-    })();
-
-    (async function checkAndShowWelcomeModal() {
-      // AC13: don't show if localStorage flag already set
-      if (localStorage.getItem(WELCOME_LS_KEY)) return;
-      // AC3: don't show while plan gate is active (plan gate takes priority)
-      if (qs.get('payment') === 'success') return;
-      try {
-        const profileRes = await fetch('/.netlify/functions/update-profile');
-        if (!profileRes.ok) return;
-        const profile = await profileRes.json();
-        // AC1: only show if flag is false AND plan is active
-        if (profile.firstLoginWelcomeSeen === false) {
-          const cap = await window.checkCapacity();
-          if (cap?.planStatus === 'active' || cap?.planStatus === 'trialing') {
-            showWelcomeModal(profile, cap?.tierName);
-          }
-        }
-      } catch { /* non-fatal */ }
-    })();
+    // First-login welcome modal retired: the welcome + setup checklist now live
+    // in the Notifications area (see initGettingStarted / notifications.js), so
+    // this no longer auto-pops a modal on first login.
 
     // US-ONB-2.1.1: Plan gate — live plan cards, blur, sidebar dim (AC1–AC18)
     (async function initPlanGate() {
@@ -2075,16 +1942,8 @@ function formatCurrency(amount, currency) {
             clearInterval(poll);
             gateModal.classList.add('hidden');
             applyGateBlur(false);
-            // Show welcome modal after gate lifts (AC3)
-            try {
-              const profileRes = await fetch('/.netlify/functions/update-profile');
-              if (profileRes.ok) {
-                const profile = await profileRes.json();
-                if (!localStorage.getItem(WELCOME_LS_KEY) && profile.firstLoginWelcomeSeen === false) {
-                  showWelcomeModal(profile, fresh?.tierName);
-                }
-              }
-            } catch { /* non-fatal */ }
+            // Welcome modal retired — welcome + setup checklist now live in the
+            // Notifications area (see initGettingStarted / notifications.js).
           } else if (attempts >= 5) {
             clearInterval(poll);
             if (pollingEl) {
@@ -2755,6 +2614,58 @@ function formatCurrency(amount, currency) {
   // ═══════════════════════════════════════════════════════════════════
   //  US2: Assistant Setup Checklist UI  +  US3: deep-linking to a step
   // ═══════════════════════════════════════════════════════════════════
+  // Getting Started checklist view — the 3-step setup guide that previously lived
+  // in the (now retired) first-login welcome modal. Reached from the Notifications
+  // area ('onboarding_prompt' / 'welcome'). Each step deep-links to its workspace view.
+  window.initGettingStarted = async function() {
+    const root = document.getElementById('getting-started-root');
+    if (!root) return;
+
+    const SETUP_STEPS = [
+      { view: 'assets',       title: 'Complete your business profile', desc: 'Tell us about your business so your assistant understands your brand.' },
+      { view: 'catalog',      title: 'Choose your assistant',          desc: 'Pick the role that matches the work you want automated.' },
+      { view: 'integrations', title: 'Connect your tools',             desc: 'Link your social accounts, calendar, or CRM to let your assistant get to work.' },
+    ];
+
+    let firstName = '';
+    try {
+      const pRes = await fetch('/.netlify/functions/update-profile');
+      if (pRes.ok) {
+        const profile = await pRes.json();
+        firstName = profile?.firstName || (profile?.email || '').split('@')[0] || '';
+      }
+    } catch { /* non-fatal — greeting falls back to a generic heading */ }
+
+    root.innerHTML = `
+      <h1 class="text-2xl font-extrabold text-gray-900 mb-1">Welcome to Be More Swan${firstName ? ', ' + firstName : ''}!</h1>
+      <p class="text-gray-500 mb-6">Three quick steps to get your assistant working for you.</p>
+      <ul class="space-y-2.5 mb-8">
+        ${SETUP_STEPS.map((s, i) => `
+          <li>
+            <button type="button" data-view="${s.view}"
+              class="getting-started-step-btn w-full text-left flex items-start gap-3 p-4 rounded-xl border border-gray-100 hover:border-emerald-300 hover:bg-emerald-50 transition cursor-pointer">
+              <span class="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm shrink-0">${i + 1}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block font-semibold text-gray-900">${s.title}</span>
+                <span class="block text-xs text-gray-500">${s.desc}</span>
+              </span>
+              <span class="text-emerald-600 font-bold self-center shrink-0">&rarr;</span>
+            </button>
+          </li>`).join('')}
+      </ul>
+      <a href="/help.html" target="_blank" rel="noopener noreferrer"
+         class="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline">
+        Read the getting-started guide &rarr;
+      </a>`;
+
+    root.querySelectorAll('.getting-started-step-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = btn.getAttribute('data-view');
+        if (window.loadView) window.loadView(v);
+      });
+    });
+  };
+
   window.initSetupChecklist = async function(item) {
     const root = document.getElementById('setup-checklist-root');
     if (!root) return;

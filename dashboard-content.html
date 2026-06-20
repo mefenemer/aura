@@ -1,6 +1,7 @@
 <div class="flex flex-col">
 
-  <!-- Post-payment / first-login welcome is handled by the single #payment-welcome-modal in workspace.html -->
+  <!-- Post-payment / first-login welcome now lives in the Notifications area + the
+       Getting Started view (getting-started.html); no welcome modal is shown. -->
 
   <header class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
 
@@ -93,8 +94,9 @@
 
 <script>
   (function () {
-    // Note: the post-payment / first-login welcome modal is owned solely by
-    // workspace.html (#payment-welcome-modal); this partial no longer triggers one.
+    // Note: the first-login welcome modal has been retired; onboarding welcome now
+    // lives in the Notifications area + the Getting Started view. This partial just
+    // renders the dashboard onboarding progress widget below.
 
     // US-AUD-1.2.1: Full ROI widget — £ value, break-even messaging, period toggle
     let _roiPeriod = 'month';
