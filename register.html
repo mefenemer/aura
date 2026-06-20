@@ -140,8 +140,10 @@
       const data = await response.json();
 
       if (response.ok) {
-        // MUST go to check-email so the backend can issue the secure cookie via the magic link
-        window.location.href = '/check-email.html';
+        // MUST go to check-email so the backend can issue the secure cookie via the magic link.
+        // If the verification email couldn't be sent (emailSent === false), flag it so check-email
+        // prompts the user to resend rather than waiting for an email that never arrived.
+        window.location.href = data.emailSent === false ? '/check-email.html?send=failed' : '/check-email.html';
       } else {
         errorMessage.innerText = data.error || "An error occurred during registration.";
         errorMessage.classList.remove('hidden');

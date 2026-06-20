@@ -197,22 +197,33 @@ export const handler: Handler = async (event) => {
         // so a missing config fails fast rather than orphaning a half-created user.
         const magicLink = `${baseUrl}/verify-account.html?token=${plainToken}${priceId ? `&priceId=${encodeURIComponent(priceId)}` : ''}${isTrial ? '&trial=true' : ''}`;
 
-        await sendMagicLinkEmail({
-            to: email,
-            subject: 'Welcome to Be More Swan - Verify your email',
-            html: `
-                <div style="font-family: sans-serif; text-align: center; padding: 40px 20px; background-color: #fdfcf9;">
-                    <div style="max-width: 500px; margin: 0 auto; background-color: white; padding: 40px; border-radius: 16px; border: 1px solid #eae4d7; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                        <h2 style="color: #1f1e1b; margin-top: 0;">Welcome, ${firstName}!</h2>
-                        <p style="color: #5c564b; font-size: 16px; line-height: 1.5;">Click the button below to securely verify your account and complete your workspace setup.</p>
-                        <a href="${magicLink}" style="background-color: #00e55c; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; margin: 24px 0; font-weight: bold; font-size: 16px;">
-                            Verify & Log In
-                        </a>
-                        <p style="color: #787263; font-size: 14px; margin-bottom: 0;">This secure link expires in 15 minutes.</p>
+        // Verification email is BEST-EFFORT: the account + workspace are already committed
+        // above, so a transient email failure (Resend outage, unverified domain, missing key)
+        // must NOT 500 the request and orphan an account the user can never get into. We record
+        // whether it actually sent so the client can surface a "Resend verification" affordance.
+        // (sendMagicLinkEmail returns null when no Resend key is configured — nothing was sent.)
+        let emailSent = false;
+        try {
+            const sendResult = await sendMagicLinkEmail({
+                to: email,
+                subject: 'Welcome to Be More Swan - Verify your email',
+                html: `
+                    <div style="font-family: sans-serif; text-align: center; padding: 40px 20px; background-color: #fdfcf9;">
+                        <div style="max-width: 500px; margin: 0 auto; background-color: white; padding: 40px; border-radius: 16px; border: 1px solid #eae4d7; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                            <h2 style="color: #1f1e1b; margin-top: 0;">Welcome, ${firstName}!</h2>
+                            <p style="color: #5c564b; font-size: 16px; line-height: 1.5;">Click the button below to securely verify your account and complete your workspace setup.</p>
+                            <a href="${magicLink}" style="background-color: #00e55c; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; margin: 24px 0; font-weight: bold; font-size: 16px;">
+                                Verify & Log In
+                            </a>
+                            <p style="color: #787263; font-size: 14px; margin-bottom: 0;">This secure link expires in 15 minutes.</p>
+                        </div>
                     </div>
-                </div>
-            `
-        });
+                `
+            });
+            emailSent = sendResult !== null;
+        } catch (emailErr) {
+            console.error('[register] Verification email failed to send (account created; user can resend):', emailErr);
+        }
 
         // US-GAP-8.2: Record workspace referral if signup came from a referral link
         if (referralRef && resultUser) {
@@ -261,7 +272,13 @@ export const handler: Handler = async (event) => {
 
         return {
             statusCode: 200,
-            body: JSON.stringify({ success: true, message: 'Registration processed.' }),
+            body: JSON.stringify({
+                success: true,
+                emailSent,
+                message: emailSent
+                    ? 'Registration processed.'
+                    : 'Your account was created, but we could not send the verification email. Please use the “Resend verification” option to receive your link.',
+            }),
         };
     } catch (error: any) {
         // BUG-P1-5: Log full error server-side but never return internal detail to the client.
