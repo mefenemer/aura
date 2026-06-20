@@ -27,7 +27,7 @@ import { getSession } from '../../src/utils/session';
 import { resolveActiveOrg } from '../../src/utils/tenant';
 
 const jwtSecret = process.env.JWT_SECRET;
-const resend    = new Resend(process.env.RESEND_API_KEY);
+const resend    = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : (null as unknown as Resend); // guarded: resend v6 throws at construction when key missing -> would crash module at import
 const FROM_DOMAIN = process.env.OUTBOUND_EMAIL_DOMAIN || 'outbound.bemoreswan.com';
 
 export const handler: Handler = async (event) => {

@@ -9,7 +9,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, leads } from '../../db/schema';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : (null as unknown as Resend); // guarded: resend v6 throws at construction when key missing -> would crash module at import
 const FROM_EMAIL  = process.env.FROM_EMAIL   || 'hello@bemoreswan.com';
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || FROM_EMAIL; // internal inbox
 

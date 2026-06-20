@@ -8,7 +8,7 @@ import { getDb } from '../../db/client';
 import { pendingActions, users } from '../../db/schema';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : (null as unknown as Resend); // guarded: resend v6 throws at construction when key missing -> would crash module at import
 const FROM   = process.env.EMAIL_FROM || 'noreply@bemoreswan.com';
 const BASE   = process.env.BASE_URL   || 'https://bemoreswan.com';
 

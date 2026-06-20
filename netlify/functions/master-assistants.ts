@@ -18,7 +18,7 @@ import { Resend } from 'resend';
 import { getDb } from '../../db/client';
 import { masterAssistants, waitlist, userProfiles, notifications, organisations, userOrganisations } from '../../db/schema';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : (null as unknown as Resend); // guarded: resend v6 throws at construction when key missing -> would crash module at import
 const FROM_EMAIL = process.env.FROM_EMAIL || 'hello@bemoreswan.com';
 
 const jwtSecret = process.env.JWT_SECRET;

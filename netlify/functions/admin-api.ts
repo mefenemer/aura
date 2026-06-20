@@ -42,7 +42,7 @@ import { isAdminRole, hasPermission, requirePermission } from '../../src/utils/r
 import { checkImpersonationBlock } from '../../src/utils/impersonation-guard';
 import { SPECIAL_CATEGORY_CLAUSE } from './get-dpa-content';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : (null as unknown as Resend); // guarded: resend v6 throws at construction when key missing -> would crash module at import
 const FROM_EMAIL = process.env.FROM_EMAIL || 'hello@bemoreswan.com';
 
 const jwtSecret = process.env.JWT_SECRET;

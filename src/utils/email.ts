@@ -13,10 +13,12 @@ import { getTemplateDefault } from './email-templates-catalog';
 
 const resendApiKey = process.env.RESEND_API_KEY;
 
-// Initialize the Resend client
-// Note: If the key is missing (e.g., in local dev without an env var),
-// we handle it gracefully below rather than crashing the whole app.
-const resend = new Resend(resendApiKey);
+// Initialize the Resend client LAZILY. The resend v6 constructor THROWS on a missing
+// key ("Missing API key"). Constructing at module load would crash this module on import
+// — taking down every function that imports it (register, admin-api, etc.) with a 500 and
+// NO handler logs. Guarding here keeps the dev-mode fallbacks below working as intended:
+// when the key is absent we simply skip sending instead of crashing the whole app.
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 interface SendEmailParams {
     to: string;
@@ -26,7 +28,7 @@ interface SendEmailParams {
 
 // sendEmail is an alias for sendMagicLinkEmail used by most Netlify functions
 export const sendEmail = async ({ to, subject, html }: SendEmailParams) => {
-    if (!resendApiKey) {
+    if (!resend) {
         console.warn(`[DEV MODE] RESEND_API_KEY missing. Simulated email to ${to}`);
         return null;
     }
@@ -75,7 +77,7 @@ export function buildDunningEmail(firstName: string, amount: string, nextRetryLi
 }
 
 export const sendMagicLinkEmail = async ({ to, subject, html }: SendEmailParams) => {
-    if (!resendApiKey) {
+    if (!resend) {
         console.warn(`[DEV MODE] RESEND_API_KEY missing. Simulated email to ${to}`);
         return null;
     }
