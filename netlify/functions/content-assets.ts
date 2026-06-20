@@ -114,6 +114,28 @@ export async function propagateAssetStatuses(
         );
 }
 
+// ── Physical file deletion ────────────────────────────────────────────────
+// Removes an object from S3 using the same config as content-upload-url.ts.
+// Best-effort: a storage failure must not block the DB delete (the row is the
+// user-facing record), but it is logged so leaked objects can be reconciled.
+async function deleteStorageObject(storageKey: string | null | undefined): Promise<void> {
+    if (!storageKey) return; // link/URL assets have no physical file
+    const bucket = process.env.S3_BUCKET_NAME;
+    const region = process.env.S3_REGION || 'us-east-1';
+    if (!bucket || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+        console.warn(`[content-assets] S3 not configured — cannot delete object ${storageKey}`);
+        return;
+    }
+    try {
+        // Dynamic import so the build doesn't fail when @aws-sdk is not installed.
+        const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+        const s3 = new S3Client({ region });
+        await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: storageKey }));
+    } catch (err) {
+        console.error(`[content-assets] Failed to delete S3 object ${storageKey}:`, err);
+    }
+}
+
 // Retention windows (milliseconds)
 const POSTED_RETENTION_MS  = 30 * 24 * 60 * 60 * 1000; // 30 days
 const REJECTED_RETENTION_MS =  7 * 24 * 60 * 60 * 1000; //  7 days
@@ -285,7 +307,9 @@ export const handler: Handler = async (event) => {
                 .where(and(eq(contentAssets.id, assetId), eq(contentAssets.userId, userId)));
             if (!existing) return { statusCode: 404, body: JSON.stringify({ error: 'Asset not found.' }) };
 
-            // TODO: When S3 is wired, delete the physical file here using existing.storageKey
+            // Delete the physical file from S3 before removing the DB row, so we never
+            // leave an orphaned object behind (storage leak + GDPR erasure gap).
+            await deleteStorageObject(existing.storageKey);
 
             await db.delete(contentAssets).where(eq(contentAssets.id, assetId));
             return { statusCode: 200, body: JSON.stringify({ success: true }) };

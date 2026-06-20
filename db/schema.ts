@@ -337,6 +337,29 @@ export const notificationLog = pgTable("notification_log", {
   index("notification_log_user_type_idx").on(t.userId, t.type),
 ]);
 
+// US-COMMS-1: Admin-editable transactional email templates.
+// Platform-global (NOT org-scoped) — one row per system trigger. The inner bodyHtml is
+// admin-edited via the WYSIWYG editor; the immutable brand shell lives in code
+// (renderMasterTemplate). triggerKey is hardcoded to a system event and never created or
+// deleted by admins (AC3.2.1) — they edit the payload only. Defaults & the in-code
+// fallback live in src/utils/email-templates-catalog.ts (TEMPLATE_DEFAULTS).
+export const emailTemplates = pgTable("email_templates", {
+  id: serial().primaryKey(),
+  triggerKey: text("trigger_key").notNull().unique(), // e.g. 'welcome' | 'payment_failed' | 'assistant_ready'
+  name: text("name").notNull(),                       // display name in the admin list
+  category: text("category").notNull().default("General"), // Onboarding | Billing | Security | …
+  subject: text("subject").notNull(),                 // supports {{merge}} tags
+  bodyHtml: text("body_html").notNull(),              // inner body only — wrapped at send time
+  preheader: text("preheader"),                       // inbox preview text
+  // Governance (full UI is Feature 3; columns ship now so the send path can respect them).
+  isActive: boolean("is_active").notNull().default(true),
+  locked: boolean("locked").notNull().default(false), // critical triggers can't be deactivated
+  transactional: boolean("transactional").notNull().default(false), // omit unsubscribe link
+  updatedByAdminId: integer("updated_by_admin_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ── Vault Secrets — US-AUD-4.2.1 SC1/SC2 ────────────────────────────────────
 // Stores AES-256-GCM encrypted credential payloads. DB never holds plaintext.
 // refKey format: 'aura/user-<id>/<service>-<type>' e.g. 'aura/user-42/google-oauth-access'
@@ -1062,6 +1085,51 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   // US-SMM-3.3.1: Partial index for publish queue polling
   index("scheduled_posts_publish_queue_idx").on(t.publishDate).where(sql`status = 'scheduled' AND platform = 'instagram'`),
   check("scheduled_posts_status_check", sql`${t.status} IN ('draft', 'in_review', 'approved', 'scheduled', 'published', 'rejected', 'cancelled', 'missed')`),
+]);
+
+// US-SMM-PERF: Per-post social performance snapshot.
+// One upserted row per published post, refreshed by ingest-instagram-insights.ts.
+// Source of truth for the assistant-detail "Performance Metrics" cards
+// (engagement rate, organic reach growth, click-through rate), aggregated by
+// get-assistant-metrics.ts. Platform-agnostic so LinkedIn/X ingesters can reuse it.
+export const postInsights = pgTable("post_insights", {
+  id: serial().primaryKey(),
+  scheduledPostId: integer("scheduled_post_id")
+      .notNull()
+      .references(() => scheduledPosts.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+  assistantId: integer("assistant_id")
+      .references(() => aiAssistants.id, { onDelete: "set null" }),
+  connectionId: integer("connection_id")
+      .references(() => systemConnections.id, { onDelete: "set null" }),
+  platform: text("platform").notNull(),              // instagram | facebook | linkedin | x
+  platformPostId: text("platform_post_id").notNull(), // external media/post id
+  publishedAt: timestamp("published_at"),
+
+  // Raw counters as returned by the platform (nulls where unsupported).
+  reach: integer("reach"),
+  impressions: integer("impressions"),               // deprecated on newer IG media — may be null
+  likes: integer("likes"),
+  comments: integer("comments"),
+  shares: integer("shares"),
+  saves: integer("saves"),
+  totalInteractions: integer("total_interactions"),  // engagement numerator
+  videoViews: integer("video_views"),
+  linkClicks: integer("link_clicks"),                // null for IG organic feed — reserved for platforms that expose it
+
+  raw: jsonb("raw"),                                 // full insights payload for debugging / future metrics
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  // One snapshot per post — ingester upserts on this key.
+  uniqueIndex("post_insights_post_uidx").on(t.scheduledPostId),
+  // Per-assistant aggregation over a time window (get-assistant-metrics.ts).
+  index("post_insights_assistant_published_idx").on(t.assistantId, t.publishedAt),
+  // Org-scoped + platform reporting.
+  index("post_insights_org_platform_idx").on(t.organisationId, t.platform),
 ]);
 
 // US-DB-1.2.1: Junction table replacing scheduledPosts.contentAssetIds JSONB array.

@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import { and, eq } from 'drizzle-orm';
 import { getDb, withUpdatedAt } from '../../db/client';
 import { aiAssistants, auditLogs, dpaAcceptances, masterAssistants, notifications, organisations, plans, riskAssessments, users, supportTickets } from '../../db/schema';
-import { sendEmail } from '../../src/utils/email';
+import { sendEmail, sendTemplatedEmail } from '../../src/utils/email';
 import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 import { requireTosAcceptance, checkProhibitedUsePatterns } from '../../src/utils/tos-gate';
 import { CURRENT_DPA_VERSION } from './accept-dpa';
@@ -197,22 +197,16 @@ export const handler: Handler = async (event) => {
                     const role      = (updated as any).assistantRole || (updated as any).role || 'AI Assistant';
                     const firstName = userRecord.firstName || 'there';
 
-                    sendEmail({
+                    // US-COMMS-1: admin-editable template (trigger 'assistant_ready').
+                    void intUrl;
+                    sendTemplatedEmail({
+                        triggerKey: 'assistant_ready',
                         to: userRecord.email,
-                        subject: `${updated.name} is ready!`,
-                        html: `<p>Hi ${firstName},</p>
-                               <p>Great news — <strong>${updated.name}</strong> is fully set up and ready to work for you.</p>
-                               <p><strong>Role:</strong> ${role}</p>
-                               <p>Your assistant is already briefed on your business and ready to start generating content, scheduling posts, and handling the tasks you've assigned.</p>
-                               <p style="margin-top:24px;">
-                                 <a href="${dashUrl}" style="background:#059669;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
-                                   Go to My Dashboard →
-                                 </a>
-                               </p>
-                               <p style="margin-top:12px;font-size:0.875rem;">
-                                 Want to get more from ${updated.name}? <a href="${intUrl}">Connect your tools</a> to enable automations.
-                               </p>
-                               <p>The Be More Swan Team</p>`,
+                        vars: {
+                            user: { first_name: firstName },
+                            assistant: { name: updated.name, role },
+                            link: { action_url: dashUrl },
+                        },
                     }).catch(() => {});
                 }
             } catch (emailErr) {
@@ -241,15 +235,15 @@ export const handler: Handler = async (event) => {
 
             if (userRecord) {
                 const baseUrl = process.env.BASE_URL || '';
-                // SC4a: failure email
-                sendEmail({
+                // SC4a: failure email — US-COMMS-1 template 'assistant_failed'.
+                void baseUrl;
+                sendTemplatedEmail({
+                    triggerKey: 'assistant_failed',
                     to: userRecord.email,
-                    subject: `There was an issue setting up your assistant`,
-                    html: `<p>Hi ${userRecord.firstName || 'there'},</p>
-                           <p>Unfortunately, we encountered an issue while setting up <strong>${failed.name || 'your assistant'}</strong>. Our team has been automatically notified and will investigate.</p>
-                           <p>We'll be in touch shortly to resolve this. In the meantime, if you have any questions please reply to this email or visit <a href="${baseUrl}/billing.html">your billing page</a>.</p>
-                           <p>We're sorry for the inconvenience.</p>
-                           <p>The Be More Swan Team</p>`,
+                    vars: {
+                        user: { first_name: userRecord.firstName || '' },
+                        assistant: { name: failed.name || '' },
+                    },
                 }).catch(() => {});
 
                 // SC4b: auto-create support ticket

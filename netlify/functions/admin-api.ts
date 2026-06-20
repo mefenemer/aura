@@ -36,6 +36,7 @@ import {
     rewardAudits,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
+import { resolveEnvironment, runWithEnvironment } from '../../src/utils/env-context';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { isAdminRole, hasPermission, requirePermission } from '../../src/utils/rbac';
 import { checkImpersonationBlock } from '../../src/utils/impersonation-guard';
@@ -99,11 +100,21 @@ export const handler: Handler = async (event) => {
 
     const qs = event.queryStringParameters || {};
     const resource = qs.resource || '';
-    const db = getDb();
+    const authDb = getDb(); // live — auth/role resolution always reads production
 
     // Resolve admin role once for permission checks throughout this request
-    const [_adminRoleRow] = await db.select({ role: users.role }).from(users).where(eq(users.id, adminId)).limit(1);
+    const [_adminRoleRow] = await authDb.select({ role: users.role }).from(users).where(eq(users.id, adminId)).limit(1);
     const adminRole = _adminRoleRow?.role ?? null;
+
+    // Epic: Superadmin Environment Management — US2/US3.
+    // Resolve Live vs Sandbox for this request. Only super_admins may operate in
+    // sandbox; a missing/malformed X-Environment header, a non-super-admin, or an
+    // unprovisioned sandbox all fall back to live (AC 3.3). Every data query below
+    // runs on the env-routed connection (db/client.ts).
+    const env = resolveEnvironment(event.headers, { allowSandbox: adminRole === 'super_admin' });
+
+    return runWithEnvironment(env, async () => {
+    const db = getDb();
 
     try {
         // ── GET: dashboard KPIs (US6 Sc4) ────────────────────────────────────
@@ -2273,4 +2284,5 @@ export const handler: Handler = async (event) => {
         console.error('[admin-api] Error:', err);
         return { statusCode: 500, body: JSON.stringify({ error: 'Internal Server Error' }) };
     }
+    });
 };

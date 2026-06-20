@@ -411,6 +411,9 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         }
     }
 
+    // ── Performance Metrics (post_insights aggregation) ───────────
+    await _loadAssistantMetrics(assistantId);
+
     // ── Platforms (from global connections) ───────────────────────
     await _renderPlatformsTab(assistantId, currentData);
 
@@ -420,6 +423,75 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── Workspace defaults (Brand Profile + Assistant Rules) ──────
     await _fetchAndRenderWorkspaceDefaults(assistantId, currentData, triggerAutoSave);
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Performance Metrics — fetches get-assistant-metrics and populates the
+// three KPI cards. Shows "—" honestly wherever a metric has no data or the
+// platform doesn't expose it (e.g. CTR for Instagram's organic feed).
+// ─────────────────────────────────────────────────────────────────
+async function _loadAssistantMetrics(assistantId) {
+    const valEl   = (k) => document.getElementById(`metric-${k}-value`);
+    const trendEl = (k) => document.getElementById(`metric-${k}-trend`);
+    const dotEl   = (k) => document.getElementById(`metric-${k}-dot`);
+    if (!valEl('engagement')) return; // section not on this page
+
+    // 0–1 fraction → "12.3%". Null/undefined → "—".
+    const pct = (v) => (v === null || v === undefined) ? '—' : `${(v * 100).toFixed(1)}%`;
+    // Signed percentage for growth, with colour + arrow on the dot.
+    const signedPct = (v) => {
+        if (v === null || v === undefined) return '—';
+        const s = `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
+        return s;
+    };
+    const setDot = (k, state) => {
+        const el = dotEl(k);
+        if (!el) return;
+        el.className = 'w-2 h-2 rounded-full ' + (
+            state === 'up'   ? 'bg-emerald-400' :
+            state === 'down' ? 'bg-rose-400' :
+            state === 'live' ? 'bg-emerald-400' : 'bg-gray-200'
+        );
+    };
+
+    try {
+        const res = await fetch(`/.netlify/functions/get-assistant-metrics?id=${assistantId}`);
+        if (!res.ok) return; // leave the "—" placeholders in place
+        const data = await res.json();
+
+        const note = document.getElementById('metrics-status-note');
+        if (note) note.textContent = data.hasData
+            ? `Last ${data.periodDays || 30} days`
+            : 'No published-post data yet';
+
+        if (!data.hasData) return; // keep placeholders
+
+        const m = data.metrics || {};
+
+        // Engagement Rate
+        valEl('engagement').textContent = pct(m.engagementRate);
+        if (m.engagementRate !== null && m.engagementRate !== undefined) {
+            trendEl('engagement').textContent = `${(data.current?.posts) || 0} posts`;
+            setDot('engagement', 'live');
+        }
+
+        // Organic Reach Growth (period-over-period; can be negative)
+        valEl('reach').textContent = signedPct(m.reachGrowth);
+        if (m.reachGrowth !== null && m.reachGrowth !== undefined) {
+            trendEl('reach').textContent = m.reachGrowth >= 0 ? 'Growing' : 'Declining';
+            setDot('reach', m.reachGrowth >= 0 ? 'up' : 'down');
+        }
+
+        // Click-Through Rate (null for IG organic — stays "—")
+        valEl('ctr').textContent = pct(m.clickThroughRate);
+        if (m.clickThroughRate !== null && m.clickThroughRate !== undefined) {
+            setDot('ctr', 'live');
+        } else {
+            trendEl('ctr').textContent = 'Not tracked on Instagram';
+        }
+    } catch {
+        // Network/parse failure — leave the static "—" placeholders untouched.
+    }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Connections tab renderer — merged Platforms + Integrations

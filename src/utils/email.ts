@@ -1,5 +1,15 @@
 // src/utils/email.ts
 import { Resend } from 'resend';
+import { eq } from 'drizzle-orm';
+import { getDb } from '../../db/client';
+import { emailTemplates } from '../../db/schema';
+import {
+    renderMasterTemplate,
+    renderMergeVars,
+    sanitiseBodyHtml,
+    type MergeContext,
+} from './email-template';
+import { getTemplateDefault } from './email-templates-catalog';
 
 const resendApiKey = process.env.RESEND_API_KEY;
 
@@ -85,3 +95,120 @@ export const sendMagicLinkEmail = async ({ to, subject, html }: SendEmailParams)
         throw new Error('Failed to send email.');
     }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// US-COMMS-1: Templated transactional email.
+//
+// renderTemplate() resolves a trigger to a ready-to-send { subject, html } using the
+// admin-edited DB template when present, else the in-code catalog default. It NEVER throws
+// for a missing template — a transactional email must not be lost. sendTemplatedEmail()
+// renders + delivers via Resend; the admin preview/test endpoints reuse renderTemplate()
+// directly so what admins see is exactly what ships.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RenderedTemplate {
+    subject: string;
+    html: string;
+    /** False when an admin has deactivated a non-critical template — callers should skip sending. */
+    isActive: boolean;
+    /** True when resolved from the in-code catalog (DB row missing/unseeded). */
+    usedFallback: boolean;
+}
+
+interface TemplateSource {
+    subject: string;
+    bodyHtml: string;
+    preheader: string | null;
+    transactional: boolean;
+    isActive: boolean;
+}
+
+/** Load a trigger's content from the DB, falling back to the in-code catalog. */
+async function loadTemplateSource(triggerKey: string): Promise<{ src: TemplateSource | null; usedFallback: boolean }> {
+    // Try the admin-editable DB row first. Tolerate the table not existing yet (pre-migration).
+    try {
+        const db = getDb();
+        const [row] = await db
+            .select({
+                subject: emailTemplates.subject,
+                bodyHtml: emailTemplates.bodyHtml,
+                preheader: emailTemplates.preheader,
+                transactional: emailTemplates.transactional,
+                isActive: emailTemplates.isActive,
+            })
+            .from(emailTemplates)
+            .where(eq(emailTemplates.triggerKey, triggerKey))
+            .limit(1);
+        if (row && row.subject && row.bodyHtml) {
+            return { src: { ...row, preheader: row.preheader ?? null }, usedFallback: false };
+        }
+    } catch (err: any) {
+        const msg: string = err?.message || '';
+        if (!(msg.includes('relation') && msg.includes('does not exist'))) {
+            console.error(`[email] DB template read failed for "${triggerKey}":`, msg);
+        }
+        // fall through to catalog
+    }
+
+    const def = getTemplateDefault(triggerKey);
+    if (!def) return { src: null, usedFallback: true };
+    return {
+        src: {
+            subject: def.subject,
+            bodyHtml: def.bodyHtml,
+            preheader: def.preheader ?? null,
+            transactional: !!def.transactional,
+            isActive: true, // catalog defaults are always considered active
+        },
+        usedFallback: true,
+    };
+}
+
+/**
+ * Resolve a trigger + merge context into a fully-wrapped { subject, html }. Pass
+ * `overrideBody`/`overrideSubject` from the admin editor to preview unsaved edits.
+ */
+export async function renderTemplate(
+    triggerKey: string,
+    vars: MergeContext = {},
+    opts: { overrideSubject?: string; overrideBody?: string; transactional?: boolean } = {},
+): Promise<RenderedTemplate | null> {
+    const { src, usedFallback } = await loadTemplateSource(triggerKey);
+    if (!src && opts.overrideBody === undefined) return null;
+
+    const subjectRaw = opts.overrideSubject ?? src?.subject ?? '';
+    const bodyRaw = opts.overrideBody ?? src?.bodyHtml ?? '';
+    const transactional = opts.transactional ?? src?.transactional ?? false;
+
+    // Subjects are plain text (don't HTML-escape); bodies are HTML (sanitise admin input).
+    const subject = renderMergeVars(subjectRaw, vars, false);
+    const body = renderMergeVars(sanitiseBodyHtml(bodyRaw), vars, false);
+    const html = renderMasterTemplate(body, { preheader: src?.preheader ?? undefined, transactional });
+
+    return { subject, html, isActive: src?.isActive ?? true, usedFallback };
+}
+
+export interface SendTemplatedParams {
+    triggerKey: string;
+    to: string;
+    /** Nested merge context, e.g. { user: { first_name: 'Jane' }, billing: { amount: '£49' } }. */
+    vars?: MergeContext;
+}
+
+/**
+ * Render a trigger template and deliver it. Returns null (without sending) when the template
+ * is missing entirely or has been deactivated by an admin (non-critical mail only — critical
+ * triggers are `locked` and can't be deactivated, AC3.2.2).
+ */
+export async function sendTemplatedEmail({ triggerKey, to, vars = {} }: SendTemplatedParams) {
+    const rendered = await renderTemplate(triggerKey, vars);
+    if (!rendered) {
+        console.error(`[email] No template found for trigger "${triggerKey}" — email NOT sent to ${to}.`);
+        return null;
+    }
+    if (!rendered.isActive) {
+        console.log(`[email] Template "${triggerKey}" is inactive — skipping send to ${to}.`);
+        return null;
+    }
+    return sendEmail({ to, subject: rendered.subject, html: rendered.html });
+}

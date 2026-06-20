@@ -132,3 +132,8 @@ node_bundler = "esbuild"
 # nudge and deletes drafts inactive for 30+ days.
 [functions.cleanup-abandoned-drafts]
   schedule = "0 0 * * *"
+
+# US-SMM-PERF: Pull Instagram media insights for recently-published posts — every 6 hours.
+# Insights keep changing for days after publish, so we re-fetch a rolling 30-day window.
+[functions.ingest-instagram-insights]
+  schedule = "0 */6 * * *"

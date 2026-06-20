@@ -12,7 +12,10 @@
     "test:connection-policy": "tsx tests/connection-policy.test.ts",
     "test:webhook-verify": "tsx tests/webhook-verify.test.ts",
     "test:bias-parity": "tsx tests/bias-parity.test.ts",
+    "test:env-routing": "tsx tests/env-routing.test.ts",
     "db:push": "drizzle-kit push",
+    "db:seed": "npx tsx seed/cli.ts",
+    "db:seed:sandbox": "npx tsx seed/cli.ts --sandbox",
     "db:seed-catalog": "npx tsx db/seed-catalog.ts",
     "build:css": "tailwindcss -i ./input.css -o ./style.css --watch",
     "build:css:prod": "tailwindcss -i ./input.css -o ./style.css",
@@ -53,6 +56,7 @@
     "pdf-parse": "^2.4.5",
     "postgres": "^3.4.9",
     "resend": "^6.12.4",
-    "stripe": "^22.2.0"
+    "stripe": "^22.2.0",
+    "zod": "^4.4.3"
   }
 }

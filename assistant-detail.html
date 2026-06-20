@@ -58,7 +58,7 @@
   <div class="mb-8">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Performance Metrics</h3>
-      <span class="text-xs text-gray-400 font-medium">Live tracking coming soon</span>
+      <span id="metrics-status-note" class="text-xs text-gray-400 font-medium">Last 30 days</span>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
@@ -66,15 +66,15 @@
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Engagement Rate by Reach</span>
-          <span class="w-2 h-2 rounded-full bg-gray-200"></span>
+          <span id="metric-engagement-dot" class="w-2 h-2 rounded-full bg-gray-200"></span>
         </div>
         <div>
-          <p class="text-2xl font-extrabold text-gray-900">—</p>
+          <p id="metric-engagement-value" class="text-2xl font-extrabold text-gray-900">—</p>
           <p class="text-base font-bold text-gray-700 mt-0.5">The Thumb Stopper</p>
           <p class="text-xs text-gray-500 mt-1">Of everyone who saw your content, how many actually stopped to engage with it.</p>
         </div>
         <div class="mt-auto pt-3 border-t border-gray-100">
-          <p class="text-xs text-gray-400">Trending: <span class="font-semibold text-gray-500">—</span></p>
+          <p class="text-xs text-gray-400">Trending: <span id="metric-engagement-trend" class="font-semibold text-gray-500">—</span></p>
         </div>
       </div>
 
@@ -82,15 +82,15 @@
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Organic Reach Growth</span>
-          <span class="w-2 h-2 rounded-full bg-gray-200"></span>
+          <span id="metric-reach-dot" class="w-2 h-2 rounded-full bg-gray-200"></span>
         </div>
         <div>
-          <p class="text-2xl font-extrabold text-gray-900">—</p>
+          <p id="metric-reach-value" class="text-2xl font-extrabold text-gray-900">—</p>
           <p class="text-base font-bold text-gray-700 mt-0.5">Escaping the Echo Chamber</p>
           <p class="text-xs text-gray-500 mt-1">How far your content is spreading beyond your existing followers into new audiences.</p>
         </div>
         <div class="mt-auto pt-3 border-t border-gray-100">
-          <p class="text-xs text-gray-400">Trending: <span class="font-semibold text-gray-500">—</span></p>
+          <p class="text-xs text-gray-400">Trending: <span id="metric-reach-trend" class="font-semibold text-gray-500">—</span></p>
         </div>
       </div>
 
@@ -98,15 +98,15 @@
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Click-Through Rate</span>
-          <span class="w-2 h-2 rounded-full bg-gray-200"></span>
+          <span id="metric-ctr-dot" class="w-2 h-2 rounded-full bg-gray-200"></span>
         </div>
         <div>
-          <p class="text-2xl font-extrabold text-gray-900">—</p>
+          <p id="metric-ctr-value" class="text-2xl font-extrabold text-gray-900">—</p>
           <p class="text-base font-bold text-gray-700 mt-0.5">The "Pack Your Bags" Metric</p>
           <p class="text-xs text-gray-500 mt-1">How many viewers clicked through and took the action your content asked for.</p>
         </div>
         <div class="mt-auto pt-3 border-t border-gray-100">
-          <p class="text-xs text-gray-400">Trending: <span class="font-semibold text-gray-500">—</span></p>
+          <p class="text-xs text-gray-400">Trending: <span id="metric-ctr-trend" class="font-semibold text-gray-500">—</span></p>
         </div>
       </div>
 

@@ -9,12 +9,9 @@ import { eq, and, gte, count } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
 import { users, userProfiles, taskRuns, plans, masterPlans, userOrganisations } from '../../db/schema';
+import { getTimeMultipliers } from '../../src/utils/platform-config';
 
 const jwtSecret = process.env.JWT_SECRET;
-
-// SC1: Default avg task duration per assistant type (minutes).
-// Configurable per assistant in a future iteration; using flat default for now.
-const AVG_TASK_DURATION_MINUTES = 30;
 
 export const handler = async (event: HandlerEvent) => {
     if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method Not Allowed' };
@@ -66,8 +63,13 @@ export const handler = async (event: HandlerEvent) => {
 
         const completedTasks = Number(taskCount);
 
+        // SC1: minutes saved per completed task — admin-configurable via
+        // gamification.time_multipliers, shared with the dashboard "Hours Saved"
+        // widget (get-time-saved.ts) so both views stay consistent.
+        const avgTaskDurationMinutes = (await getTimeMultipliers()).tasks_completed;
+
         // SC1: hours saved = taskCount × avgDuration(min) / 60
-        const hoursSaved = parseFloat(((completedTasks * AVG_TASK_DURATION_MINUTES) / 60).toFixed(1));
+        const hoursSaved = parseFloat(((completedTasks * avgTaskDurationMinutes) / 60).toFixed(1));
 
         // Get hourly rate from profile preferences
         const [profile] = await db
@@ -111,7 +113,7 @@ export const handler = async (event: HandlerEvent) => {
         let tasksToBreakEven: number | null = null;
         if (period === 'month' && hourlyRate && planCostGbp && gbpSaved !== null && gbpSaved < planCostGbp) {
             const hoursNeeded = planCostGbp / hourlyRate;
-            const tasksNeeded = Math.ceil((hoursNeeded * 60) / AVG_TASK_DURATION_MINUTES);
+            const tasksNeeded = Math.ceil((hoursNeeded * 60) / avgTaskDurationMinutes);
             tasksToBreakEven = Math.max(0, tasksNeeded - completedTasks);
         }
 

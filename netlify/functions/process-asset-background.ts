@@ -105,7 +105,9 @@ export const handler = async (event: HandlerEvent) => {
                 const isText = mime.startsWith('text/') || fname.endsWith('.txt') || fname.endsWith('.csv');
 
                 if (!r2Configured) {
-                    extractedText = `[Simulated content for: ${asset.name}]`;
+                    // Fail loudly rather than seeding the RAG store with placeholder text.
+                    // Storing fake content would silently corrupt the assistant's knowledge base.
+                    throw new Error('Object storage (R2) is not configured — cannot extract asset text.');
                 } else if (isPdf || isText) {
                     const s3  = getR2Client();
                     const obj = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: asset.r2Key }));
@@ -123,30 +125,25 @@ export const handler = async (event: HandlerEvent) => {
                 }
             }
                 // ---------------------------------------------------------
-                // EXTRACTION LOGIC C (legacy): mock storageUrl path
-            // ---------------------------------------------------------
+                // EXTRACTION LOGIC C (legacy): direct storageUrl fetch
+                //   Pre-R2 'file' assets store a fetchable URL instead of an r2Key.
+                // ---------------------------------------------------------
             else if (asset.assetType === 'file' && asset.storageUrl) {
-
-                // NOTE: While using your mock URL from earlier, we will simulate the extraction.
-                // When your real S3 bucket is connected, uncomment the fetch block below:
-
-                /*
+                const fname = (asset.name || '').toLowerCase();
                 const response = await fetch(asset.storageUrl);
-                const arrayBuffer = await response.arrayBuffer();
-                const buffer = Buffer.from(arrayBuffer);
+                if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                const buffer = Buffer.from(await response.arrayBuffer());
 
-                if (asset.name.toLowerCase().endsWith('.pdf')) {
-                    const pdfData = await pdfParse(buffer);
-                    extractedText = pdfData.text.replace(/\s+/g, ' ').trim();
-                } else if (asset.name.toLowerCase().endsWith('.txt') || asset.name.toLowerCase().endsWith('.csv')) {
+                if (fname.endsWith('.pdf')) {
+                    const parser = new PDFParse({ data: buffer });
+                    try { extractedText = (await parser.getText()).text.replace(/\s+/g, ' ').trim(); }
+                    finally { await parser.destroy(); }
+                } else if (fname.endsWith('.txt') || fname.endsWith('.csv')) {
                     extractedText = buffer.toString('utf-8').trim();
                 } else {
-                    throw new Error('Unsupported file format for text extraction.');
+                    // Non-textual binary (e.g. image) — nothing for the assistant to read.
+                    extractedText = '';
                 }
-                */
-
-                // Simulated extraction for current mock storage
-                extractedText = `[Simulated Document Content for: ${asset.name}]. This text represents the brand guidelines that the AI will use to maintain consistency.`;
             }
 
             // Also sanitise file-extracted text (legacy 'file' assets and new R2-keyed ones)
