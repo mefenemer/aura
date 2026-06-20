@@ -21,26 +21,6 @@ window.updateNotificationBadge = async function() {
     }
 };
 
-// Mark the onboarding/welcome notifications as read once setup is complete, so the
-// Notifications area stops prompting the user to finish onboarding. Called by the
-// Getting Started checklist when every step is done. Safe to call repeatedly.
-window.resolveOnboardingNotifications = async function() {
-    try {
-        const res = await fetch('/.netlify/functions/notifications');
-        if (!res.ok) return;
-        const { notifications } = await res.json();
-        const stale = (notifications || []).filter(
-            n => !n.isRead && (n.type === 'onboarding_prompt' || n.type === 'welcome'));
-        if (!stale.length) return;
-        await Promise.all(stale.map(n => fetch('/.netlify/functions/notifications', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notificationId: n.id }),
-        }).catch(() => {})));
-        if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
-    } catch { /* non-fatal */ }
-};
-
 window.initNotifications = async function() {
     const listEl = document.getElementById('notif-list');
     const loadingEl = document.getElementById('notif-loading');
@@ -66,7 +46,8 @@ window.initNotifications = async function() {
             ticket_created: `<svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>`,
             invoice_ready: `<svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`,
             welcome: `<svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>`,
-            onboarding_prompt: `<svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>`
+            onboarding_prompt: `<svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>`,
+            setup_complete: `<svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
         };
         return icons[type] || `<svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>`;
     };
@@ -102,6 +83,10 @@ window.initNotifications = async function() {
         }
         if (notif.type === 'welcome') {
             return { label: 'Get started', run: () => window.loadView?.('getting-started') };
+        }
+        // Setup-complete confirmation (replaces the welcome/onboarding prompts once done).
+        if (notif.type === 'setup_complete') {
+            return { label: 'Go to dashboard', run: () => window.loadView?.('dashboard') };
         }
         return null;
     };

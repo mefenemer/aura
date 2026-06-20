@@ -5,9 +5,9 @@
 // permanent onboarding_completed flag so the widget never renders again (AC1.1.3).
 
 import { Handler } from '@netlify/functions';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { organisations, systemConnections, aiAssistants } from '../../db/schema';
+import { organisations, systemConnections, aiAssistants, notifications } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 
 const json = (statusCode: number, body: unknown) => ({
@@ -55,8 +55,30 @@ export const handler: Handler = async (event) => {
 
     let justCompleted = false;
     if (allDone) {
-        await db.update(organisations).set({ onboardingCompleted: true }).where(eq(organisations.id, orgId));
-        justCompleted = true; // AC1.1.3 — UI fires the celebration
+        // Atomic flip: only the request that actually transitions the flag (false→true)
+        // runs the one-time side effects below, so concurrent calls can't double-fire.
+        const flipped = await db.update(organisations)
+            .set({ onboardingCompleted: true })
+            .where(and(eq(organisations.id, orgId), eq(organisations.onboardingCompleted, false)))
+            .returning({ id: organisations.id });
+        if (flipped.length) {
+            justCompleted = true; // AC1.1.3 — UI fires the celebration
+            // Replace the onboarding prompts with a single "Setup complete" notification.
+            try {
+                await db.delete(notifications).where(and(
+                    eq(notifications.userId, ctx.userId),
+                    inArray(notifications.type, ['welcome', 'onboarding_prompt']),
+                ));
+                await db.insert(notifications).values({
+                    userId: ctx.userId,
+                    type: 'setup_complete',
+                    title: 'Setup complete 🎉',
+                    message: 'Your business profile and assistant are ready — your assistant is now working for you.',
+                });
+            } catch (notifErr) {
+                console.warn('[get-onboarding-progress] setup-complete notification swap failed (non-blocking):', notifErr);
+            }
+        }
     }
 
     return json(200, { onboardingCompleted: allDone, allDone, justCompleted, steps });

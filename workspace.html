@@ -2638,8 +2638,9 @@ function formatCurrency(amount, currency) {
     const firstName = profile?.firstName || (profile?.email || '').split('@')[0] || '';
     const doneByKey = {};
     (progress?.steps || []).forEach(s => { doneByKey[s.key] = !!s.done; });
-    const allDone = progress?.allDone === true ||
-      (SETUP_STEPS.every(s => doneByKey[s.key]) && (progress?.steps || []).length > 0);
+    // Server-authoritative completion. When fully done the API returns steps:[] and
+    // (server-side) swaps the onboarding prompts for a "Setup complete" notification.
+    const allDone = progress?.allDone === true;
 
     const tick = `<span class="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-600 text-white shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></span>`;
 
@@ -2677,10 +2678,11 @@ function formatCurrency(amount, currency) {
       });
     });
 
-    // Once every onboarding step is done, clear the onboarding/welcome notifications
-    // so the Notifications area no longer nags the user to complete setup.
-    if (allDone && typeof window.resolveOnboardingNotifications === 'function') {
-      window.resolveOnboardingNotifications();
+    // Note: when onboarding is fully complete, get-onboarding-progress (fetched above)
+    // server-side swaps the welcome/onboarding_prompt notifications for a single
+    // "Setup complete" one — no client action needed. Refresh the badge to reflect it.
+    if (allDone && typeof window.updateNotificationBadge === 'function') {
+      window.updateNotificationBadge();
     }
   };
 
