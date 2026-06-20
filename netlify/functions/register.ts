@@ -293,7 +293,6 @@ export const handler: Handler = async (event) => {
         console.error(`[register] Unhandled error at phase "${phase}":`, error);
         return {
             statusCode: 500,
-            headers: { 'Content-Type': 'application/json' },
             // TEMP DEBUG (staging): _debug surfaces the failing phase + error message in the
             // response so it can be read from the Network tab while function logs are unavailable.
             // REMOVE _debug (and the phase tracking) once the cause is identified.
