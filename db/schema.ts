@@ -398,6 +398,27 @@ export const systemConnections = pgTable("system_connections", {
   index("system_connections_user_active_idx").on(t.userId, t.isActive),
 ]);
 
+// ── Webhook intake — trigger-style connectors (Slack, Zendesk, …) ────────────
+// Inbound events land here verified + deduped (webhook-intake.ts), then a downstream
+// processor consumes status='received' rows. Org/connection are best-effort at intake;
+// dedupKey enforces idempotency against provider retries.
+export const webhookEvents = pgTable("webhook_events", {
+  id: serial().primaryKey(),
+  provider: text("provider").notNull(),                       // 'slack' | 'zendesk' | …
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "cascade" }),
+  connectionId: integer("connection_id").references(() => systemConnections.id, { onDelete: "set null" }),
+  eventType: text("event_type"),
+  dedupKey: text("dedup_key").notNull().unique(),             // provider + external event id
+  payload: jsonb("payload").notNull(),
+  status: text("status").notNull().default("received"),       // received|processing|processed|failed|ignored
+  error: text("error"),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+  processedAt: timestamp("processed_at"),
+}, (t) => [
+  index("webhook_events_status_idx").on(t.status, t.receivedAt),
+  index("webhook_events_org_idx").on(t.organisationId),
+]);
+
 // ── Integration API Call Audit Log — US-AUD-4.2.1 SC6 ───────────────────────
 // Records every API call made on behalf of a user using a stored credential.
 // Retained 90 days (enforced by a scheduled cleanup job).
