@@ -131,9 +131,13 @@ export const handler: Handler = async (event) => {
     }
 
     // ── Approve ────────────────────────────────────────────────────────────────
+    // Approval lands the post directly in the publisher's state machine as 'scheduled'
+    // — the publish-queue index + cron consume status='scheduled' AND publish_date <= now()
+    // (schema.ts: scheduled_posts_publish_queue_idx). For publish_now the date is already
+    // set to now; a future date schedules it. (Approver attribution is in the audit log.)
     const [updated] = await db.update(scheduledPosts)
         .set({
-            status:      'approved',
+            status:      'scheduled',
             publishDate: newPublishDate,
             updatedAt:   now,
         })
