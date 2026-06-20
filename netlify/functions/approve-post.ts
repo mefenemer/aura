@@ -14,6 +14,7 @@ import { and, eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
 import { aiAssistants, auditLogs, scheduledPosts } from '../../db/schema';
+import { recordPostedAssets } from '../../src/utils/pexels';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
@@ -143,6 +144,13 @@ export const handler: Handler = async (event) => {
         })
         .where(and(eq(scheduledPosts.id, postId), eq(scheduledPosts.userId, userId)))
         .returning();
+
+    // US2 AC2.5: a scheduled post commits its chosen Pexels image — burn the asset ID so it
+    // can never be reused across the workspace. Idempotent; best-effort (never blocks approval).
+    if (post.organisationId) {
+        await recordPostedAssets(db, { orgId: post.organisationId, userId, scheduledPostId: postId })
+            .catch(err => console.warn(`[approve-post] recordPostedAssets failed for post ${postId}:`, err?.message || err));
+    }
 
     // ── Audit log: userId, postId, approvedAt, scheduledFor ───────────────────
     await db.insert(auditLogs).values({

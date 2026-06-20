@@ -8,10 +8,11 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     contentGenerationJobs, aiBlueprints, aiAssistants,
-    scheduledPosts, notifications, auditLogs,
+    scheduledPosts, notifications, auditLogs, organisations,
 } from '../../db/schema';
 import { gatewayGenerate } from '../../src/lib/ai-gateway';
 import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
+import { searchUniqueImages, attachPexelsImageToPost, creditLine } from '../../src/utils/pexels';
 
 const BACKOFF_SECS = [10, 30, 90];
 
@@ -145,6 +146,31 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             generatedAt: now,
             triggerType: job.trigger_type ?? 'scheduled',
         }).returning({ id: scheduledPosts.id });
+
+        // Best-effort: source a unique Pexels image and attach it (US1/US2/US3).
+        // Wrapped so any failure — including a Pexels 429 — never fails the generation job.
+        try {
+            const imageContext = (generated.suggestedMediaDescription || generated.caption || '').trim();
+            if (imageContext) {
+                const { candidates } = await searchUniqueImages(db, job.organisation_id, imageContext);
+                const chosen = candidates[0];
+                if (chosen) {
+                    await attachPexelsImageToPost(db, {
+                        postId: post.id, userId: job.user_id, orgId: job.organisation_id, candidate: chosen,
+                    });
+                    // US3 AC3.3: append the credit line to the draft only when the org opts in.
+                    const [org] = await db.select({ enabled: organisations.pexelsAttributionEnabled })
+                        .from(organisations).where(eq(organisations.id, job.organisation_id)).limit(1);
+                    if (org?.enabled && generated.caption) {
+                        await db.update(scheduledPosts)
+                            .set({ caption: `${generated.caption}${creditLine(chosen.photographer)}`, updatedAt: now })
+                            .where(eq(scheduledPosts.id, post.id));
+                    }
+                }
+            }
+        } catch (imgErr) {
+            console.warn(`[process-content-jobs] job ${job.job_id} image sourcing skipped:`, imgErr instanceof Error ? imgErr.message : imgErr);
+        }
 
         const tokenCols = tokensInput != null ? `, tokens_input = ${tokensInput}, tokens_output = ${tokensOutput ?? 0}` : '';
         await db.execute(

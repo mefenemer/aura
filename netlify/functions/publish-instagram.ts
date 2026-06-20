@@ -11,6 +11,7 @@ import {
     notifications, users, auditLogs,
 } from '../../db/schema';
 import { getSecret } from '../../src/utils/vault';
+import { recordPostedAssets } from '../../src/utils/pexels';
 
 const BATCH = 100;
 // Backoff in minutes: attempt 1→2m, 2→8m, 3→30m
@@ -196,6 +197,10 @@ export const handler: Handler = async () => {
             await db.execute(
                 `UPDATE scheduled_posts SET status = 'published', platform_post_id = '${instagramPostId}', published_at = now(), updated_at = now() WHERE id = ${post.id}`
             );
+
+            // US2 AC2.5: burn any Pexels asset on this post so it is never reused (idempotent).
+            await recordPostedAssets(db, { orgId: post.organisation_id, userId: post.user_id, scheduledPostId: post.id })
+                .catch(e => console.warn(`[publish-instagram] recordPostedAssets failed for post ${post.id}:`, e?.message || e));
 
             await db.insert(notifications).values({
                 userId: post.user_id,

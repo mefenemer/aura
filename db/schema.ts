@@ -31,6 +31,8 @@ export const organisations = pgTable('organisations', {
   // US-LEGAL-3.1: EU AI Act Art.50 — outbound AI content footer
   aiDisclosureFooterEnabled: boolean('ai_disclosure_footer_enabled').notNull().default(false),
   aiDisclosureFooterText: text('ai_disclosure_footer_text'),
+  // US3 AC3.3: opt-in "Photo by … on Pexels" attribution line appended to drafts sourced from Pexels.
+  pexelsAttributionEnabled: boolean('pexels_attribution_enabled').notNull().default(false),
   // Referral Program Expansion: extra assistant slots unlocked by redeeming referral tokens.
   // Stacks ON TOP of the Stripe tier's assistantLimit, so plan syncing is never touched (AC2.2/AC4.2).
   bonusAssistants: integer('bonus_assistants').notNull().default(0),
@@ -888,6 +890,13 @@ export const contentAssets = pgTable("content_assets", {
   storageUrl: text("storage_url"),
   externalUrl: text("external_url"),
 
+  // Stock-provider sourcing (US3 AC3.2). null provider = user-uploaded asset.
+  // For Pexels: externalUrl holds the CDN URL (hotlinked, never permanently hosted — AC3.1).
+  provider: text("provider"),                 // 'pexels' | null
+  providerAssetId: text("provider_asset_id"), // unique stock-provider asset ID (string)
+  attributionName: text("attribution_name"),  // photographer name
+  attributionUrl: text("attribution_url"),    // photographer profile URL
+
   // Lifecycle status: pending → scheduled | rejected; scheduled → posted
   status: text("status").notNull().default("pending"), // pending|scheduled|posted|rejected
   rejectionReason: text("rejection_reason"),
@@ -908,6 +917,27 @@ export const contentAssets = pgTable("content_assets", {
   // US-DB-1.1.1: Org-level and user-level content asset lookups
   index("content_assets_org_idx").on(t.organisationId),
   index("content_assets_user_idx").on(t.userId),
+]);
+
+// US2 (Image Deduplication): append-only ledger of every stock-provider asset ID that has
+// been committed (scheduled or published) to a post, scoped per workspace/organisation.
+// The unique (organisation, provider, providerAssetId) constraint enforces the HARD "never
+// reuse" rule and makes recordPostedAssets() idempotent across the schedule + publish hooks.
+export const postedAssets = pgTable("posted_assets", {
+  id: serial("id").primaryKey(),
+  organisationId: integer("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+      .references(() => users.id, { onDelete: "set null" }),   // audit: who used it
+  provider: text("provider").notNull().default("pexels"),
+  providerAssetId: text("provider_asset_id").notNull(),
+  scheduledPostId: integer("scheduled_post_id"),               // FK to scheduledPosts.id (set null on delete)
+  contentAssetId: integer("content_asset_id"),                 // FK to contentAssets.id (set null on delete)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  unique("posted_assets_org_provider_asset_unique").on(t.organisationId, t.provider, t.providerAssetId),
+  index("posted_assets_org_idx").on(t.organisationId),
 ]);
 
 // Invoices table — one row per generated invoice, created on every successful payment
