@@ -102,6 +102,72 @@ function _detailSetVal(id, val) {
 }
 
 
+// Read-only "Your Onboarding Answers" summary — guarantees every answer the user gave
+// during onboarding is visible on the detail page, regardless of which editable fields are
+// wired below (e.g. Trigger/Content Source are captured as label strings the radios can't bind).
+// Sourced from the structured onboardingContext (data.context) + configuration.inputs.
+function _renderOnboardingSummary(data) {
+    const host = document.getElementById('onboarding-summary');
+    if (!host) return;
+    const ctx = (data && data.context && typeof data.context === 'object') ? data.context : {};
+    const inputs = (data && data.configuration && data.configuration.inputs) || {};
+    const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const MISSING = '⚠️ [MISSING - PLEASE UPDATE]';
+    const clean = (v) => (v === null || v === undefined) ? '' : String(v).trim();
+
+    const objectiveLabels = { brand_awareness: 'Brand Awareness', lead_generation: 'Lead Generation', direct_sales: 'Direct Sales', community_engagement: 'Community & Engagement' };
+    const objective = clean(ctx.primary_objective || inputs.primary_objective);
+    const platforms = (Array.isArray(ctx.primary_platforms) && ctx.primary_platforms.length)
+        ? ctx.primary_platforms
+        : (Array.isArray(inputs.platforms) ? inputs.platforms : []);
+
+    const rows = [
+        ['Your Bottleneck', clean(ctx.problem_statement || inputs.problem)],
+        ['Primary Objective', objective ? (objectiveLabels[objective] || objective) : ''],
+        ['Core Message', clean(ctx.core_message || inputs.core_message)],
+        ['Primary CTA', clean(ctx.cta || inputs.cta)],
+        ['Incentive', clean(ctx.incentive || inputs.incentive)],
+        ['Target Audience', clean(ctx.target_audience)],
+        ['Content Pillars', clean(ctx.content_pillars)],
+        ['Tone of Voice', clean(ctx.tone_of_voice)],
+        ['Posting Frequency', clean(ctx.posting_frequency)],
+        ['Platforms', platforms.map(clean).filter(Boolean).join(', ')],
+        ['Trigger', clean(inputs.triggerText)],
+        ['Content Source', clean(inputs.sourceText)],
+    ].filter(([, v]) => v && v !== MISSING);
+
+    // Knowledge base + guardrail rules (strictRules) — strip the leading "- " bullet prefix.
+    const rules = (Array.isArray(inputs.strictRules) ? inputs.strictRules : [])
+        .map(r => clean(r).replace(/^-\s*/, '')).filter(Boolean);
+
+    if (!rows.length && !rules.length) {
+        host.innerHTML = '<div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-sm text-gray-500">No onboarding answers were captured for this assistant.</div>';
+        return;
+    }
+
+    host.innerHTML = `
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+        <div class="mb-5">
+          <h4 class="text-base font-bold text-gray-900">Your Onboarding Answers</h4>
+          <p class="text-sm text-gray-500 mt-1">A read-only summary of everything you told us when setting up this assistant. You can edit any of it in the tabs below.</p>
+        </div>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+          ${rows.map(([label, value]) => `
+            <div>
+              <dt class="text-xs font-bold text-gray-400 uppercase tracking-wide">${esc(label)}</dt>
+              <dd class="text-sm text-gray-900 mt-1 whitespace-pre-line">${esc(value)}</dd>
+            </div>`).join('')}
+        </dl>
+        ${rules.length ? `
+          <div class="mt-6 pt-5 border-t border-gray-100">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Knowledge &amp; Guardrails</p>
+            <ul class="list-disc pl-5 space-y-1 text-sm text-gray-900">
+              ${rules.map(r => `<li class="whitespace-pre-line">${esc(r)}</li>`).join('')}
+            </ul>
+          </div>` : ''}
+      </div>`;
+}
+
 function _detailHydrate(data) {
     const ctx = data.context || {};
     const cfg = data.configuration || {};
@@ -365,6 +431,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         window.cachedContext = currentData.context || {};
 
         _detailHydrate(currentData);
+        _renderOnboardingSummary(currentData);
         _hydrateAutonomousToggle(currentData);
         attachAutoSave();
     } catch (e) {
