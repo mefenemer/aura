@@ -131,8 +131,10 @@ function _handleFor(platform) {
 
 function _relevantPlatforms() {
     if (!_allowedServices) return PLATFORMS;
-    const allow = new Set(_allowedServices);
-    return PLATFORMS.filter(p => allow.has(p.id));
+    // Server returns lowercase serviceNames ('facebook'); PLATFORMS ids are capitalised
+    // ('Facebook'). Compare case-insensitively so the allow-list actually matches.
+    const allow = new Set(_allowedServices.map(s => String(s).toLowerCase()));
+    return PLATFORMS.filter(p => allow.has(String(p.id).toLowerCase()));
 }
 
 // Append the selected assistant so the OAuth flow binds the connection to it

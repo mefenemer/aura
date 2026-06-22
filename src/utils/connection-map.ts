@@ -23,7 +23,16 @@ export const CONNECTOR_CATEGORY: Record<string, string> = {
 };
 
 // Assistant roleKey (aiAssistants.configuration.type) → allowed connection categories.
+// NOTE: the LIVE roleKeys come from seed/data/master_assistants.json (e.g. 'social_media',
+// 'community_mgmt', 'paid_ads'); the longer keys below mirror seed-catalog.ts. Both are listed
+// so the policy is authoritative by roleKey rather than relying on the display-name keyword
+// fallback (which the live keys would otherwise depend on).
 export const ROLE_CONNECTIONS: Record<string, string[]> = {
+    // Live seed roleKeys (seed/data/master_assistants.json)
+    social_media:              ['social'],
+    community_mgmt:            ['social'],
+    paid_ads:                  ['social'],
+    // Catalog roleKeys (seed-catalog.ts)
     social_media_manager:      ['social'],
     review_reputation_manager: ['reviews', 'social'],
     inbox_manager:             ['email'],
