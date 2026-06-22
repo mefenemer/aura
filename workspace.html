@@ -860,7 +860,6 @@ function formatCurrency(amount, currency) {
       'integrations': { file: 'integrations.html', title: '| Integrations' },
       'notifications': { file: 'notifications.html', title: '| Notifications' },
       'settings': { file: 'user-settings.html', title: '| Account Settings' },
-      'team':     { file: 'team-management-content.html', title: '| Team Members' },
       'billing': { file: 'billing.html', title: '| Subscription & Billing' },
       'help': { file: 'help-content.html', title: '| Help & Support' },
       'my-content': { file: 'my-content.html', title: '| My Content' },
@@ -883,7 +882,6 @@ function formatCurrency(amount, currency) {
       'help': document.getElementById('nav-help'),
       'my-content': document.getElementById('nav-my-content'),
       'calendar': document.getElementById('nav-calendar'),
-      'team': document.getElementById('nav-team'),
       'referral': document.getElementById('nav-referral'),
       'review-queue': document.getElementById('nav-review-queue')
     };
@@ -1011,10 +1009,6 @@ function formatCurrency(amount, currency) {
 
         if (routeKey === 'help') {
           await initHelpCenter();
-        }
-
-        if (routeKey === 'team') {
-          await initTeamManagement();
         }
 
         if (routeKey === 'notifications' && typeof window.initNotifications === 'function') {
@@ -2059,13 +2053,6 @@ function formatCurrency(amount, currency) {
     }
   });
 
-    // ==========================================================================
-  // US-GAP-5.2.1: Team Management — init called when the 'team' route loads.
-  // The actual logic is embedded in team-management-content.html (auto-executes on load).
-  async function initTeamManagement() {
-    // The team-management-content.html script self-initialises via an IIFE.
-    // No additional setup needed here — kept as a named hook for future extension.
-  }
 
   // MODERN BACKGROUND CONFIGURATION DISPATCH HUB (AUTO-SAVE & OPTIMISTIC UI)
   // ==========================================================================
