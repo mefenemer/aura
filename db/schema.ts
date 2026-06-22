@@ -335,6 +335,10 @@ export const notifications = pgTable("notifications", {
   priority: integer("priority"),
   isDismissible: boolean("is_dismissible"),
   resolvedAt: timestamp("resolved_at"),
+  // US3: user manually dismissed (swiped/closed) the notification. Distinct from resolvedAt
+  // (criteria met) and isRead (seen). Dismissed rows are hidden from the feed. The server
+  // refuses to dismiss non-dismissible (critical_action) items. Requires db/notifications-dismissal.sql.
+  dismissedAt: timestamp("dismissed_at"),
 }, (t) => [
   // US-DB-1.1.1: Notification inbox query — userId + isRead + createdAt
   index("notifications_user_read_idx").on(t.userId, t.isRead, t.createdAt),

@@ -1,6 +1,6 @@
 // netlify/functions/notifications.ts
 import { HandlerEvent } from '@netlify/functions';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, isNull } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
 import { users, notifications } from '../../db/schema';
@@ -50,7 +50,8 @@ export const handler = async (event: HandlerEvent) => {
             try {
                 allNotes = await db.select()
                     .from(notifications)
-                    .where(eq(notifications.userId, userId))
+                    // Hide rows the user has dismissed (US3). isNull also throws pre-migration → fallback.
+                    .where(and(eq(notifications.userId, userId), isNull(notifications.dismissedAt)))
                     .orderBy(desc(notifications.createdAt));
             } catch {
                 allNotes = await db.select({
@@ -92,13 +93,33 @@ export const handler = async (event: HandlerEvent) => {
         if (event.httpMethod === 'PATCH') {
             const body = JSON.parse(event.body || '{}');
             const { notificationId } = body;
+
+            if (!notificationId) return { statusCode: 400, body: JSON.stringify({ error: 'Missing notificationId' }) };
+
+            // US3 — Strict Dismissal Rules. dismiss:true hides the item, but ONLY if its type is
+            // dismissible. critical_action is hardcoded non-dismissible (AC3.2): the X is hidden
+            // client-side (AC3.3) AND the server refuses it here, so billing/legal alerts can't be
+            // swiped away by a crafted request.
+            if (body.dismiss === true) {
+                const [row] = await db.select({ type: notifications.type })
+                    .from(notifications)
+                    .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)))
+                    .limit(1);
+                if (!row) return { statusCode: 404, body: JSON.stringify({ error: 'Not found' }) };
+                if (!isDismissibleType(row.type)) {
+                    return { statusCode: 403, body: JSON.stringify({ error: 'This notification cannot be dismissed.' }) };
+                }
+                await db.update(notifications)
+                    .set({ dismissedAt: new Date() })
+                    .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
+                return { statusCode: 200, body: JSON.stringify({ success: true }) };
+            }
+
             // resolved:true → mark the item Done (sets resolvedAt, the true "closed" signal) AND read.
             // Otherwise this is a read/unread toggle: isRead defaults to true (mark read); the Updates
             // tab also sends isRead:false to flip back to unread. resolvedAt is never cleared here.
             const resolved = body.resolved === true;
             const isRead = resolved ? true : (body.isRead === undefined ? true : !!body.isRead);
-
-            if (!notificationId) return { statusCode: 400, body: JSON.stringify({ error: 'Missing notificationId' }) };
 
             const now = new Date();
             const setValues: Record<string, unknown> = { isRead, readAt: isRead ? now : null };

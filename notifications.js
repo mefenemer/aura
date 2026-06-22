@@ -164,6 +164,15 @@ window.initNotifications = async function() {
     };
     const styleOf = (n) => CATEGORY_STYLE[catOf(n)] || CATEGORY_STYLE.informational;
 
+    // AC3.2/3.3: dismissible unless the server says otherwise; critical_action is never dismissible.
+    const isDismissible = (n) => (typeof n.isDismissible === 'boolean') ? n.isDismissible : (catOf(n) !== 'critical_action');
+    // The "X" close affordance — rendered only when the item is dismissible.
+    const dismissBtnHTML = (n) => isDismissible(n)
+        ? `<button type="button" class="dismiss-btn shrink-0 self-start text-gray-300 hover:text-gray-600 transition" title="Dismiss" aria-label="Dismiss notification">
+               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+           </button>`
+        : '';
+
     // Celebratory animated gradient border (AC1.3). Injected once; style.css is prebuilt so
     // arbitrary Tailwind classes won't compile — a plain <style> tag is the reliable route.
     if (!document.getElementById('notif-celebrate-style')) {
@@ -230,6 +239,7 @@ window.initNotifications = async function() {
                 <p class="text-xs text-gray-400 mt-1">${fmtDate(notif.createdAt)}</p>
             </div>
             ${resolved ? '' : `<button type="button" class="action-cta px-4 py-2 ${st.cta} text-white text-sm font-bold rounded-lg transition shrink-0 whitespace-nowrap">${action.label}</button>`}
+            ${dismissBtnHTML(notif)}
         `;
         li.querySelector('.action-cta')?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -237,6 +247,10 @@ window.initNotifications = async function() {
             if (resolvesClick(notif)) setResolved(notif.id);
             else setRead(notif.id, true);
             action.run();
+        });
+        li.querySelector('.dismiss-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dismiss(notif.id);
         });
         return li;
     };
@@ -268,6 +282,7 @@ window.initNotifications = async function() {
             <button type="button" class="update-toggle-read shrink-0 self-start text-xs font-semibold px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 whitespace-nowrap">
                 ${notif.isRead ? 'Mark as unread' : 'Mark as read'}
             </button>
+            ${dismissBtnHTML(notif)}
         `;
         // Actionable updates (invoice, ticket) keep their link — navigate, and mark read since acting implies seen.
         li.querySelector('.update-cta')?.addEventListener('click', (e) => {
@@ -279,6 +294,10 @@ window.initNotifications = async function() {
         li.querySelector('.update-toggle-read').addEventListener('click', (e) => {
             e.stopPropagation();
             setRead(notif.id, !notif.isRead);
+        });
+        li.querySelector('.dismiss-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dismiss(notif.id);
         });
         return li;
     };
@@ -365,6 +384,27 @@ window.initNotifications = async function() {
         }).then(() => {
             if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
         }).catch(err => console.error("Sync failed:", err));
+    };
+
+    // Dismiss = user hides the notification (US3). Optimistically removes it; the server rejects
+    // (403) attempts to dismiss non-dismissible items, in which case we restore it.
+    const dismiss = async (id) => {
+        const idx = notificationsData.findIndex(n => n.id === id);
+        if (idx === -1) return;
+        const [removed] = notificationsData.splice(idx, 1);
+        renderList();
+
+        fetch('/.netlify/functions/notifications', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notificationId: id, dismiss: true })
+        }).then((res) => {
+            if (!res.ok) { notificationsData.splice(idx, 0, removed); renderList(); return; }
+            if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
+        }).catch(err => {
+            console.error("Dismiss failed:", err);
+            notificationsData.splice(idx, 0, removed); renderList();
+        });
     };
 
     if (markAllBtn) {
