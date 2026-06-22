@@ -1622,6 +1622,7 @@ export const contentRules = pgTable("content_rules", {
   assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "cascade" }),
   workspaceId: integer("workspace_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
   ruleText: text("rule_text").notNull(),
+  category: text("category"),                              // null = uncategorised; UI groups: tone_of_voice | response_formatting | core_knowledge | target_audience
   platform: text("platform"),                              // null = all platforms
   createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
   isActive: boolean("is_active").notNull().default(true),

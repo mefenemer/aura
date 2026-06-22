@@ -86,7 +86,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON.' }) };
         }
 
-        const { assistantId, ruleText, platform, note } = body;
+        const { assistantId, ruleText, platform, note, category } = body;
         if (!assistantId || !ruleText?.trim()) {
             return { statusCode: 400, body: JSON.stringify({ error: 'assistantId and ruleText are required.' }) };
         }
@@ -106,6 +106,7 @@ export const handler: Handler = async (event) => {
             assistantId:     Number(assistantId),
             workspaceId:     user.orgId,
             ruleText:        ruleText.trim(),
+            category:        category?.trim() || null,
             platform:        platform || null,
             note:            note?.trim() || null,
             createdByUserId: user.userId,
@@ -127,7 +128,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON.' }) };
         }
 
-        const { id, ruleText, platform, note, isActive } = body;
+        const { id, ruleText, platform, note, isActive, category } = body;
         if (!id) return { statusCode: 400, body: JSON.stringify({ error: 'id is required.' }) };
 
         const [existing] = await db.select().from(contentRules)
@@ -148,6 +149,7 @@ export const handler: Handler = async (event) => {
             updates.ruleText = ruleText.trim();
         }
         if (platform !== undefined) updates.platform = platform || null;
+        if (category !== undefined) updates.category = category?.trim() || null;
         if (note !== undefined) updates.note = note?.trim() || null;
         if (isActive !== undefined) updates.isActive = Boolean(isActive);
 

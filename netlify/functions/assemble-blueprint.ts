@@ -158,7 +158,8 @@ async function assembleBlueprint(assistantId: number, compiledBy: string, trigge
     assistantRules.forEach(r => hashParts.push({ id: `rule:${r.id}`, updatedAt: r.updatedAt }));
     const s4content = {
         rules: assistantRules.map(r => ({
-            id: r.id, text: r.ruleText, platform: r.platform ?? 'global',
+            id: r.id, text: r.ruleText, category: r.category ?? 'general',
+            platform: r.platform ?? 'global',
             origin: r.origin, createdAt: r.createdAt,
         })),
     };

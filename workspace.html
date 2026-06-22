@@ -858,7 +858,6 @@ function formatCurrency(amount, currency) {
       'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
       'assets': { file: 'assets.html', title: '| Business Information' },
       'integrations': { file: 'integrations.html', title: '| Integrations' },
-      'instructions': { file: 'instructions.html', title: '| Assistant Instructions' },
       'notifications': { file: 'notifications.html', title: '| Notifications' },
       'settings': { file: 'user-settings.html', title: '| Account Settings' },
       'team':     { file: 'team-management-content.html', title: '| Team Members' },
@@ -879,7 +878,6 @@ function formatCurrency(amount, currency) {
       'catalog': document.getElementById('nav-catalog'),
       'assets': document.getElementById('nav-assets'),
       'integrations': document.getElementById('nav-integrations'),
-      'instructions': document.getElementById('nav-instructions'),
       'notifications': document.getElementById('nav-notifications'),
       'settings': document.getElementById('nav-settings'),
       'help': document.getElementById('nav-help'),
@@ -1027,9 +1025,6 @@ function formatCurrency(amount, currency) {
           window.initBrandAssets();
         }
 
-        if (routeKey === 'instructions' && typeof window.initInstructions === 'function') {
-          window.initInstructions();
-        }
         if (routeKey === 'integrations' && typeof window.initIntegrations === 'function') {
           await window.initIntegrations();
         }
@@ -1655,7 +1650,7 @@ function formatCurrency(amount, currency) {
     // ═══════════════════════════════════════════════════════════════════
     // 'integrations' (Connections) is gated too: connections only make sense once an
     // assistant is selected and its brief is generated (isComplete in get-onboarding-status).
-    const ONBOARDING_RESTRICTED = ['review-queue', 'calendar', 'instructions', 'my-content', 'integrations'];
+    const ONBOARDING_RESTRICTED = ['review-queue', 'calendar', 'my-content', 'integrations'];
     const ONBOARDING_LOCK_MESSAGE = 'Please complete your onboarding checklist to unlock this feature.';
     window._onboardingComplete = false; // pessimistic until status loads
     let _onboardingLoaded = false;
@@ -2937,7 +2932,6 @@ function formatCurrency(amount, currency) {
 <script src="/integrations.js"></script>
 <script src="/assets.js"></script>
 <script src="/notifications.js"></script>
-<script src="/instructions.js"></script>
 <script src="/assistants.js"></script>
 <script src="/help.js"></script>
 <script src="/my-content.js"></script>

@@ -145,27 +145,36 @@ function _renderOnboardingSummary(data) {
         return;
     }
 
+    const fieldCount = rows.length + (rules.length ? 1 : 0);
     host.innerHTML = `
-      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
-        <div class="mb-5">
-          <h4 class="text-base font-bold text-gray-900">Your Onboarding Answers</h4>
-          <p class="text-sm text-gray-500 mt-1">A read-only summary of everything you told us when setting up this assistant. You can edit any of it in the tabs below.</p>
+      <details class="group bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <summary class="flex items-center justify-between gap-4 p-6 sm:px-8 cursor-pointer select-none list-none">
+          <div>
+            <h4 class="text-base font-bold text-gray-900">Your Onboarding Answers</h4>
+            <p class="text-sm text-gray-500 mt-1">A read-only summary of everything you told us when setting up this assistant. Expand to review — you can edit any of it in the tabs below.</p>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-xs font-semibold text-gray-400">${fieldCount} item${fieldCount === 1 ? '' : 's'}</span>
+            <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </summary>
+        <div class="px-6 sm:px-8 pb-6 sm:pb-8 pt-2 border-t border-gray-100">
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 mt-4">
+            ${rows.map(([label, value]) => `
+              <div>
+                <dt class="text-xs font-bold text-gray-400 uppercase tracking-wide">${esc(label)}</dt>
+                <dd class="text-sm text-gray-900 mt-1 whitespace-pre-line">${esc(value)}</dd>
+              </div>`).join('')}
+          </dl>
+          ${rules.length ? `
+            <div class="mt-6 pt-5 border-t border-gray-100">
+              <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Knowledge &amp; Guardrails</p>
+              <ul class="list-disc pl-5 space-y-1 text-sm text-gray-900">
+                ${rules.map(r => `<li class="whitespace-pre-line">${esc(r)}</li>`).join('')}
+              </ul>
+            </div>` : ''}
         </div>
-        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-          ${rows.map(([label, value]) => `
-            <div>
-              <dt class="text-xs font-bold text-gray-400 uppercase tracking-wide">${esc(label)}</dt>
-              <dd class="text-sm text-gray-900 mt-1 whitespace-pre-line">${esc(value)}</dd>
-            </div>`).join('')}
-        </dl>
-        ${rules.length ? `
-          <div class="mt-6 pt-5 border-t border-gray-100">
-            <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Knowledge &amp; Guardrails</p>
-            <ul class="list-disc pl-5 space-y-1 text-sm text-gray-900">
-              ${rules.map(r => `<li class="whitespace-pre-line">${esc(r)}</li>`).join('')}
-            </ul>
-          </div>` : ''}
-      </div>`;
+      </details>`;
 }
 
 function _detailHydrate(data) {
@@ -191,18 +200,21 @@ function _detailHydrate(data) {
     _detailSetVal('edit_pillars', ctx.content_pillars || '');
     // workflowText is Be More Swan IP — not displayed to the user
 
-    // Radios — trigger
-    const triggerVal = inputs.trigger_type || '';
-    if (triggerVal) {
-        const r = document.querySelector(`input[name="edit_trigger"][value="${triggerVal}"]`);
-        if (r) r.checked = true;
-    }
-    // Radios — source
-    const sourceVal = inputs.content_source || inputs.sourceText || '';
-    if (sourceVal) {
-        const r = document.querySelector(`input[name="edit_source"][value="${sourceVal}"]`);
-        if (r) r.checked = true;
-    }
+    // Radios — trigger / source.
+    // Onboarding may store these as the radio value (e.g. "on_demand") OR as a human label
+    // (e.g. "On Demand" in triggerText/sourceText). Normalise labels → value keys so the radio
+    // pre-selects either way ("On Demand" → "on_demand", "Client Provided" → "client_provided").
+    const _toOptionValue = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const _checkRadio = (name, ...candidates) => {
+        for (const c of candidates) {
+            const v = _toOptionValue(c);
+            if (!v) continue;
+            const r = document.querySelector(`input[name="${name}"][value="${v}"]`);
+            if (r) { r.checked = true; return; }
+        }
+    };
+    _checkRadio('edit_trigger', inputs.trigger_type, inputs.triggerText);
+    _checkRadio('edit_source', inputs.content_source, inputs.sourceText);
 
     // Platforms are rendered dynamically from global connections — see _renderPlatformsTab()
 
@@ -487,8 +499,11 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── Integrations ──────────────────────────────────────────────
     await window.fetchAndRenderIntegrations();
 
-    // ── Workspace defaults (Brand Profile + Assistant Rules) ──────
+    // ── Workspace defaults (Brand Profile) ────────────────────────
     await _fetchAndRenderWorkspaceDefaults(assistantId, currentData, triggerAutoSave);
+
+    // ── Per-assistant Assistant Rules (content_rules → this assistant's brief) ──
+    await _fetchAndRenderAssistantRules(assistantId);
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -712,81 +727,7 @@ async function _fetchAndRenderWorkspaceDefaults(assistantId, currentData, trigge
         console.warn('Could not load workspace defaults:', e);
     }
 
-    // ── Assistant Rules ───────────────────────────────────────────
-    const rulesContainer = document.getElementById('global-assistant-rules-list');
-    if (rulesContainer) {
-        if (!defaults.assistantRules || defaults.assistantRules.length === 0) {
-            rulesContainer.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-6 text-center gap-2">
-                    <p class="text-sm text-gray-500">No global rules have been configured yet.</p>
-                    <a href="#" onclick="window.loadView('instructions')" class="text-sm font-bold text-emerald-600 hover:underline cursor-pointer">Go to Assistant Rules settings →</a>
-                </div>`;
-        } else {
-            rulesContainer.innerHTML = '';
-            // Category display labels
-            const CATEGORY_LABELS = {
-                tone_of_voice: 'Tone of Voice & Personality',
-                response_formatting: 'Response Formatting',
-                core_knowledge: 'Core Business Facts',
-                target_audience: 'Target Audience Context',
-            };
-
-            defaults.assistantRules.forEach(rule => {
-                // Per-assistant override: if not set, default ON for globally active rules, OFF for globally inactive
-                const perAssistantSet = appliedDefaults.assistantRules?.[rule.id];
-                const isEnabled = perAssistantSet !== undefined ? perAssistantSet : rule.isActive;
-                const rowId = `rule-toggle-${rule.id}`;
-                const categoryLabel = CATEGORY_LABELS[rule.category] || rule.category;
-                const globallyOff = !rule.isActive;
-
-                rulesContainer.insertAdjacentHTML('beforeend', `
-                    <div class="flex items-start gap-4 py-3.5 border-b border-gray-100 last:border-0 ${globallyOff && !isEnabled ? 'opacity-50' : ''}">
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm text-gray-800 font-medium">${_escapeHtml(rule.text)}</p>
-                            <div class="flex items-center gap-2 mt-0.5">
-                                <p class="text-xs text-gray-400">${_escapeHtml(categoryLabel)}</p>
-                                ${globallyOff ? '<span class="text-xs text-amber-600 font-semibold">· Globally off</span>' : ''}
-                            </div>
-                        </div>
-                        <label class="flex items-center cursor-pointer relative shrink-0 mt-0.5" title="${globallyOff ? 'This rule is disabled globally on the Assistant Rules page' : ''}">
-                            <input type="checkbox" id="${rowId}" data-rule-id="${rule.id}" class="sr-only peer global-rule-toggle" ${isEnabled ? 'checked' : ''}>
-                            <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-                        </label>
-                    </div>`);
-            });
-
-            // Auto-save on toggle
-            rulesContainer.querySelectorAll('.global-rule-toggle').forEach(chk => {
-                chk.addEventListener('change', async () => {
-                    const ruleStates = {};
-                    rulesContainer.querySelectorAll('.global-rule-toggle').forEach(c => {
-                        ruleStates[c.dataset.ruleId] = c.checked;
-                    });
-                    const statusEl = document.getElementById('rules-save-status');
-                    if (statusEl) statusEl.textContent = 'Saving…';
-                    try {
-                        const r = await fetch('/.netlify/functions/update-assistant-context', {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                assistantId: parseInt(assistantId),
-                                newContext: window.cachedContext,
-                                appliedDefaults: { assistantRules: ruleStates },
-                            }),
-                        });
-                        if (r.ok) {
-                            if (!currentData.configuration) currentData.configuration = {};
-                            if (!currentData.configuration.appliedDefaults) currentData.configuration.appliedDefaults = {};
-                            currentData.configuration.appliedDefaults.assistantRules = ruleStates;
-                            if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(() => statusEl.textContent = '', 2000); }
-                        }
-                    } catch {
-                        if (document.getElementById('rules-save-status')) document.getElementById('rules-save-status').textContent = 'Error saving';
-                    }
-                });
-            });
-        }
-    }
+    // ── Assistant Rules now live per-assistant — see _fetchAndRenderAssistantRules() ──
 
     // ── Brand Profile ─────────────────────────────────────────────
     const brandContainer = document.getElementById('global-brand-profile-content');
@@ -857,6 +798,298 @@ async function _fetchAndRenderWorkspaceDefaults(assistantId, currentData, trigge
 function _escapeHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Per-assistant Assistant Rules — editable rules stored in content_rules
+// and injected into THIS assistant's brief (assemble-blueprint § 4-content-rules).
+// Replaces the old global-rules-with-toggles view.
+// ─────────────────────────────────────────────────────────────────
+const RULE_CATEGORIES = [
+    { id: 'tone_of_voice',       title: 'Tone of Voice & Personality', placeholder: 'e.g. Always maintain a professional yet friendly tone.' },
+    { id: 'response_formatting', title: 'Response Formatting',          placeholder: 'e.g. Always use short paragraphs; never use technical jargon.' },
+    { id: 'core_knowledge',      title: 'Core Business Facts',          placeholder: 'e.g. Our flagship service is X, launched in 2024.' },
+    { id: 'target_audience',     title: 'Target Audience Context',      placeholder: 'e.g. Speak to busy small-business owners aged 30–50.' },
+];
+const RULE_CATEGORY_TITLES = Object.fromEntries(RULE_CATEGORIES.map(c => [c.id, c.title]));
+
+let _rulesAssistantId = null;
+const RULES_API = '/.netlify/functions/content-rules';
+
+function _setRulesStatus(text, isError) {
+    const el = document.getElementById('assistant-rules-status');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = `text-sm font-bold shrink-0 transition-all ${isError ? 'text-red-600' : 'text-emerald-600'}`;
+    if (text && !isError && /Saved/.test(text)) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 2000);
+}
+
+async function _fetchAndRenderAssistantRules(assistantId) {
+    _rulesAssistantId = parseInt(assistantId);
+    const editor = document.getElementById('assistant-rules-editor');
+    if (!editor) return;
+
+    let rules = [];
+    try {
+        const res = await fetch(`${RULES_API}?assistantId=${_rulesAssistantId}`);
+        if (res.ok) rules = (await res.json()).rules || [];
+    } catch (e) {
+        console.warn('Could not load assistant rules:', e);
+    }
+
+    // Group rules by known category; anything else (legacy / rejection_feedback) → "Other rules"
+    const byCat = {};
+    RULE_CATEGORIES.forEach(c => { byCat[c.id] = []; });
+    const other = [];
+    rules.forEach(r => {
+        if (r.category && byCat[r.category]) byCat[r.category].push(r);
+        else other.push(r);
+    });
+
+    editor.innerHTML = '';
+    RULE_CATEGORIES.forEach(cat => {
+        editor.appendChild(_buildRuleCategoryCard(cat.id, cat.title, cat.placeholder, byCat[cat.id], false));
+    });
+    if (other.length) {
+        editor.appendChild(_buildRuleCategoryCard('', 'Other rules', '', other, true));
+    }
+}
+
+function _buildRuleCategoryCard(catId, title, placeholder, rules, readOnlyAdd) {
+    const card = document.createElement('div');
+    card.className = 'border border-gray-200 rounded-xl overflow-hidden';
+    card.innerHTML = `
+        <div class="px-4 py-3 bg-gray-50/60 border-b border-gray-100 flex items-center justify-between">
+            <h4 class="text-sm font-bold text-gray-800">${_escapeHtml(title)}</h4>
+            ${readOnlyAdd ? '' : `<button type="button" data-cat="${catId}" class="ar-add-btn text-sm font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-md transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>Add Rule</button>`}
+        </div>
+        <div class="ar-rows divide-y divide-gray-100" data-cat="${catId}"></div>`;
+
+    const rowsEl = card.querySelector('.ar-rows');
+    if (rules && rules.length) {
+        rules.forEach(r => rowsEl.appendChild(_buildRuleRow(catId, placeholder, r)));
+    } else if (!readOnlyAdd) {
+        rowsEl.appendChild(_buildEmptyHint(rowsEl));
+    }
+
+    const addBtn = card.querySelector('.ar-add-btn');
+    if (addBtn) addBtn.addEventListener('click', () => {
+        const hint = rowsEl.querySelector('.ar-empty-hint');
+        if (hint) hint.remove();
+        const row = _buildRuleRow(catId, placeholder, null);
+        rowsEl.appendChild(row);
+        row.querySelector('.ar-input')?.focus();
+    });
+    return card;
+}
+
+function _buildEmptyHint() {
+    const div = document.createElement('div');
+    div.className = 'ar-empty-hint px-4 py-3 text-sm text-gray-400';
+    div.textContent = 'No rules yet — click “Add Rule” to create one.';
+    return div;
+}
+
+function _buildRuleRow(catId, placeholder, rule) {
+    const tr = document.createElement('div');
+    tr.className = 'ar-row flex items-start gap-3 px-4 py-3 group';
+    if (rule?.id) tr.dataset.ruleId = String(rule.id);
+    tr.dataset.cat = catId;
+    const active = rule ? rule.isActive !== false : true;
+    const isFeedback = rule?.origin === 'rejection_feedback';
+
+    tr.innerHTML = `
+        <div class="flex-1 min-w-0">
+            <textarea rows="1" placeholder="${_escapeHtml(placeholder || 'Describe the rule…')}"
+                class="ar-input w-full px-3 py-2 text-sm rounded-lg border border-transparent hover:border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none bg-transparent focus:bg-white resize-none overflow-hidden ${active ? '' : 'text-gray-400 line-through'}">${_escapeHtml(rule?.ruleText || '')}</textarea>
+            ${isFeedback ? '<p class="text-xs text-amber-600 font-semibold px-3 mt-0.5">From rejected-post feedback</p>' : ''}
+        </div>
+        <button type="button" aria-checked="${active}" class="ar-toggle relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none mt-1 ${active ? 'bg-emerald-500' : 'bg-gray-300'}">
+            <span class="${active ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out"></span>
+        </button>
+        <button type="button" class="ar-del text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 mt-1.5">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>`;
+
+    const input = tr.querySelector('.ar-input');
+    const toggle = tr.querySelector('.ar-toggle');
+    const dot = toggle.querySelector('span');
+
+    const autoResize = () => { input.style.height = ''; input.style.height = input.scrollHeight + 'px'; };
+    requestAnimationFrame(autoResize);
+
+    let saveTimer;
+    input.addEventListener('input', () => {
+        autoResize();
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => _saveRuleRow(tr), 700);
+    });
+    input.addEventListener('blur', () => { clearTimeout(saveTimer); _saveRuleRow(tr); });
+
+    toggle.addEventListener('click', async () => {
+        const nowActive = toggle.getAttribute('aria-checked') !== 'true';
+        toggle.setAttribute('aria-checked', nowActive);
+        toggle.className = `ar-toggle relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none mt-1 ${nowActive ? 'bg-emerald-500' : 'bg-gray-300'}`;
+        dot.className = `${nowActive ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out`;
+        nowActive ? input.classList.remove('text-gray-400', 'line-through') : input.classList.add('text-gray-400', 'line-through');
+        if (tr.dataset.ruleId) {
+            _setRulesStatus('Saving…');
+            try {
+                const r = await fetch(RULES_API, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(tr.dataset.ruleId), isActive: nowActive }) });
+                _setRulesStatus(r.ok ? '✓ Saved' : 'Error saving', !r.ok);
+            } catch { _setRulesStatus('Error saving', true); }
+        }
+    });
+
+    tr.querySelector('.ar-del').addEventListener('click', async () => {
+        if (tr.dataset.ruleId) {
+            if (!confirm('Delete this rule? It will no longer be applied to this assistant.')) return;
+            _setRulesStatus('Saving…');
+            try {
+                const r = await fetch(`${RULES_API}?id=${tr.dataset.ruleId}`, { method: 'DELETE' });
+                if (!r.ok) { _setRulesStatus('Error deleting', true); return; }
+                _setRulesStatus('✓ Saved');
+            } catch { _setRulesStatus('Error deleting', true); return; }
+        }
+        const rows = tr.parentElement;
+        tr.remove();
+        if (rows && !rows.querySelector('.ar-row') && rows.dataset.cat) rows.appendChild(_buildEmptyHint());
+    });
+
+    return tr;
+}
+
+// Create-on-first-save, then patch on subsequent edits. No-op for empty text on a new row.
+async function _saveRuleRow(tr) {
+    const input = tr.querySelector('.ar-input');
+    const text = (input?.value || '').trim();
+    const id = tr.dataset.ruleId ? Number(tr.dataset.ruleId) : null;
+
+    if (!text) {
+        // Empty existing rule → delete it; empty brand-new row → ignore
+        if (id) {
+            try { await fetch(`${RULES_API}?id=${id}`, { method: 'DELETE' }); } catch {}
+            delete tr.dataset.ruleId;
+        }
+        return;
+    }
+    if (tr.dataset.savedText === text) return; // unchanged since last save
+
+    _setRulesStatus('Saving…');
+    try {
+        let res;
+        if (id) {
+            res = await fetch(RULES_API, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ruleText: text }) });
+        } else {
+            res = await fetch(RULES_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assistantId: _rulesAssistantId, ruleText: text, category: tr.dataset.cat || null }) });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.rule?.id) tr.dataset.ruleId = String(data.rule.id);
+            }
+        }
+        if (res.ok) { tr.dataset.savedText = text; _setRulesStatus('✓ Saved'); }
+        else _setRulesStatus('Error saving', true);
+    } catch { _setRulesStatus('Error saving', true); }
+}
+
+// ── Copy rules from another assistant ─────────────────────────────
+window._openCopyRules = async function () {
+    const sel = document.getElementById('copy-rules-source');
+    const errEl = document.getElementById('copy-rules-error');
+    const preview = document.getElementById('copy-rules-preview');
+    if (errEl) errEl.classList.add('hidden');
+    if (preview) preview.textContent = '';
+    if (sel) sel.innerHTML = '<option value="">Loading assistants…</option>';
+    document.getElementById('modal-copy-rules')?.classList.remove('hidden');
+
+    try {
+        const res = await fetch('/.netlify/functions/get-assistants');
+        const data = res.ok ? await res.json() : {};
+        const list = (data.assistants || data || []).filter(a => a && a.id && parseInt(a.id) !== _rulesAssistantId);
+        if (!sel) return;
+        if (!list.length) {
+            sel.innerHTML = '<option value="">No other assistants found</option>';
+            return;
+        }
+        sel.innerHTML = '<option value="">Select an assistant…</option>' +
+            list.map(a => `<option value="${a.id}">${_escapeHtml(a.name || ('Assistant #' + a.id))}</option>`).join('');
+    } catch {
+        if (sel) sel.innerHTML = '<option value="">Could not load assistants</option>';
+    }
+};
+
+window._confirmCopyRules = async function () {
+    const sel = document.getElementById('copy-rules-source');
+    const errEl = document.getElementById('copy-rules-error');
+    const btn = document.getElementById('btn-copy-rules-confirm');
+    const sourceId = sel?.value ? Number(sel.value) : null;
+    if (errEl) errEl.classList.add('hidden');
+    if (!sourceId) { if (errEl) { errEl.textContent = 'Please select a source assistant.'; errEl.classList.remove('hidden'); } return; }
+
+    if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
+    try {
+        const res = await fetch(`${RULES_API}?assistantId=${sourceId}`);
+        const srcRules = res.ok ? ((await res.json()).rules || []) : [];
+        const toCopy = srcRules.filter(r => r.ruleText && r.isActive !== false);
+        if (!toCopy.length) {
+            if (errEl) { errEl.textContent = 'That assistant has no active rules to copy.'; errEl.classList.remove('hidden'); }
+            return;
+        }
+        for (const r of toCopy) {
+            await fetch(RULES_API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assistantId: _rulesAssistantId, ruleText: r.ruleText, category: r.category || null, platform: r.platform || null }) });
+        }
+        document.getElementById('modal-copy-rules')?.classList.add('hidden');
+        await _fetchAndRenderAssistantRules(_rulesAssistantId);
+        _setRulesStatus(`✓ Copied ${toCopy.length} rule${toCopy.length === 1 ? '' : 's'}`);
+    } catch {
+        if (errEl) { errEl.textContent = 'Could not copy rules. Please try again.'; errEl.classList.remove('hidden'); }
+    } finally {
+        if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
+    }
+};
+
+// ── Safe Content Benchmark modal + safety feedback (moved from instructions page) ──
+window._openSafetyBenchmark = function () {
+    document.getElementById('modal-safety-benchmark')?.classList.remove('hidden');
+};
+
+window._openSafetyFeedback = function () {
+    const s = document.getElementById('safety-suggestion'); if (s) s.value = '';
+    const c = document.getElementById('safety-context'); if (c) c.value = '';
+    document.getElementById('safety-feedback-error')?.classList.add('hidden');
+    document.getElementById('safety-feedback-success')?.classList.add('hidden');
+    const btn = document.getElementById('btn-safety-submit');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg> Submit Suggestion'; }
+    document.getElementById('modal-safety-feedback')?.classList.remove('hidden');
+};
+
+window._submitSafetyFeedback = async function () {
+    const suggestion = (document.getElementById('safety-suggestion')?.value || '').trim();
+    const context = (document.getElementById('safety-context')?.value || '').trim();
+    const errorEl = document.getElementById('safety-feedback-error');
+    const successEl = document.getElementById('safety-feedback-success');
+    const btn = document.getElementById('btn-safety-submit');
+    errorEl?.classList.add('hidden');
+    successEl?.classList.add('hidden');
+    if (!suggestion) { if (errorEl) { errorEl.textContent = 'Please describe your suggested safety rule.'; errorEl.classList.remove('hidden'); } return; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/></svg> Sending…'; }
+    try {
+        const res = await fetch('/.netlify/functions/safety-feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suggestion, context }) });
+        if (res.ok) {
+            successEl?.classList.remove('hidden');
+            if (btn) btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Sent!';
+            setTimeout(() => document.getElementById('modal-safety-feedback')?.classList.add('hidden'), 2200);
+        } else {
+            const data = await res.json().catch(() => ({}));
+            if (errorEl) { errorEl.textContent = data.error || 'Submission failed. Please try again.'; errorEl.classList.remove('hidden'); }
+            if (btn) { btn.disabled = false; btn.innerHTML = 'Submit Suggestion'; }
+        }
+    } catch {
+        if (errorEl) { errorEl.textContent = 'Network error. Please check your connection and try again.'; errorEl.classList.remove('hidden'); }
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Submit Suggestion'; }
+    }
+};
 
 // ==========================================
 // 6. INTEGRATIONS — merged into Connections tab (_renderPlatformsTab)
