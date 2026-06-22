@@ -68,13 +68,15 @@ export const handler = async (event: HandlerEvent) => {
         if (event.httpMethod === 'PATCH') {
             const body = JSON.parse(event.body || '{}');
             const { notificationId } = body;
+            // isRead defaults to true (mark read) for backward compatibility; the Updates tab
+            // now also sends isRead:false to toggle an item back to unread.
+            const isRead = body.isRead === undefined ? true : !!body.isRead;
 
             if (!notificationId) return { statusCode: 400, body: JSON.stringify({ error: 'Missing notificationId' }) };
 
             // Ensure the user owns this notification before updating
             await db.update(notifications)
-                .set({ isRead: true })
-                // Note: removed readAt to strictly match your schema
+                .set({ isRead, readAt: isRead ? new Date() : null })
                 .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
 
             return { statusCode: 200, body: JSON.stringify({ success: true }) };

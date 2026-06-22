@@ -194,19 +194,23 @@ window.initNotifications = async function() {
         `;
         li.querySelector('.action-cta').addEventListener('click', (e) => {
             e.stopPropagation();
-            markAsRead(notif.id);
+            setRead(notif.id, true);
             action.run();
         });
         return li;
     };
 
-    // UPDATE row: informational, read/unread, dismissible.
+    // UPDATE row: informational, read/unread. Some info items still carry a useful link
+    // (e.g. invoice_ready → "View invoice", ticket_reply → "View ticket") — those keep a
+    // visible CTA even though they live in Updates. Read state is toggled with an explicit
+    // button so it's obvious (no more "click the row and hope").
     const renderUpdateItem = (notif) => {
         const li = document.createElement('li');
+        const action = getNotificationAction(notif); // null for purely passive updates
         const bgClass = notif.isRead ? 'bg-white hover:bg-gray-50' : 'bg-emerald-50/30 hover:bg-emerald-50/50';
         const textClass = notif.isRead ? 'text-gray-600 font-normal' : 'text-gray-900 font-bold';
         const dot = notif.isRead ? '' : `<div class="w-2.5 h-2.5 rounded-full bg-emerald-600 shrink-0 mt-1.5"></div>`;
-        li.className = `group p-5 transition-colors cursor-pointer flex gap-4 ${bgClass}`;
+        li.className = `group p-5 transition-colors flex gap-4 ${bgClass}`;
         li.innerHTML = `
             ${dot}
             <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0 border border-gray-200">
@@ -216,9 +220,23 @@ window.initNotifications = async function() {
                 <p class="text-sm ${textClass}">${notif.title}</p>
                 ${notif.message ? `<p class="text-sm text-gray-500 mt-1 line-clamp-2">${notif.message}</p>` : ''}
                 <p class="text-xs text-gray-400 mt-2">${fmtDate(notif.createdAt)}</p>
+                ${action ? `<button type="button" class="update-cta mt-2 inline-flex items-center gap-1 text-sm font-bold text-emerald-700 hover:text-emerald-800">${action.label}<span aria-hidden="true">&rarr;</span></button>` : ''}
             </div>
+            <button type="button" class="update-toggle-read shrink-0 self-start text-xs font-semibold px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 whitespace-nowrap">
+                ${notif.isRead ? 'Mark as unread' : 'Mark as read'}
+            </button>
         `;
-        li.addEventListener('click', () => markAsRead(notif.id));
+        // Actionable updates (invoice, ticket) keep their link — navigate, and mark read since acting implies seen.
+        li.querySelector('.update-cta')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setRead(notif.id, true);
+            action.run();
+        });
+        // Explicit read/unread toggle.
+        li.querySelector('.update-toggle-read').addEventListener('click', (e) => {
+            e.stopPropagation();
+            setRead(notif.id, !notif.isRead);
+        });
         return li;
     };
 
@@ -263,17 +281,17 @@ window.initNotifications = async function() {
             activeTab === 'action' ? renderActionItem(notif) : renderUpdateItem(notif)));
     };
 
-    const markAsRead = async (id) => {
+    const setRead = async (id, isRead) => {
         const notif = notificationsData.find(n => n.id === id);
-        if (!notif || notif.isRead) return;
+        if (!notif || notif.isRead === isRead) return;
 
-        notif.isRead = true;
+        notif.isRead = isRead;
         renderList();
 
         fetch('/.netlify/functions/notifications', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notificationId: id })
+            body: JSON.stringify({ notificationId: id, isRead })
         }).then(() => {
             if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
         }).catch(err => console.error("Sync failed:", err));
