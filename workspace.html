@@ -1735,6 +1735,28 @@ function formatCurrency(amount, currency) {
     // Render locks ASAP on boot (non-blocking).
     refreshOnboardingLock();
 
+    // Welcome chime: play Aurora.mp3 once, the first time this user opens their workspace.
+    // Browsers block autoplay-with-sound on a fresh page load, so if the immediate play()
+    // is rejected we retry on the first user gesture. Marked played only once it actually plays.
+    (function playWelcomeSound() {
+      if (localStorage.getItem('aurora_welcome_played')) return;
+      const audio = new Audio('/Aurora.mp3');
+      audio.volume = 0.6;
+      let done = false;
+      const tryPlay = () => {
+        if (done) return;
+        audio.play().then(() => {
+          done = true;
+          localStorage.setItem('aurora_welcome_played', '1');
+          window.removeEventListener('pointerdown', tryPlay);
+          window.removeEventListener('keydown', tryPlay);
+        }).catch(() => { /* autoplay blocked — wait for a user gesture */ });
+      };
+      tryPlay();
+      window.addEventListener('pointerdown', tryPlay);
+      window.addEventListener('keydown', tryPlay);
+    })();
+
     // Fire the initial landing layout
     await loadView('dashboard');
 
