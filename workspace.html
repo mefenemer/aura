@@ -622,6 +622,31 @@ function formatCurrency(amount, currency) {
     console.error("Error: Could not locate sidebar.html");
   }
 
+  // Welcome chime: play Aurora.mp3 every time the workspace loads. Kept in its own
+  // listener (NOT inside the main async init) so a failure anywhere in init can't stop it.
+  // Browsers block autoplay-with-sound on a fresh page load, so if the immediate play()
+  // is rejected we retry on the first user gesture, then stop listening.
+  (function playWelcomeSound() {
+    const start = () => {
+      const audio = new Audio('/Aurora.mp3');
+      audio.volume = 0.6;
+      let done = false;
+      const tryPlay = () => {
+        if (done) return;
+        audio.play().then(() => {
+          done = true;
+          window.removeEventListener('pointerdown', tryPlay);
+          window.removeEventListener('keydown', tryPlay);
+        }).catch(() => { /* autoplay blocked — wait for a user gesture */ });
+      };
+      tryPlay();
+      window.addEventListener('pointerdown', tryPlay);
+      window.addEventListener('keydown', tryPlay);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+    else start();
+  })();
+
   document.addEventListener("DOMContentLoaded", async () => {
     // ── P3: Post-login alert banner ──────────────────────────────
     // verify.ts appends ?alert=<type> when routing a returning user back to workspace.
@@ -1734,26 +1759,6 @@ function formatCurrency(amount, currency) {
 
     // Render locks ASAP on boot (non-blocking).
     refreshOnboardingLock();
-
-    // Welcome chime: play Aurora.mp3 every time the user opens their workspace.
-    // Browsers block autoplay-with-sound on a fresh page load, so if the immediate play()
-    // is rejected we retry on the first user gesture, then stop listening.
-    (function playWelcomeSound() {
-      const audio = new Audio('/Aurora.mp3');
-      audio.volume = 0.6;
-      let done = false;
-      const tryPlay = () => {
-        if (done) return;
-        audio.play().then(() => {
-          done = true;
-          window.removeEventListener('pointerdown', tryPlay);
-          window.removeEventListener('keydown', tryPlay);
-        }).catch(() => { /* autoplay blocked — wait for a user gesture */ });
-      };
-      tryPlay();
-      window.addEventListener('pointerdown', tryPlay);
-      window.addEventListener('keydown', tryPlay);
-    })();
 
     // Fire the initial landing layout
     await loadView('dashboard');
