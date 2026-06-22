@@ -129,15 +129,15 @@ export const handler: Handler = async (event) => {
             }),
         };
     } catch (err: any) {
-        const msg: string = err?.message || '';
-        // Table not yet migrated — degrade gracefully to "no data".
-        if (msg.includes('relation') && msg.includes('does not exist')) {
-            return {
-                statusCode: 200,
-                body: JSON.stringify({ periodDays: days, hasData: false, current: {}, previous: {}, metrics: {} }),
-            };
-        }
-        console.error('[get-assistant-metrics]', err);
-        return { statusCode: 500, body: JSON.stringify({ error: 'Failed to load metrics.' }) };
+        // Performance Metrics are a SUPPLEMENTARY panel — a failure here must never break the
+        // assistant detail page. Degrade gracefully to "no data" for ANY error (table not yet
+        // migrated, RLS/connection hiccup, a brand-new assistant with no insights, etc.) and log
+        // the real cause server-side for diagnosis rather than surfacing a 500 to the client.
+        console.error('[get-assistant-metrics] degraded to no-data after error:', err?.code || '', err?.message || err);
+        return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ periodDays: days, hasData: false, current: {}, previous: {}, metrics: {} }),
+        };
     }
 };
