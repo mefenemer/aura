@@ -40,6 +40,13 @@ function getR2Client(): S3Client {
         region: 'auto',
         endpoint: R2_ENDPOINT,
         credentials: { accessKeyId: R2_ACCESS_KEY_ID!, secretAccessKey: R2_SECRET_ACCESS_KEY! },
+        // AWS SDK v3 (≥3.729) defaults requestChecksumCalculation to WHEN_SUPPORTED, which
+        // bakes a CRC32 checksum (x-amz-checksum-crc32 / x-amz-sdk-checksum-algorithm) into
+        // the presigned URL. The browser PUT can't reproduce that checksum over the real
+        // bytes, so R2 rejects the upload. WHEN_REQUIRED drops it for PutObject (R2 requires
+        // no checksum), keeping the presigned PUT a plain SigV4 request.
+        requestChecksumCalculation: 'WHEN_REQUIRED',
+        responseChecksumValidation: 'WHEN_REQUIRED',
     });
 }
 

@@ -1963,19 +1963,37 @@ function formatCurrency(amount, currency) {
       }
     })();
 
-    // Handle OAuth error redirects (e.g. ?error=access_denied from a failed app connection)
+    // Handle OAuth error redirects. The social flows emit ?oauth_error= (LinkedIn/X
+    // init + callback), the Meta flow emits ?meta_error=, and a legacy ?error= is still
+    // supported. All three are surfaced here as a single friendly toast — previously
+    // only ?error= was read, so social/Meta failures fell through silently.
     (function handleOAuthError() {
-      const errorParam = qs.get('error');
+      const errorParam = qs.get('oauth_error') || qs.get('meta_error') || qs.get('error');
       if (!errorParam) return;
+      const platform = qs.get('platform');
       const url = new URL(window.location.href);
       url.searchParams.delete('error');
+      url.searchParams.delete('oauth_error');
+      url.searchParams.delete('meta_error');
+      url.searchParams.delete('platform');
       history.replaceState(null, '', url.toString());
+
+      const LABELS = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X (Twitter)' };
+      const label = LABELS[platform] || 'The platform';
 
       const MESSAGES = {
         access_denied: 'Connection cancelled — you declined the permission request. Try connecting again if this was a mistake.',
-        temporarily_unavailable: 'The app is temporarily unavailable. Please try again in a few minutes.',
+        temporarily_unavailable: 'The platform is temporarily unavailable. Please try again in a few minutes.',
+        not_configured: `${label} isn’t available to connect just yet — its integration is still being set up. Please try again later or contact support.`,
+        csrf_fail: 'The connection request expired or could not be verified. Please try connecting again.',
+        token_exchange: `We couldn’t complete the ${label} connection. Please try again.`,
+        connection_not_relevant: `${label} isn’t a relevant connection for this assistant.`,
+        unauthenticated: 'Your session has expired. Please sign in and try connecting again.',
+        invalid_session: 'Your session has expired. Please sign in and try connecting again.',
+        not_business: 'Instagram needs a Business or Creator account linked to a Facebook Page. Switch your account type, then try again.',
+        personal_account: 'Personal Instagram accounts can’t be connected — switch to a Business or Creator account first.',
       };
-      const msg = MESSAGES[errorParam] || 'The app connection failed. Please try again.';
+      const msg = MESSAGES[errorParam] || 'The connection failed. Please try again.';
 
       const toast = document.getElementById('oauth-error-toast');
       const msgEl = document.getElementById('oauth-error-toast-msg');

@@ -55,7 +55,7 @@ export const handler: Handler = async (event) => {
 
     if (platform === 'linkedin') {
         const clientId = process.env.LINKEDIN_CLIENT_ID;
-        if (!clientId) return { statusCode: 500, body: 'LinkedIn OAuth not configured' };
+        if (!clientId) return { statusCode: 302, headers: { Location: '/workspace.html?oauth_error=not_configured&platform=linkedin' }, body: '' };
 
         // AC1.1.2: store CSRF state server-side with TTL
         const csrfKey = `oauth_csrf:${userId}:linkedin`;
@@ -69,7 +69,7 @@ export const handler: Handler = async (event) => {
     } else {
         // X OAuth 2.0 with PKCE
         const clientId = process.env.X_CLIENT_ID;
-        if (!clientId) return { statusCode: 500, body: 'X OAuth not configured' };
+        if (!clientId) return { statusCode: 302, headers: { Location: '/workspace.html?oauth_error=not_configured&platform=x' }, body: '' };
         const codeVerifier = randomBytes(32).toString('base64url');
         const { createHash } = await import('crypto');
         const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
