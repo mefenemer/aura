@@ -9,6 +9,7 @@ import { getDb } from '../../db/client';
 import { systemConnections, scheduledPosts, notifications, users, auditLogs, userOrganisations } from '../../db/schema';
 import { storeSecret, getSecret } from '../../src/utils/vault';
 import { sendEmail } from '../../src/utils/email';
+import { resolveActionNotifications, CONNECTION_RESTORED_TYPES } from '../../src/utils/notification-actions';
 
 const metaAppId  = process.env.META_APP_ID!;
 const metaSecret = process.env.META_APP_SECRET!;
@@ -72,6 +73,12 @@ async function refreshToken(db: ReturnType<typeof getDb>, conn: {
         }).where(eq(systemConnections.id, conn.id));
 
         await db.insert(auditLogs).values({ actionType: 'instagram_token_refreshed', resourceType: 'system_connections', resourceId: String(conn.id), newState: { organisationId: conn.organisationId, newExpiry } });
+
+        // Token is healthy again — clear any open "reconnect Instagram" prompt for this org's user.
+        const [refreshedUser] = await db.select({ id: users.id }).from(users)
+            .innerJoin(userOrganisations, eq(users.id, userOrganisations.userId))
+            .where(eq(userOrganisations.organisationId, conn.organisationId)).limit(1);
+        if (refreshedUser) await resolveActionNotifications(db, refreshedUser.id, CONNECTION_RESTORED_TYPES);
 
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

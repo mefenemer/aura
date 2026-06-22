@@ -4,6 +4,7 @@ import { eq, and, inArray, desc, sql } from 'drizzle-orm';
 import { getDb, withUpdatedAt } from '../../db/client';
 import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, planPrices, invoices, processedWebhookEvents, userReferrals, platformConfig, stripeDisputes, userOrganisations, userProfiles } from '../../db/schema';
 import { sendEmail, buildAnnualRenewalEmail, buildDunningEmail } from '../../src/utils/email';
+import { resolveActionNotifications, PAYMENT_RESTORED_TYPES } from '../../src/utils/notification-actions';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -642,6 +643,10 @@ export const handler: Handler = async (event) => {
                         eq(aiAssistants.provisioningStatus, 'paused_payment'),
                     ));
             }
+
+            // Auto-resolve any open "your billing is broken" action items — the payment
+            // just succeeded, so the prompt to fix it is moot whether or not the plan was past_due.
+            await resolveActionNotifications(db, userId, PAYMENT_RESTORED_TYPES);
 
             // In-app notification: Subscription renewed
             if (billingReason === 'subscription_cycle') {

@@ -13,6 +13,7 @@ import { storeSecret } from '../../src/utils/vault';
 import { resolveBaseUrl } from '../../src/utils/base-url';
 import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
 import { resolveAssistantRole } from '../../src/utils/assistant-role';
+import { resolveActionNotifications, CONNECTION_RESTORED_TYPES } from '../../src/utils/notification-actions';
 
 const jwtSecret   = process.env.JWT_SECRET!;
 const metaAppId   = process.env.META_APP_ID!;
@@ -213,6 +214,8 @@ export const handler: Handler = async (event) => {
                     : `Instagram account connected successfully. You can now schedule and publish posts.${!fbPageId ? ' Note: No Facebook Page linked — some features may be limited.' : ''}`,
                 metadata: { igUserId, accountType, fbPageId },
             });
+            // Connection is live again — clear any open "reconnect Instagram" action items.
+            await resolveActionNotifications(db, orgUser.id, CONNECTION_RESTORED_TYPES);
         }
 
         await db.insert(auditLogs).values({ actionType: isReconnect ? 'instagram_reconnected' : 'instagram_connected', resourceType: 'system_connections', resourceId: igUserId, newState: { organisationId, accountType, fbPageId } });

@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, plans, payments, masterPlans, notifications } from '../../db/schema';
+import { resolveActionNotifications, PAYMENT_RESTORED_TYPES } from '../../src/utils/notification-actions';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
 const jwtSecret = process.env.JWT_SECRET!;
@@ -113,6 +114,9 @@ export const handler: Handler = async (event) => {
             message: 'Your subscription is active. Click "Resume Setup" on your dashboard to build your Digital Assistant now.',
             isRead: false,
         });
+
+        // Clear any lingering "fix your billing" action items now the subscription is active.
+        await resolveActionNotifications(db, userId, PAYMENT_RESTORED_TYPES);
 
         return { statusCode: 200, body: JSON.stringify({ ok: true, alreadyExists: false }) };
 

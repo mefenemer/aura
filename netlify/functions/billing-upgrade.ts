@@ -13,6 +13,7 @@ import { getDb } from '../../db/client';
 import { users, plans, masterPlans, notifications, processedWebhookEvents, userOrganisations } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
 import { checkImpersonationBlock } from '../../src/utils/impersonation';
+import { resolveActionNotifications, PLAN_UPGRADED_TYPES } from '../../src/utils/notification-actions';
 
 const jwtSecret      = process.env.JWT_SECRET!;
 const stripeSecret   = process.env.STRIPE_SECRET_KEY!;
@@ -256,6 +257,9 @@ export const handler: Handler = async (event) => {
             message: `Your plan has been upgraded to ${targetMp.name}. Your new limits are active immediately.`,
             isRead: false,
         });
+
+        // The upgrade resolves the trial / capacity / downgrade prompts that nudged it.
+        await resolveActionNotifications(db, userId, PLAN_UPGRADED_TYPES);
 
         // SC4b: confirmation email (US-GAP-1.1.2 SC1/SC2/SC3)
         // Idempotency: keyed on upgrade-email:{subscriptionId}:{newPriceId} to prevent double-sends on retries

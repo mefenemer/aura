@@ -11,6 +11,7 @@ import { storeSecret, getSecret, deleteSecret } from '../../src/utils/vault';
 import { resolveBaseUrl } from '../../src/utils/base-url';
 import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
 import { resolveAssistantRole } from '../../src/utils/assistant-role';
+import { resolveActionNotifications, CONNECTION_RESTORED_TYPES } from '../../src/utils/notification-actions';
 
 function parseState(raw: string): Record<string, string> | null {
     try { return JSON.parse(Buffer.from(raw, 'base64url').toString()); }
@@ -104,6 +105,8 @@ export const handler: Handler = async (event) => {
         }
 
         await db.insert(notifications).values({ userId, type: 'linkedin_connected', title: existing ? 'LinkedIn reconnected' : 'LinkedIn connected', message: 'LinkedIn connected successfully. Your assistant can now post on your behalf.' });
+        // Connection is live again — clear any open "reconnect" action items.
+        await resolveActionNotifications(db, userId, CONNECTION_RESTORED_TYPES);
         await db.insert(auditLogs).values({ actionType: existing ? 'linkedin_reconnected' : 'linkedin_connected', resourceType: 'system_connections', resourceId: linkedinId, newState: { organisationId } });
 
         // Trigger pre-flight audit
