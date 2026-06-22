@@ -857,7 +857,6 @@ function formatCurrency(amount, currency) {
       'assistant-detail': { file: 'assistant-detail.html', title: '| Board Room' },
       'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
       'assets': { file: 'assets.html', title: '| Business Information' },
-      'integrations': { file: 'integrations.html', title: '| Integrations' },
       'notifications': { file: 'notifications.html', title: '| Notifications' },
       'settings': { file: 'user-settings.html', title: '| Account Settings' },
       'billing': { file: 'billing.html', title: '| Subscription & Billing' },
@@ -876,7 +875,6 @@ function formatCurrency(amount, currency) {
       'assistants': document.getElementById('nav-assistants'),
       'catalog': document.getElementById('nav-catalog'),
       'assets': document.getElementById('nav-assets'),
-      'integrations': document.getElementById('nav-integrations'),
       'notifications': document.getElementById('nav-notifications'),
       'settings': document.getElementById('nav-settings'),
       'help': document.getElementById('nav-help'),
@@ -1019,9 +1017,6 @@ function formatCurrency(amount, currency) {
           window.initBrandAssets();
         }
 
-        if (routeKey === 'integrations' && typeof window.initIntegrations === 'function') {
-          await window.initIntegrations();
-        }
 
         if (routeKey === 'my-content' && typeof window.initMyContent === 'function') {
           await window.initMyContent();
@@ -1642,9 +1637,7 @@ function formatCurrency(amount, currency) {
     //  + the client half of US2 (route guard state). Onboarding is "complete"
     //  once the user has at least one AI assistant (get-onboarding-status).
     // ═══════════════════════════════════════════════════════════════════
-    // 'integrations' (Connections) is gated too: connections only make sense once an
-    // assistant is selected and its brief is generated (isComplete in get-onboarding-status).
-    const ONBOARDING_RESTRICTED = ['review-queue', 'calendar', 'my-content', 'integrations'];
+    const ONBOARDING_RESTRICTED = ['review-queue', 'calendar', 'my-content'];
     const ONBOARDING_LOCK_MESSAGE = 'Please complete your onboarding checklist to unlock this feature.';
     window._onboardingComplete = false; // pessimistic until status loads
     let _onboardingLoaded = false;
@@ -2008,18 +2001,28 @@ function formatCurrency(amount, currency) {
     (function handleOAuthSuccess() {
       const platform = qs.get('oauth_success');
       if (!platform) return;
+      const assistantId = qs.get('assistantId');
       const url = new URL(window.location.href);
       url.searchParams.delete('oauth_success');
+      url.searchParams.delete('assistantId');
       history.replaceState(null, '', url.toString());
       const LABELS = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X (Twitter)' };
       const label = LABELS[platform] || platform;
       const toast = document.getElementById('oauth-error-toast');
       const msgEl = document.getElementById('oauth-error-toast-msg');
-      if (!toast || !msgEl) return;
-      msgEl.textContent = `${label} connected successfully. Head to Connections to manage your account.`;
-      toast.classList.remove('hidden', 'opacity-0');
-      toast.classList.add('opacity-100');
-      setTimeout(() => { toast.classList.remove('opacity-100'); toast.classList.add('opacity-0'); setTimeout(() => toast.classList.add('hidden'), 500); }, 6000);
+      if (toast && msgEl) {
+        msgEl.textContent = assistantId
+          ? `${label} connected successfully.`
+          : `${label} connected successfully. Open an assistant's Connections tab to manage it.`;
+        toast.classList.remove('hidden', 'opacity-0');
+        toast.classList.add('opacity-100');
+        setTimeout(() => { toast.classList.remove('opacity-100'); toast.classList.add('opacity-0'); setTimeout(() => toast.classList.add('hidden'), 500); }, 6000);
+      }
+      // Return the user to the assistant they were configuring, on its Connections tab.
+      if (assistantId && typeof window.routeToAssistantDetail === 'function') {
+        window._assistantDetailInitialTab = 'platforms';
+        window.routeToAssistantDetail(assistantId);
+      }
     })();
 
     // US-ONB-2.1.1 AC13: plan_cancelled toast — user returned from Stripe without paying
@@ -2821,7 +2824,7 @@ function formatCurrency(amount, currency) {
           const barEl = document.getElementById('onboarding-progress-bar');
           if (pctEl) pctEl.textContent = pct + '%';
           if (barEl) barEl.style.width = pct + '%';
-          const ACTION = { business_profile: ['assets', 'Set up'], connection: ['integrations', 'Connect'], first_assistant: ['catalog', 'Hire'] };
+          const ACTION = { business_profile: ['assets', 'Set up'], connection: ['assistants', 'Connect'], first_assistant: ['catalog', 'Hire'] };
           const ul = document.getElementById('onboarding-steps');
           if (ul) ul.innerHTML = data.steps.map(s => {
             const node = s.done

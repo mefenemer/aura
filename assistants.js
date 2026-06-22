@@ -216,7 +216,7 @@ function _detailHydrate(data) {
     _checkRadio('edit_trigger', inputs.trigger_type, inputs.triggerText);
     _checkRadio('edit_source', inputs.content_source, inputs.sourceText);
 
-    // Platforms are rendered dynamically from global connections — see _renderPlatformsTab()
+    // Platforms are rendered dynamically in the Connections tab — see initAssistantConnections()
 
     // Guardrails — separate knowledge base out of strictRules
     const allStrict = inputs.strictRules || [];
@@ -305,6 +305,13 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
             if (panel) panel.classList.remove('hidden');
         });
     });
+
+    // Deep-link to a specific tab (e.g. post-OAuth returns to the Connections tab).
+    if (window._assistantDetailInitialTab) {
+        const target = document.querySelector(`.detail-tab-btn[data-tab="${window._assistantDetailInitialTab}"]`);
+        window._assistantDetailInitialTab = null;
+        if (target) target.click();
+    }
 
     // ── Platform handle toggles ───────────────────────────────────
     ['fb', 'ig', 'li', 'x'].forEach(p => {
@@ -493,8 +500,8 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── Performance Metrics (post_insights aggregation) ───────────
     await _loadAssistantMetrics(assistantId);
 
-    // ── Platforms (from global connections) ───────────────────────
-    await _renderPlatformsTab(assistantId, currentData);
+    // ── Connections (full connect/manage UI, scoped to this assistant) ──
+    await window.initAssistantConnections(assistantId, currentData);
 
     // ── Integrations ──────────────────────────────────────────────
     await window.fetchAndRenderIntegrations();
@@ -575,142 +582,10 @@ async function _loadAssistantMetrics(assistantId) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Connections tab renderer — merged Platforms + Integrations
-// ─────────────────────────────────────────────────────────────────
-const PLATFORM_ICONS = {
-    facebook: '📘', instagram: '📷', linkedin: '💼',
-    x: '𝕏', twitter: '𝕏', tiktok: '🎵', youtube: '▶️', pinterest: '📌',
-};
-const PLATFORM_KEY_MAP = { facebook: 'fb', instagram: 'ig', linkedin: 'li', x: 'x', twitter: 'x', tiktok: 'tt', youtube: 'yt', pinterest: 'pin' };
-// Well-known platforms that always appear in the "not yet connected" section
-const KNOWN_PLATFORMS = ['Instagram', 'Facebook', 'LinkedIn', 'X', 'TikTok'];
-
-async function _renderPlatformsTab(assistantId, currentData) {
-    const container = document.getElementById('assistant-platforms-list');
-    if (!container) return;
-
-    let allConnections = [];
-    try {
-        const res = await fetch('/.netlify/functions/integrations');
-        if (res.ok) {
-            const data = await res.json();
-            allConnections = data.connections || [];
-        }
-    } catch (e) {
-        console.warn('Could not load connections:', e);
-    }
-
-    // Split: active/connected vs unconnected
-    const connected = allConnections.filter(c => c.status === 'active' && c.userId);
-    const connectedNames = new Set(connected.map(c => c.serviceName.toLowerCase()));
-
-    // Selected connection IDs for this assistant (from both platforms and linked_integrations)
-    const selectedPlatformIds = new Set(
-        (currentData.configuration?.appliedDefaults?.platforms || []).map(Number)
-    );
-    const linkedIds = new Set((window.cachedContext?.linked_integrations || []).map(Number));
-    // Merge both sources — selected if in either
-    const selectedIds = new Set([...selectedPlatformIds, ...linkedIds]);
-
-    if (connected.length === 0) {
-        container.innerHTML = `
-            <div class="flex flex-col items-center justify-center py-10 text-center gap-3">
-                <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl">🔌</div>
-                <p class="text-sm font-semibold text-gray-700">No verified connections found</p>
-                <p class="text-sm text-gray-500">Connect your platforms first, then return here to enable them for this assistant.</p>
-                <a href="#" onclick="window.loadView('integrations')" class="mt-1 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer">
-                    Go to Connections →
-                </a>
-            </div>`;
-    } else {
-        container.innerHTML = '';
-        connected.forEach(conn => {
-            const key = conn.serviceName.toLowerCase();
-            const icon = PLATFORM_ICONS[key] || '🔗';
-            const isOn = selectedIds.has(conn.id);
-            const handle = conn.externalUserId || '';
-            container.insertAdjacentHTML('beforeend', `
-                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition platform-conn-row" data-conn-id="${conn.id}" data-service="${_escapeHtml(key)}">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl shrink-0">${icon}</div>
-                        <div>
-                            <p class="font-bold text-gray-900 text-sm">${_escapeHtml(conn.serviceName)}</p>
-                            ${handle ? `<p class="text-xs text-gray-500 mt-0.5">${_escapeHtml(handle)}</p>` : '<p class="text-xs text-emerald-600 mt-0.5 font-medium">● Connected</p>'}
-                        </div>
-                    </div>
-                    <label class="flex items-center cursor-pointer relative shrink-0">
-                        <input type="checkbox" class="sr-only peer platform-conn-chk" value="${conn.id}" ${isOn ? 'checked' : ''}>
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                    </label>
-                </div>`);
-        });
-
-        container.insertAdjacentHTML('beforeend', `
-            <div class="pt-2 text-center">
-                <a href="#" onclick="window.loadView('integrations')" class="text-sm text-emerald-600 hover:underline font-medium cursor-pointer">+ Connect more platforms →</a>
-            </div>`);
-
-        // Toggle handler — saves to both platforms and linked_integrations
-        container.querySelectorAll('.platform-conn-chk').forEach(chk => {
-            chk.addEventListener('change', async () => {
-                const checkedIds = Array.from(container.querySelectorAll('.platform-conn-chk:checked')).map(c => parseInt(c.value));
-                const checkedKeys = connected.filter(c => checkedIds.includes(c.id))
-                    .map(c => PLATFORM_KEY_MAP[c.serviceName.toLowerCase()] || c.serviceName.toLowerCase());
-
-                const statusEl = document.getElementById('platforms-save-status');
-                if (statusEl) statusEl.textContent = 'Saving…';
-                try {
-                    const updatedContext = { ...window.cachedContext, primary_platforms: checkedKeys, linked_integrations: checkedIds };
-                    const r = await fetch('/.netlify/functions/update-assistant-context', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ assistantId: parseInt(assistantId), newContext: updatedContext, appliedDefaults: { platforms: checkedIds } }),
-                    });
-                    if (r.ok) {
-                        window.cachedContext = updatedContext;
-                        if (!currentData.configuration) currentData.configuration = {};
-                        if (!currentData.configuration.appliedDefaults) currentData.configuration.appliedDefaults = {};
-                        currentData.configuration.appliedDefaults.platforms = checkedIds;
-                        if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(() => statusEl.textContent = '', 2500); }
-                    }
-                } catch {
-                    const s = document.getElementById('platforms-save-status');
-                    if (s) s.textContent = 'Error saving';
-                }
-            });
-        });
-    }
-
-    // Show unconnected well-known platforms
-    const unconnectedWrap = document.getElementById('assistant-platforms-unconnected');
-    const unconnectedList = document.getElementById('assistant-platforms-unconnected-list');
-    if (unconnectedWrap && unconnectedList) {
-        const unconnected = KNOWN_PLATFORMS.filter(p => !connectedNames.has(p.toLowerCase()));
-        if (unconnected.length > 0) {
-            unconnectedList.innerHTML = unconnected.map(name => {
-                const icon = PLATFORM_ICONS[name.toLowerCase()] || '🔗';
-                return `<div class="flex items-center justify-between p-3 border border-dashed border-gray-200 rounded-xl bg-gray-50 opacity-75">
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-gray-200 flex items-center justify-center text-lg shrink-0">${icon}</div>
-                        <div>
-                            <p class="font-semibold text-gray-600 text-sm">${name}</p>
-                            <p class="text-xs text-gray-400">Not connected</p>
-                        </div>
-                    </div>
-                    <a href="#" onclick="window.loadView('integrations')" class="text-xs font-bold text-emerald-600 hover:underline cursor-pointer shrink-0">Connect →</a>
-                </div>`;
-            }).join('');
-            unconnectedWrap.classList.remove('hidden');
-        } else {
-            unconnectedWrap.classList.add('hidden');
-        }
-    }
-}
 
 // fetchAndRenderIntegrations now delegates to the merged Connections tab
 window.fetchAndRenderIntegrations = async function() {
-    // No-op: integrations are now rendered in the Connections tab (_renderPlatformsTab)
+    // No-op: connections are rendered in the Connections tab (initAssistantConnections, integrations.js)
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -1092,7 +967,7 @@ window._submitSafetyFeedback = async function () {
 };
 
 // ==========================================
-// 6. INTEGRATIONS — merged into Connections tab (_renderPlatformsTab)
+// 6. INTEGRATIONS — merged into Connections tab (integrations.js initAssistantConnections)
 
 // ── Autonomous Posting Fallback toggle (US5) ─────────────────────
 function _hydrateAutonomousToggle(data) {

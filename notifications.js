@@ -84,10 +84,11 @@ window.initNotifications = async function() {
         task_limit_reached:            { label: 'Upgrade plan',        run: routeToBilling },
         run_cost_warning:              { label: 'Review usage',        run: routeToBilling },
         run_budget_suspended:          { label: 'Review usage',        run: routeToBilling },
-        // Connection actions.
-        social_oauth_revoked:          { label: 'Reconnect',           run: go('integrations') },
-        instagram_token_refresh_failed:{ label: 'Reconnect',           run: go('integrations') },
-        integration_alert:             { label: 'Reconnect',           run: go('integrations') },
+        // Connection actions. Connections live in each assistant's Connections tab now,
+        // so route to the assistants list where the user opens the relevant assistant.
+        social_oauth_revoked:          { label: 'Reconnect',           run: go('assistants') },
+        instagram_token_refresh_failed:{ label: 'Reconnect',           run: go('assistants') },
+        integration_alert:             { label: 'Reconnect',           run: go('assistants') },
         // Content actions.
         post_publish_failed:           { label: 'View content',        run: go('my-content') },
         post_missed:                   { label: 'View content',        run: go('my-content') },

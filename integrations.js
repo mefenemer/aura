@@ -110,6 +110,14 @@ const _esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
 let _assistants = [];
 let _selectedAssistantId = null;
 let _allowedServices = null; // null = no assistant scope → show all
+
+// Per-assistant "Use for this assistant" toggle state (set when rendered inside the
+// assistant detail Connections tab via initAssistantConnections). Connections are a
+// shared org pool; this set is which connection IDs THIS assistant actually uses.
+let _assistantScoped = false;
+let _assistantSelectedIds = new Set();
+// serviceName slug → short platform key stored in context.primary_platforms
+const PLATFORM_KEY_MAP = { facebook: 'fb', instagram: 'ig', linkedin: 'li', x: 'x', twitter: 'x', tiktok: 'tt', youtube: 'yt', pinterest: 'pin' };
 // Social handles captured on Business Information (lowercase platform slug → handle).
 // A platform can only be connected once a handle has been entered there.
 let _socialHandles = {};
@@ -181,6 +189,63 @@ window.initIntegrations = async function () {
         const newBtn = confirmBtn.cloneNode(true);
         confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
         newBtn.addEventListener('click', _doDisconnect);
+    }
+};
+
+// ── Init inside the assistant detail Connections tab ─────────────
+// Drives the same grid/modals as the standalone page, but scoped to ONE assistant
+// (no dropdown) and with a per-assistant "Use for this assistant" toggle on each
+// connected card. Connections remain a shared org pool.
+window.initAssistantConnections = async function (assistantId, currentData) {
+    _selectedAssistantId = String(assistantId);
+    _assistantScoped = true;
+    window._intLoadConnections = _loadConnections; // let the revoke-all flow refresh the grid
+    _assistantSelectedIds = new Set([
+        ...((currentData?.configuration?.appliedDefaults?.platforms) || []).map(Number),
+        ...((window.cachedContext?.linked_integrations) || []).map(Number),
+    ]);
+
+    await _loadSocialHandles();
+    await _loadConnections();
+
+    // Disconnect confirm button (same wiring as initIntegrations)
+    const confirmBtn = document.getElementById('btn-confirm-disconnect');
+    if (confirmBtn) {
+        const newBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+        newBtn.addEventListener('click', _doDisconnect);
+    }
+};
+
+// Persist the per-assistant "Use for this assistant" toggle. Mirrors the old
+// _renderPlatformsTab save: recompute primary_platforms slugs + linked_integrations
+// + appliedDefaults.platforms, then PUT update-assistant-context.
+window._intToggleUseForAssistant = async function (connId, checked) {
+    connId = Number(connId);
+    if (checked) _assistantSelectedIds.add(connId); else _assistantSelectedIds.delete(connId);
+    const checkedIds = Array.from(_assistantSelectedIds);
+    const activeConns = _userConnections.filter(c => c.status === 'active' && c.userId);
+    const checkedKeys = activeConns
+        .filter(c => checkedIds.includes(c.id))
+        .map(c => PLATFORM_KEY_MAP[c.serviceName.toLowerCase()] || c.serviceName.toLowerCase());
+
+    const statusEl = document.getElementById('platforms-save-status');
+    if (statusEl) statusEl.textContent = 'Saving…';
+    try {
+        const updatedContext = { ...(window.cachedContext || {}), primary_platforms: checkedKeys, linked_integrations: checkedIds };
+        const r = await fetch('/.netlify/functions/update-assistant-context', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assistantId: parseInt(_selectedAssistantId), newContext: updatedContext, appliedDefaults: { platforms: checkedIds } }),
+        });
+        if (r.ok) {
+            window.cachedContext = updatedContext;
+            if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(() => { if (statusEl.textContent === '✓ Saved') statusEl.textContent = ''; }, 2500); }
+        } else if (statusEl) {
+            statusEl.textContent = 'Error saving';
+        }
+    } catch {
+        if (statusEl) statusEl.textContent = 'Error saving';
     }
 };
 
@@ -313,6 +378,19 @@ function _platformCard(platform, conn) {
            </div>`
         : connectBtn;
 
+    // Per-assistant "Use for this assistant" toggle — only inside the assistant detail tab,
+    // for live connections. Connections are a shared org pool; this controls whether THIS
+    // assistant actually posts to it.
+    const useToggle = (_assistantScoped && isConnected && conn.status === 'active')
+        ? `<div class="flex items-center justify-between gap-3 pt-3 border-t border-gray-100">
+               <span class="text-sm font-semibold text-gray-700">Use for this assistant</span>
+               <label class="flex items-center cursor-pointer relative shrink-0">
+                   <input type="checkbox" class="sr-only peer" ${_assistantSelectedIds.has(conn.id) ? 'checked' : ''} onchange="window._intToggleUseForAssistant(${conn.id}, this.checked)">
+                   <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+               </label>
+           </div>`
+        : '';
+
     return `
         <div class="bg-white rounded-2xl border ${isConnected ? 'border-emerald-200 shadow-md' : 'border-gray-200 shadow-sm'} p-6 flex flex-col gap-4">
             <div class="flex items-center gap-4">
@@ -331,6 +409,7 @@ function _platformCard(platform, conn) {
                 </div>
                 ${action}
             </div>
+            ${useToggle}
             ${troubleshootingHtml}
         </div>`;
 }
