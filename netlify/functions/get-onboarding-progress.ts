@@ -14,6 +14,23 @@ const json = (statusCode: number, body: unknown) => ({
     statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
 });
 
+// Remove the onboarding nudge notifications (welcome + the two setup reminders) for one
+// user. Idempotent and concurrency-safe: DELETE … RETURNING serialises on the rows, so
+// only the first of any concurrent calls gets a non-zero count — used to fire the
+// completion celebration exactly once. Best-effort: never throws.
+async function clearOnboardingNudges(db: ReturnType<typeof getDb>, userId: number): Promise<number> {
+    try {
+        const deleted = await db.delete(notifications).where(and(
+            eq(notifications.userId, userId),
+            inArray(notifications.type, ['welcome', 'onboarding_prompt', 'onboarding_incomplete']),
+        )).returning({ id: notifications.id });
+        return deleted.length;
+    } catch (err) {
+        console.warn('[get-onboarding-progress] clearOnboardingNudges failed (non-blocking):', err);
+        return 0;
+    }
+}
+
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') return json(405, { error: 'Method Not Allowed' });
 
@@ -29,9 +46,15 @@ export const handler: Handler = async (event) => {
         targetAudience:      organisations.targetAudience,
     }).from(organisations).where(eq(organisations.id, orgId)).limit(1);
 
-    // Already finished — widget must never render again.
+    // Already finished — widget must never render again. The completion side-effects below
+    // only run on the false→true transition, so a user whose org was completed by another
+    // member (the flip deletes nudges only for the flipping user) — or whose cleanup once
+    // failed — can be left with stale "Complete your setup" action items forever. Clear any
+    // lingering ones for THIS user every time, idempotently; if we actually cleared some,
+    // signal justCompleted so the UI fires the celebration once.
     if (org?.onboardingCompleted) {
-        return json(200, { onboardingCompleted: true, allDone: true, justCompleted: false, steps: [] });
+        const cleared = await clearOnboardingNudges(db, ctx.userId);
+        return json(200, { onboardingCompleted: true, allDone: true, justCompleted: cleared > 0, steps: [] });
     }
 
     // Step 1 ticks once the core business-profile fields are filled in (Business
@@ -65,10 +88,7 @@ export const handler: Handler = async (event) => {
             justCompleted = true; // AC1.1.3 — UI fires the celebration
             // Replace the onboarding prompts with a single "Setup complete" notification.
             try {
-                await db.delete(notifications).where(and(
-                    eq(notifications.userId, ctx.userId),
-                    inArray(notifications.type, ['welcome', 'onboarding_prompt', 'onboarding_incomplete']),
-                ));
+                await clearOnboardingNudges(db, ctx.userId);
                 await db.insert(notifications).values({
                     userId: ctx.userId,
                     type: 'setup_complete',

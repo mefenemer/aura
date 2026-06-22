@@ -481,7 +481,7 @@ async function submitTosAcceptance(btn) {
   <div class="flex items-center gap-3">
     <div class="block text-right">
       <p id="header-user-name" class="text-sm font-bold text-gray-900 truncate max-w-[160px]"></p>
-      <p id="header-user-email" class="text-xs text-gray-500 truncate max-w-[160px]"></p>
+      <p id="header-user-email" class="hidden sm:block text-xs text-gray-500 truncate max-w-[160px]"></p>
       <div id="header-role-badges" class="flex gap-1 justify-end mt-0.5 flex-wrap"></div>
     </div>
     <div id="header-user-initials" class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold shrink-0 text-sm">
@@ -2706,11 +2706,17 @@ function formatCurrency(amount, currency) {
       });
     });
 
-    // Note: when onboarding is fully complete, get-onboarding-progress (fetched above)
-    // server-side swaps the welcome/onboarding_prompt notifications for a single
-    // "Setup complete" one — no client action needed. Refresh the badge to reflect it.
-    if (allDone && typeof window.updateNotificationBadge === 'function') {
-      window.updateNotificationBadge();
+    // When onboarding is fully complete, get-onboarding-progress (fetched above) clears the
+    // welcome/onboarding_prompt/onboarding_incomplete notifications server-side. It returns
+    // justCompleted on the single request that actually cleared them — celebrate that once
+    // (this is the view the stale "Complete your setup" notifications link to) and refresh
+    // the badge so the cleared items disappear from the bell immediately.
+    if (allDone) {
+      if (progress?.justCompleted) {
+        window.showToast?.('Workspace setup complete! 🎉', { icon: '🎉' });
+        window.fireConfetti?.();
+      }
+      if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
     }
   };
 
