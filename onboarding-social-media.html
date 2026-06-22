@@ -100,14 +100,16 @@
   <div class="bg-white rounded-2xl shadow-lg border border-gray-100 w-full max-w-2xl overflow-hidden mt-4">
 
     <div class="bg-gray-100 h-2 w-full">
-      <div id="progress-bar" class="bg-emerald-700 h-2 transition-all duration-500 ease-out" style="width: 11%;"></div>
+      <div id="progress-bar" class="bg-emerald-700 h-2 transition-all duration-500 ease-out" style="width: 14%;"></div>
     </div>
 
     <div class="p-8 sm:p-12">
       <form id="intake-form" onsubmit="event.preventDefault();">
 
-        <!-- STEP 1: Choose your assistant -->
-        <div id="step-1" class="step-active">
+        <!-- STEP 1: Choose your assistant — SKIPPED. The role is already chosen in the
+             catalogue before this wizard opens, so this picker is redundant. Kept hidden
+             (the radio stays pre-checked = Social Media Manager) and the flow starts at step 2. -->
+        <div id="step-1" class="step-hidden">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 1 of 8</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-2">Choose your Digital Assistant</h2>
           <p class="text-gray-500 mb-6">Select the assistant you'd like to set up. More specialist assistants are coming soon.</p>
@@ -213,7 +215,7 @@
           </div>
         </div>
 
-        <div id="step-2" class="step-hidden">
+        <div id="step-2" class="step-active">
           <span class="text-emerald-700 font-bold text-sm tracking-wider uppercase mb-2 block">Step 2 of 8</span>
           <h2 class="text-3xl font-extrabold text-gray-900 mb-4">Let's get this off your plate.</h2>
           <p class="text-gray-500 mb-6">Before we build your assistant, we need to understand the strategic goal driving your social presence.</p>
@@ -742,7 +744,11 @@
 
   // window.validateCurrentStep is defined below after all helpers are in scope
   // --- 1. CONFIG & STATE ---
-  let currentStep = 1;
+  // Step 1 (the in-wizard assistant picker) is skipped — the role is already chosen in the
+  // catalogue before this wizard opens. The flow begins at FIRST_STEP and the remaining
+  // labels/progress are renumbered so it reads as a clean 1-of-N to the user.
+  const FIRST_STEP = 2;
+  let currentStep = FIRST_STEP;
   const totalSteps = 8;
 
   // Multi-draft support: this wizard edits one specific draft, identified by ?draftId.
@@ -792,6 +798,20 @@
       updateUI();
       window.history.replaceState({}, '', window.location.pathname + '?tier=' + currentTierKey);
     }
+
+    // Renumber the visible step counters now that step 1 is skipped (step 2 → "Step 1 of N",
+    // counting the final build screen in the total) and label the wizard with the chosen role.
+    const displayTotal = totalSteps - FIRST_STEP + 1;
+    for (let i = FIRST_STEP; i <= 7; i++) {
+      const lbl = document.querySelector(`#step-${i} > span`);
+      if (lbl) lbl.textContent = `Step ${i - FIRST_STEP + 1} of ${displayTotal}`;
+    }
+    const subtitle = document.getElementById('nav-subtitle');
+    if (subtitle) subtitle.textContent = '| Social Media Manager';
+
+    // Render the real first step (guards against a resumed draft landing on the skipped step 1).
+    if (currentStep < FIRST_STEP) currentStep = FIRST_STEP;
+    updateUI();
 
     autoExpandTextareas();
 
@@ -995,7 +1015,8 @@
           });
 
           // 5. Resume User Location — a ?step deep-link from the Setup Checklist wins.
-          currentStep = _resumeStep || resData.draft.currentStep || 1;
+          // Clamp to FIRST_STEP so an old draft saved on the now-skipped step 1 still resumes correctly.
+          currentStep = Math.max(FIRST_STEP, _resumeStep || resData.draft.currentStep || FIRST_STEP);
           updateUI();
           if (currentStep >= 7) generateSummary();
         }
@@ -1405,13 +1426,14 @@
   }
 
   function prevStep() {
-    if (currentStep > 1) {
+    if (currentStep > FIRST_STEP) {
       currentStep--;
       updateUI();
       saveDraftToBackend(); // Save progress even if they step backward
     } else {
-      // Returning to step 1 (onboarding.html). Append ?restart=true to bypass auto-redirect loop
-      window.location.href = `onboarding.html?tier=${currentTierKey}&restart=true`;
+      // At the first real step — go back to the catalogue, where the role was chosen
+      // (the old in-wizard picker / onboarding.html role-picker is no longer part of this flow).
+      window.location.href = 'workspace.html?view=catalog';
     }
   }
 
@@ -1422,7 +1444,7 @@
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     autoExpandTextareas();
-    document.getElementById('progress-bar').style.width = `${(currentStep / totalSteps) * 100}%`;
+    document.getElementById('progress-bar').style.width = `${((currentStep - FIRST_STEP + 1) / (totalSteps - FIRST_STEP + 1)) * 100}%`;
 
     // Hide "Save & Continue Later" on the final submit step
     const saveExitBtn = document.getElementById('btn-save-exit');
