@@ -339,6 +339,11 @@ export const notifications = pgTable("notifications", {
   // (criteria met) and isRead (seen). Dismissed rows are hidden from the feed. The server
   // refuses to dismiss non-dismissible (critical_action) items. Requires db/notifications-dismissal.sql.
   dismissedAt: timestamp("dismissed_at"),
+  // US4 — Omni-channel routing. deliveredAt: when the notification was generated (AC4.1, set by
+  // DB default). fallbackEmailSentAt: guard so the email-fallback worker sends at most one email
+  // per notification. Requires db/notifications-email-fallback.sql.
+  deliveredAt: timestamp("delivered_at"),
+  fallbackEmailSentAt: timestamp("fallback_email_sent_at"),
 }, (t) => [
   // US-DB-1.1.1: Notification inbox query — userId + isRead + createdAt
   index("notifications_user_read_idx").on(t.userId, t.isRead, t.createdAt),

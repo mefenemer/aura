@@ -128,6 +128,23 @@ const COMPLETION_RESOLVED_TYPES = new Set<string>([
 export const resolvesOnClick = (type: string): boolean =>
     kindOf(type) === 'action' && !COMPLETION_RESOLVED_TYPES.has(type);
 
+// ── US4 — Offline email fallback (opt-in allowlist) ───────────────────
+// Only these types trigger a fallback email if they go unseen (AC4.2/4.3). AC4.4 (squelch
+// state_change/informational/celebratory) is satisfied automatically because every type here
+// is critical/suggested. The list is deliberately CONSERVATIVE: it excludes urgent types that
+// ALREADY send their own email at creation (billing dunning, trial-expiry, review-urgency,
+// instagram token refresh) so the worker can never double-send. Expand only after confirming a
+// type has no existing email path. Worker also guards on fallback_email_sent_at to send once.
+export const EMAIL_FALLBACK_TYPES = [
+    'hitl_approval_required',  // a post is waiting for the user's approval
+    'run_budget_suspended',    // assistant halted on budget
+    'task_limit_reached',      // hit the plan's task cap
+    'post_publish_failed',     // a scheduled post failed to publish
+];
+
+/** True when a type is eligible for the offline email fallback. */
+export const hasEmailFallback = (type: string): boolean => EMAIL_FALLBACK_TYPES.includes(type);
+
 /**
  * Mark open (unread) action notifications of the given types as resolved for one user.
  * Best-effort: never throws — auto-resolve must not break the success path that triggered it.

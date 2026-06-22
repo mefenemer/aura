@@ -95,6 +95,10 @@ node_bundler = "esbuild"
 [functions.check-review-urgency]
   schedule = "*/15 * * * *"
 
+# US4 — Offline email fallback for unseen urgent notifications — every 15 minutes
+[functions.notification-email-fallback]
+  schedule = "*/15 * * * *"
+
 # US-SMM-3.1.1: Process queued content generation jobs — every minute
 [functions.process-content-jobs]
   schedule = "* * * * *"
