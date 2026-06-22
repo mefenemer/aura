@@ -12,7 +12,7 @@
 // Pure logic — no DB required.
 
 import assert from 'node:assert';
-import { isServiceAllowedForAssistant, allowedServiceNames } from '../src/utils/connection-map';
+import { isServiceAllowedForAssistant, allowedServiceNames, relevantConnectorsForAssistant } from '../src/utils/connection-map';
 
 let passed = 0;
 function check(name: string, fn: () => void): void {
@@ -59,6 +59,25 @@ check('allowedServiceNames filters the catalog for the assistant', () => {
     const a = { roleKey: 'social_media_manager', role: 'The Social Media Manager' };
     const result = allowedServiceNames(a, [...SOCIALS, 'BambooHR', 'Salesforce']);
     assert.deepEqual(result.sort(), [...SOCIALS].sort());
+});
+
+check('relevantConnectorsForAssistant returns social connectors with no DB rows', () => {
+    // Regression: social connectors only become DB rows after OAuth, so the UI must
+    // still surface them for a fresh Social Media Manager (was showing "none relevant").
+    const a = { roleKey: 'social_media', role: 'The Social Media Manager' };
+    const result = relevantConnectorsForAssistant(a);
+    assert.deepEqual(result.sort(), ['facebook', 'instagram', 'linkedin', 'twitter', 'x']);
+});
+
+check('relevantConnectorsForAssistant excludes social for a CRM role', () => {
+    const a = { roleKey: 'crm_enricher', role: 'The CRM Enricher' };
+    // No CRM connectors exist in the catalog yet → empty, but crucially no socials.
+    assert.equal(relevantConnectorsForAssistant(a).includes('facebook'), false);
+});
+
+check('relevantConnectorsForAssistant returns full catalog for unrestricted role', () => {
+    const a = { roleKey: 'custom', role: 'My Bespoke Helper' };
+    assert.deepEqual(relevantConnectorsForAssistant(a).sort(), ['facebook', 'instagram', 'linkedin', 'twitter', 'x']);
 });
 
 console.log(`\n${passed} checks passed.`);

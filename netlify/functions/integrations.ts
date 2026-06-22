@@ -4,7 +4,7 @@ import { eq, and, or, isNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { systemConnections, scheduledPosts, notifications, users, userOrganisations, auditLogs } from '../../db/schema';
 import { storeSecret, deleteSecret, buildRefKey } from '../../src/utils/vault';
-import { isServiceAllowedForAssistant, allowedServiceNames } from '../../src/utils/connection-map';
+import { isServiceAllowedForAssistant, allowedServiceNames, relevantConnectorsForAssistant } from '../../src/utils/connection-map';
 import { resolveAssistantRole } from '../../src/utils/assistant-role';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -76,7 +76,14 @@ export const handler: Handler = async (event) => {
                 const assistant = await resolveAssistantRole(db, currentOrgId, parseInt(assistantIdParam, 10));
                 if (!assistant) return { statusCode: 400, body: JSON.stringify({ error: 'Unknown assistant.' }) };
                 const visible = merged.filter(m => isServiceAllowedForAssistant(m.serviceName, assistant));
-                const allowedServices = allowedServiceNames(assistant, merged.map(m => m.serviceName));
+                // Relevance is policy-driven, not row-driven: social connectors only become
+                // DB rows after a user connects via OAuth, so deriving the allow-list from
+                // `merged` alone would hide every connector for a fresh assistant. Union the
+                // role's relevant connectors with any already-existing allowed services.
+                const allowedServices = Array.from(new Set([
+                    ...relevantConnectorsForAssistant(assistant),
+                    ...allowedServiceNames(assistant, merged.map(m => m.serviceName)),
+                ]));
                 return { statusCode: 200, body: JSON.stringify({ connections: visible, allowedServices }) };
             }
 

@@ -98,3 +98,16 @@ export function isServiceAllowedForAssistant(serviceName: string, a: AssistantRo
 export function allowedServiceNames(a: AssistantRole | null | undefined, services: string[]): string[] {
     return services.filter(s => isServiceAllowedForAssistant(s, a));
 }
+
+// Connectors (from the known catalog) that are relevant to this assistant's role,
+// independent of whether a connection row exists yet in the DB. The Connections UI
+// uses this to decide which connector cards to render — a Social Media Manager must
+// show its social connectors even before the user has connected (and thus created a
+// row for) any of them. Returns the full catalog for an unrestricted (unknown/custom)
+// role. Service names are the lowercased CONNECTOR_CATEGORY keys.
+export function relevantConnectorsForAssistant(a: AssistantRole | null | undefined): string[] {
+    const cats = allowedCategoriesForAssistant(a);
+    const all = Object.keys(CONNECTOR_CATEGORY);
+    if (!cats) return all; // unrestricted role (unknown/custom)
+    return all.filter(s => cats.has(CONNECTOR_CATEGORY[s]));
+}
