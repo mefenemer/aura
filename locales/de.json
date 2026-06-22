@@ -115,7 +115,7 @@
   "workspace": {
     "nav": {
       "dashboard": "Dashboard",
-      "my_team": "Mein Team",
+      "my_assistants": "Meine Assistenten",
       "my_content": "Meine Inhalte",
       "calendar": "Kalender",
       "defaults_group": "Einstellungen",
