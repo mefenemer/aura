@@ -67,7 +67,7 @@ export const handler: Handler = async (event) => {
             try {
                 await db.delete(notifications).where(and(
                     eq(notifications.userId, ctx.userId),
-                    inArray(notifications.type, ['welcome', 'onboarding_prompt']),
+                    inArray(notifications.type, ['welcome', 'onboarding_prompt', 'onboarding_incomplete']),
                 ));
                 await db.insert(notifications).values({
                     userId: ctx.userId,

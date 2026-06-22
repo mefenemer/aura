@@ -4,7 +4,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
 import { users, notifications } from '../../db/schema';
-import { kindOf } from '../../src/utils/notification-actions';
+import { kindOf, categoryOf, priorityOf, isDismissibleType, resolvesOnClick } from '../../src/utils/notification-actions';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -43,22 +43,46 @@ export const handler = async (event: HandlerEvent) => {
         // -------------------------------------------------------------
         if (event.httpMethod === 'GET') {
             const { queryStringParameters } = event;
-            const allNotes = await db.select()
-                .from(notifications)
-                .where(eq(notifications.userId, userId))
-                .orderBy(desc(notifications.createdAt));
+            // Resilient to deploy ordering: if db/notifications-categorization.sql hasn't been
+            // applied yet, selecting the new columns throws — fall back to the legacy columns so
+            // the panel keeps working (resolvedAt is simply absent until the migration lands).
+            let allNotes: Array<typeof notifications.$inferSelect & { resolvedAt?: Date | null }>;
+            try {
+                allNotes = await db.select()
+                    .from(notifications)
+                    .where(eq(notifications.userId, userId))
+                    .orderBy(desc(notifications.createdAt));
+            } catch {
+                allNotes = await db.select({
+                    id: notifications.id, userId: notifications.userId, type: notifications.type,
+                    title: notifications.title, message: notifications.message, isRead: notifications.isRead,
+                    readAt: notifications.readAt, metadata: notifications.metadata, createdAt: notifications.createdAt,
+                }).from(notifications).where(eq(notifications.userId, userId))
+                  .orderBy(desc(notifications.createdAt)) as typeof allNotes;
+            }
 
-            // Counts for the sidebar badge. actionCount = open (unread) action items —
-            // the meaningful "things you must deal with" number the badge now reflects.
+            // Counts for the sidebar badge. actionCount = OPEN (unresolved) action items —
+            // the meaningful "things you must deal with" number. Unresolved (resolvedAt IS NULL),
+            // not merely unread: reading a setup reminder must not clear the badge; only the
+            // item's completion criteria being met (resolvedAt) does.
             if (queryStringParameters && queryStringParameters.action === 'count') {
                 const unread = allNotes.filter(n => !n.isRead).length;
-                const actionCount = allNotes.filter(n => !n.isRead && kindOf(n.type) === 'action').length;
+                const actionCount = allNotes.filter(n => !n.resolvedAt && kindOf(n.type) === 'action').length;
                 return { statusCode: 200, body: JSON.stringify({ unreadCount: unread, actionCount }) };
             }
 
-            // Annotate each notification with its kind so the client can split the list
-            // into Action required / Updates without duplicating the classification.
-            const annotated = allNotes.map(n => ({ ...n, kind: kindOf(n.type) }));
+            // Annotate each notification with its category model (kind/category/priority/
+            // dismissible/resolvesOnClick) so the client renders, sorts and resolves without
+            // duplicating the classification. category etc. are derived from the canonical map
+            // (authoritative even for rows inserted before the DB trigger backfill).
+            const annotated = allNotes.map(n => ({
+                ...n,
+                kind: kindOf(n.type),
+                category: categoryOf(n.type),
+                priority: priorityOf(n.type),
+                isDismissible: isDismissibleType(n.type),
+                resolvesOnClick: resolvesOnClick(n.type),
+            }));
             return { statusCode: 200, body: JSON.stringify({ notifications: annotated }) };
         }
 
@@ -68,15 +92,21 @@ export const handler = async (event: HandlerEvent) => {
         if (event.httpMethod === 'PATCH') {
             const body = JSON.parse(event.body || '{}');
             const { notificationId } = body;
-            // isRead defaults to true (mark read) for backward compatibility; the Updates tab
-            // now also sends isRead:false to toggle an item back to unread.
-            const isRead = body.isRead === undefined ? true : !!body.isRead;
+            // resolved:true → mark the item Done (sets resolvedAt, the true "closed" signal) AND read.
+            // Otherwise this is a read/unread toggle: isRead defaults to true (mark read); the Updates
+            // tab also sends isRead:false to flip back to unread. resolvedAt is never cleared here.
+            const resolved = body.resolved === true;
+            const isRead = resolved ? true : (body.isRead === undefined ? true : !!body.isRead);
 
             if (!notificationId) return { statusCode: 400, body: JSON.stringify({ error: 'Missing notificationId' }) };
 
+            const now = new Date();
+            const setValues: Record<string, unknown> = { isRead, readAt: isRead ? now : null };
+            if (resolved) setValues.resolvedAt = now;
+
             // Ensure the user owns this notification before updating
             await db.update(notifications)
-                .set({ isRead, readAt: isRead ? new Date() : null })
+                .set(setValues)
                 .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
 
             return { statusCode: 200, body: JSON.stringify({ success: true }) };

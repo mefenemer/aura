@@ -325,6 +325,16 @@ export const notifications = pgTable("notifications", {
   readAt: timestamp("read_at"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // Dynamic Communications Engine — Intelligent Notification Routing & Categorization.
+  // category/priority/is_dismissible are derived from `type` and stamped by a DB trigger
+  // (db/notifications-categorization.sql); the code map in src/utils/notification-actions.ts
+  // is the canonical reference. resolvedAt is the true "closed" signal — set only when an
+  // action item's completion criteria are met (distinct from isRead = "seen"). NOTE: these
+  // columns require db/notifications-categorization.sql applied to the DB before deploy.
+  category: text("category"),
+  priority: integer("priority"),
+  isDismissible: boolean("is_dismissible"),
+  resolvedAt: timestamp("resolved_at"),
 }, (t) => [
   // US-DB-1.1.1: Notification inbox query — userId + isRead + createdAt
   index("notifications_user_read_idx").on(t.userId, t.isRead, t.createdAt),

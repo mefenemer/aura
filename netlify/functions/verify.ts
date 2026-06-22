@@ -1,6 +1,6 @@
 // verify.ts
 import { Handler, HandlerResponse } from '@netlify/functions';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, inArray, isNull } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
 import { users, plans, aiAssistants, onboardingDrafts, notifications, userProfiles } from '../../db/schema';
@@ -235,14 +235,26 @@ export const handler: Handler = async (event) => {
             // Case 1: Has active plan — check onboarding completeness
             if (hasActivePlan) {
                 if (!hasAnyAssistant) {
-                    // Incomplete onboarding — US2 Sc2: fire reminder notification (best-effort)
+                    // Incomplete onboarding — US2 Sc2: fire reminder notification (best-effort).
+                    // Dedup: this runs on EVERY login, so only insert if there isn't already an
+                    // open (unresolved) setup reminder — otherwise they pile up (the "3 reminders" bug).
                     try {
-                        await db.insert(notifications).values({
-                            userId: user.id,
-                            type: 'onboarding_incomplete',
-                            title: 'Complete your assistant setup',
-                            message: 'You have not yet completed the onboarding of your digital assistant. Pick up where you left off.',
-                        });
+                        const [existingReminder] = await db.select({ id: notifications.id })
+                            .from(notifications)
+                            .where(and(
+                                eq(notifications.userId, user.id),
+                                inArray(notifications.type, ['onboarding_incomplete', 'onboarding_prompt']),
+                                isNull(notifications.resolvedAt),
+                            ))
+                            .limit(1);
+                        if (!existingReminder) {
+                            await db.insert(notifications).values({
+                                userId: user.id,
+                                type: 'onboarding_incomplete',
+                                title: 'Complete your assistant setup',
+                                message: 'You have not yet completed the onboarding of your digital assistant. Pick up where you left off.',
+                            });
+                        }
                     } catch { /* non-blocking */ }
 
                     // Route back to the exact step they left off
