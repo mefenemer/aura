@@ -46,12 +46,17 @@ export const handler: Handler = async (event) => {
     // Per-assistant minutes from drafts + completed tasks.
     const nameById = new Map(assistants.map(a => [a.id, a.name || a.role || 'Assistant']));
     const minutesByAssistant = new Map<number, number>();
+    const countByAssistant = new Map<number, number>(); // # of counted items (posts + tasks)
     const addMinutes = (id: number | null, mins: number) => {
         if (id == null || mins <= 0) return;
         minutesByAssistant.set(id, (minutesByAssistant.get(id) ?? 0) + mins);
     };
-    postsByAssistant.forEach(r => addMinutes(r.assistantId, Number(r.n) * mult.content_drafted));
-    tasksByAssistant.forEach(r => addMinutes(r.assistantId, Number(r.n) * mult.tasks_completed));
+    const addCount = (id: number | null, n: number) => {
+        if (id == null || n <= 0) return;
+        countByAssistant.set(id, (countByAssistant.get(id) ?? 0) + n);
+    };
+    postsByAssistant.forEach(r => { addMinutes(r.assistantId, Number(r.n) * mult.content_drafted); addCount(r.assistantId, Number(r.n)); });
+    tasksByAssistant.forEach(r => { addMinutes(r.assistantId, Number(r.n) * mult.tasks_completed); addCount(r.assistantId, Number(r.n)); });
 
     const breakdown: { label: string; hours: number }[] = [];
     // Leads roll up to an org-level line (the leads table has no assistant attribution).
@@ -64,6 +69,16 @@ export const handler: Handler = async (event) => {
 
     const totalMinutes = leadMinutes + Array.from(minutesByAssistant.values()).reduce((s, m) => s + m, 0);
 
+    // Itemised counts behind the savings number — drives the "what tasks count?" modal (#3).
+    // Each line is a counted source this month with how many items + the hours they saved.
+    const tasks: { label: string; count: number; hours: number }[] = [];
+    if (leadsCount > 0) tasks.push({ label: 'Leads generated', count: leadsCount, hours: round1(leadMinutes / 60) });
+    for (const [id, n] of countByAssistant.entries()) {
+        tasks.push({ label: nameById.get(id) ?? `Assistant #${id}`, count: n, hours: round1((minutesByAssistant.get(id) ?? 0) / 60) });
+    }
+    tasks.sort((a, b) => b.count - a.count);
+    const taskCount = leadsCount + Array.from(countByAssistant.values()).reduce((s, n) => s + n, 0);
+
     // US3.1: evaluate milestones on dashboard load (idempotent; honours the emergency stop). Non-blocking.
     await evaluateMilestones(db, orgId, ctx.userId).catch(() => {});
 
@@ -72,6 +87,8 @@ export const handler: Handler = async (event) => {
         totalMinutes,
         month: monthStart.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
         breakdown,
+        tasks,
+        taskCount,
     });
 };
 

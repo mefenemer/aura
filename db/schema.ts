@@ -389,6 +389,22 @@ export const emailTemplates = pgTable("email_templates", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ── UI translation cache (#1 runtime auto-translation) ──────────────────────
+// Shared, source-of-truth cache for machine-translated UI microcopy. Each unique
+// (lang, source_hash) is translated once via the AI gateway and reused for every user,
+// keeping cost + latency bounded. source_hash = sha256(source_text). Applied via
+// db/ui-translations.sql (no drizzle-kit push).
+export const uiTranslations = pgTable("ui_translations", {
+  id: serial().primaryKey(),
+  lang: text("lang").notNull(),                 // target language code, e.g. 'fr'
+  sourceHash: text("source_hash").notNull(),    // sha256 hex of source_text
+  sourceText: text("source_text").notNull(),    // original English string
+  translatedText: text("translated_text").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("ui_translations_lang_hash_unique").on(t.lang, t.sourceHash),
+]);
+
 // ── Vault Secrets — US-AUD-4.2.1 SC1/SC2 ────────────────────────────────────
 // Stores AES-256-GCM encrypted credential payloads. DB never holds plaintext.
 // refKey format: 'aura/user-<id>/<service>-<type>' e.g. 'aura/user-42/google-oauth-access'

@@ -102,6 +102,39 @@
         </button>
       </div>
 
+      <!-- Share actions (shown once a link exists) -->
+      <div id="ref-share-row" class="hidden space-y-3">
+        <p class="text-xs text-gray-500">This is your single, reusable link — share it with as many friends as you like. Each friend who subscribes earns you a token.</p>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="ref-share-email-btn"
+            class="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 text-gray-700 text-sm font-semibold rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            Email a friend
+          </button>
+          <button type="button" disabled title="Available on higher plans"
+            class="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-400 text-sm font-semibold rounded-lg opacity-60 cursor-not-allowed">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.8L3 20l1.3-3.9A7.96 7.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            SMS
+            <span class="text-[10px] font-bold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full border border-gray-200">Higher plans</span>
+          </button>
+          <button type="button" disabled title="Available on higher plans"
+            class="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-400 text-sm font-semibold rounded-lg opacity-60 cursor-not-allowed">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 20l1.3-3.9A7.96 7.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8-4.03 8-9 8a9.86 9.86 0 01-4-.8L3 20z"/></svg>
+            WhatsApp
+            <span class="text-[10px] font-bold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full border border-gray-200">Higher plans</span>
+          </button>
+        </div>
+        <div id="ref-email-form" class="hidden flex flex-wrap items-center gap-2">
+          <input id="ref-email-input" type="email" placeholder="friend@example.com" style="min-width:200px"
+            class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          <button id="ref-email-send-btn"
+            class="shrink-0 px-4 py-2 bg-[#00e55c] hover:bg-[#00cc52] text-white text-sm font-semibold rounded-lg transition-colors">
+            Send
+          </button>
+          <span id="ref-email-status" class="text-xs text-gray-500"></span>
+        </div>
+      </div>
+
       <!-- Stats row -->
       <div id="ref-stats" class="hidden grid grid-cols-3 gap-4 pt-2 border-t border-gray-100">
         <div class="text-center">
@@ -136,7 +169,7 @@
           <span>Once they pass their 14-day refund window, a <strong>referral token</strong> lands in your Reward Vault to spend on £10 credit or a free assistant.</span>
         </li>
       </ol>
-      <p class="mt-4 text-xs text-gray-400">Tokens unlock after the referred friend's 14-day refund window. There's no limit to how many friends you can refer.</p>
+      <p class="mt-4 text-xs text-gray-400">You have <strong>one reusable referral link</strong> — share the same link with as many friends as you like; there's no limit. Tokens unlock after each referred friend's 14-day refund window.</p>
     </div>
 
     <!-- Activity table -->
@@ -212,6 +245,7 @@
     if (data.referralCode) {
       document.getElementById('ref-link-input').value = data.shareLink;
       document.getElementById('ref-link-row').classList.remove('hidden');
+      document.getElementById('ref-share-row').classList.remove('hidden');
     } else {
       document.getElementById('ref-no-code-row').classList.remove('hidden');
     }
@@ -362,12 +396,49 @@
         document.getElementById('ref-link-input').value = data.shareLink;
         document.getElementById('ref-no-code-row').classList.add('hidden');
         document.getElementById('ref-link-row').classList.remove('hidden');
+        document.getElementById('ref-share-row').classList.remove('hidden');
       }
     } catch {
       btn.disabled = false;
       btn.textContent = 'Try Again';
     }
   });
+
+  // ── Email a friend (#5) ────────────────────────────────────────────
+  document.getElementById('ref-share-email-btn').addEventListener('click', () => {
+    const form = document.getElementById('ref-email-form');
+    form.classList.toggle('hidden');
+    if (!form.classList.contains('hidden')) document.getElementById('ref-email-input').focus();
+  });
+
+  async function sendReferralEmail() {
+    const input  = document.getElementById('ref-email-input');
+    const sendBtn = document.getElementById('ref-email-send-btn');
+    const status = document.getElementById('ref-email-status');
+    const friendEmail = input.value.trim();
+    if (!friendEmail) { status.textContent = 'Enter an email address.'; status.className = 'text-xs text-red-600'; return; }
+    sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
+    status.textContent = ''; status.className = 'text-xs text-gray-500';
+    try {
+      const res = await fetch(`${BASE}/referral-share`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ friendEmail }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        status.textContent = `Sent to ${friendEmail} ✓`; status.className = 'text-xs text-emerald-600';
+        input.value = '';
+      } else {
+        status.textContent = d.error || 'Could not send. Try again.'; status.className = 'text-xs text-red-600';
+      }
+    } catch {
+      status.textContent = 'Network error. Try again.'; status.className = 'text-xs text-red-600';
+    } finally {
+      sendBtn.disabled = false; sendBtn.textContent = 'Send';
+    }
+  }
+  document.getElementById('ref-email-send-btn').addEventListener('click', sendReferralEmail);
+  document.getElementById('ref-email-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendReferralEmail(); } });
 
   loadReferral();
 })();

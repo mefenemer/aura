@@ -129,7 +129,7 @@ export const PREF_CATEGORIES: PrefCategory[] = [
         label: 'Product, Milestones & Support',
         description: 'Milestones, referrals, support replies, and product announcements.',
         inApp: ON, email: ON,
-        types: ['milestone_unlock', 'referral_reward', 'ticket_created', 'ticket_reply', 'system'],
+        types: ['milestone', 'milestone_unlock', 'referral_reward', 'ticket_created', 'ticket_reply', 'system'],
     },
 ];
 

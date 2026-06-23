@@ -399,6 +399,37 @@ async function submitTosAcceptance(btn) {
     class="ml-2 text-red-200 hover:text-white transition text-lg leading-none">&times;</button>
 </div>
 
+<!-- Milestone celebration modal (#2) -->
+<div id="milestone-modal" class="hidden fixed inset-0 flex items-center justify-center p-4" style="z-index:12050">
+  <div data-milestone-backdrop class="absolute inset-0 bg-gray-900/50"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center">
+    <div class="mx-auto mb-4 w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-4xl">🏆</div>
+    <h3 id="milestone-modal-title" class="text-xl font-extrabold text-gray-900 mb-2">Milestone reached!</h3>
+    <p id="milestone-modal-msg" class="text-sm text-gray-600 leading-relaxed mb-6"></p>
+    <button id="milestone-modal-close"
+      class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg transition cursor-pointer">
+      Awesome!
+    </button>
+  </div>
+  <audio id="milestone-audio" src="/Aurora.mp3" preload="auto"></audio>
+</div>
+
+<!-- Savings tasks modal (#3) -->
+<div id="savings-modal" class="hidden fixed inset-0 flex items-center justify-center p-4" style="z-index:12050">
+  <div data-savings-backdrop class="absolute inset-0 bg-gray-900/50"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-y-auto" style="max-height:85vh">
+    <div class="px-6 py-5 border-b border-gray-100 flex items-start justify-between gap-4">
+      <div>
+        <h3 class="text-lg font-bold text-gray-900">Your savings this month</h3>
+        <p id="savings-modal-sub" class="text-sm text-gray-500 mt-0.5"></p>
+      </div>
+      <button id="savings-modal-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none cursor-pointer">&times;</button>
+    </div>
+    <div id="savings-modal-body" class="p-6 space-y-2"></div>
+    <div id="savings-modal-footer" class="px-6 py-4 border-t border-gray-100 text-sm text-gray-600"></div>
+  </div>
+</div>
+
 <!-- Draft saved toast -->
 <div id="draft-saved-toast"
   class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 bg-gray-900 text-white text-sm font-semibold rounded-xl shadow-2xl transition-opacity duration-500 opacity-0">
@@ -479,7 +510,7 @@ async function submitTosAcceptance(btn) {
   </div>
 
   <div class="flex items-center gap-3">
-    <div class="block text-right">
+    <div class="block text-right" data-no-i18n>
       <p id="header-user-name" class="text-sm font-bold text-gray-900 truncate max-w-[160px]"></p>
       <p id="header-user-email" class="hidden sm:block text-xs text-gray-500 truncate max-w-[160px]"></p>
       <div id="header-role-badges" class="flex gap-1 justify-end mt-0.5 flex-wrap"></div>
@@ -2846,6 +2877,69 @@ function formatCurrency(amount, currency) {
     })();
   };
 
+  // ── Milestone celebration (#2): modal + Aurora.mp3 + confetti, 10s auto-close ──
+  window._celebrateMilestone = function (note) {
+    const modal = document.getElementById('milestone-modal');
+    if (!modal) return;
+    document.getElementById('milestone-modal-title').textContent = note.title || 'Milestone reached!';
+    document.getElementById('milestone-modal-msg').textContent = note.message || '';
+    modal.classList.remove('hidden');
+    window.fireConfetti?.();
+    // Best-effort sound — browsers block autoplay without a prior user gesture; the
+    // modal + confetti still show. Plays once the user has interacted with the page.
+    try { const a = document.getElementById('milestone-audio'); if (a) { a.currentTime = 0; a.play().catch(() => {}); } } catch {}
+
+    let timer;
+    const close = () => { modal.classList.add('hidden'); clearTimeout(timer); };
+    document.getElementById('milestone-modal-close').onclick = close;
+    modal.querySelector('[data-milestone-backdrop]').onclick = close;
+    timer = setTimeout(close, 10000); // auto-close after 10s
+  };
+
+  // Detect a freshly-earned milestone in the bell (which already respects the user's
+  // in-app notification preference) and celebrate it once. Called after the dashboard
+  // engagement render, since milestones are evaluated server-side inside get-time-saved.
+  window.checkMilestoneCelebration = async function () {
+    try {
+      const res = await fetch('/.netlify/functions/notifications');
+      if (!res.ok) return;
+      const { notifications = [] } = await res.json();
+      // List is newest-first; take the most recent milestone notification.
+      const m = notifications.find(n => n.type === 'milestone' || n.type === 'milestone_unlock');
+      if (!m || m.isRead) return; // only celebrate fresh (unread) milestones
+      if (String(m.id) === localStorage.getItem('lastCelebratedMilestoneId')) return; // already done
+      localStorage.setItem('lastCelebratedMilestoneId', String(m.id));
+      window._celebrateMilestone(m);
+    } catch { /* non-fatal */ }
+  };
+
+  // ── Savings tasks modal (#3): which tasks count toward the savings number ──
+  window._showSavingsModal = async function () {
+    const modal = document.getElementById('savings-modal');
+    if (!modal) return;
+    let d = window._timeSavedData;
+    if (!d) { try { const r = await fetch('/.netlify/functions/get-time-saved'); if (r.ok) d = await r.json(); } catch {} }
+    d = d || {};
+    const tasks = d.tasks || [];
+    const sub = document.getElementById('savings-modal-sub');
+    const body = document.getElementById('savings-modal-body');
+    const footer = document.getElementById('savings-modal-footer');
+    if (sub) sub.textContent = `${d.taskCount ?? 0} task${(d.taskCount ?? 0) === 1 ? '' : 's'} counted${d.month ? ' · ' + d.month : ''}`;
+    if (body) body.innerHTML = tasks.length
+      ? tasks.map(t => `
+          <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+            <div><span class="text-sm font-semibold text-gray-900">${t.label}</span>
+              <span class="ml-2 text-xs text-gray-400">${t.count} item${t.count === 1 ? '' : 's'}</span></div>
+            <span class="text-sm font-semibold text-emerald-600">${t.hours} h</span>
+          </div>`).join('')
+      : '<p class="text-sm text-gray-400 text-center py-6">No tasks counted yet this month — your assistants will start clocking these up as they work.</p>';
+    if (footer) footer.innerHTML = `These are the completed actions your assistants performed this month — drafts published, tasks finished, and leads generated — each valued at its time-saved equivalent (set by your plan). Total: <strong>${d.hoursSaved ?? 0} hours saved</strong>.`;
+    modal.classList.remove('hidden');
+    const close = () => modal.classList.add('hidden');
+    document.getElementById('savings-modal-close').onclick = close;
+    modal.querySelector('[data-savings-backdrop]').onclick = close;
+  };
+
   // US1.1 + US2.1: render the onboarding progress widget and the Time Saved card.
   window._renderDashboardEngagement = async function () {
     // ── Onboarding 3-step widget ──
@@ -2883,6 +2977,7 @@ function formatCurrency(amount, currency) {
       const res = await fetch('/.netlify/functions/get-time-saved');
       if (res.ok) {
         const d = await res.json();
+        window._timeSavedData = d; // cached for the savings tasks modal (#3)
         const card = document.getElementById('time-saved-card');
         const hoursEl = document.getElementById('time-saved-hours');
         const monthEl = document.getElementById('time-saved-month');
@@ -2894,6 +2989,10 @@ function formatCurrency(amount, currency) {
         if (card) card.classList.remove('hidden');
       }
     } catch (e) { console.warn('Time saved failed:', e); }
+
+    // Milestones are evaluated server-side inside get-time-saved above — celebrate a new one
+    // here so it runs regardless of which initDashboard path invoked this render.
+    window.checkMilestoneCelebration?.();
   };
 
   window.initDashboard = async function() {
