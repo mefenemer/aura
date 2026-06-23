@@ -24,6 +24,14 @@ window.initBrandAssets = function() {
         pending:   'bg-amber-50 text-amber-700 border-amber-200',
         failed:    'bg-red-50 text-red-700 border-red-200',
     };
+    // Friendly labels for the asset category slugs (mirror the upload dropdown in assets.html).
+    const CATEGORY_LABELS = {
+        tone_of_voice: 'Tone of Voice / Style',
+        logo:          'Brand Logo / Visuals',
+        product_info:  'Product Knowledge',
+        general:       'General Context',
+    };
+    const categoryLabel = (slug) => CATEGORY_LABELS[slug] || (slug ? String(slug).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '');
     // Plain-language explanation of each status (tooltip on the pill / Unavailable label).
     const STATUS_HINTS = {
         confirmed: 'Uploaded and ready to use.',
@@ -206,7 +214,8 @@ window.initBrandAssets = function() {
         }
         list.innerHTML = assets.map(a => {
             const styles = STATUS_STYLES[a.status] || 'bg-gray-50 text-gray-600 border-gray-200';
-            const meta = [(a.category || a.assetType || '').replace(/_/g, ' '), fmtBytes(a.fileSizeBytes)].filter(Boolean).join(' • ');
+            const catLabel = categoryLabel(a.category);
+            const sizeLabel = fmtBytes(a.fileSizeBytes);
             // Download is only valid once the upload is confirmed in storage; a pending/failed
             // upload has no downloadable object, so show a muted hint instead of a 404-ing link.
             let action;
@@ -223,7 +232,10 @@ window.initBrandAssets = function() {
                     <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-gray-500">${FILE_ICON}</div>
                     <div class="truncate">
                         <p class="text-sm font-bold text-gray-900 truncate">${escHtml(a.name)}</p>
-                        <p class="text-xs text-gray-500">${escHtml(meta)}</p>
+                        <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                            ${catLabel ? `<span class="inline-flex items-center py-0.5 px-2 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">${escHtml(catLabel)}</span>` : ''}
+                            ${sizeLabel ? `<span>${escHtml(sizeLabel)}</span>` : ''}
+                        </p>
                     </div>
                 </div>
                 <div class="flex items-center gap-3 shrink-0">

@@ -227,6 +227,9 @@ function _detailHydrate(data) {
         const m = kbLine.match(/:"([^"]+)"/);
         _detailSetVal('edit_knowledge', m ? m[1] : '');
     }
+
+    // Per-assistant AI disclosure (EU AI Act Art. 52)
+    _detailSetVal('edit_ai_disclosure', data.disclosureText || '');
 }
 
 function _detailCollect(currentData) {
@@ -329,9 +332,13 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         // Also save the name
         const nameInput = document.getElementById('detail-name-input');
         const newName = nameInput ? nameInput.value.trim() : null;
+        // Per-assistant AI disclosure (EU AI Act Art. 52) — saved alongside the context.
+        const disclosureEl = document.getElementById('edit_ai_disclosure');
+        const disclosureText = disclosureEl ? disclosureEl.value.trim() : undefined;
         try {
             const body = { assistantId: parseInt(assistantId), newContext, newConfiguration };
             if (newName) body.newName = newName;
+            if (disclosureText !== undefined) body.disclosureText = disclosureText;
             const res = await fetch('/.netlify/functions/update-assistant-context', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -340,14 +347,19 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
             if (res.ok) {
                 currentData.context = newContext;
                 currentData.configuration = newConfiguration;
+                if (disclosureText !== undefined) currentData.disclosureText = disclosureText;
                 if (newName) {
                     document.getElementById('detail-avatar').textContent = newName.charAt(0).toUpperCase();
                     currentData.name = newName;
                 }
                 _detailSetSaveStatus('✓ Saved', 'text-emerald-600');
                 setTimeout(() => _detailSetSaveStatus(''), 3000);
+                // Refresh the Kick Off readiness so "AI disclosure acknowledged" (and any
+                // other items affected by this save) re-evaluate without a page reload.
+                if (typeof _renderKickOff === 'function') _renderKickOff(assistantId);
             } else {
-                _detailSetSaveStatus('Save failed', 'text-red-500');
+                const err = await res.json().catch(() => ({}));
+                _detailSetSaveStatus(err.error && /disclosure/i.test(err.error) ? 'Disclosure required' : 'Save failed', 'text-red-500');
             }
         } catch {
             _detailSetSaveStatus('Save failed', 'text-red-500');

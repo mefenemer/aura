@@ -118,6 +118,16 @@ let _assistantScoped = false;
 let _assistantSelectedIds = new Set();
 // serviceName slug → short platform key stored in context.primary_platforms
 const PLATFORM_KEY_MAP = { facebook: 'fb', instagram: 'ig', linkedin: 'li', x: 'x', twitter: 'x', tiktok: 'tt', youtube: 'yt', pinterest: 'pin' };
+
+// Match a stored connection serviceName (e.g. 'x', 'linkedin' — lowercase from the OAuth
+// callback) against a PLATFORMS id (e.g. 'X', 'LinkedIn' — capitalised). Case-insensitive,
+// and treats x/twitter as the same platform via PLATFORM_KEY_MAP.
+function _serviceMatchesPlatform(serviceName, platformId) {
+    const s = String(serviceName || '').toLowerCase();
+    const p = String(platformId || '').toLowerCase();
+    if (s === p) return true;
+    return !!PLATFORM_KEY_MAP[s] && PLATFORM_KEY_MAP[s] === PLATFORM_KEY_MAP[p];
+}
 // Social handles captured on Business Information (lowercase platform slug → handle).
 // A platform can only be connected once a handle has been entered there.
 let _socialHandles = {};
@@ -275,7 +285,7 @@ async function _loadConnections() {
         return;
     }
     platforms.forEach(platform => {
-        const conn = _userConnections.find(c => c.serviceName === platform.id);
+        const conn = _userConnections.find(c => _serviceMatchesPlatform(c.serviceName, platform.id));
         grid.insertAdjacentHTML('beforeend', _platformCard(platform, conn));
     });
 }
@@ -508,7 +518,7 @@ window._intOpenModal = function (platformId) {
         return;
     }
 
-    const existing = _userConnections.find(c => c.serviceName === platformId);
+    const existing = _userConnections.find(c => _serviceMatchesPlatform(c.serviceName, platformId));
 
     // Header
     document.getElementById('modal-platform-icon').className = `w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold shadow-sm shrink-0 ${platform.iconBg} ${platform.iconText}`;

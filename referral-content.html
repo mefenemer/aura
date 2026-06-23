@@ -264,7 +264,10 @@
 
     if (referrals.length === 0 && invites.length === 0) {
       document.getElementById('ref-table-empty').classList.remove('hidden');
+      document.getElementById('ref-table').classList.add('hidden');
     } else {
+      // Re-render safe (called again after sending an invite): hide the empty state.
+      document.getElementById('ref-table-empty').classList.add('hidden');
       // Invited (awaiting sign-up) rows first — the earliest stage of the lifecycle.
       const inviteRows = invites.map(i => `
           <tr>
@@ -439,6 +442,9 @@
       if (res.ok) {
         status.textContent = `Sent to ${friendEmail} ✓`; status.className = 'text-xs text-emerald-600';
         input.value = '';
+        // Refresh the activity in place so the new "Invited" row appears immediately
+        // (no need to navigate away and back).
+        await loadReferral();
       } else {
         status.textContent = d.error || 'Could not send. Try again.'; status.className = 'text-xs text-red-600';
       }
