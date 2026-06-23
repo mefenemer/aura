@@ -309,6 +309,14 @@
         </div>
       </section>
 
+      <!-- ── Security & Abuse (US3 AC3.3) ───────────────────────────── -->
+      <section id="view-security-abuse" class="admin-view hidden overflow-y-auto" style="max-height:calc(100vh - 130px)">
+        <p class="text-sm text-gray-500 mb-5">Workspaces flagged for manual billing review — the same physical credit card (Stripe fingerprint) is active on two or more separate workspaces, a signal of account-splitting. Each card below is shared by the grouped workspaces.</p>
+        <div id="security-abuse-list" class="space-y-6">
+          <div class="text-sm text-gray-400 animate-pulse">Loading…</div>
+        </div>
+      </section>
+
       <!-- ── AI Model Config ────────────────────────────────────────── -->
       <section id="view-model-config" class="admin-view hidden">
         <p class="text-sm text-gray-500 mb-5">Update the active AI model routing without deploying code. Changes take effect immediately on the next request.</p>
@@ -1734,7 +1742,7 @@ function debounce(fn, ms) {
 const VIEW_LABELS = {
   dashboard: 'Dashboard', users: 'All Users', tickets: 'Support Tickets',
   catalog: 'Assistant Catalog', analytics: 'Analytics', 'model-config': 'AI Model Config',
-  logs: 'System Logs', 'audit-log': 'Audit Log', cogs: 'COGS Dashboard',
+  logs: 'System Logs', 'audit-log': 'Audit Log', 'security-abuse': 'Security & Abuse', cogs: 'COGS Dashboard',
   reconciliation: 'Stripe Reconciliation', dunning: 'Dunning Queue',
   'manage-admins': 'Admin Accounts', 'kill-switches': 'Emergency Controls',
   gamification: 'Gamification Settings', 'reward-audits': 'Reward Audits',
@@ -1778,8 +1786,9 @@ const ADMIN_CATS = {
     { view: 'systems',              icon: '🛠️', label: 'Systems & Connections', superAdminOnly: true },
   ]},
   security: { label: 'Security', roles: ['admin','super_admin'], children: [
-    { view: 'manage-admins', icon: '🛡️', label: 'Admin Accounts' },
-    { view: 'audit-log',     icon: '🔐', label: 'Audit Log' },
+    { view: 'manage-admins',  icon: '🛡️', label: 'Admin Accounts' },
+    { view: 'audit-log',      icon: '🔐', label: 'Audit Log' },
+    { view: 'security-abuse', icon: '🚩', label: 'Security & Abuse' },
   ]},
   communications: { label: 'Communications', roles: ['admin','super_admin','platform_admin'], children: [
     { view: 'email-templates', icon: '✉️', label: 'Manage Emails' },
@@ -1978,6 +1987,7 @@ function adminNav(view) {
   if (view === 'model-config') loadModelConfig();
   if (view === 'logs')         loadLogs();
   if (view === 'audit-log')    loadAuditLog();
+  if (view === 'security-abuse') loadSecurityAbuse();
   if (view === 'cogs')            loadCogsDashboard();
   if (view === 'reconciliation')  loadReconciliation();
   if (view === 'dunning')         loadDunningQueue();
@@ -3782,6 +3792,47 @@ async function loadLogs() {
 function logsPage(delta) {
   _logsPage = Math.max(0, _logsPage + delta);
   loadLogs();
+}
+
+// ── Security & Abuse — workspaces sharing a Stripe card fingerprint (US3 AC3.3) ──
+async function loadSecurityAbuse() {
+  const wrap = document.getElementById('security-abuse-list');
+  wrap.innerHTML = '<div class="text-sm text-gray-400 animate-pulse">Loading…</div>';
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=security-abuse');
+    const groups = d.groups || [];
+    if (!groups.length) {
+      wrap.innerHTML = '<div class="bg-white rounded-2xl border border-gray-200 p-8 text-center text-gray-500 text-sm">✅ No flagged workspaces. No shared payment cards detected across accounts.</div>';
+      return;
+    }
+    wrap.innerHTML = groups.map(g => {
+      const fp = (g.fingerprint || 'unknown');
+      const rows = (g.workspaces || []).map(w => `
+        <tr class="border-t border-gray-50">
+          <td class="px-4 py-3 text-sm text-gray-700">${w.name || '—'} <span class="text-xs text-gray-400">/${w.slug || ''}</span></td>
+          <td class="px-4 py-3 text-xs text-gray-500">${w.ownerEmail || '—'}</td>
+          <td class="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">${w.createdAt ? fmt(w.createdAt) : '—'}</td>
+          <td class="px-4 py-3 text-xs"><a href="#" onclick="event.preventDefault(); adminNav('workspaces')" class="text-indigo-600 hover:underline font-semibold">Review</a></td>
+        </tr>`).join('');
+      return `
+        <div class="bg-white rounded-2xl border border-red-200 overflow-hidden">
+          <div class="px-5 py-3 bg-red-50/60 border-b border-red-100 flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">🚩 ${(g.workspaces || []).length} workspaces share this card</span>
+            </div>
+            <code class="text-[11px] text-gray-500">fingerprint: ${fp}</code>
+          </div>
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+              <tr><th class="px-4 py-2 text-left">Workspace</th><th class="px-4 py-2 text-left">Owner</th><th class="px-4 py-2 text-left">Created</th><th class="px-4 py-2 text-left"></th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    wrap.innerHTML = `<div class="bg-white rounded-2xl border border-gray-200 p-5 text-red-500 text-sm">${e.message}</div>`;
+  }
 }
 
 // ── US-ADM-5.1.1: Admin Audit Log viewer ──────────────────────────────────────

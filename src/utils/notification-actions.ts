@@ -58,6 +58,8 @@ const TYPE_CATEGORY: Record<string, NotificationCategory> = {
     onboarding_prompt: 'suggested_action', onboarding_incomplete: 'suggested_action',
     hitl_approval_required: 'suggested_action', review_red_urgency: 'suggested_action',
     trial_expiring_soon: 'suggested_action', task_limit_warning: 'suggested_action',
+    // Abuse Prevention US2: an admin is asked to invite someone who hit a connection collision.
+    workspace_access_request: 'suggested_action',
     run_cost_warning: 'suggested_action', social_oauth_revoked: 'suggested_action',
     instagram_token_refresh_failed: 'suggested_action', instagram_rate_limited: 'suggested_action',
     integration_alert: 'suggested_action', post_publish_failed: 'suggested_action',

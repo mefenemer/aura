@@ -6,6 +6,7 @@ import { systemConnections, scheduledPosts, notifications, users, userOrganisati
 import { storeSecret, deleteSecret, buildRefKey } from '../../src/utils/vault';
 import { isServiceAllowedForAssistant, allowedServiceNames, relevantConnectorsForAssistant } from '../../src/utils/connection-map';
 import { resolveAssistantRole } from '../../src/utils/assistant-role';
+import { findTenantCollision, recordCollisionAttempt } from '../../src/utils/connection-collision';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -156,6 +157,18 @@ export const handler: Handler = async (event) => {
                     ...(currentOrgId ? [eq(systemConnections.organisationId, currentOrgId)] : []),
                 ))
                 .limit(1);
+
+            // US1 AC1.3: block if this account/handle is already live in another workspace.
+            if (handle && currentOrgId) {
+                const collision = await findTenantCollision(db, { serviceName, externalUserId: handle, organisationId: currentOrgId });
+                if (collision) {
+                    await recordCollisionAttempt(db, { requestingOrgId: currentOrgId, existingOrgId: collision.organisationId, serviceName, externalUserId: handle });
+                    return { statusCode: 409, body: JSON.stringify({
+                        error: `This ${serviceName} account is already connected to another Be More Swan workspace. To use it, you must join the existing workspace or disconnect it from the other account.`,
+                        code: 'TENANT_COLLISION',
+                    }) };
+                }
+            }
 
             const scopeString = Array.isArray(scopes) && scopes.length ? scopes.join(' ') : null;
             const refKey = buildRefKey(currentUserId, serviceName, 'apikey');

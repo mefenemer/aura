@@ -33,7 +33,7 @@ import {
     billingOverrides, payments, assistantVersions,
     agentAnomalies, agentAnomalyThresholds, taskRuns,
     legalHolds, jwtBlocklist, stripeDisputes, storageUsage, helpArticles,
-    rewardAudits,
+    rewardAudits, userOrganisations,
 } from '../../db/schema';
 import { insertAdminAuditLog, getAdminIp } from '../../src/utils/admin-audit';
 import { resolveEnvironment, runWithEnvironment } from '../../src/utils/env-context';
@@ -666,6 +666,40 @@ export const handler: Handler = async (event) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ logs: rows, total, page, pageSize: PAGE_SIZE }),
             };
+        }
+
+        // ── GET: security-abuse — workspaces flagged for billing review (US3 AC3.3) ──
+        // Same Stripe card fingerprint active on ≥2 workspaces ⇒ possible account-splitting.
+        // Superadmin-only (this exposes cross-workspace billing linkage).
+        if (event.httpMethod === 'GET' && resource === 'security-abuse') {
+            if (adminRole !== 'super_admin') {
+                return { statusCode: 403, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Superadmin access required.' }) };
+            }
+            const rows = await db
+                .select({
+                    id: organisations.id,
+                    name: organisations.name,
+                    slug: organisations.slug,
+                    cardFingerprint: organisations.cardFingerprint,
+                    createdAt: organisations.createdAt,
+                    ownerEmail: users.email,
+                })
+                .from(organisations)
+                .leftJoin(userOrganisations, and(eq(userOrganisations.organisationId, organisations.id), eq(userOrganisations.role, 'owner')))
+                .leftJoin(users, eq(users.id, userOrganisations.userId))
+                .where(eq(organisations.billingReviewRequired, true))
+                .orderBy(desc(organisations.cardFingerprint), desc(organisations.createdAt));
+
+            // Group by fingerprint so the UI can show each shared-card cluster together.
+            const groupsMap = new Map();
+            for (const r of rows) {
+                const key = r.cardFingerprint || 'unknown';
+                if (!groupsMap.has(key)) groupsMap.set(key, []);
+                groupsMap.get(key).push(r);
+            }
+            const groups = Array.from(groupsMap.entries()).map(([fingerprint, workspaces]) => ({ fingerprint, workspaces }));
+
+            return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groups, total: rows.length }) };
         }
 
         // ── GET: analytics — sign-up counts per role (US9, with date filter US9 Sc3) ──

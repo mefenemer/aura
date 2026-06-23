@@ -58,6 +58,10 @@ export const organisations = pgTable('organisations', {
   onboardingCompleted: boolean('onboarding_completed').notNull().default(false), // AC1.1.3 — 3-step widget done
   betaAccess: boolean('beta_access').notNull().default(false),                    // AC3.1.2 — 50h-saved milestone
   bonusReferralTokens: integer('bonus_referral_tokens').notNull().default(0),     // AC3.1.3 — milestone token drops into the vault
+  // Abuse Prevention US3: Stripe card fingerprint (hash of the physical card) for this workspace's
+  // payment method, + the flag raised when the same fingerprint is seen on ≥2 workspaces.
+  cardFingerprint: text('card_fingerprint'),
+  billingReviewRequired: boolean('billing_review_required').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -479,6 +483,24 @@ export const systemConnections = pgTable("system_connections", {
   index("system_connections_assistant_active_idx").on(t.assistantId, t.isActive),
   // US-DB-1.1.1: User-level connection lookups
   index("system_connections_user_active_idx").on(t.userId, t.isActive),
+]);
+
+// Abuse Prevention (US1/US2): a record of a rejected OAuth connection because the third-party
+// tenant was already live in another workspace. Lets the requester ask to join the existing
+// workspace WITHOUT us ever revealing that workspace's owner. Owner-db accessed (oauth callbacks
+// + request-workspace-access). Schema in db/connection-collision-attempts.sql (apply manually).
+export const connectionCollisionAttempts = pgTable("connection_collision_attempts", {
+  id: serial().primaryKey(),
+  requestingOrgId: integer("requesting_org_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  existingOrgId: integer("existing_org_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  serviceName: text("service_name").notNull(),
+  externalUserId: text("external_user_id").notNull(),
+  // pending → (request access) → requested → (admin invites) → resolved
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("cca_requesting_service_idx").on(t.requestingOrgId, t.serviceName, t.status),
 ]);
 
 // ── Webhook intake — trigger-style connectors (Slack, Zendesk, …) ────────────

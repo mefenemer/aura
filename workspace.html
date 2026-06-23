@@ -399,6 +399,73 @@ async function submitTosAcceptance(btn) {
     class="ml-2 text-red-200 hover:text-white transition text-lg leading-none">&times;</button>
 </div>
 
+<!-- US2 AC2.1: tenant-collision modal — message + "Request Access to Existing Workspace" -->
+<div id="collision-modal" class="hidden fixed inset-0 flex items-center justify-center p-4" style="z-index:12060">
+  <div class="absolute inset-0 bg-gray-900/50" onclick="window._closeCollisionModal()"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-xl">⚠️</div>
+      <h3 class="text-lg font-bold text-gray-900">Account already connected</h3>
+    </div>
+    <p id="collision-modal-msg" class="text-sm text-gray-600 mb-5"></p>
+    <div id="collision-modal-actions" class="flex flex-col gap-2">
+      <button id="collision-request-btn" type="button" class="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg transition cursor-pointer">Request Access to Existing Workspace</button>
+      <button type="button" onclick="window._closeCollisionModal()" class="w-full px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-50 transition cursor-pointer">Cancel</button>
+    </div>
+    <p id="collision-modal-done" class="hidden text-sm text-emerald-700 font-semibold mt-1"></p>
+  </div>
+</div>
+<script>
+  window._closeCollisionModal = function () { document.getElementById('collision-modal')?.classList.add('hidden'); };
+  window._showCollisionModal = function (label, platform) {
+    const m = document.getElementById('collision-modal');
+    if (!m) return;
+    document.getElementById('collision-modal-msg').textContent =
+      `This ${label} account is already connected to another Be More Swan workspace. To use it, you must join the existing workspace or disconnect it from the other account.`;
+    const btn = document.getElementById('collision-request-btn');
+    const done = document.getElementById('collision-modal-done');
+    const actions = document.getElementById('collision-modal-actions');
+    done.classList.add('hidden');
+    actions.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Request Access to Existing Workspace';
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      try {
+        const r = await fetch('/.netlify/functions/request-workspace-access', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform }),
+        });
+        if (!r.ok) throw new Error();
+        actions.classList.add('hidden');
+        // Deliberately generic — never confirms who owns the existing workspace (AC2.1).
+        done.textContent = 'Request sent. If a workspace owns this account, its admin has been notified and can invite you to join.';
+        done.classList.remove('hidden');
+      } catch {
+        btn.disabled = false;
+        btn.textContent = 'Request Access to Existing Workspace';
+        alert('Could not send the request. Please try again.');
+      }
+    };
+    m.classList.remove('hidden');
+  };
+
+  // US2 AC2.3: workspace owner invites the requester into their org (reuses the member-invite
+  // flow, so billing stays consolidated). Triggered from the suggested_action notification CTA.
+  window._inviteFromAccessRequest = async function (email, notifId) {
+    if (!email) { alert('Could not determine which user to invite.'); return; }
+    if (!confirm(`Invite ${email} to your workspace? They'll join your team and your billing stays consolidated.`)) return;
+    try {
+      const r = await fetch('/.netlify/functions/invite-member', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { alert(d.error || 'Could not send the invite.'); return; }
+      window.showToast?.(`Invite sent to ${email}.`);
+    } catch { alert('Network error — please try again.'); }
+  };
+</script>
+
 <!-- Milestone celebration modal (#2) -->
 <div id="milestone-modal" class="hidden fixed inset-0 flex items-center justify-center p-4" style="z-index:12050">
   <div data-milestone-backdrop class="absolute inset-0 bg-gray-900/50"></div>
@@ -2037,8 +2104,21 @@ function formatCurrency(amount, currency) {
         invalid_session: 'Your session has expired. Please sign in and try connecting again.',
         not_business: 'Instagram needs a Business or Creator account linked to a Facebook Page. Switch your account type, then try again.',
         personal_account: 'Personal Instagram accounts can’t be connected — switch to a Business or Creator account first.',
+        // US1 AC1.4: tenant collision — this third-party account is already linked elsewhere.
+        tenant_collision: `This ${label} account is already connected to another Be More Swan workspace. To use it, you must join the existing workspace or disconnect it from the other account.`,
       };
       const msg = MESSAGES[errorParam] || 'The connection failed. Please try again.';
+
+      // US2 AC2.1: a tenant collision gets a richer modal with a "Request Access" path,
+      // not just a toast.
+      if (errorParam === 'tenant_collision') {
+        window._showCollisionModal?.(label, (platform || '').toLowerCase());
+        fetch('/.netlify/functions/client-log', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'oauth_error', error: errorParam, path: window.location.pathname }),
+        }).catch(() => {});
+        return;
+      }
 
       const toast = document.getElementById('oauth-error-toast');
       const msgEl = document.getElementById('oauth-error-toast-msg');

@@ -12,6 +12,7 @@ import { resolveBaseUrl } from '../../src/utils/base-url';
 import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
 import { resolveAssistantRole } from '../../src/utils/assistant-role';
 import { resolveActionNotifications, CONNECTION_RESTORED_TYPES } from '../../src/utils/notification-actions';
+import { findTenantCollision, recordCollisionAttempt } from '../../src/utils/connection-collision';
 
 function parseState(raw: string): Record<string, string> | null {
     try { return JSON.parse(Buffer.from(raw, 'base64url').toString()); }
@@ -85,6 +86,13 @@ export const handler: Handler = async (event) => {
         const profile: { id?: string; localizedFirstName?: string; localizedLastName?: string } = await profileRes.json();
         const linkedinId = profile.id ?? 'unknown';
 
+        // US1 AC1.3: reject if this LinkedIn tenant is already live in another workspace (before storing the token).
+        const linkedinCollision = await findTenantCollision(db, { serviceName: 'linkedin', externalUserId: linkedinId, organisationId });
+        if (linkedinCollision) {
+            await recordCollisionAttempt(db, { requestingOrgId: organisationId, existingOrgId: linkedinCollision.organisationId, serviceName: 'linkedin', externalUserId: linkedinId });
+            return { statusCode: 302, headers: { Location: `/workspace.html?oauth_error=tenant_collision&platform=linkedin` }, body: '' };
+        }
+
         const refKey = `aura/org-${organisationId}/linkedin-token`;
         // Store the refresh token (when granted) so refresh-social-tokens.ts can renew silently.
         await storeSecret(db, refKey, { token: tokenData.access_token, refreshToken: tokenData.refresh_token ?? null });
@@ -143,6 +151,14 @@ export const handler: Handler = async (event) => {
         const meData: { data?: { id: string; username: string } } = await meRes.json();
         const xUserId = meData.data?.id ?? 'unknown';
         const xUsername = meData.data?.username ?? '';
+
+        // US1 AC1.3: reject if this X tenant is already live in another workspace (before storing the token).
+        // Keyed on the stable user id (matches externalUserId = xUsername || xUserId).
+        const xCollision = await findTenantCollision(db, { serviceName: 'x', externalUserId: xUsername || xUserId, organisationId });
+        if (xCollision) {
+            await recordCollisionAttempt(db, { requestingOrgId: organisationId, existingOrgId: xCollision.organisationId, serviceName: 'x', externalUserId: xUsername || xUserId });
+            return { statusCode: 302, headers: { Location: `/workspace.html?oauth_error=tenant_collision&platform=x` }, body: '' };
+        }
 
         const refKey = `aura/org-${organisationId}/x-token`;
         await storeSecret(db, refKey, { token: tokenData.access_token, refreshToken: tokenData.refresh_token ?? null });

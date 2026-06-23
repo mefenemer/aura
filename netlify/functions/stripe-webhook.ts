@@ -5,6 +5,7 @@ import { getDb, withUpdatedAt } from '../../db/client';
 import { payments, plans, aiAssistants, onboardingDrafts, notifications, users, masterPlans, planPrices, invoices, processedWebhookEvents, userReferrals, platformConfig, stripeDisputes, userOrganisations, userProfiles } from '../../db/schema';
 import { sendEmail, buildAnnualRenewalEmail, buildDunningEmail } from '../../src/utils/email';
 import { resolveActionNotifications, PAYMENT_RESTORED_TYPES } from '../../src/utils/notification-actions';
+import { recordCardFingerprint } from '../../src/utils/billing-fingerprint';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -225,6 +226,9 @@ export const handler: Handler = async (event) => {
                     cardLast4      = pm.card.last4      || null;
                     cardExpMonth   = pm.card.exp_month  || null;
                     cardExpYear    = pm.card.exp_year   || null;
+                    // US3 AC3.1/AC3.2: record the card fingerprint for this workspace and flag
+                    // billing_review_required if the same physical card is on ≥2 workspaces.
+                    if (orgIdInt) await recordCardFingerprint(db, orgIdInt, pm.card.fingerprint);
                 }
                 // Billing address postal code stored at checkout
                 cardPostalCode = pm.billing_details?.address?.postal_code || null;

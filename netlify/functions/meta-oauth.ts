@@ -14,6 +14,7 @@ import { resolveBaseUrl } from '../../src/utils/base-url';
 import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
 import { resolveAssistantRole } from '../../src/utils/assistant-role';
 import { resolveActionNotifications, CONNECTION_RESTORED_TYPES } from '../../src/utils/notification-actions';
+import { findTenantCollision, recordCollisionAttempt } from '../../src/utils/connection-collision';
 
 const jwtSecret   = process.env.JWT_SECRET!;
 const metaAppId   = process.env.META_APP_ID!;
@@ -156,6 +157,14 @@ export const handler: Handler = async (event) => {
         const fbPageId = me.accounts?.data?.[0]?.id ?? null;
 
         const db = getDb();
+
+        // US1 AC1.3: block if this Instagram tenant is already live in a different workspace.
+        // Checked before any token is persisted, so nothing is stored on rejection.
+        const collision = await findTenantCollision(db, { serviceName: 'instagram', externalUserId: igUserId, organisationId });
+        if (collision) {
+            await recordCollisionAttempt(db, { requestingOrgId: organisationId, existingOrgId: collision.organisationId, serviceName: 'instagram', externalUserId: igUserId });
+            return { statusCode: 302, headers: { Location: '/workspace.html?meta_error=tenant_collision&platform=instagram' }, body: '' };
+        }
 
         // Store token in vault
         const refKey = `aura/org-${organisationId}/instagram-token`;

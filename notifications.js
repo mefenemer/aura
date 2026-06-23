@@ -97,6 +97,10 @@ window.initNotifications = async function() {
 
     const getNotificationAction = (notif) => {
         const meta = notif.metadata || {};
+        // US2 AC2.3: a workspace owner invites the person who hit a connection collision.
+        if (notif.type === 'workspace_access_request') {
+            return { label: 'Invite User', run: () => window._inviteFromAccessRequest?.(meta.requestingEmail, notif.id) };
+        }
         if (meta.action === 'view_invoices') return ACTIONS_BY_TYPE.invoice_ready;
         if (meta.action === 'view_ticket')   return ACTIONS_BY_TYPE.ticket_created;
         if (meta.action === 'getting_started') return ACTIONS_BY_TYPE.onboarding_prompt;
