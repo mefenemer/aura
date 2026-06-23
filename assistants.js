@@ -430,7 +430,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
             const lifecycle = currentData.lifecycleStatus
               || (currentData.status === 'pending' ? 'provisioning' : (currentData.isActive === false ? 'paused' : 'working'));
             const PILL = {
-                provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Provisioning',       toggle: 'Pause Assistant' },
+                provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Setup in Progress',  toggle: 'Pause Assistant' },
                 ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work',     toggle: 'Initiate Kick-Off' },
                 working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Active',             toggle: 'Pause Assistant' },
                 paused:         { cls: 'bg-gray-100 text-gray-600 border-gray-200',         dot: 'bg-gray-400',                  label: 'Paused',             toggle: 'Resume Assistant' },
