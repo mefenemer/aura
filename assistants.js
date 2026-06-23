@@ -567,6 +567,23 @@ async function _renderKickOff(assistantId) {
             </span>
         </li>`).join('') || '<li class="text-sm text-gray-400">No checklist items.</li>';
 
+    // US3 AC3.1: summary — primary directive + active connections the user reviews before confirming.
+    const summaryEl = document.getElementById('kickoff-summary');
+    if (summaryEl) {
+        const sm = data.summary || {};
+        const CONN_LABELS = { x: 'X (Twitter)', instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn' };
+        const conns = (sm.connections || []);
+        const connPills = conns.length
+            ? conns.map(c => `<span class="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 bg-white border border-gray-200 px-2 py-0.5 rounded-full">${CONN_LABELS[c] || (c.charAt(0).toUpperCase() + c.slice(1))}</span>`).join(' ')
+            : '<span class="text-xs text-gray-400 italic">No connected accounts yet</span>';
+        summaryEl.innerHTML = `
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Primary directive</p>
+            <p class="text-sm font-semibold text-gray-800 mb-3">${sm.directive || 'Digital Assistant'}</p>
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Active connections</p>
+            <div class="flex flex-wrap gap-1.5">${connPills}</div>`;
+        summaryEl.classList.toggle('hidden', !!data.working);
+    }
+
     // Already working → confirmation state, no action needed.
     if (data.working) {
         const since = data.workingSince ? new Date(data.workingSince).toLocaleDateString('en-GB') : null;
@@ -597,10 +614,11 @@ async function _renderKickOff(assistantId) {
         const original = btn.textContent;
         btn.textContent = 'Starting…';
         try {
-            const res = await fetch(`/.netlify/functions/manage-assistant?id=${assistantId}`, {
-                method: 'PATCH',
+            // US3 AC3.2/AC3.3: canonical kick-off — transitions ready_for_work → working via the
+            // state-machine helper (server-side readiness gate + audit), then unlocks the assistant.
+            const res = await fetch(`/.netlify/functions/kickoff-assistant?id=${assistantId}`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'resume' }),
             });
             if (!res.ok) {
                 const d = await res.json().catch(() => ({}));

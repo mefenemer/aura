@@ -33,8 +33,11 @@ export const handler: Handler = async (event) => {
             // ── IDOR guard: assistant must belong to the caller's organisation ──
             const [assistant] = await tx.select({
                 id: aiAssistants.id,
+                name: aiAssistants.name,
+                role: aiAssistants.aiAssistantJobRole,
                 isActive: aiAssistants.isActive,
                 provisioningStatus: aiAssistants.provisioningStatus,
+                lifecycleStatus: aiAssistants.lifecycleStatus,
                 configuration: aiAssistants.configuration,
                 onboardingContext: aiAssistants.onboardingContext,
                 disclosureText: aiAssistants.disclosureText,
@@ -58,11 +61,16 @@ export const handler: Handler = async (event) => {
                     eq(contentRules.isActive, true),
                 )).limit(1)),
             ]);
-            return { assistant, hasConnection, hasRule };
+            // US3 AC3.1: active connection service names for the Kick-Off summary screen.
+            const connRows = await tx.select({ serviceName: systemConnections.serviceName })
+                .from(systemConnections)
+                .where(and(eq(systemConnections.organisationId, orgId), eq(systemConnections.isActive, true)));
+            const connections = connRows.map(r => r.serviceName).filter(Boolean);
+            return { assistant, hasConnection, hasRule, connections };
         });
 
         if (!result) return json(404, { error: 'Assistant not found.' });
-        const { assistant, hasConnection, hasRule } = result;
+        const { assistant, hasConnection, hasRule, connections } = result;
 
         // Brand & strategy is configured once the onboarding context / configuration is populated.
         const oc = (assistant.onboardingContext as Record<string, unknown> | null) || {};
@@ -89,9 +97,16 @@ export const handler: Handler = async (event) => {
             assistantId,
             status: assistant.provisioningStatus,
             isActive: assistant.isActive,
+            lifecycleStatus: assistant.lifecycleStatus,
             // "working" once the assistant is provisioned and active.
             working: assistant.isActive && assistant.provisioningStatus === 'complete',
             workingSince: assistant.updatedAt,
+            // US3 AC3.1: Kick-Off summary — what the user reviews before confirming.
+            summary: {
+                name: assistant.name,
+                directive: assistant.role || 'Digital Assistant',
+                connections,
+            },
             items,
             allRequiredDone,
         });
