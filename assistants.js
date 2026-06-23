@@ -235,8 +235,64 @@ function _detailHydrate(data) {
         _detailSetVal('edit_knowledge', m ? m[1] : '');
     }
 
-    // Per-assistant AI disclosure (EU AI Act Art. 52)
+    // Per-assistant AI disclosure (EU AI Act transparency rules — Art. 50)
     _detailSetVal('edit_ai_disclosure', data.disclosureText || '');
+    _renderDisclosureHelp(data);
+}
+
+// Tailor the AI-disclosure guidance to what this assistant actually produces.
+// Social/posting assistants generate images, video and text published under the user's
+// brand → the deployer (the user's business) must label AI-generated media (EU AI Act
+// Art. 50). Conversational/other assistants need the "you're talking to an AI" notice.
+function _isSocialPostingAssistant(data) {
+    const role = `${data.role || ''} ${data.category || ''}`.toLowerCase();
+    if (/social|media|content|community|marketing|post/.test(role)) return true;
+    const platforms = []
+        .concat(data.context?.primary_platforms || [])
+        .concat(data.configuration?.inputs?.platforms || [])
+        .map(p => String(p).toLowerCase());
+    return platforms.some(p => /instagram|facebook|linkedin|twitter|^x$|tiktok|youtube|threads|pinterest/.test(p));
+}
+
+function _renderDisclosureHelp(data) {
+    const box = document.getElementById('disclosure-examples');
+    const desc = document.getElementById('disclosure-desc');
+    const field = document.getElementById('edit_ai_disclosure');
+    if (!box) return;
+
+    const example = (icon, label, text, note) => `
+        <div class="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+            <span class="text-base leading-5 shrink-0">${icon}</span>
+            <div class="min-w-0">
+                <p class="text-xs font-bold text-gray-700">${label}</p>
+                <p class="text-xs text-gray-600 italic">&ldquo;${text}&rdquo;</p>
+                <p class="text-[11px] text-gray-400 mt-0.5">${note}</p>
+            </div>
+        </div>`;
+
+    if (_isSocialPostingAssistant(data)) {
+        if (desc) desc.textContent = "How this assistant labels the content it publishes as AI-generated, as required by the EU AI Act's transparency rules (Art. 50). Set the wording that fits the content you post. This must be set before the assistant can be activated in the Kick Off Meeting.";
+        if (field) field.placeholder = 'e.g. Some content on this account is created with the help of Be More Swan AI.';
+        box.innerHTML = `
+            <p class="text-xs font-semibold text-gray-500 mb-2">Examples by content type — adapt or write your own:</p>
+            <div class="space-y-2">
+                ${example('🖼️', 'AI-generated images', 'Image created with Be More Swan AI.',
+                    'Required for realistic or altered AI images (Art. 50 — “deepfake” labelling).')}
+                ${example('🎬', 'AI-generated video', 'Video generated with Be More Swan AI.',
+                    'Required for AI-generated or AI-manipulated video.')}
+                ${example('✍️', 'AI-generated text / captions', 'Written with the help of Be More Swan AI.',
+                    'Required only for posts on matters of public interest (news, politics, health) where no human took editorial responsibility — routine marketing copy is generally exempt.')}
+            </div>`;
+    } else {
+        if (desc) desc.textContent = "The notice shown to people interacting with this assistant, confirming they're dealing with an AI system, as required by the EU AI Act's transparency rules (Art. 50). This must be set before the assistant can be activated in the Kick Off Meeting.";
+        if (field) field.placeholder = "e.g. You're chatting with an AI assistant working on behalf of [your business]. Responses are AI-generated.";
+        box.innerHTML = `
+            <p class="text-xs font-semibold text-gray-500 mb-2">Example — adapt or write your own:</p>
+            <div class="space-y-2">
+                ${example('💬', 'AI interaction notice', "You're chatting with an AI assistant working on behalf of [your business]. Responses are AI-generated.",
+                    'Shown to people the moment they interact with the assistant (Art. 50 — AI-interaction transparency).')}
+            </div>`;
+    }
 }
 
 function _detailCollect(currentData) {
@@ -940,6 +996,25 @@ async function _fetchAndRenderAssistantRules(assistantId) {
     if (other.length) {
         editor.appendChild(_buildRuleCategoryCard('', 'Other rules', '', other, true));
     }
+
+    // "Copy from another assistant" only makes sense with 2+ assistants — hide it otherwise.
+    _toggleCopyRulesButton();
+}
+
+// Show the copy-rules button only when the user has another assistant to copy from.
+async function _toggleCopyRulesButton() {
+    const btn = document.getElementById('btn-copy-rules');
+    if (!btn) return;
+    btn.classList.add('hidden'); // default hidden until we confirm another assistant exists
+    try {
+        const res = await fetch('/.netlify/functions/get-assistants');
+        if (!res.ok) return;
+        const data = await res.json();
+        const others = (data.assistants || []).filter(a =>
+            a && a.id && parseInt(a.id) !== _rulesAssistantId &&
+            a.lifecycleStatus !== 'archived' && a.status !== 'cancelled');
+        if (others.length) btn.classList.remove('hidden');
+    } catch { /* leave hidden on error — copying needs a successful list anyway */ }
 }
 
 function _buildRuleCategoryCard(catId, title, placeholder, rules, readOnlyAdd) {

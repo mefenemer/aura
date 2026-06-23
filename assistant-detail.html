@@ -377,16 +377,18 @@
       </div>
     </div>
 
-    <!-- Per-assistant AI disclosure (EU AI Act Art. 52) -->
+    <!-- Per-assistant AI disclosure (EU AI Act transparency rules — Art. 50) -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="mb-4">
         <h3 class="text-lg font-bold text-gray-900">AI Disclosure</h3>
-        <p class="text-sm text-gray-500 mt-1">The notice shown to people interacting with this assistant, confirming they're dealing with an AI system (required by EU AI Act Art. 52). This must be set before the assistant can be activated in the Kick Off Meeting.</p>
+        <p id="disclosure-desc" class="text-sm text-gray-500 mt-1">How this assistant discloses that its output is AI-generated, as required by the EU AI Act's transparency rules. This must be set before the assistant can be activated in the Kick Off Meeting.</p>
       </div>
+      <!-- Role-aware examples — populated by _renderDisclosureHelp() once the assistant loads -->
+      <div id="disclosure-examples" class="mb-4"></div>
       <textarea id="edit_ai_disclosure" rows="3" maxlength="500"
         class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-y"
-        placeholder="e.g. You're chatting with an AI assistant working on behalf of [your business]. Responses are AI-generated."></textarea>
-      <p class="text-xs text-gray-400 mt-1">Saved automatically. Once saved, the “AI disclosure acknowledged” item in the Kick Off checklist is ticked. It can't be cleared while the assistant is active.</p>
+        placeholder="e.g. Some content on this account is created with the help of Be More Swan AI."></textarea>
+      <p class="text-xs text-gray-400 mt-1">Write your own wording, or adapt an example above. Saved automatically. Once saved, the “AI disclosure acknowledged” item in the Kick Off checklist is ticked. It can't be cleared while the assistant is active.</p>
     </div>
 
     <!-- Autonomous Content Fallback (US5) -->
