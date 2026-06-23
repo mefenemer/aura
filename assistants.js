@@ -602,6 +602,9 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
 
     // ── Per-assistant Assistant Rules (content_rules → this assistant's brief) ──
     await _fetchAndRenderAssistantRules(assistantId);
+
+    // ── SMART Goals (Feature 1) ───────────────────────────────────
+    await _fetchAndRenderGoals(assistantId);
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -1210,6 +1213,168 @@ window._confirmCopyRules = async function () {
     } finally {
         if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
     }
+};
+
+// ══════════════════════════════════════════════════════════════════
+// SMART Goals (Feature 1) — per-assistant goal builder + list
+// ══════════════════════════════════════════════════════════════════
+const GOALS_API = '/.netlify/functions/manage-goals';
+let _goalsAssistantId = null;
+let _goalMetrics = [];   // available metric catalog entries for this workspace (AC1.1.3)
+
+const _GOAL_STATUS_META = {
+    pending:            { label: 'Pending',        dot: 'bg-gray-300',    text: 'text-gray-500'   },
+    on_track:           { label: 'On Track',       dot: 'bg-emerald-500', text: 'text-emerald-600' },
+    at_risk:            { label: 'At Risk',        dot: 'bg-amber-500',   text: 'text-amber-600'  },
+    off_track:          { label: 'Off Track',      dot: 'bg-red-500',     text: 'text-red-600'    },
+    data_disconnected:  { label: 'Data Disconnected', dot: 'bg-gray-400', text: 'text-gray-500'   },
+};
+
+function _goalMetricLabel(key) {
+    const m = _goalMetrics.find(x => x.key === key);
+    return m ? { label: m.label, unit: m.unit } : { label: key, unit: '' };
+}
+
+async function _fetchAndRenderGoals(assistantId) {
+    _goalsAssistantId = parseInt(assistantId);
+    const list = document.getElementById('goals-list');
+    if (!list) return;
+
+    let goals = [];
+    try {
+        const res = await fetch(`${GOALS_API}?assistantId=${_goalsAssistantId}`);
+        if (res.ok) {
+            const data = await res.json();
+            goals = data.goals || [];
+            _goalMetrics = data.availableMetrics || [];
+        }
+    } catch (e) {
+        console.warn('Could not load goals:', e);
+    }
+
+    _populateGoalMetricDropdown();
+
+    if (!goals.length) {
+        list.innerHTML = `<div class="py-8 text-center text-sm text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+            No goals yet. Click <span class="font-bold text-emerald-600">Add New Goal</span> to set your first target.</div>`;
+        return;
+    }
+    list.innerHTML = goals.map(_buildGoalCard).join('');
+}
+
+// AC1.1.3 — the dropdown only offers metrics the workspace can actually measure.
+function _populateGoalMetricDropdown() {
+    const sel = document.getElementById('goal-metric');
+    const help = document.getElementById('goal-metric-help');
+    if (!sel) return;
+    if (!_goalMetrics.length) {
+        sel.innerHTML = '<option value="">No measurable metrics — connect an app first</option>';
+        sel.disabled = true;
+        if (help) help.innerHTML = 'Connect a social or data app on the <span class="font-semibold">Connections</span> tab to unlock follower and engagement metrics.';
+        return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = '<option value="">Select a metric…</option>' +
+        _goalMetrics.map(m => `<option value="${m.key}" data-unit="${_escapeHtml(m.unit)}">${_escapeHtml(m.label)}</option>`).join('');
+    if (help) help.textContent = '';
+    sel.onchange = () => {
+        const m = _goalMetrics.find(x => x.key === sel.value);
+        if (help) help.textContent = m ? m.description : '';
+    };
+}
+
+function _buildGoalCard(g) {
+    const meta = _GOAL_STATUS_META[g.status] || _GOAL_STATUS_META.pending;
+    const { label, unit } = _goalMetricLabel(g.metricKey);
+    const target = Number(g.targetValue);
+    const latest = g.latestValue != null ? Number(g.latestValue) : null;
+    const pct = (latest != null && target > 0) ? Math.max(0, Math.min(100, Math.round((latest / target) * 100))) : 0;
+    const due = g.targetDate ? new Date(g.targetDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    const fmt = (n) => n == null ? '—' : Number(n).toLocaleString();
+
+    return `<div class="border border-gray-200 rounded-xl p-4">
+        <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h4 class="text-sm font-bold text-gray-900">${_escapeHtml(label)}</h4>
+                    ${g.isPrimary ? '<span class="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">Primary</span>' : ''}
+                </div>
+                <p class="text-xs text-gray-500 mt-0.5">Target: <span class="font-semibold text-gray-700">${fmt(target)} ${_escapeHtml(unit)}</span> by ${due}</p>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+                <span class="inline-flex items-center gap-1.5 text-xs font-bold ${meta.text}">
+                    <span class="w-2 h-2 rounded-full ${meta.dot}"></span>${meta.label}
+                </span>
+                <button type="button" onclick="window._deleteGoal(${g.id})" aria-label="Delete goal" class="text-gray-300 hover:text-red-500 transition cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="mt-3">
+            <div class="flex items-center justify-between text-[11px] text-gray-400 mb-1">
+                <span>${latest != null ? fmt(latest) + ' ' + _escapeHtml(unit) : 'Awaiting first data sync'}</span>
+                <span>${latest != null ? pct + '%' : ''}</span>
+            </div>
+            <div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full ${meta.dot} transition-all" style="width:${pct}%"></div>
+            </div>
+        </div>
+    </div>`;
+}
+
+window._toggleGoalBuilder = function (show) {
+    const builder = document.getElementById('goal-builder');
+    const err = document.getElementById('goal-builder-error');
+    if (!builder) return;
+    if (err) err.classList.add('hidden');
+    if (show) {
+        builder.classList.remove('hidden');
+        const t = document.getElementById('goal-target'); if (t) t.value = '';
+        const d = document.getElementById('goal-date'); if (d) d.value = '';
+        const m = document.getElementById('goal-metric'); if (m) m.value = '';
+        const p = document.getElementById('goal-primary'); if (p) p.checked = false;
+        const help = document.getElementById('goal-metric-help'); if (help) help.textContent = '';
+    } else {
+        builder.classList.add('hidden');
+    }
+};
+
+window._saveGoal = async function () {
+    const err = document.getElementById('goal-builder-error');
+    const btn = document.getElementById('btn-save-goal');
+    const metricKey = document.getElementById('goal-metric')?.value;
+    const targetValue = document.getElementById('goal-target')?.value;
+    const targetDate = document.getElementById('goal-date')?.value;
+    const isPrimary = document.getElementById('goal-primary')?.checked || false;
+
+    const fail = (msg) => { if (err) { err.textContent = msg; err.classList.remove('hidden'); } };
+    if (err) err.classList.add('hidden');
+    if (!metricKey) return fail('Please choose a target metric.');
+    if (!targetValue || Number(targetValue) <= 0) return fail('Enter a positive target value.');
+    if (!targetDate || new Date(targetDate).getTime() <= Date.now()) return fail('Choose a target date in the future.');
+
+    if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
+    try {
+        const res = await fetch(GOALS_API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assistantId: _goalsAssistantId, metricKey, targetValue: Number(targetValue), targetDate, isPrimary }),
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); return fail(e.error || 'Could not save goal.'); }
+        window._toggleGoalBuilder(false);
+        await _fetchAndRenderGoals(_goalsAssistantId);
+    } catch {
+        fail('Could not save goal. Please try again.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
+    }
+};
+
+window._deleteGoal = async function (id) {
+    if (!confirm('Delete this goal? This cannot be undone.')) return;
+    try {
+        const res = await fetch(`${GOALS_API}?id=${id}`, { method: 'DELETE' });
+        if (res.ok) await _fetchAndRenderGoals(_goalsAssistantId);
+    } catch { /* no-op */ }
 };
 
 // ── Safe Content Benchmark modal + safety feedback (moved from instructions page) ──

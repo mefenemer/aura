@@ -1711,6 +1711,45 @@ export const contentRules = pgTable("content_rules", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ── SMART Goals — Feature 1 (AI-Driven SMART Goals & Performance Optimization) ──
+// A measurable business goal tied to one assistant (US1.1). metric_key references the
+// catalog in src/config/goal-metrics.ts. Owner-path + manual org filter (no RLS) — same
+// pattern as content_rules / post_insights; see db/goals.sql.
+export const goals = pgTable("goals", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  assistantId: integer("assistant_id").notNull().references(() => aiAssistants.id, { onDelete: "cascade" }),
+  metricKey: text("metric_key").notNull(),                 // → goal-metrics.ts catalog (e.g. 'instagram_followers')
+  targetValue: numeric("target_value").notNull(),          // AC1.1.2 — desired value
+  startValue: numeric("start_value"),                      // baseline captured at creation, for run-rate math
+  targetDate: timestamp("target_date").notNull(),          // AC1.1.2 — deadline
+  // AC1.2.3 status enum (+ pending before first telemetry, data_disconnected on stale data AC4.3.2)
+  status: text("status").notNull().default("pending"),     // pending|on_track|at_risk|off_track|data_disconnected
+  statusUpdatedAt: timestamp("status_updated_at"),
+  latestValue: numeric("latest_value"),                    // most recent telemetry value (denormalised for fast UI)
+  isPrimary: boolean("is_primary").notNull().default(false),// AC2.1.2 — drives the detail-page progress bar
+  isActive: boolean("is_active").notNull().default(true),  // soft archive
+  createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("goals_org_idx").on(t.organisationId),
+  index("goals_assistant_idx").on(t.assistantId),
+]);
+
+// Time-series telemetry for goal progress (AC4.2.1). One row per data pull; the Phase-2
+// poller writes here, get-goal-telemetry reads it for the Review Progress chart (AC4.2.3).
+export const goalTelemetry = pgTable("goal_telemetry", {
+  id: serial().primaryKey(),
+  goalId: integer("goal_id").notNull().references(() => goals.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  metricValue: numeric("metric_value").notNull(),
+  source: text("source").notNull().default("poll"),        // poll | webhook | rollup | internal
+  recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+}, (t) => [
+  index("goal_telemetry_goal_idx").on(t.goalId, t.recordedAt),
+]);
+
 // ── Stripe Disputes — US-ADM-2.2.1 ──────────────────────────────────────────
 export const stripeDisputes = pgTable("stripe_disputes", {
   id: serial().primaryKey(),
