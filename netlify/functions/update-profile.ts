@@ -60,6 +60,9 @@ export const handler = async (event: HandlerEvent) => {
                     timezone: profile?.timezone || 'Europe/London',
                     hourlyRateGbp: prefs.hourlyRateGbp ?? '',
                     upgradeExperimentVariant: prefs.upgradeExperimentVariant ?? 'break_even',
+                    // Sound preferences (default-on when unset).
+                    soundOnLogin: prefs.soundOnLogin !== false,
+                    soundOnMilestone: prefs.soundOnMilestone !== false,
                     // US-UX-1.1 SC1: role fields for header badges and settings display
                     platformRole: user?.role || 'user',
                     organisationRole: orgMembership?.role || 'member',
@@ -150,6 +153,18 @@ export const handler = async (event: HandlerEvent) => {
 
                 await db.update(userProfiles)
                     .set({ preferences: { ...currentPrefs, hourlyRateGbp: rateVal }, updatedAt: new Date() })
+                    .where(eq(userProfiles.userId, userId));
+
+            } else if (fieldKey === 'soundOnLogin' || fieldKey === 'soundOnMilestone') {
+                // Sound preferences — stored in userProfiles.preferences (boolean, default-on).
+                targetTable = 'user_profiles';
+                const currentPrefs = (currentProfile?.preferences as Record<string, any>) || {};
+                const boolVal = value === true || value === 'true';
+                oldState = { [fieldKey]: currentPrefs[fieldKey] !== false };
+                newState = { [fieldKey]: boolVal };
+
+                await db.update(userProfiles)
+                    .set({ preferences: { ...currentPrefs, [fieldKey]: boolVal }, updatedAt: new Date() })
                     .where(eq(userProfiles.userId, userId));
 
             } else {

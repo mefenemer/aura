@@ -659,6 +659,19 @@ function formatCurrency(amount, currency) {
   // is rejected we retry on the first user gesture, then stop listening.
   (function playWelcomeSound() {
     const start = () => {
+      // Respect the user's "Aurora sound on login" preference (My Account → Sounds).
+      // Read the localStorage cache first for an instant decision; the settings page
+      // keeps it in sync with the server. Defaults to ON when unset.
+      if (localStorage.getItem('bms_soundOnLogin') === '0') return;
+      // Confirm against the server (covers a new device with no cache yet). Non-blocking:
+      // if the fetch fails we fall through to the default-on behaviour below.
+      fetch('/.netlify/functions/update-profile')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) { try {
+          localStorage.setItem('bms_soundOnLogin', d.soundOnLogin === false ? '0' : '1');
+          localStorage.setItem('bms_soundOnMilestone', d.soundOnMilestone === false ? '0' : '1');
+        } catch {} } })
+        .catch(() => {});
       const audio = new Audio('/Aurora.mp3');
       audio.volume = 0.6;
       let done = false;
@@ -2250,6 +2263,64 @@ function formatCurrency(amount, currency) {
       } catch { /* fail silently */ }
     })();
 
+    // --- Sounds toggles (Aurora on login / on milestone) ---
+    // Persist to userProfiles.preferences via update-profile; mirror to localStorage
+    // so the early login chime + milestone celebration can read the pref instantly.
+    (async function initSoundToggles() {
+      const feedback = document.getElementById('sound-save-feedback');
+      const btns = [
+        document.getElementById('toggle-sound-login'),
+        document.getElementById('toggle-sound-milestone'),
+      ].filter(Boolean);
+      if (!btns.length) return;
+
+      const applyState = (btn, on) => {
+        btn.setAttribute('aria-checked', String(on));
+        btn.classList.toggle('bg-emerald-500', on);
+        btn.classList.toggle('bg-gray-300', !on);
+        const knob = btn.querySelector('span');
+        if (knob) { knob.classList.toggle('translate-x-5', on); knob.classList.toggle('translate-x-0', !on); }
+      };
+
+      // Hydrate from the profile (default-on). update-profile GET returns both flags.
+      try {
+        const r = await fetch('/.netlify/functions/update-profile');
+        if (r.ok) {
+          const d = await r.json();
+          btns.forEach(btn => {
+            const key = btn.getAttribute('data-sound-key');
+            const on = d[key] !== false;
+            applyState(btn, on);
+            try { localStorage.setItem('bms_' + key, on ? '1' : '0'); } catch {}
+          });
+        }
+      } catch { /* keep default-on markup */ }
+
+      btns.forEach(btn => {
+        const key = btn.getAttribute('data-sound-key');
+        btn.addEventListener('click', async () => {
+          const current = btn.getAttribute('aria-checked') === 'true';
+          const next = !current;
+          applyState(btn, next); // optimistic
+          try {
+            const res = await fetch('/.netlify/functions/update-profile', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fieldKey: key, value: next }),
+            });
+            if (res.ok) {
+              try { localStorage.setItem('bms_' + key, next ? '1' : '0'); } catch {}
+              if (feedback) { feedback.classList.remove('hidden'); setTimeout(() => feedback.classList.add('hidden'), 2000); }
+            } else {
+              applyState(btn, current); // revert
+            }
+          } catch {
+            applyState(btn, current); // revert
+          }
+        });
+      });
+    })();
+
     // --- STEP 2: PROFILE AUTO-SAVE INTERACTION RULES ---
     fields.forEach(field => {
       if (!field) return;
@@ -2699,8 +2770,10 @@ function formatCurrency(amount, currency) {
     // onboarding wizard (Connections unlocks once an assistant is selected).
     // `key` maps to get-onboarding-progress so each step ticks once actually done.
     const SETUP_STEPS = [
-      { view: 'assets',  key: 'business_profile', title: 'Complete your business profile', desc: 'Tell us about your business and add your social handles so your assistant understands your brand.' },
-      { view: 'catalog', key: 'first_assistant',  title: 'Choose & set up your assistant', desc: 'Pick the role that matches the work you want automated — you’ll connect your accounts during setup.' },
+      { view: 'assets',     key: 'business_profile',  title: 'Complete your business profile', desc: 'Tell us about your business and add your social handles so your assistant understands your brand.' },
+      { view: 'catalog',    key: 'first_assistant',   title: 'Choose & set up your assistant', desc: 'Pick the role that matches the work you want automated — you’ll connect your accounts during setup.' },
+      { view: 'assistants', key: 'onboard_assistant', title: 'Onboard your assistant',          desc: 'Complete the onboarding form so your assistant learns your brand, goals and guardrails.' },
+      { view: 'assistants', key: 'kick_off',          title: 'Get your assistant working with a Kick Off Meeting', desc: 'Review the readiness checklist in the Board Room and confirm to put your assistant to work.' },
     ];
 
     // Pull live completion state + first name in parallel (both non-fatal).
@@ -2722,9 +2795,11 @@ function formatCurrency(amount, currency) {
       <p class="text-gray-500 mb-6">${allDone ? "You're all set — your assistant is ready to work. You can revisit any step below." : 'A couple of quick steps to get your assistant working for you.'}</p>
       <ul class="space-y-2.5 mb-8">
         ${SETUP_STEPS.map((s, i) => {
-          // Once onboarding is fully complete the API returns no per-step flags, so
-          // fall back to allDone to keep every step ticked on later visits.
-          const done = allDone || !!doneByKey[s.key];
+          // Per-step live flags take precedence (the API now always returns them, even
+          // after core completion). Fall back to allDone only for a key the API didn't
+          // return — keeps the trailing onboard/kick-off steps accurate (they aren't part
+          // of core completion, so they must not be blanket-ticked when core is done).
+          const done = (s.key in doneByKey) ? !!doneByKey[s.key] : allDone;
           return `
           <li>
             <button type="button" data-view="${s.view}"
@@ -2888,7 +2963,11 @@ function formatCurrency(amount, currency) {
     window.fireConfetti?.();
     // Best-effort sound — browsers block autoplay without a prior user gesture; the
     // modal + confetti still show. Plays once the user has interacted with the page.
-    try { const a = document.getElementById('milestone-audio'); if (a) { a.currentTime = 0; a.play().catch(() => {}); } } catch {}
+    // Gated by the "sound on milestone" preference (My Account → Sounds); the modal +
+    // confetti always show, only the audio is suppressed. Defaults to ON when unset.
+    if (localStorage.getItem('bms_soundOnMilestone') !== '0') {
+      try { const a = document.getElementById('milestone-audio'); if (a) { a.currentTime = 0; a.play().catch(() => {}); } } catch {}
+    }
 
     let timer;
     const close = () => { modal.classList.add('hidden'); clearTimeout(timer); };

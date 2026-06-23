@@ -130,6 +130,39 @@
             </div>
         </div>
 
+        <!-- ── Sounds ───────────────────────────────────────────── -->
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
+                <h3 class="text-lg font-bold text-gray-900">Sounds</h3>
+                <p class="text-sm text-gray-500">Control the Be More Swan Aurora sound. These settings apply on this and future logins.</p>
+            </div>
+            <div class="p-6 space-y-5">
+                <div class="flex items-start justify-between gap-6">
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-gray-900 mb-1">Play the Aurora sound on login</p>
+                        <p class="text-sm text-gray-500">Plays the welcome chime each time your workspace loads.</p>
+                    </div>
+                    <button type="button" id="toggle-sound-login" data-sound-key="soundOnLogin"
+                        class="bg-gray-300 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                        role="switch" aria-checked="true">
+                        <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                    </button>
+                </div>
+                <div class="flex items-start justify-between gap-6 border-t border-gray-100 pt-5">
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-gray-900 mb-1">Play a sound when a milestone is completed</p>
+                        <p class="text-sm text-gray-500">Plays a celebratory chime alongside the milestone animation.</p>
+                    </div>
+                    <button type="button" id="toggle-sound-milestone" data-sound-key="soundOnMilestone"
+                        class="bg-gray-300 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                        role="switch" aria-checked="true">
+                        <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                    </button>
+                </div>
+                <p id="sound-save-feedback" class="hidden mt-1 text-xs text-emerald-600 font-semibold">✓ Saved</p>
+            </div>
+        </div>
+
         <!-- ── US-AUD-5.3.1: Agency Attribution ─────────────────── -->
         <div id="agency-attribution-section" class="hidden bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">

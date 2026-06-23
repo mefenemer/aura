@@ -453,6 +453,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         _renderOnboardingSummary(currentData);
         _hydrateAutonomousToggle(currentData);
         attachAutoSave();
+        _renderKickOff(assistantId);
     } catch (e) {
         console.error('Failed to load assistant detail:', e);
     }
@@ -512,6 +513,103 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── Per-assistant Assistant Rules (content_rules → this assistant's brief) ──
     await _fetchAndRenderAssistantRules(assistantId);
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Kick Off Meeting — readiness checklist + activation gate. Fetches
+// get-assistant-readiness and renders the checklist; the Kick Off button is
+// enabled only when all required items pass and the assistant isn't already
+// working. Clicking it activates the assistant via manage-assistant (resume).
+// ─────────────────────────────────────────────────────────────────
+async function _renderKickOff(assistantId) {
+    const card      = document.getElementById('kickoff-card');
+    const listEl    = document.getElementById('kickoff-checklist');
+    const btn       = document.getElementById('btn-kick-off');
+    const hintEl    = document.getElementById('kickoff-hint');
+    const subEl     = document.getElementById('kickoff-subtitle');
+    if (!card || !listEl || !btn) return;
+
+    card.classList.remove('hidden');
+
+    let data;
+    try {
+        const res = await fetch(`/.netlify/functions/get-assistant-readiness?id=${assistantId}`);
+        if (!res.ok) { card.classList.add('hidden'); return; }
+        data = await res.json();
+    } catch { card.classList.add('hidden'); return; }
+
+    const items = data.items || [];
+    const tick = `<svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`;
+    const cross = `<svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>`;
+
+    listEl.innerHTML = items.map(it => `
+        <li class="flex items-start gap-3">
+            ${it.done ? tick : cross}
+            <span class="min-w-0">
+                <span class="block text-sm font-semibold ${it.done ? 'text-gray-800' : 'text-gray-500'}">${it.label}${it.required ? '' : ' <span class="text-xs font-normal text-gray-400">(recommended)</span>'}</span>
+                ${it.done ? '' : `<span class="block text-xs text-gray-400 mt-0.5">${it.hint || ''}</span>`}
+            </span>
+        </li>`).join('') || '<li class="text-sm text-gray-400">No checklist items.</li>';
+
+    // Already working → confirmation state, no action needed.
+    if (data.working) {
+        const since = data.workingSince ? new Date(data.workingSince).toLocaleDateString('en-GB') : null;
+        subEl.textContent = since ? `Your assistant is working (since ${since}).` : 'Your assistant is working.';
+        btn.classList.add('hidden');
+        hintEl.innerHTML = '<span class="inline-flex items-center gap-1 text-emerald-700 font-semibold">✓ Active</span>';
+        return;
+    }
+
+    btn.classList.remove('hidden');
+    const outstanding = items.filter(i => i.required && !i.done);
+    if (data.allRequiredDone) {
+        subEl.textContent = 'Everything is ready — kick off to put your assistant to work.';
+        btn.disabled = false;
+        hintEl.textContent = '';
+    } else {
+        subEl.textContent = 'A few things to confirm before your assistant can start working.';
+        btn.disabled = true;
+        hintEl.textContent = outstanding.length
+            ? `Outstanding: ${outstanding.map(i => i.label).join(', ')}`
+            : '';
+    }
+
+    // Wire the activation once (avoid stacking listeners across re-renders).
+    btn.onclick = async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        const original = btn.textContent;
+        btn.textContent = 'Starting…';
+        try {
+            const res = await fetch(`/.netlify/functions/manage-assistant?id=${assistantId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'resume' }),
+            });
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}));
+                alert(d.error || 'Could not start the assistant. Please check the checklist and try again.');
+                btn.disabled = false;
+                btn.textContent = original;
+                return;
+            }
+            // Reflect the new working state: refresh the kick-off card + the status pill.
+            window.showToast?.('Your assistant is now working! 🚀', { icon: '🚀' });
+            window.fireConfetti?.();
+            await _renderKickOff(assistantId);
+            const statusEl = document.getElementById('detail-status');
+            if (statusEl) {
+                statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
+                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Active';
+            }
+            const toggleBtn = document.getElementById('btn-toggle-status');
+            if (toggleBtn) toggleBtn.textContent = 'Pause Assistant';
+        } catch {
+            alert('Network error — please try again.');
+            btn.disabled = false;
+            btn.textContent = original;
+        }
+    };
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Performance Metrics — fetches get-assistant-metrics and populates the

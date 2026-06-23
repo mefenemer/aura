@@ -7,7 +7,7 @@
 import { Handler } from '@netlify/functions';
 import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { organisations, systemConnections, aiAssistants, notifications } from '../../db/schema';
+import { organisations, systemConnections, aiAssistants, notifications, onboardingDrafts } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 
 const json = (statusCode: number, body: unknown) => ({
@@ -46,38 +46,55 @@ export const handler: Handler = async (event) => {
         targetAudience:      organisations.targetAudience,
     }).from(organisations).where(eq(organisations.id, orgId)).limit(1);
 
-    // Already finished — widget must never render again. The completion side-effects below
-    // only run on the false→true transition, so a user whose org was completed by another
-    // member (the flip deletes nudges only for the flipping user) — or whose cleanup once
-    // failed — can be left with stale "Complete your setup" action items forever. Clear any
-    // lingering ones for THIS user every time, idempotently; if we actually cleared some,
-    // signal justCompleted so the UI fires the celebration once.
-    if (org?.onboardingCompleted) {
-        const cleared = await clearOnboardingNudges(db, ctx.userId);
-        return json(200, { onboardingCompleted: true, allDone: true, justCompleted: cleared > 0, steps: [] });
-    }
-
     // Step 1 ticks once the core business-profile fields are filled in (Business
-    // Information page). The other two auto-check once a row exists.
+    // Information page). The other steps auto-check once their backing rows exist.
     const businessProfile = Boolean(org?.industry && org?.businessDescription && org?.targetAudience);
 
     const exists = async (rows: Promise<{ id: number | string }[]>) => (await rows).length > 0;
-    const [connection, firstAssistant] = await Promise.all([
+    const [connection, firstAssistant, draftInProgress, activeAssistant] = await Promise.all([
         exists(db.select({ id: systemConnections.id }).from(systemConnections).where(eq(systemConnections.organisationId, orgId)).limit(1)),
         exists(db.select({ id: aiAssistants.id }).from(aiAssistants).where(eq(aiAssistants.organisationId, orgId)).limit(1)),
+        // An onboarding draft only exists while the wizard is still in progress — it is
+        // removed once the assistant is provisioned, so "no draft" = the form is finished.
+        exists(db.select({ id: onboardingDrafts.id }).from(onboardingDrafts).where(eq(onboardingDrafts.organisationId, orgId)).limit(1)),
+        // Kicked off = an assistant has been activated and is working.
+        exists(db.select({ id: aiAssistants.id }).from(aiAssistants).where(and(
+            eq(aiAssistants.organisationId, orgId),
+            eq(aiAssistants.provisioningStatus, 'complete'),
+            eq(aiAssistants.isActive, true),
+        )).limit(1)),
     ]);
 
-    // AC1.1.1: the three core steps. Labels mirror the welcome email
-    // (verify.ts) so the in-app checklist reads identically to what users receive.
+    // The onboarding form is complete once an assistant exists and no draft is still open.
+    const onboardAssistant = firstAssistant && !draftInProgress;
+
+    // AC1.1.1: the core steps. Labels mirror the welcome email (verify.ts) so the in-app
+    // checklist reads identically to what users receive. The two trailing steps
+    // (onboard_assistant, kick_off) are display-only — they extend the journey to a working
+    // assistant but do NOT gate the onboarding_completed flip (which stays the original 3).
     const steps = [
-        { key: 'business_profile', label: 'Complete your business profile', done: businessProfile },
-        { key: 'first_assistant',  label: 'Choose your assistant',          done: firstAssistant },
-        { key: 'connection',       label: 'Connect your tools',             done: connection },
+        { key: 'business_profile',  label: 'Complete your business profile', done: businessProfile },
+        { key: 'first_assistant',   label: 'Choose your assistant',          done: firstAssistant },
+        { key: 'connection',        label: 'Connect your tools',             done: connection },
+        { key: 'onboard_assistant', label: 'Onboard your assistant',         done: onboardAssistant },
+        { key: 'kick_off',          label: 'Kick Off Meeting',               done: activeAssistant },
     ];
-    const allDone = steps.every(s => s.done);
+
+    // Core completion (unchanged): business profile + assistant + connection. Drives the
+    // permanent onboarding_completed flip and its one-time celebration side-effects.
+    const coreAllDone = businessProfile && firstAssistant && connection;
+
+    // Already finished — widget must never render again. Clear any lingering onboarding
+    // nudges for THIS user every time (idempotent); if we actually cleared some, signal
+    // justCompleted so the UI fires the celebration once. Steps are still returned (with
+    // live flags) so the extended checklist can reflect onboarding/kick-off state.
+    if (org?.onboardingCompleted) {
+        const cleared = await clearOnboardingNudges(db, ctx.userId);
+        return json(200, { onboardingCompleted: true, allDone: true, justCompleted: cleared > 0, steps });
+    }
 
     let justCompleted = false;
-    if (allDone) {
+    if (coreAllDone) {
         // Atomic flip: only the request that actually transitions the flag (false→true)
         // runs the one-time side effects below, so concurrent calls can't double-fire.
         const flipped = await db.update(organisations)
@@ -101,5 +118,5 @@ export const handler: Handler = async (event) => {
         }
     }
 
-    return json(200, { onboardingCompleted: allDone, allDone, justCompleted, steps });
+    return json(200, { onboardingCompleted: coreAllDone, allDone: coreAllDone, justCompleted, steps });
 };
