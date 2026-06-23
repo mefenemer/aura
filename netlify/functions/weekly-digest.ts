@@ -13,6 +13,7 @@ import { eq, and, gte, count, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, userProfiles, plans, masterPlans, aiAssistants, taskRuns, scheduledPosts } from '../../db/schema';
 import { sendEmail } from '../../src/utils/email';
+import { isEmailEnabled } from '../../src/utils/notification-prefs';
 
 const BASE_URL = process.env.BASE_URL || '';
 
@@ -44,9 +45,11 @@ async function runWeeklyDigest() {
     let skipped = 0;
 
     for (const row of eligibleRows) {
-        // SC4: opt-out check
+        // SC4: opt-out check. Honour the new "Assistant Tasks & Summaries" email category
+        // (account settings → Notification Preferences) and the legacy weekly_digest key, so
+        // a user who opted out under either mechanism stays opted out.
         const prefs = (row.emailPrefs || {}) as Record<string, boolean>;
-        if (prefs.weekly_digest === false) { skipped++; continue; }
+        if (prefs.weekly_digest === false || !isEmailEnabled(prefs, 'assistant_task')) { skipped++; continue; }
 
         // SC1: must have at least one provisioned assistant
         const activeAssistants = await db

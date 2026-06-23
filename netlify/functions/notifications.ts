@@ -3,8 +3,9 @@ import { HandlerEvent } from '@netlify/functions';
 import { eq, and, desc, isNull } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
-import { users, notifications } from '../../db/schema';
+import { users, notifications, userProfiles } from '../../db/schema';
 import { kindOf, categoryOf, priorityOf, isDismissibleType, resolvesOnClick } from '../../src/utils/notification-actions';
+import { isInAppEnabled, resolveInAppPrefs } from '../../src/utils/notification-prefs';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -61,6 +62,23 @@ export const handler = async (event: HandlerEvent) => {
                 }).from(notifications).where(eq(notifications.userId, userId))
                   .orderBy(desc(notifications.createdAt)) as typeof allNotes;
             }
+
+            // In-app delivery preferences: hide categories the user has switched off in the
+            // bell (account settings → Notification Preferences). Locked categories
+            // (account/security, billing) always pass via isInAppEnabled. Single chokepoint —
+            // applies regardless of which function created the row. Defensive: if the
+            // in_app_preferences column isn't migrated yet, treat as "all defaults on".
+            let inAppPrefs: Record<string, boolean>;
+            try {
+                const [prof] = await db.select({
+                    inApp: userProfiles.inAppPreferences,
+                    notifyAvailability: userProfiles.notifyAvailability,
+                }).from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1);
+                inAppPrefs = resolveInAppPrefs((prof?.inApp as Record<string, boolean>) ?? null, prof?.notifyAvailability ?? null);
+            } catch {
+                inAppPrefs = resolveInAppPrefs(null, null);
+            }
+            allNotes = allNotes.filter(n => isInAppEnabled(inAppPrefs, n.type));
 
             // Counts for the sidebar badge. actionCount = OPEN (unresolved) action items —
             // the meaningful "things you must deal with" number. Unresolved (resolvedAt IS NULL),

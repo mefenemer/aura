@@ -301,6 +301,12 @@ export const userProfiles = pgTable("user_profiles", {
   // account_cancellation) are always true in the application layer
   // and cannot be opted out by the user.
   emailPreferences: jsonb("email_preferences"),
+  // In-app (notification bell) delivery preferences — one key per preference
+  // category (see src/utils/notification-prefs.ts). Shape: Record<string, boolean>.
+  // Missing key = category default. Locked categories (account_security,
+  // payment_confirmation) are forced true in the application layer regardless of
+  // stored value. Supersedes the legacy notify_wins/billing/availability columns.
+  inAppPreferences: jsonb("in_app_preferences"),
   language: text("language").default("en"),
   preferences: jsonb("preferences"),
   legalConsents: jsonb("legal_consents"),

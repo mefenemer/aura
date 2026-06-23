@@ -11,6 +11,7 @@ import { and, lt, or, isNull, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, onboardingDrafts, aiAssistants, plans } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
+import { isEmailAllowedForUser } from '../../src/utils/notification-email-gate';
 
 // ── Onboarding path → HTML page map ──────────────────────────────────────────
 const ONBOARDING_PAGE: Record<string, string> = {
@@ -179,6 +180,9 @@ export default async (req: Request): Promise<Response> => {
                 .limit(1);
 
             if (!user || user.status !== 'active') { skipped++; continue; }
+
+            // Respect the user's Onboarding email preference (account settings).
+            if (!(await isEmailAllowedForUser(user.id, 'onboarding_incomplete'))) { skipped++; continue; }
 
             // ── Generate a magic link ─────────────────────────────────────────
             const plainToken  = crypto.randomBytes(32).toString('hex');

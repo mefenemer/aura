@@ -2289,76 +2289,89 @@ function formatCurrency(amount, currency) {
       });
     });
 
-    // ── Email Notification Preferences (Scenario 1-3) ──────────────
-    async function initEmailPreferences() {
-      const loadingEl = document.getElementById('email-prefs-loading');
-      const bodyEl    = document.getElementById('email-prefs-body');
+    // ── Unified Notification Preferences matrix (In App | Email | SMS | WhatsApp) ──
+    async function initNotificationPreferences() {
+      const loadingEl = document.getElementById('notif-prefs-loading');
+      const wrapEl    = document.getElementById('notif-prefs-wrap');
+      const bodyEl    = document.getElementById('notif-prefs-body');
       if (!bodyEl) return; // Not on settings view
+
+      const flashSaved = () => {
+        const banner = document.getElementById('notif-prefs-save-banner');
+        if (banner) { banner.classList.remove('hidden'); setTimeout(() => banner.classList.add('hidden'), 2500); }
+      };
+
+      // A toggleable switch for an available channel.
+      const switchCell = (catKey, channel, on, locked) => `
+        <td class="px-3 py-4 text-center">
+          <button type="button" data-cat-key="${catKey}" data-channel="${channel}"
+            ${locked ? 'disabled aria-disabled="true"' : ''}
+            title="${locked ? 'Required — always on' : ''}"
+            class="${locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${on ? 'bg-green-500' : 'bg-red-500'} relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none align-middle"
+            role="switch" aria-checked="${on ? 'true' : 'false'}">
+            <span aria-hidden="true" class="${on ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+          </button>
+        </td>`;
+
+      // A greyed, non-interactive cell for an unavailable (higher-tier) channel.
+      const lockedChannelCell = () => `
+        <td class="px-3 py-4 text-center">
+          <span title="Available on higher plans" class="inline-flex items-center justify-center h-6 w-11 rounded-full bg-gray-100 border border-gray-200 opacity-60 cursor-not-allowed align-middle">
+            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </span>
+        </td>`;
 
       try {
         const res = await fetch('/.netlify/functions/notification-preferences');
         if (!res.ok) throw new Error('Load failed');
-        const { preferences, categories } = await res.json();
+        const { categories } = await res.json();
 
-        // Build rows
         bodyEl.innerHTML = categories.map(cat => {
-          const isOn = preferences[cat.key] !== false; // default true if missing
-          const locked = cat.locked;
-          const toggleId = `email-toggle-${cat.key}`;
+          const anyLocked = cat.inApp.locked || cat.email.locked;
           return `
-            <div class="flex items-center justify-between px-6 py-4 gap-4">
-              <div class="min-w-0">
+            <tr>
+              <td class="px-6 py-4 align-middle">
                 <div class="flex items-center gap-2">
-                  <p class="text-sm font-semibold text-gray-900">${cat.label}</p>
-                  ${locked ? `<span class="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full border border-gray-200 shrink-0">Required</span>` : ''}
+                  <span class="text-sm font-semibold text-gray-900">${cat.label}</span>
+                  ${anyLocked ? `<span class="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full border border-gray-200 shrink-0">Required</span>` : ''}
                 </div>
-                <p class="text-xs text-gray-400 mt-0.5 leading-snug">${cat.description}</p>
-              </div>
-              <button type="button"
-                id="${toggleId}"
-                data-email-pref-key="${cat.key}"
-                ${locked ? 'disabled aria-disabled="true"' : ''}
-                class="${locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isOn ? 'bg-green-500' : 'bg-red-500'} relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-                role="switch"
-                aria-checked="${isOn ? 'true' : 'false'}">
-                <span aria-hidden="true" class="${isOn ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
-              </button>
-            </div>`;
+                <p class="text-xs text-gray-400 mt-0.5 leading-snug max-w-md">${cat.description}</p>
+              </td>
+              ${switchCell(cat.key, 'inApp', cat.inApp.value, cat.inApp.locked)}
+              ${switchCell(cat.key, 'email', cat.email.value, cat.email.locked)}
+              ${cat.sms.available ? switchCell(cat.key, 'sms', false, false) : lockedChannelCell()}
+              ${cat.whatsapp.available ? switchCell(cat.key, 'whatsapp', false, false) : lockedChannelCell()}
+            </tr>`;
         }).join('');
 
         if (loadingEl) loadingEl.classList.add('hidden');
-        bodyEl.classList.remove('hidden');
+        wrapEl?.classList.remove('hidden');
+        document.getElementById('notif-prefs-legend')?.classList.remove('hidden');
 
-        // Attach click handlers
-        categories.forEach(cat => {
-          if (cat.locked) return;
-          const btn = document.getElementById(`email-toggle-${cat.key}`);
-          if (!btn) return;
-          btn.addEventListener('click', async () => {
-            const current = btn.getAttribute('aria-checked') === 'true';
-            const next = !current;
-            updateToggleView(btn, next);
-            try {
-              const r = await fetch('/.netlify/functions/notification-preferences', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: cat.key, value: next }),
-              });
-              if (!r.ok) { updateToggleView(btn, current); return; }
-              // Flash save banner
-              const banner = document.getElementById('email-prefs-save-banner');
-              if (banner) {
-                banner.classList.remove('hidden');
-                setTimeout(() => banner.classList.add('hidden'), 2500);
-              }
-            } catch { updateToggleView(btn, current); }
-          });
+        // Delegated click handler for the interactive toggles.
+        bodyEl.addEventListener('click', async (e) => {
+          const btn = e.target.closest('button[data-channel]');
+          if (!btn || btn.disabled) return;
+          const key = btn.getAttribute('data-cat-key');
+          const channel = btn.getAttribute('data-channel');
+          const current = btn.getAttribute('aria-checked') === 'true';
+          const next = !current;
+          updateToggleView(btn, next); // optimistic
+          try {
+            const r = await fetch('/.netlify/functions/notification-preferences', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key, channel, value: next }),
+            });
+            if (!r.ok) { updateToggleView(btn, current); return; }
+            flashSaved();
+          } catch { updateToggleView(btn, current); }
         });
       } catch {
         if (loadingEl) loadingEl.textContent = 'Could not load preferences. Please refresh.';
       }
     }
-    initEmailPreferences();
+    initNotificationPreferences();
 
     // Helper function to animate the toggle switches smoothly to match the provided image
     function updateToggleView(el, status) {

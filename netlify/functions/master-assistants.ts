@@ -13,7 +13,7 @@
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, and, ilike, or } from 'drizzle-orm';
+import { eq, and, ilike, or, sql } from 'drizzle-orm';
 import { Resend } from 'resend';
 import { getDb } from '../../db/client';
 import { masterAssistants, waitlist, userProfiles, notifications, organisations, userOrganisations } from '../../db/schema';
@@ -81,11 +81,16 @@ async function handlePatch(event: any): Promise<any> {
 
     if (launchingNow) {
         try {
-            // Find all user profiles with notifyAvailability=true
+            // Find all user profiles opted in to New Role Availability in-app alerts. The
+            // canonical store is in_app_preferences.new_role_availability (account settings →
+            // Notification Preferences); fall back to the legacy notify_availability column
+            // when the user has no stored in-app prefs yet. Mirrors resolveInAppPrefs so the
+            // creation gate agrees with the read-time filter in notifications.ts. (Errs
+            // permissive — the read filter hides any over-creation; it must never under-create.)
             const profiles = await db
                 .select({ userId: userProfiles.userId })
                 .from(userProfiles)
-                .where(eq(userProfiles.notifyAvailability, true));
+                .where(sql`COALESCE((${userProfiles.inAppPreferences} ->> 'new_role_availability')::boolean, ${userProfiles.notifyAvailability}) = true`);
 
             if (profiles.length > 0) {
                 const notifRows = profiles.map(p => ({
