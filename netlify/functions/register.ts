@@ -9,6 +9,7 @@ import { checkRateLimit, getClientIp } from '../../src/utils/rate-limit';
 import { isRegistrationLocked } from '../../src/utils/platform-config';
 import { resolveBaseUrl } from '../../src/utils/base-url';
 import { businessDomainOf } from '../../src/utils/email-domain';
+import { findPaidDomainWorkspace } from '../../src/utils/domain-workspace';
 
 const slugify = (str: string) =>
     str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -72,6 +73,9 @@ export const handler: Handler = async (event) => {
         const isTrial = body.trial === true || body.trial === 'true'; // US-GAP-8.1.1 SC1
         const attributionRef = body.attributionRef?.trim() || null; // US-AUD-5.3.1 SC5
         const referralRef = body.referralRef?.trim() || null;        // US-GAP-8.2: workspace referral code
+        // US4 (Domain Consolidation): set once the user has seen the consolidation prompt and
+        // explicitly chose to create their own separate workspace anyway.
+        const forceNewWorkspace = body.forceNewWorkspace === true || body.forceNewWorkspace === 'true';
         const preferredLang = detectLangFromHeader(event.headers['accept-language']);
 
         if (!email || !firstName || !lastName) {
@@ -106,6 +110,31 @@ export const handler: Handler = async (event) => {
         // We check `plans` via the deleted user's email match via users join — but since
         // we do a hard-delete cascade, check instead via a dedicated trialHistory or
         // rely on the existingUsers check above (returning users just see the login flow).
+
+        // --- US4: CORPORATE DOMAIN CONSOLIDATION ---
+        // Before creating anything, if this is a non-public business email whose domain already
+        // belongs to a PAID workspace, pause onboarding and offer to request to join it (AC4.2/4.3)
+        // — unless the user already saw the prompt and chose to make their own workspace anyway.
+        // The silent domain AUTO-JOIN path (allow_domain_join && domain_verified) takes precedence
+        // and is handled inside the transaction below, so we never prompt when we'd auto-join.
+        phase = 'domain-consolidation';
+        if (!forceNewWorkspace) {
+            const businessDomain = businessDomainOf(email);
+            if (businessDomain) {
+                const target = await findPaidDomainWorkspace(db, businessDomain);
+                const willAutoJoin = !!target && target.allowDomainJoin && target.domainVerified;
+                if (target && !willAutoJoin) {
+                    // Pause: surface the consolidation prompt. We deliberately do NOT reveal the
+                    // workspace name or owner — only that the company already uses Be More Swan.
+                    return {
+                        statusCode: 200,
+                        body: JSON.stringify({
+                            consolidation: { domain: businessDomain, appName: 'Be More Swan' },
+                        }),
+                    };
+                }
+            }
+        }
 
         // Generate Security Tokens (15 min expiry per AC)
         const plainToken = crypto.randomBytes(32).toString('hex');
