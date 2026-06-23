@@ -709,6 +709,25 @@ export const userReferrals = pgTable("user_referrals", {
   uniqueReferred: unique("user_referrals_referred_unique").on(t.referredUserId),
 }));
 
+// ── Referral Invites — sent-invite lifecycle tracking ────────────────────────
+// Records each referral link emailed to a friend so the sender can see "invited —
+// awaiting sign-up" in their Referral Activity BEFORE the friend registers (a
+// user_referrals row, which requires referred_user_id, can only exist post-signup).
+// On registration via the link, the matching invite is marked 'accepted' and linked.
+export const referralInvites = pgTable("referral_invites", {
+  id: serial().primaryKey(),
+  referrerId: integer("referrer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),                          // invited friend's email (stored lowercased)
+  referralCode: text("referral_code").notNull(),           // the code that was shared
+  status: text("status").notNull().default("invited"),     // 'invited' | 'accepted'
+  acceptedUserId: integer("accepted_user_id").references(() => users.id, { onDelete: "set null" }),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  acceptedAt: timestamp("accepted_at"),
+}, (t) => [
+  unique("referral_invites_referrer_email_unique").on(t.referrerId, t.email),
+  index("referral_invites_referrer_idx").on(t.referrerId),
+]);
+
 // ── Reward Redemptions — Referral Program Expansion ──────────────────────────
 // Audit trail + double-spend guard for the referral token vault. Each row records
 // a redemption: 'credit_10' (1 token → £10 Stripe credit) or 'free_assistant'

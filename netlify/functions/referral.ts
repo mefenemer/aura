@@ -11,7 +11,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, desc, and, count } from 'drizzle-orm';
 import { getDb, withUpdatedAt } from '../../db/client';
-import { users, userReferrals, plans, organisations, masterPlans, aiAssistants, userOrganisations } from '../../db/schema';
+import { users, userReferrals, plans, organisations, masterPlans, aiAssistants, userOrganisations, referralInvites } from '../../db/schema';
 import { resolveBaseUrl } from '../../src/utils/base-url';
 import { getReferralTokenState, FREE_ASSISTANT_THRESHOLD, CREDIT_GBP } from '../../src/utils/referral-tokens';
 
@@ -85,6 +85,14 @@ export const handler: Handler = async (event) => {
             .leftJoin(users, eq(userReferrals.referredUserId, users.id))
             .where(eq(userReferrals.referrerId, callerId))
             .orderBy(desc(userReferrals.createdAt));
+
+        // Sent-but-not-yet-accepted invites — these show as "Invited — awaiting sign-up"
+        // in the activity list, the stage before a friend registers (user_referrals).
+        const invites = await db
+            .select({ email: referralInvites.email, sentAt: referralInvites.sentAt })
+            .from(referralInvites)
+            .where(and(eq(referralInvites.referrerId, callerId), eq(referralInvites.status, 'invited')))
+            .orderBy(desc(referralInvites.sentAt));
 
         const totalRewarded = referrals.filter(r => r.status === 'rewarded').length;
         const shareLink = user.referralCode
@@ -170,6 +178,8 @@ export const handler: Handler = async (event) => {
                 assistantLimit,
                 assistantCount,
                 referredBy,
+                totalInvited: invites.length,
+                invites: invites.map(i => ({ email: i.email, sentAt: i.sentAt })),
                 referrals: referrals.map(r => ({
                     id: r.id,
                     status: r.status,

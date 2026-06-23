@@ -13,7 +13,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users } from '../../db/schema';
+import { users, referralInvites } from '../../db/schema';
 import { resolveBaseUrl } from '../../src/utils/base-url';
 import { sendEmail } from '../../src/utils/email';
 
@@ -84,6 +84,22 @@ export const handler: Handler = async (event) => {
     } catch (err) {
         console.error('[referral-share] send failed:', (err as Error)?.message);
         return { statusCode: 502, body: JSON.stringify({ error: 'Could not send the email right now. Please try again.' }) };
+    }
+
+    // Record the sent invite so it appears as "Invited — awaiting sign-up" in the sender's
+    // Referral Activity. Non-blocking: a write failure must not fail the (already-sent) email.
+    try {
+        await db.insert(referralInvites).values({
+            referrerId: callerId,
+            email: friendEmail.toLowerCase(),
+            referralCode: user.referralCode,
+            status: 'invited',
+        }).onConflictDoUpdate({
+            target: [referralInvites.referrerId, referralInvites.email],
+            set: { sentAt: new Date(), status: 'invited' },
+        });
+    } catch (inviteErr) {
+        console.warn('[referral-share] Failed to record invite (non-blocking):', (inviteErr as Error)?.message);
     }
 
     return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true }) };

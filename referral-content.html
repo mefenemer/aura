@@ -259,25 +259,36 @@
     // Table
     document.getElementById('ref-table-loading').classList.add('hidden');
     const referrals = data.referrals || [];
-    if (referrals.length === 0) {
+    const invites = data.invites || [];
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+
+    if (referrals.length === 0 && invites.length === 0) {
       document.getElementById('ref-table-empty').classList.remove('hidden');
     } else {
-      const tbody = document.getElementById('ref-table-body');
-      tbody.innerHTML = referrals.map(r => {
+      // Invited (awaiting sign-up) rows first — the earliest stage of the lifecycle.
+      const inviteRows = invites.map(i => `
+          <tr>
+            <td class="px-6 py-3 text-gray-900 font-medium"><span class="text-gray-400 font-normal">${i.email || ''}</span></td>
+            <td class="px-6 py-3 text-gray-400 italic">Awaiting sign-up</td>
+            <td class="px-6 py-3"><span class="inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Invited</span></td>
+          </tr>`).join('');
+
+      const referralRows = referrals.map(r => {
         const badgeClass = r.status === 'rewarded'
           ? 'bg-green-100 text-green-700'
           : r.status === 'qualified'
             ? 'bg-blue-100 text-blue-700'
             : 'bg-gray-100 text-gray-600';
         const label = r.status === 'rewarded' ? 'Rewarded' : r.status === 'qualified' ? 'Qualified' : 'Pending';
-        const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
         return `
           <tr>
             <td class="px-6 py-3 text-gray-900 font-medium">${r.name}<span class="ml-2 text-gray-400 font-normal">${r.email || ''}</span></td>
-            <td class="px-6 py-3 text-gray-500">${dateStr}</td>
+            <td class="px-6 py-3 text-gray-500">${fmtDate(r.createdAt)}</td>
             <td class="px-6 py-3"><span class="inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full ${badgeClass}">${label}</span></td>
           </tr>`;
       }).join('');
+
+      document.getElementById('ref-table-body').innerHTML = inviteRows + referralRows;
       document.getElementById('ref-table').classList.remove('hidden');
     }
   }

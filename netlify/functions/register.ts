@@ -3,7 +3,7 @@ import { Handler } from '@netlify/functions';
 import { eq, and } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
-import { users, organisations, userOrganisations, userProfiles, plans, masterPlans, userReferrals } from '../../db/schema';
+import { users, organisations, userOrganisations, userProfiles, plans, masterPlans, userReferrals, referralInvites } from '../../db/schema';
 import { sendMagicLinkEmail } from '../../src/utils/email';
 import { checkRateLimit, getClientIp } from '../../src/utils/rate-limit';
 import { isRegistrationLocked } from '../../src/utils/platform-config';
@@ -278,6 +278,16 @@ export const handler: Handler = async (event) => {
                         referralCode: referralRef,
                         status: 'pending',
                     }).onConflictDoNothing();
+
+                    // Close the loop on a sent invite: if this email was invited by the
+                    // referrer, mark it accepted so it advances past "awaiting sign-up".
+                    await db.update(referralInvites)
+                        .set({ status: 'accepted', acceptedUserId: resultUser.id, acceptedAt: new Date() })
+                        .where(and(
+                            eq(referralInvites.referrerId, referrer.id),
+                            eq(referralInvites.email, email),   // already normalized lowercase
+                            eq(referralInvites.status, 'invited'),
+                        ));
                 }
             } catch (refErr) {
                 console.warn('[referral] Failed to record referral:', refErr);

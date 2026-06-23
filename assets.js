@@ -24,6 +24,14 @@ window.initBrandAssets = function() {
         pending:   'bg-amber-50 text-amber-700 border-amber-200',
         failed:    'bg-red-50 text-red-700 border-red-200',
     };
+    // Plain-language explanation of each status (tooltip on the pill / Unavailable label).
+    const STATUS_HINTS = {
+        confirmed: 'Uploaded and ready to use.',
+        pending:   "This upload didn't finish, so the file isn't available yet. Remove it and try uploading again.",
+        processing:'This upload is still being processed — check back shortly.',
+        failed:    'This upload failed. Remove it and try again.',
+        default:   'This file is not available to download yet.',
+    };
     const FILE_ICON = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>`;
 
     // --- TAB TOGGLING ---
@@ -199,9 +207,17 @@ window.initBrandAssets = function() {
         list.innerHTML = assets.map(a => {
             const styles = STATUS_STYLES[a.status] || 'bg-gray-50 text-gray-600 border-gray-200';
             const meta = [(a.category || a.assetType || '').replace(/_/g, ' '), fmtBytes(a.fileSizeBytes)].filter(Boolean).join(' • ');
-            const action = a.isFile
-                ? `<button type="button" data-download="${a.id}" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline">Download</button>`
-                : (a.externalUrl ? `<a href="${escHtml(a.externalUrl)}" target="_blank" rel="noopener" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline">Open</a>` : '');
+            // Download is only valid once the upload is confirmed in storage; a pending/failed
+            // upload has no downloadable object, so show a muted hint instead of a 404-ing link.
+            let action;
+            if (a.isFile) {
+                action = a.status === 'confirmed'
+                    ? `<button type="button" data-download="${a.id}" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline">Download</button>`
+                    : `<span class="text-xs font-medium text-gray-400" title="${escHtml(STATUS_HINTS[a.status] || STATUS_HINTS.default)}">Unavailable</span>`;
+            } else {
+                action = a.externalUrl ? `<a href="${escHtml(a.externalUrl)}" target="_blank" rel="noopener" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline">Open</a>` : '';
+            }
+            const statusHint = STATUS_HINTS[a.status] || STATUS_HINTS.default;
             return `<li class="p-6 hover:bg-gray-50 transition-colors flex items-center justify-between gap-4">
                 <div class="flex items-center gap-4 min-w-0">
                     <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-gray-500">${FILE_ICON}</div>
@@ -212,7 +228,8 @@ window.initBrandAssets = function() {
                 </div>
                 <div class="flex items-center gap-3 shrink-0">
                     ${action}
-                    <span class="inline-flex items-center py-1 px-2.5 rounded-md text-xs font-medium border ${styles}">${escHtml(a.status)}</span>
+                    <span class="inline-flex items-center py-1 px-2.5 rounded-md text-xs font-medium border ${styles}" title="${escHtml(statusHint)}">${escHtml(a.status)}</span>
+                    <button type="button" data-remove="${a.id}" data-name="${escHtml(a.name)}" class="text-xs font-semibold text-gray-400 hover:text-red-600 transition-colors" title="Remove this asset">Remove</button>
                 </div>
             </li>`;
         }).join('');
@@ -226,6 +243,20 @@ window.initBrandAssets = function() {
                     const { downloadUrl } = await res.json();
                     window.open(downloadUrl, '_blank', 'noopener');
                 } catch { alert('Could not generate a download link.'); }
+            });
+        });
+
+        list.querySelectorAll('[data-remove]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-remove');
+                const name = btn.getAttribute('data-name') || 'this asset';
+                if (!confirm(`Remove "${name}" from your library? This can't be undone.`)) return;
+                btn.disabled = true;
+                try {
+                    const res = await fetch(`/.netlify/functions/delete-workspace-asset?assetId=${id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error();
+                    await loadAssets();
+                } catch { btn.disabled = false; alert('Could not remove this asset. Please try again.'); }
             });
         });
     }
