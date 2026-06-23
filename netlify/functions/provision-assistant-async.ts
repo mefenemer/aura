@@ -6,23 +6,19 @@ import { sendEmail, sendTemplatedEmail } from '../../src/utils/email';
 import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 import { requireTosAcceptance, checkProhibitedUsePatterns } from '../../src/utils/tos-gate';
 import { CURRENT_DPA_VERSION } from './accept-dpa';
+import { isEuCountry } from '../../src/config/compliance';
 import Stripe from 'stripe';
 
 const stripe = process.env.STRIPE_SECRET_KEY
     ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' })
     : null;
 
-const EU_COUNTRY_CODES = new Set([
-    'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI','FR','GR','HR','HU',
-    'IE','IT','LT','LU','LV','MT','NL','PL','PT','RO','SE','SI','SK',
-]);
-
+// EU jurisdiction list lives in src/config/compliance.ts (AC4.1 modular compliance layer).
 async function isEuOrg(stripeCustomerId: string | null | undefined): Promise<boolean> {
     if (!stripe || !stripeCustomerId) return false;
     try {
         const customer = await stripe.customers.retrieve(stripeCustomerId) as Stripe.Customer;
-        const country = customer.address?.country;
-        return country ? EU_COUNTRY_CODES.has(country.toUpperCase()) : false;
+        return isEuCountry(customer.address?.country);
     } catch {
         return false;
     }

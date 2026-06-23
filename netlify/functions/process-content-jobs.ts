@@ -13,6 +13,7 @@ import {
 import { gatewayGenerate } from '../../src/lib/ai-gateway';
 import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
 import { searchUniqueImages, attachPexelsImageToPost, creditLine } from '../../src/utils/pexels';
+import { DISCLOSURE } from '../../src/config/compliance';
 
 const BACKOFF_SECS = [10, 30, 90];
 
@@ -82,7 +83,7 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
 
         // Org-level disclosure flag takes precedence (EU AI Act Art. 50) — read from blueprint section
         const orgDisclosureEnabled = (compliance['orgFooterEnabled'] as boolean) ?? false;
-        const orgDisclosureText    = (compliance['orgFooterText'] as string) ?? 'This message was composed with AI assistance.';
+        const orgDisclosureText    = (compliance['orgFooterText'] as string) ?? DISCLOSURE.workspaceFooterDefault;
         const disclosureText = orgDisclosureEnabled ? orgDisclosureText : perAssistantDisclosure;
 
         const platform      = job.platform || 'instagram';

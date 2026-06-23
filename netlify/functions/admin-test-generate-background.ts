@@ -14,6 +14,7 @@ import { users, aiBlueprints, contentGenerationJobs, scheduledPosts } from '../.
 import { isAdminRole } from '../../src/utils/rbac';
 import { gatewayGenerate } from '../../src/lib/ai-gateway';
 import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
+import { DISCLOSURE } from '../../src/config/compliance';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -103,7 +104,7 @@ export const handler: Handler = async (event) => {
         const tone           = (orgContext['brandVoice']     as string) ?? (answers['tone_of_voice']   as string) ?? 'professional';
         const perAssistantDisclosure = (compliance['disclosureText'] as string) ?? null;
         const orgFooterEnabled = (compliance['orgFooterEnabled'] as boolean) ?? false;
-        const orgFooterText    = (compliance['orgFooterText'] as string) ?? 'This message was composed with AI assistance.';
+        const orgFooterText    = (compliance['orgFooterText'] as string) ?? DISCLOSURE.workspaceFooterDefault;
         const disclosureText = orgFooterEnabled ? orgFooterText : perAssistantDisclosure;
         const platform       = job.platform || 'instagram';
         const platformLimit  = PLATFORM_CHAR_LIMITS[platform] ?? 2200;

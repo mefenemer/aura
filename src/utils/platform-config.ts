@@ -27,6 +27,9 @@ export const CONFIG_KEYS = {
     GAMIFICATION_TIME_MULTIPLIERS: 'gamification.time_multipliers', // { leads_generated, content_drafted, tasks_completed } minutes
     GAMIFICATION_MILESTONES:       'gamification.milestones',       // { leads_for_token, hours_for_beta }
     GAMIFICATION_REWARDS_PAUSED:   'gamification.rewards_paused',   // boolean — emergency stop
+    // ── AI-regulatory compliance overrides (AC4.1; defaults in src/config/compliance.ts) ──
+    COMPLIANCE_EU_EXTRA_COUNTRIES:  'compliance.eu_extra_countries',    // string[] — extra ISO codes added to the EU jurisdiction set
+    COMPLIANCE_SYSTEMIC_RISK_FLOPS: 'compliance.systemic_risk_flops',   // number — GPAI systemic-risk compute trigger (FLOPs)
 } as const;
 
 export type ConfigKey = typeof CONFIG_KEYS[keyof typeof CONFIG_KEYS];

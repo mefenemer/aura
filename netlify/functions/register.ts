@@ -10,20 +10,16 @@ import { isRegistrationLocked } from '../../src/utils/platform-config';
 import { resolveBaseUrl } from '../../src/utils/base-url';
 import { businessDomainOf } from '../../src/utils/email-domain';
 import { findPaidDomainWorkspace } from '../../src/utils/domain-workspace';
+import { isEuCountry } from '../../src/config/compliance';
 
 const slugify = (str: string) =>
     str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
 // EU AI Act Article 50: EU-jurisdiction orgs must have aiDisclosureFooterEnabled=true by default.
-const EU_COUNTRIES = new Set([
-    'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI','FR','GR','HR',
-    'HU','IE','IT','LT','LU','LV','MT','NL','PL','PT','RO','SE','SI','SK',
-]);
-
+// Jurisdiction list lives in src/config/compliance.ts (AC4.1 modular compliance layer).
 function isEuJurisdiction(headers: Record<string, string | undefined>): boolean {
     // Netlify edge provides x-nf-country on all requests
-    const country = (headers['x-nf-country'] || headers['x-country'] || '').toUpperCase();
-    return EU_COUNTRIES.has(country);
+    return isEuCountry(headers['x-nf-country'] || headers['x-country']);
 }
 
 const SUPPORTED_LANGS = ['en', 'fr', 'de', 'es', 'pt'];

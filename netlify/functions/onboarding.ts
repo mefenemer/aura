@@ -22,6 +22,7 @@ import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmar
 import { checkRateLimit } from '../../src/utils/rate-limit';
 import { resolveBaseUrl } from '../../src/utils/base-url';
 import { requireTenant } from '../../src/utils/tenant';
+import { isEuCountry } from '../../src/config/compliance';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
 if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
@@ -34,14 +35,9 @@ function sanitizeText(str: string): string {
 }
 
 // EU AI Act Article 50: EU-jurisdiction orgs must have aiDisclosureFooterEnabled=true by default.
-const EU_COUNTRIES = new Set([
-    'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI','FR','GR','HR',
-    'HU','IE','IT','LT','LU','LV','MT','NL','PL','PT','RO','SE','SI','SK',
-]);
-
+// Jurisdiction list lives in src/config/compliance.ts (AC4.1 modular compliance layer).
 function isEuJurisdiction(headers: Record<string, string | undefined>): boolean {
-    const country = (headers['x-nf-country'] || headers['x-country'] || '').toUpperCase();
-    return EU_COUNTRIES.has(country);
+    return isEuCountry(headers['x-nf-country'] || headers['x-country']);
 }
 
 // ── Direct Prompt Injection / Jailbreak defence ────────────────────────────
