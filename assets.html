@@ -205,6 +205,19 @@
 
     <!-- Error / empty state -->
     <div id="team-error" class="hidden mt-4 text-sm text-red-600 font-medium"></div>
+
+    <!-- #2: business-domain auto-join (owner/admin only) -->
+    <div id="domain-join-row" class="hidden mt-5 pt-5 border-t border-gray-100 flex items-start justify-between gap-4">
+      <div class="min-w-0">
+        <p class="text-sm font-semibold text-gray-900">Let people with a company email join automatically</p>
+        <p id="domain-join-desc" class="text-xs text-gray-500 mt-0.5">Anyone who signs up with an email at your business domain joins this workspace instead of creating their own.</p>
+        <p id="domain-join-hint" class="hidden text-xs text-amber-600 mt-1"></p>
+      </div>
+      <button type="button" id="domain-join-toggle" role="switch" aria-checked="false"
+        class="bg-red-500 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none">
+        <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+      </button>
+    </div>
   </section>
 
   <!-- ── Invite Member Modal (SC1/SC4) ───────────────────────────────── -->
@@ -539,7 +552,57 @@
       });
     });
 
+    // ── #2: business-domain auto-join toggle (owner/admin only) ──────────
+    async function initDomainJoin() {
+      const row = document.getElementById('domain-join-row');
+      const toggle = document.getElementById('domain-join-toggle');
+      const desc = document.getElementById('domain-join-desc');
+      const hint = document.getElementById('domain-join-hint');
+      if (!row || !toggle) return;
+      let profile;
+      try {
+        const res = await fetch('/.netlify/functions/organisation-profile');
+        if (!res.ok) return;
+        profile = (await res.json()).profile;
+      } catch { return; }
+      if (!profile || !profile.canManageDomainJoin) return; // owners/admins only
+
+      const setView = (on) => {
+        toggle.setAttribute('aria-checked', on ? 'true' : 'false');
+        toggle.classList.toggle('bg-green-500', on);
+        toggle.classList.toggle('bg-red-500', !on);
+        toggle.querySelector('span').classList.toggle('translate-x-5', on);
+        toggle.querySelector('span').classList.toggle('translate-x-0', !on);
+      };
+      const domain = profile.effectiveDomain;
+      if (domain) desc.textContent = `Anyone who signs up with an @${domain} email joins this workspace instead of creating their own.`;
+      else { hint.textContent = 'Add a business email (public providers like gmail/outlook are not eligible) to enable this.'; hint.classList.remove('hidden'); }
+      setView(!!profile.allowDomainJoin);
+      row.classList.remove('hidden');
+
+      toggle.addEventListener('click', async () => {
+        const next = toggle.getAttribute('aria-checked') !== 'true';
+        setView(next); // optimistic
+        try {
+          const res = await fetch('/.netlify/functions/organisation-profile', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ allowDomainJoin: next }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setView(!next); // revert
+            hint.textContent = d.error || 'Could not update this setting.';
+            hint.classList.remove('hidden');
+          } else if (d.businessDomain) {
+            desc.textContent = `Anyone who signs up with an @${d.businessDomain} email joins this workspace instead of creating their own.`;
+            hint.classList.add('hidden');
+          }
+        } catch { setView(!next); }
+      });
+    }
+
     load();
+    initDomainJoin();
   })();
   </script>
 

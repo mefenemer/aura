@@ -35,6 +35,28 @@ let _dragTargetDate = null;      // drop target
 let _pendingReschedule = null;   // { postId, newDate }
 let _pendingApproveId = null;    // postId awaiting past-date modal decision
 let _listFilter = 'all';         // 'all' | 'pending' | 'approved' | 'published'
+// #3/#4: assistant activity + per-assistant colour-coding + filter
+let _activities = [];            // completed task runs (get-calendar-activity)
+let _assistants = [];            // org assistants for names + colour assignment
+let _assistantFilter = 'all';    // 'all' | <assistantId>
+
+// Stable colour palette assigned to assistants by load order (inline styles → no Tailwind
+// arbitrary-class compile issues). Null/unknown assistant → neutral grey.
+const ASSISTANT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#3b82f6'];
+function _assistantColor(id) {
+    if (id == null) return '#9ca3af';
+    const idx = _assistants.findIndex(a => a.id === id);
+    const i = idx >= 0 ? idx : (Math.abs(Number(id)) % ASSISTANT_PALETTE.length);
+    return ASSISTANT_PALETTE[i % ASSISTANT_PALETTE.length];
+}
+function _assistantName(id) {
+    if (id == null) return 'Unassigned';
+    const a = _assistants.find(a => a.id === id);
+    return a ? (a.name || `Assistant #${id}`) : `Assistant #${id}`;
+}
+function _matchesAssistantFilter(assistantId) {
+    return _assistantFilter === 'all' || String(assistantId) === String(_assistantFilter);
+}
 
 // ── Init ──────────────────────────────────────────────────────────
 window.initCalendar = async function () {
@@ -73,24 +95,57 @@ function _setView(v) {
     _render();
 }
 
-// ── Load posts from API ───────────────────────────────────────────
+// ── Load posts + assistant activity from API ──────────────────────
 async function _loadAndRender() {
     try {
         const { from, to } = _getDateRange();
-        const res = await fetch(`/.netlify/functions/scheduled-posts?from=${from.toISOString()}&to=${to.toISOString()}`);
-        if (res.ok) {
-            const data = await res.json();
-            _posts = data.posts || [];
-        } else if (res.status === 403) {
+        // Posts, completed assistant activity, and the assistant list (for colours/filter) in parallel.
+        const [postsRes, actRes, asstRes] = await Promise.all([
+            fetch(`/.netlify/functions/scheduled-posts?from=${from.toISOString()}&to=${to.toISOString()}`),
+            fetch(`/.netlify/functions/get-calendar-activity?from=${from.toISOString()}&to=${to.toISOString()}`),
+            _assistants.length ? Promise.resolve(null) : fetch('/.netlify/functions/get-assistants'),
+        ]);
+
+        if (postsRes.ok) {
+            _posts = (await postsRes.json()).posts || [];
+        } else if (postsRes.status === 403) {
             // US3 AC3.3: onboarding guard rejected this — surface it gracefully, don't crash.
-            const body = await res.json().catch(() => ({}));
+            const body = await postsRes.json().catch(() => ({}));
             if (body.error === 'onboarding_incomplete') {
                 window.showToast?.(body.message || 'Please complete your onboarding checklist to unlock this feature.');
             }
             _posts = [];
         }
+
+        if (actRes && actRes.ok) _activities = (await actRes.json()).activities || [];
+        if (asstRes && asstRes.ok) _assistants = (await asstRes.json()).assistants || [];
     } catch (e) { console.warn('Calendar load error:', e); }
+    // Always (re)populate the toolbar controls — the calendar.html fragment (and its fresh
+    // <select>) is re-injected on every view entry, even though _assistants is cached here.
+    _renderAssistantControls();
     _render();
+}
+
+// Populate the assistant filter dropdown + colour legend (once assistants are loaded).
+function _renderAssistantControls() {
+    const sel = document.getElementById('cal-assistant-filter');
+    if (sel) {
+        sel.innerHTML = `<option value="all">All assistants</option>` +
+            _assistants.map(a => `<option value="${a.id}">${_escHtml(a.name || ('Assistant #' + a.id))}</option>`).join('');
+        sel.value = String(_assistantFilter);
+        if (!sel.dataset.bound) {
+            sel.dataset.bound = '1';
+            sel.addEventListener('change', () => { _assistantFilter = sel.value; _render(); });
+        }
+    }
+    const legend = document.getElementById('cal-legend');
+    if (legend) {
+        legend.innerHTML = _assistants.map(a =>
+            `<span class="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                <span class="w-2.5 h-2.5 rounded-full" style="background:${_assistantColor(a.id)}"></span>${_escHtml(a.name || ('Assistant #' + a.id))}
+            </span>`).join('');
+        legend.classList.toggle('hidden', _assistants.length === 0);
+    }
 }
 
 function _getDateRange() {
@@ -163,7 +218,8 @@ function _renderMonth() {
         html += `<div class="flex items-center justify-end mb-1">
             <span class="${isToday ? 'w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-extrabold' : 'text-xs font-bold text-gray-500 px-1'}">${day}</span>
         </div>`;
-        html += `<div class="space-y-1">${dayPosts.map(p => _postChip(p, 'month')).join('')}</div>`;
+        const dayActs = _activitiesOnDate(date);
+        html += `<div class="space-y-1">${dayPosts.map(p => _postChip(p, 'month')).join('')}${dayActs.map(a => _activityChip(a, 'month')).join('')}</div>`;
         html += `</div>`;
     }
 
@@ -197,7 +253,7 @@ function _renderWeek() {
             ondragover="window._calDragOver(event, '${dateKey}')"
             ondragleave="window._calDragLeave(event)"
             ondrop="window._calDrop(event, '${dateKey}')">
-            ${dayPosts.length > 0 ? dayPosts.map(p => _postChip(p, 'week')).join('') : ''}
+            ${dayPosts.map(p => _postChip(p, 'week')).join('')}${_activitiesOnDate(d).map(a => _activityChip(a, 'week')).join('')}
         </div>`;
     }
     html += `</div>`;
@@ -283,20 +339,41 @@ function _postChip(post, viewType) {
     const isDraggable = ['draft', 'in_review', 'approved', 'scheduled'].includes(post.status);
 
     const revisedBadge = post.isRevised ? `<span class="text-[9px] font-bold text-violet-600 bg-violet-50 border border-violet-200 px-1 rounded shrink-0">Revised</span>` : '';
+    // #4: left border = assistant colour; status stays glanceable via the right-hand dot.
+    const asstColor = _assistantColor(post.assistantId);
+    const asstName = _assistantName(post.assistantId);
 
     return `<div
         onclick="window._calOpenPost(${post.id})"
         ${isDraggable ? `draggable="true" ondragstart="window._calDragStart(event, ${post.id})"` : ''}
         data-post-id="${post.id}"
-        class="group flex items-center gap-1.5 px-2 py-1 rounded-lg border-l-2 ${sm.chipBorder} bg-white hover:bg-gray-50 shadow-sm cursor-pointer transition select-none text-left w-full"
-        title="${_escHtml(post.caption || post.platform)}">
+        class="group flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white hover:bg-gray-50 shadow-sm cursor-pointer transition select-none text-left w-full"
+        style="border-left:3px solid ${asstColor}"
+        title="${_escHtml(asstName)} · ${_escHtml(post.caption || post.platform)}">
         <span class="text-xs">${plat.emoji}</span>
         <div class="flex-1 min-w-0">
             <p class="text-[11px] font-bold text-gray-700 truncate">${time}</p>
             ${viewType === 'week' ? `<p class="text-[11px] text-gray-500 truncate leading-tight">${_escHtml((post.caption || '').substring(0, 40))}</p>` : ''}
         </div>
         ${revisedBadge}
-        <span class="w-1.5 h-1.5 rounded-full ${sm.dot} shrink-0"></span>
+        <span class="w-1.5 h-1.5 rounded-full ${sm.dot} shrink-0" title="${sm.label}"></span>
+    </div>`;
+}
+
+// #3: read-only chip for a completed assistant task, coloured by assistant.
+function _activityChip(act, viewType) {
+    const color = _assistantColor(act.assistantId);
+    const name = _assistantName(act.assistantId);
+    const time = new Date(act.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return `<div
+        class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gray-50 text-left w-full select-none"
+        style="border-left:3px solid ${color}"
+        title="${_escHtml(name)} — task completed at ${time}">
+        <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${color}"></span>
+        <div class="flex-1 min-w-0">
+            <p class="text-[11px] font-semibold text-gray-600 truncate">✓ ${_escHtml(name)}</p>
+            ${viewType === 'week' ? `<p class="text-[10px] text-gray-400 truncate leading-tight">${time} · task done</p>` : ''}
+        </div>
     </div>`;
 }
 
@@ -1020,7 +1097,18 @@ function _postsOnDate(date) {
     const key = _dateKey(date);
     return _posts.filter(p => {
         if (!p.publishDate) return false;
+        if (!_matchesAssistantFilter(p.assistantId)) return false;
         return _dateKey(new Date(p.publishDate)) === key;
+    });
+}
+
+// #3: completed assistant activity on a given day (respects the assistant filter).
+function _activitiesOnDate(date) {
+    const key = _dateKey(date);
+    return _activities.filter(a => {
+        if (!a.at) return false;
+        if (!_matchesAssistantFilter(a.assistantId)) return false;
+        return _dateKey(new Date(a.at)) === key;
     });
 }
 

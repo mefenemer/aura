@@ -40,6 +40,13 @@ export const organisations = pgTable('organisations', {
   // (Legal/tax/registered-address details live in `billingInformation`, not here.)
   industry: text('industry'),
   businessDescription: text('business_description'),
+  // Business-domain org grouping (#2). business_domain = the org owner's non-public email
+  // host (null for public providers). allow_domain_join = owner opt-in: new signups with a
+  // matching domain join this org instead of creating their own. domain_verified is reserved
+  // for future DNS/email domain-ownership verification (owner opt-in is the gate for now).
+  businessDomain: text('business_domain'),
+  domainVerified: boolean('domain_verified').notNull().default(false),
+  allowDomainJoin: boolean('allow_domain_join').notNull().default(false),
   websiteUrl: text('website_url'),
   socialLinks: text('social_links'),
   // Per-platform social handles/URLs captured on Business Information, keyed by

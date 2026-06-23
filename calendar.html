@@ -20,22 +20,32 @@
       <h2 id="cal-title" class="text-base sm:text-lg font-extrabold text-gray-900 ml-1 min-w-[160px]"></h2>
     </div>
 
-    <!-- Right: view toggle -->
-    <div class="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-      <button data-view="month" id="view-month"
-        class="cal-view-btn px-3 py-1.5 text-sm font-bold rounded-lg transition cursor-pointer bg-white shadow text-gray-900">
-        Month
-      </button>
-      <button data-view="week" id="view-week"
-        class="cal-view-btn px-3 py-1.5 text-sm font-bold rounded-lg transition cursor-pointer text-gray-500 hover:text-gray-700">
-        Week
-      </button>
-      <button data-view="list" id="view-list"
-        class="cal-view-btn px-3 py-1.5 text-sm font-bold rounded-lg transition cursor-pointer text-gray-500 hover:text-gray-700">
-        List
-      </button>
+    <!-- Right: assistant filter + view toggle -->
+    <div class="flex items-center gap-3 flex-wrap">
+      <!-- #4: filter calendar to a single assistant's activity -->
+      <select id="cal-assistant-filter"
+        class="text-sm font-semibold text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        <option value="all">All assistants</option>
+      </select>
+      <div class="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+        <button data-view="month" id="view-month"
+          class="cal-view-btn px-3 py-1.5 text-sm font-bold rounded-lg transition cursor-pointer bg-white shadow text-gray-900">
+          Month
+        </button>
+        <button data-view="week" id="view-week"
+          class="cal-view-btn px-3 py-1.5 text-sm font-bold rounded-lg transition cursor-pointer text-gray-500 hover:text-gray-700">
+          Week
+        </button>
+        <button data-view="list" id="view-list"
+          class="cal-view-btn px-3 py-1.5 text-sm font-bold rounded-lg transition cursor-pointer text-gray-500 hover:text-gray-700">
+          List
+        </button>
+      </div>
     </div>
   </div>
+
+  <!-- #4: per-assistant colour legend -->
+  <div id="cal-legend" class="hidden bg-white border-b border-gray-100 px-4 sm:px-6 py-2 flex items-center gap-4 flex-wrap"></div>
 
   <!-- ── Calendar body ────────────────────────────────────────────── -->
   <div class="flex flex-1 overflow-hidden relative">

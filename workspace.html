@@ -833,6 +833,7 @@ function formatCurrency(amount, currency) {
             const oRole = profileData.organisationRole || 'member';
             if (pRole === 'super_admin') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">Super Admin</span>');
             else if (pRole === 'admin') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">Admin</span>');
+            else badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">Member</span>');
             if (oRole === 'owner') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Owner</span>');
             else if (oRole === 'admin') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">Org Admin</span>');
             badgesEl.innerHTML = badges.join('');

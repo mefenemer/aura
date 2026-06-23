@@ -1,6 +1,6 @@
 // netlify/functions/register.ts
 import { Handler } from '@netlify/functions';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { getDb } from '../../db/client';
 import { users, organisations, userOrganisations, userProfiles, plans, masterPlans, userReferrals } from '../../db/schema';
@@ -8,6 +8,7 @@ import { sendMagicLinkEmail } from '../../src/utils/email';
 import { checkRateLimit, getClientIp } from '../../src/utils/rate-limit';
 import { isRegistrationLocked } from '../../src/utils/platform-config';
 import { resolveBaseUrl } from '../../src/utils/base-url';
+import { businessDomainOf } from '../../src/utils/email-domain';
 
 const slugify = (str: string) =>
     str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -125,25 +126,51 @@ export const handler: Handler = async (event) => {
                 tokenExpiresAt
             }).returning();
 
-            // 2. Create Organization
-            // EU AI Act Art. 50: enable disclosure footer by default for EU workspaces
-            const euJurisdiction = isEuJurisdiction(event.headers);
-            const [newOrg] = await tx.insert(organisations).values({
-                name: businessName,
-                slug: `${slugify(businessName)}-${crypto.randomBytes(3).toString('hex')}`,
-                ...(euJurisdiction ? { aiDisclosureFooterEnabled: true } : {}),
-            }).returning();
+            // 2. Resolve the organisation — join an existing one by business domain, or create.
+            // #2: if the email is a NON-public business domain and an existing org has opted in
+            // to domain join (allow_domain_join + domain_verified), the user joins THAT org as a
+            // member instead of getting their own isolated workspace. Public providers
+            // (gmail/outlook/…) resolve to null here, so unrelated users are never merged.
+            const businessDomain = businessDomainOf(email);
+            let joinOrg: { id: number } | null = null;
+            if (businessDomain) {
+                const [match] = await tx.select({ id: organisations.id })
+                    .from(organisations)
+                    .where(and(
+                        eq(organisations.businessDomain, businessDomain),
+                        eq(organisations.allowDomainJoin, true),
+                        eq(organisations.domainVerified, true),
+                    ))
+                    .limit(1);
+                joinOrg = match ?? null;
+            }
 
-            // 3. Link User to Organization
-            await tx.insert(userOrganisations).values({
-                userId: newUser.id,
-                organisationId: newOrg.id,
-                role: 'owner' // Upgraded to owner
-            });
+            let orgId: number;
+            if (joinOrg) {
+                // Join the existing workspace as a member (no new org/plan — shares the org's plan).
+                orgId = joinOrg.id;
+                await tx.insert(userOrganisations).values({
+                    userId: newUser.id, organisationId: orgId, role: 'member',
+                });
+            } else {
+                // Create a fresh organisation owned by this user.
+                // EU AI Act Art. 50: enable disclosure footer by default for EU workspaces.
+                const euJurisdiction = isEuJurisdiction(event.headers);
+                const [newOrg] = await tx.insert(organisations).values({
+                    name: businessName,
+                    slug: `${slugify(businessName)}-${crypto.randomBytes(3).toString('hex')}`,
+                    businessDomain: businessDomain ?? null, // stored for a future opt-in; join stays OFF by default
+                    ...(euJurisdiction ? { aiDisclosureFooterEnabled: true } : {}),
+                }).returning();
+                orgId = newOrg.id;
+                await tx.insert(userOrganisations).values({
+                    userId: newUser.id, organisationId: orgId, role: 'owner',
+                });
+            }
 
             // 4. Update User with Org ID
             await tx.update(users)
-                .set({ organisationId: newOrg.id, updatedAt: new Date() })
+                .set({ organisationId: orgId, updatedAt: new Date() })
                 .where(eq(users.id, newUser.id));
 
             // 5. Create default User Profile (Crucial for Account Settings hydration)
@@ -171,7 +198,9 @@ export const handler: Handler = async (event) => {
             // BUG-P2-5: Trial masterPlan catalog row must exist before registration runs.
             // The upsert was removed from here — it belongs in db/seed-catalog.ts so it
             // only runs once at deploy time, not on every registration request.
-            if (isTrial) {
+            // Members joining an existing org share that org's plan — only start a trial
+            // for a brand-new org.
+            if (isTrial && !joinOrg) {
                 const [trialMasterPlan] = await tx
                     .select({ id: masterPlans.id })
                     .from(masterPlans)
@@ -186,7 +215,7 @@ export const handler: Handler = async (event) => {
 
                 await tx.insert(plans).values({
                     userId: newUser.id,
-                    organisationId: newOrg.id,
+                    organisationId: orgId,
                     masterPlanId: trialMasterPlan.id,
                     planName: 'Free Trial',
                     planType: 'trial',

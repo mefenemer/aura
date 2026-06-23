@@ -13,6 +13,7 @@
     "test:webhook-verify": "tsx tests/webhook-verify.test.ts",
     "test:bias-parity": "tsx tests/bias-parity.test.ts",
     "test:env-routing": "tsx tests/env-routing.test.ts",
+    "test:email-domain": "tsx tests/email-domain.test.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "npx tsx seed/cli.ts",
     "db:seed:sandbox": "npx tsx seed/cli.ts --sandbox",

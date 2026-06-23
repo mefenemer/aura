@@ -9,8 +9,9 @@
 import { Handler } from '@netlify/functions';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { organisations } from '../../db/schema';
+import { organisations, users } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
+import { businessDomainOf } from '../../src/utils/email-domain';
 
 const json = (statusCode: number, body: unknown) => ({
     statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -20,6 +21,12 @@ const clip = (v: unknown, max: number): string | null => {
     const s = typeof v === 'string' ? v.trim() : '';
     return s ? s.slice(0, max) : null;
 };
+
+// The caller's email (for deriving their business domain when the org has none stored yet).
+async function callerEmail(db: ReturnType<typeof getDb>, userId: number): Promise<string | null> {
+    const [u] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+    return u?.email ?? null;
+}
 
 // Future-proof set of social platforms whose handles/URLs are captured on Business
 // Information. Only a subset are connectable today (see integrations.js catalogue);
@@ -58,9 +65,16 @@ export const handler: Handler = async (event) => {
                 socialLinks:         organisations.socialLinks,
                 socialHandles:       organisations.socialHandles,
                 targetAudience:      organisations.targetAudience,
+                businessDomain:      organisations.businessDomain,
+                allowDomainJoin:     organisations.allowDomainJoin,
             }).from(organisations).where(eq(organisations.id, orgId)).limit(1);
 
-            return json(200, { profile: org || null });
+            // #2 domain-join: surface the effective domain (stored, or derived from the
+            // caller's business email) + whether the caller may manage the setting.
+            const canManageDomainJoin = ctx.role === 'owner' || ctx.role === 'admin';
+            const effectiveDomain = org?.businessDomain || businessDomainOf(await callerEmail(db, ctx.userId));
+
+            return json(200, { profile: org ? { ...org, effectiveDomain, canManageDomainJoin } : null });
         } catch (err) {
             console.error('[organisation-profile GET]', err);
             return json(500, { error: 'Failed to load business profile.' });
@@ -71,6 +85,33 @@ export const handler: Handler = async (event) => {
     try {
         let body: Record<string, unknown> = {};
         try { body = JSON.parse(event.body || '{}'); } catch { /* empty */ }
+
+        // #2: domain-join toggle (owner/admin only). Handled standalone so the UI can send
+        // just { allowDomainJoin } without re-submitting the whole business profile.
+        if ('allowDomainJoin' in body) {
+            if (ctx.role !== 'owner' && ctx.role !== 'admin') {
+                return json(403, { error: 'Only an owner or admin can change this setting.' });
+            }
+            const enable = body.allowDomainJoin === true;
+            if (enable) {
+                // Must have a business (non-public) domain to enable. Use the stored one, else
+                // derive from the caller's email. Enabling = owner attestation → set verified too.
+                const [org] = await db.select({ businessDomain: organisations.businessDomain })
+                    .from(organisations).where(eq(organisations.id, orgId)).limit(1);
+                const domain = org?.businessDomain || businessDomainOf(await callerEmail(db, ctx.userId));
+                if (!domain) {
+                    return json(400, { error: 'Domain join needs a business email address — public providers (gmail, outlook, …) are not eligible.', code: 'NO_BUSINESS_DOMAIN' });
+                }
+                await db.update(organisations)
+                    .set({ businessDomain: domain, domainVerified: true, allowDomainJoin: true, updatedAt: new Date() })
+                    .where(eq(organisations.id, orgId));
+                return json(200, { success: true, allowDomainJoin: true, businessDomain: domain });
+            }
+            await db.update(organisations)
+                .set({ allowDomainJoin: false, updatedAt: new Date() })
+                .where(eq(organisations.id, orgId));
+            return json(200, { success: true, allowDomainJoin: false });
+        }
 
         const businessName = clip(body.businessName, 200);
         if (!businessName) return json(400, { error: 'Business name is required.' });
