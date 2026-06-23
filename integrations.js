@@ -295,11 +295,19 @@ function _platformCard(platform, conn) {
     const handle = conn?.externalUserId || '';
 
     // US-GAP-10.1.1 SC4: Active / Expiring Soon / Disconnected badges
+    // Healthy, connected platforms show a pink "Connected" pill. (Pink Tailwind bg
+    // utilities aren't in the prebuilt CSS, so the fills are set inline.)
+    const connectedPill = `<span class="inline-flex items-center gap-1.5 text-xs font-bold text-pink-700 border border-pink-200 px-2.5 py-1 rounded-full" style="background-color:#fce7f3"><span class="w-1.5 h-1.5 rounded-full" style="background-color:#ec4899"></span> Connected</span>`;
     let statusBadge;
+    // Connections that carry an offline refresh token (e.g. X) are renewed silently by
+    // the refresh-social-tokens cron, so their short-lived expiry shouldn't alarm the user.
+    const autoRenews = isConnected && typeof conn.scopes === 'string' && conn.scopes.includes('offline.access');
     if (!isConnected) {
         statusBadge = `<span class="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-gray-100 border border-gray-200 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Not connected</span>`;
-    } else if (conn.status === 'expired' || conn.status === 'failed' || conn.status === 'revoked') {
+    } else if (conn.status === 'expired' || conn.status === 'failed' || conn.status === 'revoked' || conn.status === 'token_refresh_failed') {
         statusBadge = `<span class="inline-flex items-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Disconnected</span>`;
+    } else if (autoRenews) {
+        statusBadge = connectedPill;
     } else if (conn.tokenExpiresAt) {
         const daysLeft = Math.ceil((new Date(conn.tokenExpiresAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
         if (daysLeft <= 7 && daysLeft > 0) {
@@ -307,11 +315,11 @@ function _platformCard(platform, conn) {
         } else if (daysLeft <= 0) {
             statusBadge = `<span class="inline-flex items-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Disconnected</span>`;
         } else {
-            statusBadge = `<span class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`;
+            statusBadge = connectedPill;
         }
     } else {
         statusBadge = conn.status === 'active'
-            ? `<span class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`
+            ? connectedPill
             : `<span class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Needs attention</span>`;
     }
 

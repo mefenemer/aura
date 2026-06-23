@@ -73,7 +73,7 @@ export const handler: Handler = async (event) => {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: callbackUri, client_id: clientId, client_secret: clientSecret }),
         });
-        const tokenData: { access_token?: string; expires_in?: number; error_description?: string } = await tokenRes.json();
+        const tokenData: { access_token?: string; refresh_token?: string; expires_in?: number; error_description?: string } = await tokenRes.json();
         if (!tokenData.access_token) {
             return { statusCode: 302, headers: { Location: `/workspace.html?oauth_error=token_exchange&platform=linkedin` }, body: '' };
         }
@@ -86,7 +86,8 @@ export const handler: Handler = async (event) => {
         const linkedinId = profile.id ?? 'unknown';
 
         const refKey = `aura/org-${organisationId}/linkedin-token`;
-        await storeSecret(db, refKey, { token: tokenData.access_token });
+        // Store the refresh token (when granted) so refresh-social-tokens.ts can renew silently.
+        await storeSecret(db, refKey, { token: tokenData.access_token, refreshToken: tokenData.refresh_token ?? null });
 
         const tokenExpiresAt = tokenData.expires_in
             ? new Date(Date.now() + tokenData.expires_in * 1000)

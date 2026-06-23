@@ -108,6 +108,10 @@ node_bundler = "esbuild"
 [functions.refresh-meta-tokens]
   schedule = "0 2 * * *"
 
+# Task 4: Silent X (Twitter) + LinkedIn token refresh — every 30 min (X tokens last ~2h)
+[functions.refresh-social-tokens]
+  schedule = "*/30 * * * *"
+
 # US-STOR-1.1.2 AC7: Nightly orphaned file cleanup — 03:00 UTC every day
 [functions.storage-lifecycle-cleanup]
   schedule = "0 3 * * *"

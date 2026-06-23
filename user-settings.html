@@ -1,6 +1,6 @@
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full pb-20 relative">
 
-    <div class="mb-10">
+    <div class="mb-8">
         <h1 class="text-3xl font-extrabold text-gray-900">Account Settings</h1>
         <p class="text-gray-500 mt-1">Changes save automatically in the background as you update your workspace.</p>
     </div>
@@ -9,7 +9,34 @@
         <span>Failed to auto-save change. Please verify your connection.</span>
     </div>
 
-    <div class="space-y-8">
+    <!-- ── Tabbed navigation ─────────────────────────────────────── -->
+    <style>
+        .settings-tab {
+            padding: 0.75rem 0.25rem;
+            border-bottom: 2px solid transparent;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #6b7280;
+            white-space: nowrap;
+            cursor: pointer;
+            background: none;
+            transition: color .15s ease, border-color .15s ease;
+        }
+        .settings-tab:hover { color: #374151; border-bottom-color: #d1d5db; }
+        .settings-tab.active { color: #059669; border-bottom-color: #10b981; }
+    </style>
+    <div class="mb-8 border-b border-gray-200 overflow-x-auto">
+        <nav id="settings-tabs" class="-mb-px flex gap-x-6" aria-label="Account settings tabs">
+            <button type="button" class="settings-tab active" data-tab="profile">Profile Information</button>
+            <button type="button" class="settings-tab" data-tab="notifications">Notification Preferences</button>
+            <button type="button" class="settings-tab" data-tab="sounds">Sounds</button>
+            <button type="button" class="settings-tab" data-tab="agency">Agency Attribution</button>
+            <button type="button" class="settings-tab" data-tab="billing">Billing &amp; Subscription</button>
+        </nav>
+    </div>
+
+    <!-- ══ Profile Information ════════════════════════════════════ -->
+    <div class="settings-tab-panel" data-panel="profile">
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
                 <h3 class="text-lg font-bold text-gray-900">Profile Information</h3>
@@ -74,9 +101,10 @@
                 </div>
             </div>
         </div>
+    </div>
 
-
-        <!-- ── Notification Preferences (unified matrix) ─────────── -->
+    <!-- ══ Notification Preferences (unified matrix) ══════════════ -->
+    <div class="settings-tab-panel hidden" data-panel="notifications">
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
                 <h3 class="text-lg font-bold text-gray-900">Notification Preferences</h3>
@@ -114,8 +142,10 @@
                 Preference saved.
             </div>
         </div>
+    </div>
 
-        <!-- ── Sounds ───────────────────────────────────────────── -->
+    <!-- ══ Sounds ════════════════════════════════════════════════ -->
+    <div class="settings-tab-panel hidden" data-panel="sounds">
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
                 <h3 class="text-lg font-bold text-gray-900">Sounds</h3>
@@ -147,7 +177,10 @@
                 <p id="sound-save-feedback" class="hidden mt-1 text-xs text-emerald-600 font-semibold">✓ Saved</p>
             </div>
         </div>
+    </div>
 
+    <!-- ══ Agency Attribution & AI Disclosure ════════════════════ -->
+    <div class="settings-tab-panel hidden space-y-8" data-panel="agency">
         <!-- ── US-AUD-5.3.1: Agency Attribution ─────────────────── -->
         <div id="agency-attribution-section" class="hidden bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
@@ -281,8 +314,10 @@
             });
         })();
         </script>
+    </div>
 
-        <!-- ── Billing & Subscription ──────────────────────────── -->
+    <!-- ══ Billing & Subscription ════════════════════════════════ -->
+    <div class="settings-tab-panel hidden" data-panel="billing">
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
                 <h3 class="text-lg font-bold text-gray-900">Billing &amp; Subscription</h3>
@@ -305,6 +340,19 @@
                 </button>
             </div>
         </div>
-
     </div>
+
+    <!-- ── Tab switching ─────────────────────────────────────────── -->
+    <script>
+    (function () {
+        const tabs = Array.from(document.querySelectorAll('#settings-tabs .settings-tab'));
+        const panels = Array.from(document.querySelectorAll('.settings-tab-panel'));
+        function activate(name) {
+            tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+            panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== name));
+        }
+        tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
+    })();
+    </script>
+
 </div>
