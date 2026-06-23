@@ -2525,17 +2525,21 @@ function formatCurrency(amount, currency) {
     const statusHtml = `<div class="flex items-center gap-2 ${badge.cls} px-3 py-1 rounded-full text-xs font-bold border"><span class="w-2 h-2 rounded-full ${badge.dot}"></span>${badge.label}</div>`;
 
     // Cards: header + body are clickable (Board Room); footer has management actions.
-    // system_paused keeps the Resume affordance for now (preserves current billing-pause
-    // behaviour); US5 will replace it with a targeted "fix the issue" CTA.
-    const isPaused = lifecycle === 'paused' || lifecycle === 'system_paused';
+    const readyForWork  = lifecycle === 'ready_for_work';
+    const systemPaused  = lifecycle === 'system_paused';
+    // Only a user-paused assistant resumes (via Kick-Off); system_paused gets a Fix Issue CTA.
+    const isPaused = lifecycle === 'paused';
 
-    // US2 AC2.2: a ready_for_work assistant swaps "Recent Wins" for a kick-off prompt and
-    // shows a primary "Initiate Kick-Off" CTA (routes to the Board Room Kick Off Meeting).
-    const readyForWork = lifecycle === 'ready_for_work';
+    // US2 AC2.2 / US5 AC5.2: tailor the card body to the lifecycle state.
     const bodyHtml = readyForWork
       ? `<div class="flex items-start gap-3">
               <span class="text-emerald-500 mt-0.5">✅</span>
               <p class="text-sm text-gray-600">Setup complete — review the Kick-Off checklist, then put your assistant to work.</p>
+         </div>`
+      : systemPaused
+      ? `<div class="flex items-start gap-3">
+              <span class="text-red-500 mt-0.5">⚠️</span>
+              <p class="text-sm text-gray-600">This assistant was paused automatically and needs attention. Open it to resolve the issue.</p>
          </div>`
       : `<h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Recent Wins</h3>
          <div class="flex items-start gap-3">
@@ -2551,6 +2555,12 @@ function formatCurrency(amount, currency) {
       ? `<div class="flex items-center gap-1.5 flex-wrap">
               <button onclick="window.routeToAssistantDetail('${assistant.id}')"
                 class="px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition">🚀 Initiate Kick-Off</button>
+              ${editBtn}${deleteBtn}
+         </div>`
+      : systemPaused
+      ? `<div class="flex items-center gap-1.5 flex-wrap">
+              <button onclick="window.routeToAssistantDetail('${assistant.id}')"
+                class="px-3.5 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition">⚠ Fix Issue</button>
               ${editBtn}${deleteBtn}
          </div>`
       : (assistant.status !== 'pending' ? `

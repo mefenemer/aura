@@ -18,6 +18,7 @@ import { systemConnections, scheduledPosts, notifications, users, auditLogs, use
 import { storeSecret, getSecret } from '../../src/utils/vault';
 import { sendEmail } from '../../src/utils/email';
 import { resolveActionNotifications, CONNECTION_RESTORED_TYPES } from '../../src/utils/notification-actions';
+import { systemPauseWorkingAssistants } from '../../src/utils/assistant-lifecycle';
 
 const CONCURRENCY = 25;
 
@@ -32,6 +33,7 @@ const LABELS: Record<string, string> = { x: 'X (Twitter)', linkedin: 'LinkedIn' 
 type Conn = {
     id: number;
     organisationId: number;
+    assistantId: number | null;
     serviceName: string;
     vaultRefKey: string | null;
     tokenExpiresAt: Date | null;
@@ -44,6 +46,7 @@ export const handler: Handler = async () => {
         .select({
             id: systemConnections.id,
             organisationId: systemConnections.organisationId,
+            assistantId: systemConnections.assistantId,
             serviceName: systemConnections.serviceName,
             vaultRefKey: systemConnections.vaultRefKey,
             tokenExpiresAt: systemConnections.tokenExpiresAt,
@@ -205,4 +208,13 @@ async function handleRefreshFailure(db: ReturnType<typeof getDb>, conn: Conn, ms
         resourceId: String(conn.id),
         newState: { error: msg },
     });
+
+    // US5 AC5.1(a): a required OAuth token expired and could not be refreshed → force the
+    // dependent working assistant(s) into system_paused. Scoped to the assistant when the
+    // connection is assistant-scoped, else the whole org (shared connection pool).
+    await systemPauseWorkingAssistants(
+        db,
+        { organisationId: conn.organisationId, assistantId: conn.assistantId },
+        `token_refresh_failed:${conn.serviceName}`,
+    );
 }

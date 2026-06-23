@@ -10,6 +10,7 @@ import { systemConnections, scheduledPosts, notifications, users, auditLogs, use
 import { storeSecret, getSecret } from '../../src/utils/vault';
 import { sendEmail } from '../../src/utils/email';
 import { resolveActionNotifications, CONNECTION_RESTORED_TYPES } from '../../src/utils/notification-actions';
+import { systemPauseWorkingAssistants } from '../../src/utils/assistant-lifecycle';
 
 const metaAppId  = process.env.META_APP_ID!;
 const metaSecret = process.env.META_APP_SECRET!;
@@ -24,6 +25,7 @@ export const handler: Handler = async () => {
         .select({
             id: systemConnections.id,
             organisationId: systemConnections.organisationId,
+            assistantId: systemConnections.assistantId,
             vaultRefKey: systemConnections.vaultRefKey,
             externalUserId: systemConnections.externalUserId,
             tokenExpiresAt: systemConnections.tokenExpiresAt,
@@ -47,7 +49,7 @@ export const handler: Handler = async () => {
 };
 
 async function refreshToken(db: ReturnType<typeof getDb>, conn: {
-    id: number; organisationId: number; vaultRefKey: string | null;
+    id: number; organisationId: number; assistantId: number | null; vaultRefKey: string | null;
     externalUserId: string | null; tokenExpiresAt: Date | null;
 }) {
     if (!conn.vaultRefKey) return;
@@ -116,5 +118,13 @@ async function refreshToken(db: ReturnType<typeof getDb>, conn: {
         }
 
         await db.insert(auditLogs).values({ actionType: 'instagram_token_refresh_failed', resourceType: 'system_connections', resourceId: String(conn.id), newState: { error: msg } });
+
+        // US5 AC5.1(a): expired/unrefreshable token → force dependent working assistant(s) into
+        // system_paused (assistant-scoped when set, else the whole org).
+        await systemPauseWorkingAssistants(
+            db,
+            { organisationId: conn.organisationId, assistantId: conn.assistantId },
+            'token_refresh_failed:instagram',
+        );
     }
 }

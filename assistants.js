@@ -554,6 +554,46 @@ async function _renderKickOff(assistantId) {
         data = await res.json();
     } catch { card.classList.add('hidden'); return; }
 
+    // US5 AC5.2: system_paused → red "Attention Required" diagnostic + targeted fix CTA,
+    // replacing the normal kick-off flow (the kick-off endpoint also 409s on system_paused).
+    if (data.attention) {
+        const attn = data.attention;
+        const CONN_LABELS = { x: 'X (Twitter)', instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn' };
+        const svc = (attn.services || []).map(s => CONN_LABELS[s] || (s.charAt(0).toUpperCase() + s.slice(1)));
+        let reason, ctaLabel, ctaKind;
+        if (attn.kind === 'connection') {
+            reason = `Reconnect ${svc.join(', ')} to put this assistant back to work.`;
+            ctaLabel = `Reconnect ${svc[0] || 'account'}`; ctaKind = 'platforms';
+        } else if (attn.kind === 'billing') {
+            reason = 'Your subscription needs attention before this assistant can run.';
+            ctaLabel = 'Fix Billing'; ctaKind = 'billing';
+        } else if (attn.kind === 'limit') {
+            reason = "This assistant is paused because your plan's assistant limit was exceeded.";
+            ctaLabel = 'Manage Plan'; ctaKind = 'billing';
+        } else {
+            reason = 'This assistant needs attention before it can run again.';
+            ctaLabel = 'Review Connections'; ctaKind = 'platforms';
+        }
+        subEl.textContent = 'Attention required — resolve the issue below to resume.';
+        listEl.innerHTML = '';
+        const panel = document.getElementById('kickoff-summary');
+        if (panel) {
+            panel.className = 'mb-5 p-4 rounded-xl bg-red-50 border border-red-200';
+            panel.innerHTML = `
+                <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">⚠ Attention required</p>
+                <p class="text-sm font-semibold text-red-800 mb-3">${reason}</p>
+                <button type="button" id="btn-fix-attention" class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition cursor-pointer">${ctaLabel}</button>`;
+            const fix = document.getElementById('btn-fix-attention');
+            if (fix) fix.onclick = () => {
+                if (ctaKind === 'billing') window.loadView?.('billing');
+                else document.querySelector('.detail-tab-btn[data-tab="platforms"]')?.click();
+            };
+        }
+        btn.classList.add('hidden');
+        hintEl.textContent = '';
+        return;
+    }
+
     const items = data.items || [];
     const tick = `<svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`;
     const cross = `<svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>`;
@@ -576,12 +616,12 @@ async function _renderKickOff(assistantId) {
         const connPills = conns.length
             ? conns.map(c => `<span class="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 bg-white border border-gray-200 px-2 py-0.5 rounded-full">${CONN_LABELS[c] || (c.charAt(0).toUpperCase() + c.slice(1))}</span>`).join(' ')
             : '<span class="text-xs text-gray-400 italic">No connected accounts yet</span>';
+        summaryEl.className = 'mb-5 p-4 rounded-xl bg-gray-50 border border-gray-100' + (data.working ? ' hidden' : '');
         summaryEl.innerHTML = `
             <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Primary directive</p>
             <p class="text-sm font-semibold text-gray-800 mb-3">${sm.directive || 'Digital Assistant'}</p>
             <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Active connections</p>
             <div class="flex flex-wrap gap-1.5">${connPills}</div>`;
-        summaryEl.classList.toggle('hidden', !!data.working);
     }
 
     // Already working → confirmation state + a Pause control (US4 AC4.1: pause in settings).

@@ -6,7 +6,7 @@
 // (provisioning_status, is_active) pair for existing write sites; this helper is the forward
 // API for explicit, validated transitions — including ready_for_work, which has no legacy equivalent.
 
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { aiAssistants, auditLogs } from '../../db/schema';
 
@@ -84,4 +84,32 @@ export async function transitionAssistantStatus(
     });
 
     return { ok: true, from, to, noop: false };
+}
+
+/**
+ * US5 (AC5.1): force a workspace's currently-working assistants into `system_paused` when a
+ * critical dependency breaks (e.g. an OAuth token can't be refreshed). Scoped to a single
+ * assistant when `assistantId` is given (assistant-scoped connection), otherwise the whole org
+ * (a shared org-pool connection). Only `working` assistants are affected — provisioning,
+ * ready_for_work, paused and archived are left alone. Returns the number transitioned.
+ */
+export async function systemPauseWorkingAssistants(
+    db: PostgresJsDatabase<any>,
+    filter: { organisationId: number; assistantId?: number | null },
+    reason: string,
+): Promise<number> {
+    const conds = [
+        eq(aiAssistants.organisationId, filter.organisationId),
+        eq(aiAssistants.lifecycleStatus, 'working'),
+    ];
+    if (filter.assistantId) conds.push(eq(aiAssistants.id, filter.assistantId));
+
+    const rows = await db.select({ id: aiAssistants.id }).from(aiAssistants).where(and(...conds));
+
+    let paused = 0;
+    for (const r of rows) {
+        const res = await transitionAssistantStatus(db, r.id, 'system_paused', { reason });
+        if (res.ok && !res.noop) paused++;
+    }
+    return paused;
 }

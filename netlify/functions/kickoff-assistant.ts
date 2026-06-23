@@ -8,7 +8,7 @@
 // re-enables its background jobs / connectors / webhook receivers.
 
 import { Handler } from '@netlify/functions';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
 import { aiAssistants, systemConnections } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
@@ -35,14 +35,21 @@ export const handler: Handler = async (event) => {
         const [a] = await tx.select({
             id: aiAssistants.id,
             lifecycleStatus: aiAssistants.lifecycleStatus,
+            provisioningStatus: aiAssistants.provisioningStatus,
             disclosureText: aiAssistants.disclosureText,
         }).from(aiAssistants)
           .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
           .limit(1);
         if (!a) return null;
 
+        // A *healthy* connection (status='active', not expired/failed/token_refresh_failed) is
+        // required — this is what lets a connection-type system_paused recover after reconnect.
         const [conn] = await tx.select({ id: systemConnections.id }).from(systemConnections)
-            .where(and(eq(systemConnections.organisationId, orgId), eq(systemConnections.isActive, true)))
+            .where(and(
+                eq(systemConnections.organisationId, orgId),
+                eq(systemConnections.isActive, true),
+                eq(systemConnections.status, 'active'),
+            ))
             .limit(1);
         return { a, hasConnection: !!conn };
     });
@@ -53,14 +60,17 @@ export const handler: Handler = async (event) => {
 
     // ── State guards ──────────────────────────────────────────────────────────
     if (state === 'working') return json(200, { ok: true, alreadyWorking: true, lifecycleStatus: 'working' });
-    if (state === 'system_paused') {
-        return json(409, { error: 'This assistant needs attention before it can start. Resolve the flagged issue first.', code: 'SYSTEM_PAUSED' });
-    }
     if (state === 'provisioning') {
         return json(409, { error: "This assistant is still being set up. Please wait for setup to finish.", code: 'PROVISIONING' });
     }
     if (state === 'archived') {
         return json(409, { error: 'This assistant has been archived and cannot be started.', code: 'ARCHIVED' });
+    }
+    // US5: a billing/limit system_pause can't be cleared by a kick-off — the user must resolve it
+    // in billing first. A connection-type system_pause CAN recover here once a healthy connection
+    // exists again (the readiness check below enforces that), so it's allowed to fall through.
+    if (state === 'system_paused' && (a.provisioningStatus === 'paused_payment' || a.provisioningStatus === 'paused_limit')) {
+        return json(409, { error: 'Resolve the billing issue on this workspace before starting this assistant.', code: 'SYSTEM_PAUSED_BILLING' });
     }
 
     // ── Required readiness (mirrors get-assistant-readiness required items) ─────

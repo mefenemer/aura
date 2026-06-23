@@ -5,7 +5,7 @@
 // is derived from real rows; `allRequiredDone` gates the Kick Off action in the UI.
 
 import { Handler } from '@netlify/functions';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
 import { aiAssistants, systemConnections, contentRules } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
@@ -66,11 +66,36 @@ export const handler: Handler = async (event) => {
                 .from(systemConnections)
                 .where(and(eq(systemConnections.organisationId, orgId), eq(systemConnections.isActive, true)));
             const connections = connRows.map(r => r.serviceName).filter(Boolean);
-            return { assistant, hasConnection, hasRule, connections };
+
+            // US5 AC5.2: connections that need reconnecting (drives the system_paused diagnostic).
+            const brokenRows = await tx.select({ serviceName: systemConnections.serviceName })
+                .from(systemConnections)
+                .where(and(
+                    eq(systemConnections.organisationId, orgId),
+                    inArray(systemConnections.status, ['expired', 'failed', 'revoked', 'token_refresh_failed']),
+                ));
+            const brokenConnections = [...new Set(brokenRows.map(r => r.serviceName).filter(Boolean))];
+            return { assistant, hasConnection, hasRule, connections, brokenConnections };
         });
 
         if (!result) return json(404, { error: 'Assistant not found.' });
-        const { assistant, hasConnection, hasRule, connections } = result;
+        const { assistant, hasConnection, hasRule, connections, brokenConnections } = result;
+
+        // US5 AC5.2: when system_paused, surface WHY + which fix the user needs. Derived on read
+        // (no extra column): billing/limit come from provisioningStatus, otherwise a broken
+        // OAuth connection. The client renders the red "Attention Required" panel + targeted CTA.
+        let attention: { kind: string; services: string[] } | null = null;
+        if (assistant.lifecycleStatus === 'system_paused') {
+            if (assistant.provisioningStatus === 'paused_payment') {
+                attention = { kind: 'billing', services: [] };
+            } else if (assistant.provisioningStatus === 'paused_limit') {
+                attention = { kind: 'limit', services: [] };
+            } else if (brokenConnections.length) {
+                attention = { kind: 'connection', services: brokenConnections };
+            }
+            // else: still system_paused but the cause looks resolved (e.g. user reconnected) →
+            // leave attention null so the normal Kick-Off card lets them start again (US5 recovery).
+        }
 
         // Brand & strategy is configured once the onboarding context / configuration is populated.
         const oc = (assistant.onboardingContext as Record<string, unknown> | null) || {};
@@ -101,6 +126,8 @@ export const handler: Handler = async (event) => {
             // "working" once the assistant is provisioned and active.
             working: assistant.isActive && assistant.provisioningStatus === 'complete',
             workingSince: assistant.updatedAt,
+            // US5 AC5.2: non-null only when system_paused — { kind, services }.
+            attention,
             // US3 AC3.1: Kick-Off summary — what the user reviews before confirming.
             summary: {
                 name: assistant.name,
