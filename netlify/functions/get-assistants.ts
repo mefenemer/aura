@@ -23,7 +23,9 @@ export const handler: Handler = async (event) => {
             // Stored in configuration.type at creation (onboarding.ts).
             roleKey: sql<string | null>`(${aiAssistants.configuration} ->> 'type')`,
             status: aiAssistants.provisioningStatus,
-            isActive: aiAssistants.isActive
+            isActive: aiAssistants.isActive,
+            // Canonical lifecycle state machine (assistant-lifecycle-epic).
+            lifecycleStatus: aiAssistants.lifecycleStatus,
         }).from(aiAssistants).where(eq(aiAssistants.organisationId, orgId)));
 
         return { statusCode: 200, body: JSON.stringify({ assistants }) };

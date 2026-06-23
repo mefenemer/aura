@@ -164,8 +164,15 @@ export const handler: Handler = async (event) => {
 
         // Guard: only update if still 'pending' — prevents race condition where
         // two parallel invocations both try to complete the same assistant.
+        //
+        // US2 (Digital Assistant Lifecycle): technical provisioning no longer auto-activates
+        // the assistant. It lands in `ready_for_work` (inactive → action-locked) and waits for
+        // the user to Initiate Kick-Off, which moves it to `working` (US3). isActive stays false
+        // so background jobs/connectors remain disabled until kick-off. We set lifecycle_status
+        // explicitly so the DB sync trigger keeps this forward-only state (it isn't derivable
+        // from the legacy complete+inactive pair, which would otherwise read as 'paused').
         const [updated] = await db.update(aiAssistants)
-            .set(withUpdatedAt({ provisioningStatus: 'complete', isActive: true }))
+            .set(withUpdatedAt({ provisioningStatus: 'complete', isActive: false, lifecycleStatus: 'ready_for_work' }))
             .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.provisioningStatus, 'pending')))
             .returning();
 
@@ -175,8 +182,8 @@ export const handler: Handler = async (event) => {
                 await db.insert(notifications).values({
                     userId: updated.userId,
                     type: 'provisioning_complete',
-                    title: 'Workspace Provisioned',
-                    message: `Onboarding your digital assistant is complete. Your Be More Swan setup is complete — ${updated.name} is ready to work.`,
+                    title: 'Ready for Work',
+                    message: `${updated.name} is provisioned and ready for work. Open it and Initiate Kick-Off to put it to work.`,
                 });
             } catch (notifErr) {
                 console.warn('[provision-assistant-async] Notification insert failed (non-blocking):', notifErr);

@@ -30,6 +30,9 @@ export const handler: Handler = async (event) => {
             role: aiAssistants.aiAssistantJobRole,
             status: aiAssistants.provisioningStatus,
             isActive: aiAssistants.isActive,
+            // Canonical lifecycle state (assistant-lifecycle-epic) — distinct from the master
+            // assistant's lifecycleState (draft/review/live) joined below.
+            lifecycleStatus: aiAssistants.lifecycleStatus,
             onboardingContext: aiAssistants.onboardingContext,
             configuration: aiAssistants.configuration,
             masterAssistantId: aiAssistants.masterAssistantId,
@@ -74,6 +77,7 @@ export const handler: Handler = async (event) => {
                 role: row.role || 'Digital Assistant',
                 status: row.status || 'pending',
                 isActive: row.isActive,
+                lifecycleStatus: row.lifecycleStatus || 'provisioning',
                 disclosureText: row.disclosureText ?? null,
                 dpaAccepted: true,
                 lifecycleState: row.lifecycleState ?? 'live',

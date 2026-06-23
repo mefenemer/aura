@@ -278,6 +278,12 @@ export const aiAssistants = pgTable("ai_assistants", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   // provisioningStatus: 'pending' | 'complete' | 'failed' | 'cancelled' | 'paused_limit' | 'paused_payment'
   provisioningStatus: text("provisioning_status").default("pending"),
+  // Canonical lifecycle state machine (assistant-lifecycle-epic):
+  //   provisioning | ready_for_work | working | paused | system_paused | archived
+  // Kept in sync with the legacy (provisioningStatus, isActive) pair by a DB trigger; the
+  // transitionAssistantStatus() helper writes forward-only states (e.g. ready_for_work).
+  // Schema + trigger live in db/assistant-lifecycle-status.sql (apply manually).
+  lifecycleStatus: text("lifecycle_status").notNull().default("provisioning"),
 }, (t) => [
   // US-DB-1.3.1: assistants are org-owned & member-shared — names are unique per organisation.
   // (userId is retained as creator/attribution only.)

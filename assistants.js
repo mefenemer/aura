@@ -11,15 +11,19 @@ window.generateAssistantCardHTML = function(assistant) {
     const initial = assistant.name ? assistant.name.charAt(0).toUpperCase() : 'A';
     const role = assistant.role || 'Custom Assistant';
 
-    let statusHtml = '';
-    // Adapt to database provisioningStatus or isActive states
-    if (assistant.status === 'pending') {
-        statusHtml = `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Provisioning</span>`;
-    } else if (assistant.isActive === false) {
-        statusHtml = `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Paused</span>`;
-    } else {
-        statusHtml = `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active</span>`;
-    }
+    // Lifecycle state machine (assistant-lifecycle-epic). Fall back to legacy fields.
+    const lifecycle = assistant.lifecycleStatus
+      || (assistant.status === 'pending' ? 'provisioning' : (assistant.isActive === false ? 'paused' : 'working'));
+    const DIR_BADGE = {
+        provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Setup in Progress' },
+        ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work' },
+        working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Active' },
+        paused:         { cls: 'bg-gray-100 text-gray-600 border-gray-200',         dot: 'bg-gray-400',                  label: 'Paused' },
+        system_paused:  { cls: 'bg-red-50 text-red-700 border-red-200',             dot: 'bg-red-500 animate-pulse',     label: 'Attention Required' },
+        archived:       { cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-300',                  label: 'Archived' },
+    };
+    const db = DIR_BADGE[lifecycle] || DIR_BADGE.working;
+    const statusHtml = `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold ${db.cls}"><span class="w-1.5 h-1.5 rounded-full ${db.dot}"></span> ${db.label}</span>`;
 
     return `
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col cursor-pointer group" onclick="window.routeToAssistantDetail('${assistant.id}')">
@@ -419,20 +423,21 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         const statusEl = document.getElementById('detail-status');
         const toggleBtn = document.getElementById('btn-toggle-status');
         if (statusEl) {
-            const s = currentData.status || 'pending';
-            if (s === 'active') {
-                statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
-                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Active';
-                if (toggleBtn) toggleBtn.textContent = 'Pause Assistant';
-            } else if (s === 'pending') {
-                statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200';
-                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Provisioning';
-                if (toggleBtn) toggleBtn.textContent = 'Pause Assistant';
-            } else {
-                statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200';
-                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-400"></span> ' + s.charAt(0).toUpperCase() + s.slice(1);
-                if (toggleBtn) toggleBtn.textContent = 'Resume Assistant';
-            }
+            // Lifecycle state machine (assistant-lifecycle-epic). Fall back to legacy fields.
+            const lifecycle = currentData.lifecycleStatus
+              || (currentData.status === 'pending' ? 'provisioning' : (currentData.isActive === false ? 'paused' : 'working'));
+            const PILL = {
+                provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Provisioning',       toggle: 'Pause Assistant' },
+                ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work',     toggle: 'Initiate Kick-Off' },
+                working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Active',             toggle: 'Pause Assistant' },
+                paused:         { cls: 'bg-gray-100 text-gray-600 border-gray-200',         dot: 'bg-gray-400',                  label: 'Paused',             toggle: 'Resume Assistant' },
+                system_paused:  { cls: 'bg-red-50 text-red-700 border-red-200',             dot: 'bg-red-500 animate-pulse',     label: 'Attention Required', toggle: 'Resume Assistant' },
+                archived:       { cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-300',                  label: 'Archived',           toggle: 'Resume Assistant' },
+            };
+            const p = PILL[lifecycle] || PILL.working;
+            statusEl.className = `inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold ${p.cls}`;
+            statusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${p.dot}"></span> ${p.label}`;
+            if (toggleBtn) toggleBtn.textContent = p.toggle;
         }
 
         // US-ADM-4.1.1: Show deprecation banner if assistant's master role is deprecated
