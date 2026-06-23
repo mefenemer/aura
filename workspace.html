@@ -2769,7 +2769,11 @@ function formatCurrency(amount, currency) {
       });
 
       // Active assistants: exclude those still provisioning/failed (rendered as in-progress above).
-      const activeAssistants = allAssistants.filter(a => a.status !== 'pending' && a.status !== 'failed');
+      // US6 AC5.3: archived assistants are removed from the active dashboard (history is kept
+      // server-side). Provisioning/failed render as in-progress cards above.
+      const activeAssistants = allAssistants.filter(a =>
+        a.status !== 'pending' && a.status !== 'failed' &&
+        a.lifecycleStatus !== 'archived' && a.status !== 'cancelled');
       activeAssistants.forEach(assistant => {
         container.insertAdjacentHTML('beforeend', window.generateAssistantCardHTML(assistant));
       });
@@ -3156,15 +3160,17 @@ function formatCurrency(amount, currency) {
     }
   };
 
+  // US6 AC5.1: archiving is permanent — confirm with a clear "cannot be undone" warning.
   window._assistantDelete = async function(id, name) {
-    if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+    if (!confirm(`Archive "${name}"?\n\nThis permanently stops the assistant and removes it from your active workspace. Its history is kept for reporting, but this cannot be undone.`)) return;
     try {
       const res = await fetch('/.netlify/functions/manage-assistant?id=' + id, { method: 'DELETE' });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        alert(d.error || 'Failed to delete assistant.');
+        alert(d.error || 'Failed to archive assistant.');
         return;
       }
+      window.showToast?.('Assistant archived.');
       await fetchAndRenderAssistants('dashboard-assistants-grid');
       await fetchAndRenderAssistants('directory-assistants-grid');
     } catch (e) {

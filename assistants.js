@@ -55,7 +55,10 @@ window.fetchAndRenderAssistants = async function(containerId) {
         const data = await res.json();
         container.innerHTML = ''; // Clear the "Gathering your team..." placeholder
 
-        if (!data.assistants || data.assistants.length === 0) {
+        // US6 AC5.3: archived assistants are removed from active views (history kept server-side).
+        const visible = (data.assistants || []).filter(a => a.lifecycleStatus !== 'archived' && a.status !== 'cancelled');
+
+        if (visible.length === 0) {
             container.innerHTML = `
               <div class="col-span-full py-12 text-center text-gray-500 font-medium bg-white rounded-2xl border border-gray-100 shadow-sm">
                   Your team is currently empty. <a href="#" onclick="loadView('catalog')" class="text-emerald-600 hover:underline">Hire an assistant</a>.
@@ -63,7 +66,7 @@ window.fetchAndRenderAssistants = async function(containerId) {
             return;
         }
 
-        data.assistants.forEach(assistant => {
+        visible.forEach(assistant => {
             container.insertAdjacentHTML('beforeend', window.generateAssistantCardHTML(assistant));
         });
     } catch (error) {
@@ -439,6 +442,20 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
             statusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${p.dot}"></span> ${p.label}`;
             if (toggleBtn) toggleBtn.textContent = p.toggle;
         }
+
+        // US6 AC5.1: Archive Assistant — permanent end-of-life, then return to the dashboard.
+        const archiveBtn = document.getElementById('btn-archive-assistant');
+        if (archiveBtn) archiveBtn.onclick = async () => {
+            const name = currentData.name || 'this assistant';
+            if (!confirm(`Archive "${name}"?\n\nThis permanently stops the assistant and removes it from your active workspace. Its history is kept for reporting, but this cannot be undone.`)) return;
+            archiveBtn.disabled = true;
+            try {
+                const r = await fetch(`/.netlify/functions/manage-assistant?id=${assistantId}`, { method: 'DELETE' });
+                if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.error || 'Failed to archive assistant.'); archiveBtn.disabled = false; return; }
+                window.showToast?.('Assistant archived.');
+                window.loadView?.('dashboard');
+            } catch { alert('Network error — please try again.'); archiveBtn.disabled = false; }
+        };
 
         // US-ADM-4.1.1: Show deprecation banner if assistant's master role is deprecated
         const existingBanner = document.getElementById('deprecated-assistant-banner');
