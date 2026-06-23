@@ -3119,14 +3119,19 @@ function formatCurrency(amount, currency) {
   };
 
   window._assistantTogglePause = async function(id, currentlyPaused) {
-    const action = currentlyPaused ? 'resume' : 'pause';
-    const label  = currentlyPaused ? 'resume' : 'pause';
-    if (!confirm('Are you sure you want to ' + label + ' this assistant?')) return;
+    // US4 AC4.4: resuming a paused assistant re-triggers the Kick-Off summary (Board Room)
+    // to verify context before it shifts back to working — never a silent direct resume.
+    if (currentlyPaused) {
+      window.routeToAssistantDetail(id);
+      return;
+    }
+    // Pause (AC4.2/4.3): immediate halt via the lifecycle transition.
+    if (!confirm('Pause this assistant? It will stop all actions until you kick it off again.')) return;
     try {
       const res = await fetch('/.netlify/functions/manage-assistant?id=' + id, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action: 'pause' }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));

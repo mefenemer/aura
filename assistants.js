@@ -584,12 +584,35 @@ async function _renderKickOff(assistantId) {
         summaryEl.classList.toggle('hidden', !!data.working);
     }
 
-    // Already working → confirmation state, no action needed.
+    // Already working → confirmation state + a Pause control (US4 AC4.1: pause in settings).
     if (data.working) {
         const since = data.workingSince ? new Date(data.workingSince).toLocaleDateString('en-GB') : null;
         subEl.textContent = since ? `Your assistant is working (since ${since}).` : 'Your assistant is working.';
         btn.classList.add('hidden');
-        hintEl.innerHTML = '<span class="inline-flex items-center gap-1 text-emerald-700 font-semibold">✓ Active</span>';
+        hintEl.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 font-semibold">✓ Active</span>
+            <button type="button" id="btn-pause-working" class="ml-3 px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition cursor-pointer">⏸ Pause Assistant</button>`;
+        const pauseBtn = document.getElementById('btn-pause-working');
+        if (pauseBtn) pauseBtn.onclick = async () => {
+            if (!confirm('Pause this assistant? It will stop all actions until you kick it off again.')) return;
+            pauseBtn.disabled = true;
+            try {
+                // US4 AC4.2/4.3: working → paused (immediate halt).
+                const r = await fetch(`/.netlify/functions/manage-assistant?id=${assistantId}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pause' }),
+                });
+                if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.error || 'Could not pause the assistant.'); pauseBtn.disabled = false; return; }
+                window.showToast?.('Assistant paused.');
+                // Re-render: card flips to the Kick-Off state so the user can confirm to resume (AC4.4).
+                await _renderKickOff(assistantId);
+                const statusEl = document.getElementById('detail-status');
+                if (statusEl) {
+                    statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200';
+                    statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-400"></span> Paused';
+                }
+                const toggleBtn = document.getElementById('btn-toggle-status');
+                if (toggleBtn) toggleBtn.textContent = 'Resume Assistant';
+            } catch { alert('Network error — please try again.'); pauseBtn.disabled = false; }
+        };
         return;
     }
 

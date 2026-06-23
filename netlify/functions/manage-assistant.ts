@@ -10,6 +10,7 @@ import { eq, and } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
 import { aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
+import { transitionAssistantStatus } from '../../src/utils/assistant-lifecycle';
 
 export const handler: Handler = async (event) => {
     const db = getDb();
@@ -46,6 +47,15 @@ export const handler: Handler = async (event) => {
                 const existing = await findAssistant();
                 if (!existing) return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
 
+                // US4 (AC4.2/4.3): user pause is a canonical working → paused transition. The helper
+                // sets isActive=false (immediate halt of outgoing actions/polling) and audits it.
+                // IDOR is already verified above; the helper runs on the owner db (RLS-bypassing).
+                if (action === 'pause') {
+                    const result = await transitionAssistantStatus(db, id, 'paused', { reason: 'user_pause', actorUserId: ctx.userId });
+                    if (!result.ok) return { statusCode: 409, body: JSON.stringify({ error: result.error }) };
+                    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true, lifecycleStatus: 'paused' }) };
+                }
+
                 // US-GOV-3.1.1: Block resume if disclosure is missing (EU AI Act Art. 52)
                 if (action === 'resume' && !existing.disclosureText?.trim()) {
                     return {
@@ -57,9 +67,11 @@ export const handler: Handler = async (event) => {
                     };
                 }
 
+                // Resume (legacy/direct path, kept for API back-compat). The UI now resumes a
+                // paused assistant through the Kick-Off summary (kickoff-assistant.ts, AC4.4).
                 const [updated] = await tx
                     .update(aiAssistants)
-                    .set({ isActive: action === 'resume', updatedAt: new Date() })
+                    .set({ isActive: true, updatedAt: new Date() })
                     .where(eq(aiAssistants.id, id))
                     .returning();
 
