@@ -54,6 +54,8 @@ const TYPE_CATEGORY: Record<string, NotificationCategory> = {
     tier_mismatch: 'critical_action', run_budget_suspended: 'critical_action',
     task_limit_reached: 'critical_action', billing_cancelled: 'critical_action',
     security: 'critical_action', agent_anomaly: 'critical_action',
+    // SMART Goals AC4.3.3 — telemetry connection lost; user must re-authenticate to keep tracking.
+    goal_data_disconnected: 'critical_action',
     // suggested_action — important, do-something, dismissible
     onboarding_prompt: 'suggested_action', onboarding_incomplete: 'suggested_action',
     hitl_approval_required: 'suggested_action', review_red_urgency: 'suggested_action',

@@ -16,6 +16,7 @@
     "test:email-domain": "tsx tests/email-domain.test.ts",
     "test:compliance-config": "tsx tests/compliance-config.test.ts",
     "test:goal-metrics": "tsx tests/goal-metrics.test.ts",
+    "test:goal-progress": "tsx tests/goal-progress.test.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "npx tsx seed/cli.ts",
     "db:seed:sandbox": "npx tsx seed/cli.ts --sandbox",

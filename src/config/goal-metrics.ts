@@ -128,4 +128,20 @@ export const RUN_RATE_THRESHOLDS = {
     offTrack: 0.7,
     /** hours without fresh telemetry before the goal flips to data_disconnected (AC4.3.2). */
     staleDataHours: 48,
+    /** a goal younger than this many days stays 'pending' — too little signal to judge a trend. */
+    minObservationDays: 1,
 } as const;
+
+// AC4.1.1 — polling cadence by subscription tier. The cron runs hourly; each goal is polled
+// at most once per its tier's cadence. Higher tiers get near-real-time tracking.
+export const POLL_CADENCE_HOURS_BY_TIER: Record<string, number> = {
+    buster: 1,
+    employee: 1,
+    saver: 24,
+    trial: 24,
+};
+export const DEFAULT_POLL_CADENCE_HOURS = 24;
+
+export function pollCadenceHours(tierKey: string | null | undefined): number {
+    return (tierKey && POLL_CADENCE_HOURS_BY_TIER[tierKey]) || DEFAULT_POLL_CADENCE_HOURS;
+}

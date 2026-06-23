@@ -47,6 +47,7 @@ RETURNS text LANGUAGE sql IMMUTABLE AS $$
     WHEN 'billing_cancelled' THEN 'critical_action'
     WHEN 'security' THEN 'critical_action'
     WHEN 'agent_anomaly' THEN 'critical_action'
+    WHEN 'goal_data_disconnected' THEN 'critical_action'  -- SMART Goals AC4.3.3
     -- suggested_action
     WHEN 'onboarding_prompt' THEN 'suggested_action'
     WHEN 'onboarding_incomplete' THEN 'suggested_action'
