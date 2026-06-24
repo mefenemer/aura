@@ -5,6 +5,33 @@
     <p class="text-gray-500 mt-1">Tell us about your business and upload brand assets so your assistant works the way you do.</p>
   </div>
 
+  <!-- ── Tabbed navigation (mirrors My Account / Account Settings) ─────────── -->
+  <style>
+    .bizinfo-tab {
+      padding: 0.75rem 0.25rem;
+      border-bottom: 2px solid transparent;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #6b7280;
+      white-space: nowrap;
+      cursor: pointer;
+      background: none;
+      transition: color .15s ease, border-color .15s ease;
+    }
+    .bizinfo-tab:hover { color: #374151; border-bottom-color: #d1d5db; }
+    .bizinfo-tab.active { color: #059669; border-bottom-color: #10b981; }
+  </style>
+  <div class="mb-8 border-b border-gray-200 overflow-x-auto">
+    <nav id="bizinfo-tabs" class="-mb-px flex gap-x-6" aria-label="Business information tabs">
+      <button type="button" class="bizinfo-tab active" data-tab="profile">Business Profile</button>
+      <button type="button" class="bizinfo-tab" data-tab="legal">Legal &amp; Billing</button>
+      <button type="button" class="bizinfo-tab" data-tab="team">Team Members</button>
+      <button type="button" class="bizinfo-tab" data-tab="assets">Brand Assets</button>
+    </nav>
+  </div>
+
+  <!-- ══ Business Profile ═══════════════════════════════════════════════════ -->
+  <div class="bizinfo-tab-panel" data-panel="profile">
   <!-- ── Business profile (assistant-facing context) ──────────────────────── -->
   <section class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
     <div class="mb-5">
@@ -94,7 +121,10 @@
       <span id="bp-status" class="text-xs font-medium text-gray-400 transition-opacity"></span>
     </div>
   </section>
+  </div><!-- /panel: profile -->
 
+  <!-- ══ Legal & Billing ════════════════════════════════════════════════════ -->
+  <div class="bizinfo-tab-panel hidden" data-panel="legal">
   <!-- ── Legal & billing details (single source of truth for invoices) ─────── -->
   <section id="billing-details-section" class="mb-8">
     <div class="mb-4">
@@ -156,7 +186,10 @@
       </div>
     </div>
   </section>
+  </div><!-- /panel: legal -->
 
+  <!-- ══ Team Members ═══════════════════════════════════════════════════════ -->
+  <div class="bizinfo-tab-panel hidden" data-panel="team">
   <!-- ── Team Members (moved here from the side menu) ─────────────────────── -->
   <section id="team-management-root" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
     <div class="flex items-start justify-between mb-4 gap-4 flex-wrap">
@@ -219,6 +252,7 @@
       </button>
     </div>
   </section>
+  </div><!-- /panel: team -->
 
   <!-- ── Invite Member Modal (SC1/SC4) ───────────────────────────────── -->
   <div id="invite-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -606,6 +640,8 @@
   })();
   </script>
 
+  <!-- ══ Brand Assets ═══════════════════════════════════════════════════════ -->
+  <div class="bizinfo-tab-panel hidden" data-panel="assets">
   <!-- ── Brand assets ─────────────────────────────────────────────────────── -->
   <div class="mb-4">
     <h2 class="text-lg font-extrabold text-gray-900">Brand assets</h2>
@@ -678,4 +714,18 @@
     </div>
 
   </div>
+  </div><!-- /panel: assets -->
+
+  <!-- ── Tab switching (mirrors Account Settings) ─────────────────────────── -->
+  <script>
+  (function () {
+    const tabs = Array.from(document.querySelectorAll('#bizinfo-tabs .bizinfo-tab'));
+    const panels = Array.from(document.querySelectorAll('.bizinfo-tab-panel'));
+    function activate(name) {
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== name));
+    }
+    tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
+  })();
+  </script>
 </div>

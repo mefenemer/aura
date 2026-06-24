@@ -313,11 +313,15 @@ function _renderDisclosureHelp(data) {
     const example = (icon, label, text, note) => `
         <div class="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5">
             <span class="text-base leading-5 shrink-0">${icon}</span>
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
                 <p class="text-xs font-bold text-gray-700">${label}</p>
                 <p class="text-xs text-gray-600 italic">&ldquo;${text}&rdquo;</p>
                 <p class="text-[11px] text-gray-400 mt-0.5">${note}</p>
             </div>
+            <button type="button" data-disclosure-example="${_escapeHtml(text)}"
+                class="ar-use-example shrink-0 self-center text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md transition cursor-pointer">
+                Use this
+            </button>
         </div>`;
 
     if (_isSocialPostingAssistant(data)) {
@@ -343,6 +347,18 @@ function _renderDisclosureHelp(data) {
                     'Shown to people the moment they interact with the assistant (Art. 50 — AI-interaction transparency).')}
             </div>`;
     }
+
+    // "Use this" buttons copy the example into the disclosure field and trigger the
+    // existing auto-save (the textarea's input listener persists it).
+    box.querySelectorAll('.ar-use-example').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!field) return;
+            field.value = btn.dataset.disclosureExample || '';
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            _autoGrowField(field);
+            field.focus();
+        });
+    });
 }
 
 function _detailCollect(currentData) {
