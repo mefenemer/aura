@@ -501,6 +501,45 @@
           </div>
         </div>
 
+        <!-- AI Credits Modal — Epic 2 US4 -->
+        <div id="ai-credits-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+          <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 relative max-h-[85vh] overflow-y-auto">
+            <button onclick="document.getElementById('ai-credits-modal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-xl font-bold">✕</button>
+            <h3 class="text-base font-bold text-gray-900 mb-1">AI Generation Credits</h3>
+            <p id="ai-credits-target-label" class="text-sm text-gray-500 mb-4"></p>
+
+            <div class="flex items-center gap-4 mb-5 p-4 bg-pink-50 border border-pink-200 rounded-xl">
+              <div>
+                <p class="text-xs font-bold text-gray-500 uppercase">Balance</p>
+                <p id="ai-credits-balance" class="text-2xl font-extrabold text-gray-900">—</p>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-gray-500 uppercase">Held</p>
+                <p id="ai-credits-held" class="text-2xl font-extrabold text-gray-400">—</p>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div>
+                <label class="text-xs font-bold text-gray-500 uppercase">Adjust (credits)</label>
+                <input id="ai-credits-delta" type="number" step="1" placeholder="e.g. 50 to grant, -10 to deduct"
+                  class="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+              </div>
+              <div>
+                <label class="text-xs font-bold text-gray-500 uppercase">Admin Note <span class="text-red-500">*</span></label>
+                <textarea id="ai-credits-reason" rows="2" placeholder="Mandatory reason / note…" class="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+              </div>
+              <div id="ai-credits-error" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></div>
+              <button onclick="submitAiCredits()" class="w-full py-2.5 text-sm font-bold bg-pink-600 text-white rounded-lg hover:bg-pink-700">Apply Adjustment</button>
+            </div>
+
+            <div class="mt-5">
+              <p class="text-xs font-bold text-gray-400 uppercase mb-2">Recent activity</p>
+              <div id="ai-credits-ledger" class="text-sm text-gray-500">No activity yet.</div>
+            </div>
+          </div>
+        </div>
+
         <!-- State diff modal -->
         <div id="audit-diff-modal" class="hidden fixed inset-0 z-50 items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
           <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative max-h-[80vh] overflow-y-auto">
@@ -3526,6 +3565,7 @@ async function openUserPanel(uid) {
       </div>` : ''}
       <div class="space-y-2 pt-2">
         <button onclick="openBillingOverride(${u.id},'${(u.email||'').replace(/'/g,"&#39;")}')" class="w-full py-2 text-sm font-bold bg-violet-50 border border-violet-200 text-violet-700 rounded-lg hover:opacity-80">💳 Override Subscription</button>
+        <button onclick="openAiCredits(${u.id},'${(u.email||'').replace(/'/g,"&#39;")}')" class="w-full py-2 text-sm font-bold bg-pink-50 border border-pink-200 text-pink-700 rounded-lg hover:opacity-80">🎨 AI Credits</button>
         <button onclick="sendLoginLink(${u.id})" class="w-full py-2 text-sm font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:opacity-80">📧 Send Login Link</button>
         <button onclick="startImpersonation(${u.id}, '${(u.email||'').replace(/'/g,"&#39;")}')" class="w-full py-2 text-sm font-bold bg-amber-50 border border-amber-200 text-amber-700 rounded-lg hover:opacity-80">🔍 Impersonate User</button>
         ${u.status === 'locked'
@@ -5050,6 +5090,71 @@ async function submitBillingOverride() {
         alert(`✅ Override applied successfully.\n\nAction: ${action}\nStripe ref: ${data.stripeRef || 'N/A'}`);
         loadUserDetail(_billingOverrideUserId);
     } catch(e) {
+        errEl.textContent = 'Request failed: ' + e.message;
+        errEl.classList.remove('hidden');
+    }
+}
+
+// ── Epic 2 US4: AI Generation Credits ────────────────────────────────────────
+let _aiCreditsUserId = null;
+
+async function openAiCredits(userId, email) {
+    _aiCreditsUserId = userId;
+    document.getElementById('ai-credits-target-label').textContent = `User: ${email} (ID ${userId})`;
+    document.getElementById('ai-credits-delta').value = '';
+    document.getElementById('ai-credits-reason').value = '';
+    document.getElementById('ai-credits-error').classList.add('hidden');
+    document.getElementById('ai-credits-balance').textContent = '…';
+    document.getElementById('ai-credits-held').textContent = '…';
+    document.getElementById('ai-credits-ledger').textContent = 'Loading…';
+    document.getElementById('ai-credits-modal').classList.remove('hidden');
+    await refreshAiCredits();
+}
+
+async function refreshAiCredits() {
+    try {
+        const res = await fetch(`/.netlify/functions/admin-ai-credits?targetUserId=${_aiCreditsUserId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        document.getElementById('ai-credits-balance').textContent = data.balance;
+        document.getElementById('ai-credits-held').textContent = data.held;
+        const led = data.ledger || [];
+        document.getElementById('ai-credits-ledger').innerHTML = led.length
+            ? led.map(r => {
+                const sign = r.delta > 0 ? '+' : '';
+                const colour = r.delta > 0 ? 'text-emerald-600' : 'text-red-600';
+                const when = new Date(r.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                return `<div class="flex items-center justify-between py-1 border-b border-gray-50">
+                    <span class="text-gray-600">${r.reason.replace(/_/g, ' ')}${r.isAutonomous ? ' <span class="text-xs text-violet-600 font-bold">AUTO</span>' : ''}</span>
+                    <span class="${colour} font-bold">${sign}${r.delta}</span>
+                    <span class="text-xs text-gray-400">${when}</span>
+                  </div>`;
+              }).join('')
+            : 'No activity yet.';
+    } catch (e) {
+        document.getElementById('ai-credits-ledger').textContent = 'Could not load: ' + e.message;
+    }
+}
+
+async function submitAiCredits() {
+    const delta  = parseInt(document.getElementById('ai-credits-delta').value, 10);
+    const reason = document.getElementById('ai-credits-reason').value.trim();
+    const errEl  = document.getElementById('ai-credits-error');
+    errEl.classList.add('hidden');
+    if (!Number.isInteger(delta) || delta === 0) { errEl.textContent = 'Enter a non-zero number of credits.'; errEl.classList.remove('hidden'); return; }
+    if (!reason) { errEl.textContent = 'Admin note is required.'; errEl.classList.remove('hidden'); return; }
+    try {
+        const res = await fetch('/.netlify/functions/admin-ai-credits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetUserId: _aiCreditsUserId, delta, reason }),
+        });
+        const data = await res.json();
+        if (!res.ok) { errEl.textContent = data.error || res.statusText; errEl.classList.remove('hidden'); return; }
+        document.getElementById('ai-credits-delta').value = '';
+        document.getElementById('ai-credits-reason').value = '';
+        await refreshAiCredits();
+    } catch (e) {
         errEl.textContent = 'Request failed: ' + e.message;
         errEl.classList.remove('hidden');
     }

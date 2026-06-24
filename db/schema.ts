@@ -1060,6 +1060,12 @@ export const contentAssets = pgTable("content_assets", {
   retentionDeleteAfter: timestamp("retention_delete_after"),
   purgedAt: timestamp("purged_at"),
 
+  // Epic 1 (AI Media Generation): provider 'fal' rows are AI-generated. These columns power
+  // the "My AI Uploads" library (US3) — prompt memory + the originating generation job.
+  prompt: text("prompt"),                                   // original generation prompt (US3 AC: prompt memory)
+  aspectRatio: text("aspect_ratio"),                        // '1:1' | '16:9' | '9:16' | '4:5'
+  generationJobId: integer("generation_job_id"),            // FK to media_generation_jobs.id (nullable)
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
@@ -1973,4 +1979,66 @@ export const rateLimitStates = pgTable("rate_limit_states", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   unique("rate_limit_states_org_platform_unique").on(t.organisationId, t.platform),
+]);
+
+// ── AI Media Generation (Epic 1 & 2) ─────────────────────────────────────────
+// See db/ai-credits.sql and db/media-generation.sql for the canonical DDL (hand-written,
+// applied manually as owner). These declarations mirror those tables for type-safe queries.
+
+// Epic 2, US4: per-org AI generation credit balance (spendable + held by in-flight jobs).
+export const aiCreditBalance = pgTable("ai_credit_balance", {
+  organisationId: integer("organisation_id").primaryKey().references(() => organisations.id, { onDelete: "cascade" }),
+  balance: integer("balance").notNull().default(0),                // spendable credits
+  held: integer("held").notNull().default(0),                      // reserved by in-flight jobs
+  lastGrantedPeriod: date("last_granted_period"),                  // first-of-month (UTC) monthly grant last applied
+  autonomousPeriodStart: date("autonomous_period_start"),          // US5 autonomous-cap window
+  autonomousUsed: integer("autonomous_used").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Epic 2, US4: append-only audit of credit economic events (grants +, successful debits -).
+export const aiCreditLedger = pgTable("ai_credit_ledger", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  delta: integer("delta").notNull(),                               // +grant/+adjustment, -debit
+  reason: text("reason").notNull(),                                // monthly_grant|image_generation|video_generation|admin_adjustment
+  jobId: integer("job_id"),                                        // FK to mediaGenerationJobs.id (nullable)
+  balanceAfter: integer("balance_after"),
+  isAutonomous: boolean("is_autonomous").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("ai_credit_ledger_org_created_idx").on(t.organisationId, t.createdAt),
+]);
+
+// Epic 1, US1/US2: one row per media generation request (image or video). Images complete
+// quickly (synchronous poll); video is async (submit → background poll → download to R2).
+export const mediaGenerationJobs = pgTable("media_generation_jobs", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  assistantId: integer("assistant_id").references(() => aiAssistants.id, { onDelete: "set null" }),  // set for autonomous (US5)
+
+  mediaType: text("media_type").notNull(),                         // 'image' | 'video'
+  prompt: text("prompt").notNull(),
+  aspectRatio: text("aspect_ratio").notNull(),                     // '1:1' | '16:9' | '9:16' | '4:5'
+  durationSeconds: integer("duration_seconds"),                    // video only
+  model: text("model").notNull(),                                  // resolved Fal model id
+  creditCost: integer("credit_cost").notNull(),                    // credits held/charged for this job
+  isAutonomous: boolean("is_autonomous").notNull().default(false),
+
+  // Lifecycle: queued → processing → completed | failed | flagged (content policy)
+  status: text("status").notNull().default("queued"),
+  falRequestId: text("fal_request_id"),                            // Fal queue request id
+  falStatusUrl: text("fal_status_url"),
+  falResponseUrl: text("fal_response_url"),
+  candidates: jsonb("candidates").default([]),                     // ephemeral Fal result URLs (image grid) pending selection
+  resultAssetIds: jsonb("result_asset_ids").default([]),           // content_assets.id[] persisted to R2
+  errorMessage: text("error_message"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("media_generation_jobs_org_idx").on(t.organisationId),
+  index("media_generation_jobs_status_idx").on(t.status),
 ]);

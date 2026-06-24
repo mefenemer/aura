@@ -6,11 +6,17 @@
       <h1 class="text-3xl font-extrabold text-gray-900">My Content</h1>
       <p class="text-gray-500 mt-1">Upload images, videos, and links for your assistants to use. Track where each asset is in the publishing pipeline.</p>
     </div>
-    <button id="btn-open-upload" type="button"
-      class="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow transition cursor-pointer">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-      Add Content
-    </button>
+    <div class="shrink-0 flex items-center gap-3">
+      <span id="mc-credit-pill" title="AI generation credits" class="hidden items-center gap-2 px-3 py-2 bg-pink-50 border border-pink-200 text-pink-700 text-sm font-bold rounded-xl">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L20 12l-4.714 2.143L13 21l-2.286-6.857L6 12l4.714-2.143L13 3z"/></svg>
+        <span id="mc-credit-count">—</span> credits
+      </span>
+      <button id="btn-open-upload" type="button"
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow transition cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Add Content
+      </button>
+    </div>
   </div>
 
   <!-- Status sections -->
@@ -37,7 +43,7 @@
 
     <div class="overflow-y-auto flex-1 px-6 py-6 space-y-6">
 
-      <!-- Tab toggle: File vs Link -->
+      <!-- Tab toggle: File vs Link vs Generate AI -->
       <div class="flex bg-gray-100 rounded-xl p-1 gap-1">
         <button id="tab-file" type="button" onclick="window._mcSwitchTab('file')"
           class="flex-1 py-2 text-sm font-bold rounded-lg transition bg-white shadow text-gray-900 cursor-pointer">
@@ -46,6 +52,11 @@
         <button id="tab-link" type="button" onclick="window._mcSwitchTab('link')"
           class="flex-1 py-2 text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-700 cursor-pointer">
           Add Link
+        </button>
+        <button id="tab-ai" type="button" onclick="window._mcSwitchTab('ai')"
+          class="flex-1 py-2 text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-700 cursor-pointer flex items-center justify-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L20 12l-4.714 2.143L13 21l-2.286-6.857L6 12l4.714-2.143L13 3z"/></svg>
+          Generate AI Image
         </button>
       </div>
 
@@ -104,10 +115,66 @@
         </div>
       </div>
 
+      <!-- Generate AI panel -->
+      <div id="panel-ai" class="hidden space-y-4">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="ai-prompt" class="block text-sm font-bold text-gray-700">Describe your image <span class="text-red-500">*</span></label>
+            <span id="ai-prompt-count" class="text-xs text-gray-400">0 / 1000</span>
+          </div>
+          <textarea id="ai-prompt" rows="3" maxlength="1000" oninput="window._mcAiPromptInput()"
+            placeholder="A cosy independent coffee shop at golden hour, warm tones, photographic"
+            class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition resize-none"></textarea>
+        </div>
+        <div>
+          <label for="ai-aspect" class="block text-sm font-bold text-gray-700 mb-1">Aspect ratio</label>
+          <select id="ai-aspect"
+            class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition bg-white">
+            <option value="1:1">Square (1:1)</option>
+            <option value="16:9">Landscape (16:9)</option>
+            <option value="9:16">Portrait / Story (9:16)</option>
+            <option value="4:5">Portrait Feed (4:5)</option>
+          </select>
+        </div>
+
+        <!-- Balance + cost line -->
+        <div class="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+          <span class="text-gray-600">Generating this image will use <strong class="text-emerald-700">1 credit</strong></span>
+          <span class="text-gray-500">Balance: <strong id="ai-balance" class="text-gray-800">—</strong></span>
+        </div>
+
+        <button id="ai-generate-btn" type="button" onclick="window._mcGenerateAI()"
+          class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow transition cursor-pointer flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L20 12l-4.714 2.143L13 21l-2.286-6.857L6 12l4.714-2.143L13 3z"/></svg>
+          Generate
+        </button>
+
+        <!-- Insufficient-credit warning + upgrade CTA -->
+        <div id="ai-insufficient" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          You don't have enough credits to generate an image.
+          <a href="/billing.html" class="font-bold text-emerald-700 underline">Upgrade your plan →</a>
+        </div>
+
+        <!-- Loading state -->
+        <div id="ai-loading" class="hidden flex flex-col items-center justify-center py-10 text-gray-500">
+          <svg class="w-7 h-7 animate-spin mb-3 text-emerald-500" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/></svg>
+          <p class="text-sm font-bold">Generating your masterpiece…</p>
+          <p class="text-xs text-gray-400 mt-1">This usually takes a few seconds.</p>
+        </div>
+
+        <!-- Result grid -->
+        <div>
+          <p id="ai-results-hint" class="hidden text-xs text-gray-500 mb-2">Click a variation to add it to your content.</p>
+          <div id="ai-results" class="hidden grid grid-cols-2 gap-3"></div>
+        </div>
+
+        <p id="ai-error" class="hidden text-sm text-red-600 font-medium"></p>
+      </div>
+
       <p id="upload-error" class="hidden text-sm text-red-600 font-medium"></p>
     </div>
 
-    <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50/50 rounded-b-2xl">
+    <div id="upload-footer" class="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50/50 rounded-b-2xl">
       <button onclick="document.getElementById('modal-upload').classList.add('hidden')" type="button"
         class="px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition cursor-pointer">
         Cancel

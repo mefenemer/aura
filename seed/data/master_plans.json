@@ -6,7 +6,8 @@
     "assistantLimit": 1,
     "monthlyTaskLimit": 200,
     "seatLimit": 1,
-    "isActive": true
+    "isActive": true,
+    "features": { "monthly_ai_credits": 20 }
   },
   {
     "tierKey": "saver",
@@ -15,7 +16,8 @@
     "assistantLimit": 3,
     "monthlyTaskLimit": 1000,
     "seatLimit": 3,
-    "isActive": true
+    "isActive": true,
+    "features": { "monthly_ai_credits": 50 }
   },
   {
     "tierKey": "employee",
@@ -24,6 +26,7 @@
     "assistantLimit": null,
     "monthlyTaskLimit": null,
     "seatLimit": 5,
-    "isActive": true
+    "isActive": true,
+    "features": { "monthly_ai_credits": 100 }
   }
 ]

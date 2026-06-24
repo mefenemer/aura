@@ -59,7 +59,23 @@ window.initMyContent = async function () {
     document.getElementById('btn-confirm-detach')?.addEventListener('click', _doDetach);
     await _loadAssets();
     _startPollingIfNeeded();
+    _mcRefreshHeaderCredits();
 };
+
+// Show the persistent AI-credit balance pill in the page header.
+async function _mcRefreshHeaderCredits() {
+    const pill = document.getElementById('mc-credit-pill');
+    const count = document.getElementById('mc-credit-count');
+    if (!pill || !count) return;
+    try {
+        const res = await fetch('/.netlify/functions/get-ai-credit-balance');
+        if (!res.ok) return;
+        const { balance } = await res.json();
+        count.textContent = balance;
+        pill.classList.remove('hidden');
+        pill.classList.add('flex');
+    } catch { /* leave hidden */ }
+}
 
 // ── Load & render ─────────────────────────────────────────────────
 async function _loadAssets() {
@@ -220,26 +236,166 @@ function _openUploadModal() {
     document.getElementById('upload-error')?.classList.add('hidden');
     document.getElementById('link-url') && (document.getElementById('link-url').value = '');
     document.getElementById('link-name') && (document.getElementById('link-name').value = '');
+    // Reset the Generate AI panel
+    _mcAiJobId = null;
+    const aiPrompt = document.getElementById('ai-prompt');
+    if (aiPrompt) aiPrompt.value = '';
+    document.getElementById('ai-prompt-count') && (document.getElementById('ai-prompt-count').textContent = '0 / 1000');
+    document.getElementById('ai-results')?.classList.add('hidden');
+    document.getElementById('ai-results-hint')?.classList.add('hidden');
+    document.getElementById('ai-loading')?.classList.add('hidden');
+    document.getElementById('ai-error')?.classList.add('hidden');
+    document.getElementById('ai-insufficient')?.classList.add('hidden');
     document.getElementById('modal-upload')?.classList.remove('hidden');
 }
 
 window._mcSwitchTab = function (tab) {
     _activeTab = tab;
-    const fileBtn = document.getElementById('tab-file');
-    const linkBtn = document.getElementById('tab-link');
-    const filePanel = document.getElementById('panel-file');
-    const linkPanel = document.getElementById('panel-link');
+    const ACTIVE = 'flex-1 py-2 text-sm font-bold rounded-lg transition bg-white shadow text-gray-900 cursor-pointer';
+    const IDLE   = 'flex-1 py-2 text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-700 cursor-pointer';
+    const AI_EXTRA = ' flex items-center justify-center gap-1';
 
-    if (tab === 'file') {
-        fileBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg transition bg-white shadow text-gray-900 cursor-pointer';
-        linkBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-700 cursor-pointer';
-        filePanel.classList.remove('hidden');
-        linkPanel.classList.add('hidden');
-    } else {
-        linkBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg transition bg-white shadow text-gray-900 cursor-pointer';
-        fileBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-700 cursor-pointer';
-        linkPanel.classList.remove('hidden');
-        filePanel.classList.add('hidden');
+    const tabs = {
+        file: { btn: 'tab-file', panel: 'panel-file' },
+        link: { btn: 'tab-link', panel: 'panel-link' },
+        ai:   { btn: 'tab-ai',   panel: 'panel-ai' },
+    };
+    for (const [key, ids] of Object.entries(tabs)) {
+        const btn = document.getElementById(ids.btn);
+        const panel = document.getElementById(ids.panel);
+        if (btn) btn.className = (key === tab ? ACTIVE : IDLE) + (key === 'ai' ? AI_EXTRA : '');
+        if (panel) panel.classList.toggle('hidden', key !== tab);
+    }
+
+    // The AI panel has its own Generate button + click-to-select, so hide the standard footer.
+    document.getElementById('upload-footer')?.classList.toggle('hidden', tab === 'ai');
+    if (tab === 'ai') _mcRefreshAiBalance();
+};
+
+// ── Generate AI Image ─────────────────────────────────────────────
+let _mcAiJobId = null;
+
+window._mcAiPromptInput = function () {
+    const el = document.getElementById('ai-prompt');
+    const counter = document.getElementById('ai-prompt-count');
+    if (el && counter) counter.textContent = `${el.value.length} / 1000`;
+};
+
+async function _mcRefreshAiBalance() {
+    const el = document.getElementById('ai-balance');
+    if (!el) return;
+    try {
+        const res = await fetch('/.netlify/functions/get-ai-credit-balance');
+        if (!res.ok) return;
+        const { balance } = await res.json();
+        el.textContent = `${balance} credit${balance === 1 ? '' : 's'}`;
+        _mcSetAiAffordable(balance >= 1);
+    } catch { /* leave placeholder */ }
+}
+
+function _mcSetAiAffordable(canAfford) {
+    const btn = document.getElementById('ai-generate-btn');
+    const warn = document.getElementById('ai-insufficient');
+    if (btn) {
+        btn.disabled = !canAfford;
+        // disabled: variants aren't in the prebuilt CSS — toggle present utilities directly.
+        btn.classList.toggle('opacity-50', !canAfford);
+        btn.classList.toggle('cursor-not-allowed', !canAfford);
+    }
+    warn?.classList.toggle('hidden', canAfford);
+}
+
+window._mcGenerateAI = async function () {
+    const promptEl = document.getElementById('ai-prompt');
+    const aspectEl = document.getElementById('ai-aspect');
+    const errorEl  = document.getElementById('ai-error');
+    const loadingEl = document.getElementById('ai-loading');
+    const resultsEl = document.getElementById('ai-results');
+    const hintEl    = document.getElementById('ai-results-hint');
+    const btn       = document.getElementById('ai-generate-btn');
+
+    const prompt = (promptEl?.value || '').trim();
+    errorEl.classList.add('hidden');
+    if (!prompt) { errorEl.textContent = 'Please describe the image you want.'; errorEl.classList.remove('hidden'); return; }
+
+    // Loading state — disable the button to prevent duplicate calls (AC).
+    btn.disabled = true;
+    loadingEl.classList.remove('hidden');
+    resultsEl.classList.add('hidden');
+    hintEl.classList.add('hidden');
+    resultsEl.innerHTML = '';
+
+    try {
+        const res = await fetch('/.netlify/functions/generate-ai-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, aspectRatio: aspectEl.value }),
+        });
+
+        if (res.status === 402) {
+            const { balance } = await res.json().catch(() => ({ balance: 0 }));
+            document.getElementById('ai-balance').textContent = `${balance} credit${balance === 1 ? '' : 's'}`;
+            _mcSetAiAffordable(false);
+            return;
+        }
+        if (res.status === 422) {
+            const { error } = await res.json().catch(() => ({}));
+            errorEl.textContent = error || 'Prompt flagged for policy violation. Please adjust your text and try again.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        if (!res.ok) {
+            errorEl.textContent = 'Image generation failed. Please try again.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        const { jobId, images, balance } = await res.json();
+        _mcAiJobId = jobId;
+        if (typeof balance === 'number') {
+            document.getElementById('ai-balance').textContent = `${balance} credit${balance === 1 ? '' : 's'}`;
+            _mcSetAiAffordable(balance >= 1);
+        }
+        resultsEl.innerHTML = (images || []).map(img => `
+            <button type="button" onclick="window._mcSelectAI(${img.index})"
+              class="relative group rounded-xl overflow-hidden border border-gray-200 hover:border-emerald-500 hover:ring-2 hover:ring-emerald-400 transition cursor-pointer aspect-square">
+              <img src="${img.url}" alt="" class="w-full h-full object-cover">
+              <span class="absolute inset-0 flex items-center justify-center">
+                <span class="opacity-0 group-hover:opacity-100 bg-white text-emerald-700 text-xs font-bold px-3 py-1 rounded-full shadow transition">Use this</span>
+              </span>
+            </button>`).join('');
+        resultsEl.classList.remove('hidden');
+        hintEl.classList.remove('hidden');
+    } catch (e) {
+        errorEl.textContent = 'Image generation failed. Please try again.';
+        errorEl.classList.remove('hidden');
+    } finally {
+        loadingEl.classList.add('hidden');
+        btn.disabled = false;
+    }
+};
+
+window._mcSelectAI = async function (index) {
+    const errorEl = document.getElementById('ai-error');
+    errorEl.classList.add('hidden');
+    if (_mcAiJobId == null) return;
+    try {
+        const res = await fetch('/.netlify/functions/generate-ai-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'select', jobId: _mcAiJobId, index }),
+        });
+        if (!res.ok) {
+            errorEl.textContent = 'Could not save that image. Please try again.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        document.getElementById('modal-upload')?.classList.add('hidden');
+        await _loadAssets();
+        _mcRefreshHeaderCredits();
+    } catch {
+        errorEl.textContent = 'Could not save that image. Please try again.';
+        errorEl.classList.remove('hidden');
     }
 };
 
