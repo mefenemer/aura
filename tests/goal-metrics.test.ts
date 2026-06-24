@@ -9,8 +9,11 @@ import {
     getGoalMetric,
     isValidMetricKey,
     availableMetricsForConnections,
+    assessGoalRealism,
     GOAL_STATUSES,
 } from '../src/config/goal-metrics';
+
+const inDays = (n: number) => new Date(Date.now() + n * 86_400_000);
 
 let passed = 0;
 function check(name: string, fn: () => void): void {
@@ -47,6 +50,31 @@ check('AC1.1.3 — internal metrics always available, connection metrics gated',
 
     // case-insensitive service matching
     assert.ok(availableMetricsForConnections(['INSTAGRAM']).map(m => m.key).includes('instagram_reach'));
+});
+
+check('AC: realism — blocks the egregiously impossible, allows the ambitious', () => {
+    // The user's example: +10,000,000 followers in 1 day → blocked.
+    const absurd = assessGoalRealism({ metricKey: 'instagram_followers', targetValue: 10_000_000, targetDate: inDays(1) });
+    assert.equal(absurd.ok, false, 'impossible follower target should be blocked');
+    assert.ok(absurd.reason && absurd.suggestion, 'blocked verdict must explain + suggest a fix');
+    assert.ok(typeof absurd.attainableTarget === 'number' && absurd.attainableTarget > 0);
+
+    // Ambitious-but-plausible: 50k followers over 90 days → allowed.
+    assert.equal(assessGoalRealism({ metricKey: 'instagram_followers', targetValue: 50_000, targetDate: inDays(90) }).ok, true);
+
+    // A known baseline lets a large account set a proportionally bigger target.
+    assert.equal(
+        assessGoalRealism({ metricKey: 'instagram_followers', targetValue: 130_000, targetDate: inDays(30), baseline: 100_000 }).ok,
+        true,
+        'baseline-relative growth should be allowed for large accounts',
+    );
+
+    // Engagement rate is a percentage — it can't exceed 100%.
+    assert.equal(assessGoalRealism({ metricKey: 'instagram_engagement_rate', targetValue: 150, targetDate: inDays(30) }).ok, false);
+    assert.equal(assessGoalRealism({ metricKey: 'instagram_engagement_rate', targetValue: 8, targetDate: inDays(30) }).ok, true);
+
+    // Metrics without a realism config (none today) or non-growth targets never block.
+    assert.equal(assessGoalRealism({ metricKey: 'content_published', targetValue: 100, targetDate: inDays(90) }).ok, true);
 });
 
 check('status model includes the four tracked states + pending', () => {

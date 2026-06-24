@@ -198,6 +198,7 @@ window.initNotifications = async function() {
     const tabActionBtn = document.getElementById('tab-action');
     const tabUpdatesBtn = document.getElementById('tab-updates');
     const tabActionCount = document.getElementById('tab-action-count');
+    const tabUpdatesCount = document.getElementById('tab-updates-count');
 
     const setTabStyles = () => {
         const active = 'flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800';
@@ -322,10 +323,16 @@ window.initNotifications = async function() {
         const updates = notificationsData.filter(n => kindOf(n) === 'info');
         // Open = UNRESOLVED (not merely unread): a setup reminder counts until it's actually done.
         const openActions = actions.filter(n => !isResolved(n)).length;
+        // Updates are cleared by reading, so their badge counts unread items (mirrors the action badge).
+        const unreadUpdates = updates.filter(n => !n.isRead).length;
 
         if (tabActionCount) {
             tabActionCount.textContent = openActions;
             tabActionCount.classList.toggle('hidden', openActions === 0);
+        }
+        if (tabUpdatesCount) {
+            tabUpdatesCount.textContent = unreadUpdates;
+            tabUpdatesCount.classList.toggle('hidden', unreadUpdates === 0);
         }
         setTabStyles();
 

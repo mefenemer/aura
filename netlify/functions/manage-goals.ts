@@ -16,6 +16,7 @@ import { goals, aiAssistants, systemConnections } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 import { getActiveTierKeyByOrg } from '../../src/utils/plan-features';
 import {
+    assessGoalRealism,
     availableMetricsForConnections,
     getGoalMetric,
     isValidMetricKey,
@@ -115,6 +116,17 @@ export const handler: Handler = async (event) => {
         if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
             return json(400, { error: 'targetDate must be a valid future date.' });
         }
+
+        // Attainability guard — reject clearly-impossible targets (e.g. +10M followers in a day).
+        const realism = assessGoalRealism({ metricKey, targetValue: target, targetDate: when });
+        if (!realism.ok) {
+            return json(422, {
+                error: [realism.reason, realism.suggestion].filter(Boolean).join(' '),
+                code: 'GOAL_UNREALISTIC',
+                attainableTarget: realism.attainableTarget,
+            });
+        }
+
         if (!(await assertOwnedAssistant(db, Number(assistantId), orgId))) {
             return json(404, { error: 'Assistant not found.' });
         }
@@ -192,6 +204,20 @@ export const handler: Handler = async (event) => {
             updates.targetDate = when;
         }
         if (isActive !== undefined) updates.isActive = Boolean(isActive);
+
+        // Re-check attainability whenever the target value or date changes.
+        if (targetValue !== undefined || targetDate !== undefined) {
+            const effectiveTarget = updates.targetValue !== undefined ? Number(updates.targetValue) : Number(existing.targetValue);
+            const effectiveDate = updates.targetDate !== undefined ? updates.targetDate : existing.targetDate;
+            const realism = assessGoalRealism({ metricKey: existing.metricKey, targetValue: effectiveTarget, targetDate: effectiveDate });
+            if (!realism.ok) {
+                return json(422, {
+                    error: [realism.reason, realism.suggestion].filter(Boolean).join(' '),
+                    code: 'GOAL_UNREALISTIC',
+                    attainableTarget: realism.attainableTarget,
+                });
+            }
+        }
 
         if (isPrimary === true) {
             await db.update(goals)

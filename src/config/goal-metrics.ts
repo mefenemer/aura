@@ -14,6 +14,23 @@
 export type MetricSource = 'connection' | 'internal';
 export type MetricDirection = 'increase' | 'decrease';
 
+/**
+ * Attainability guardrails for a metric (the "A" in SMART). These keep a goal from being set to
+ * something physically impossible (e.g. "+10,000,000 Instagram followers in 1 day"). The ceilings
+ * are deliberately GENEROUS — we only want to block the egregiously impossible, never a merely
+ * ambitious target. Tunable here as the single source of truth.
+ */
+export interface MetricRealism {
+    /** Hard ceiling on the target value itself (e.g. a percentage can't exceed 100). */
+    maxValue?: number;
+    /** Largest plausible increase per day, in absolute units. Sanity-checks the required run-rate
+     *  ((target − baseline) ÷ days). When the baseline is unknown we treat it as 0 (conservative). */
+    maxDailyDelta?: number;
+    /** Largest plausible increase per day as a fraction of the baseline (e.g. 0.25 = 25%/day). Only
+     *  applied when a baseline is known, so large accounts can set proportionally larger targets. */
+    maxDailyGrowthPct?: number;
+}
+
 export interface GoalMetric {
     /** Stable key persisted on goals.metric_key — never rename once shipped. */
     key: string;
@@ -35,6 +52,8 @@ export interface GoalMetric {
      * lands. Everything in v1 is wired to an existing data path, so all are true.
      */
     available: boolean;
+    /** Attainability ceilings (AC: goals must be realistic). Omit to skip the realism check. */
+    realism?: MetricRealism;
 }
 
 export const GOAL_METRICS: readonly GoalMetric[] = [
@@ -47,6 +66,8 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         direction: 'increase',
         description: 'Total follower count on the connected Instagram account.',
         available: true,
+        // Even viral organic growth rarely exceeds a few thousand new followers a day.
+        realism: { maxDailyDelta: 5000, maxDailyGrowthPct: 0.25 },
     },
     {
         key: 'instagram_engagement_rate',
@@ -57,6 +78,8 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         direction: 'increase',
         description: 'Interactions ÷ reach across recent Instagram posts.',
         available: true,
+        // A rate, not a count — it simply can't exceed 100%.
+        realism: { maxValue: 100 },
     },
     {
         key: 'instagram_reach',
@@ -67,6 +90,7 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         direction: 'increase',
         description: 'Unique accounts reached by Instagram posts in the trailing 30 days.',
         available: true,
+        realism: { maxDailyDelta: 500000, maxDailyGrowthPct: 0.5 },
     },
     {
         key: 'qualified_leads',
@@ -76,6 +100,7 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         direction: 'increase',
         description: 'Qualified leads captured in your Be More Swan workspace.',
         available: true,
+        realism: { maxDailyDelta: 1000, maxDailyGrowthPct: 1 },
     },
     {
         key: 'content_published',
@@ -85,6 +110,8 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         direction: 'increase',
         description: 'Posts this assistant has published.',
         available: true,
+        // Bounded by posting cadence — dozens a day is already aggressive.
+        realism: { maxDailyDelta: 50 },
     },
 ];
 
@@ -110,6 +137,76 @@ export function availableMetricsForConnections(connectedServices: readonly strin
     return GOAL_METRICS.filter(m =>
         m.source === 'internal' || (m.connectionService != null && connected.has(m.connectionService)),
     );
+}
+
+// ── Goal attainability (the "A" in SMART) ───────────────────────────────────────
+// Rejects clearly-impossible targets up front (e.g. "+10,000,000 followers in 1 day"). Pure and
+// deterministic so it runs identically on the server (manage-goals create/update) and can be unit
+// tested. Baseline (the current value) is optional: when known we also allow proportional growth
+// for large accounts; when unknown we assume 0 (the conservative choice — it only ever blocks
+// targets that are impossible even starting from nothing).
+export interface RealismVerdict {
+    ok: boolean;
+    /** User-facing explanation of why the target is unrealistic. */
+    reason?: string;
+    /** A concrete, attainable alternative the UI can suggest. */
+    suggestion?: string;
+    /** The largest target that would pass for the chosen date (for prefilling a fix). */
+    attainableTarget?: number;
+}
+
+const fmtNum = (n: number) => Math.round(n).toLocaleString('en-GB');
+const unitSuffix = (m: GoalMetric) => (m.unit === '%' ? '%' : ` ${m.unit}`);
+
+export function assessGoalRealism(args: {
+    metricKey: string;
+    targetValue: number;
+    targetDate: Date | string;
+    baseline?: number | null;
+    now?: Date;
+}): RealismVerdict {
+    const metric = getGoalMetric(args.metricKey);
+    if (!metric?.realism) return { ok: true };
+    const r = metric.realism;
+    const target = Number(args.targetValue);
+    const due = new Date(args.targetDate);
+    const now = args.now ?? new Date();
+    // Leave shape/positivity/future-date validation to the dedicated validators.
+    if (!Number.isFinite(target) || Number.isNaN(due.getTime())) return { ok: true };
+
+    // 1. Hard ceiling on the value itself (e.g. an engagement RATE can't exceed 100%).
+    if (r.maxValue != null && target > r.maxValue) {
+        return {
+            ok: false,
+            reason: `${metric.label} can't exceed ${fmtNum(r.maxValue)}${unitSuffix(metric)}.`,
+            suggestion: `Set a target at or below ${fmtNum(r.maxValue)}${unitSuffix(metric)}.`,
+            attainableTarget: r.maxValue,
+        };
+    }
+
+    // 2. Run-rate sanity for count metrics: the required gain per day must be plausible.
+    if (r.maxDailyDelta != null) {
+        const days = Math.max(1, Math.ceil((due.getTime() - now.getTime()) / 86_400_000));
+        const baseline = (args.baseline != null && Number.isFinite(args.baseline)) ? Number(args.baseline) : null;
+        const required = (baseline != null ? target - baseline : target);
+        if (required <= 0) return { ok: true }; // already met, or not a growth target — not our concern
+        const requiredDaily = required / days;
+        const allowedDaily = Math.max(
+            r.maxDailyDelta,
+            (baseline != null && r.maxDailyGrowthPct) ? baseline * r.maxDailyGrowthPct : 0,
+        );
+        if (requiredDaily > allowedDaily) {
+            const attainable = Math.floor((baseline ?? 0) + allowedDaily * days);
+            return {
+                ok: false,
+                reason: `That target needs about ${fmtNum(requiredDaily)} ${metric.unit} per day — beyond what's realistically attainable.`,
+                suggestion: `Try about ${fmtNum(attainable)} ${metric.unit} by that date, or keep ${fmtNum(target)} ${metric.unit} and pick a later date.`,
+                attainableTarget: attainable,
+            };
+        }
+    }
+
+    return { ok: true };
 }
 
 // ── Goal status model (AC1.2.3 / AC4.3.2) ───────────────────────────────────────
