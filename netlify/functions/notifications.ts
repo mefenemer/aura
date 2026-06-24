@@ -84,10 +84,15 @@ export const handler = async (event: HandlerEvent) => {
             // the meaningful "things you must deal with" number. Unresolved (resolvedAt IS NULL),
             // not merely unread: reading a setup reminder must not clear the badge; only the
             // item's completion criteria being met (resolvedAt) does.
+            // updateUnread = unread "update" (info-kind) notifications. badgeCount combines both
+            // so the sidebar reflects open actions AND unread updates (no double-count: a
+            // notification is either action-kind or info-kind, never both).
             if (queryStringParameters && queryStringParameters.action === 'count') {
                 const unread = allNotes.filter(n => !n.isRead).length;
                 const actionCount = allNotes.filter(n => !n.resolvedAt && kindOf(n.type) === 'action').length;
-                return { statusCode: 200, body: JSON.stringify({ unreadCount: unread, actionCount }) };
+                const updateUnread = allNotes.filter(n => !n.isRead && kindOf(n.type) !== 'action').length;
+                const badgeCount = actionCount + updateUnread;
+                return { statusCode: 200, body: JSON.stringify({ unreadCount: unread, actionCount, updateUnread, badgeCount }) };
             }
 
             // Annotate each notification with its category model (kind/category/priority/

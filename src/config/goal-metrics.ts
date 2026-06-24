@@ -161,3 +161,20 @@ export const GOAL_AI_TIERS: Record<GoalAiFeature, readonly string[]> = {
 export function tierAllows(feature: GoalAiFeature, tierKey: string | null | undefined): boolean {
     return !!tierKey && GOAL_AI_TIERS[feature].includes(tierKey);
 }
+
+// The "soft" brief fields the Magic Wand (US3.2) may rewrite. These are free-text fields in
+// aiAssistants.onboardingContext that feed content generation (see assemble-blueprint.ts); hard
+// rules / guardrails are deliberately excluded. onboardingContext key → display label.
+export const TUNABLE_BRIEF_FIELDS: Record<string, string> = {
+    tone_of_voice: 'Brand Voice',
+    target_audience: 'Target Audience',
+    content_pillars: 'Content Strategy',
+};
+
+// Fields Autonomous mode (US3.3) may auto-adjust: the Magic Wand set PLUS posting frequency.
+// posting_frequency is a free-text cadence directive in the brief (e.g. "3 times a week") — the
+// content worker interprets it, so it's safe to tune as text, not a hard scheduler flip.
+export const AUTONOMOUS_TUNABLE_FIELDS: Record<string, string> = {
+    ...TUNABLE_BRIEF_FIELDS,
+    posting_frequency: 'Posting Frequency',
+};

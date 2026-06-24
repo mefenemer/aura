@@ -919,23 +919,9 @@ function formatCurrency(amount, currency) {
             badgesEl.innerHTML = badges.join('');
             window._profileRoles = { platformRole: pRole, organisationRole: oRole };
 
-            // Current plan pill, shown alongside the role badges.
-            (async () => {
-              try {
-                const cap = typeof window.checkCapacity === 'function' ? await window.checkCapacity() : null;
-                const planName = cap ? (cap.tierName || (cap.tierKey == null ? 'Free' : null)) : null;
-                if (!planName) return;
-                let pill = document.getElementById('header-plan-pill');
-                if (!pill) {
-                  pill = document.createElement('span');
-                  pill.id = 'header-plan-pill';
-                  badgesEl.appendChild(pill);
-                }
-                pill.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
-                pill.title = 'Current plan';
-                pill.textContent = planName;
-              } catch { /* non-fatal */ }
-            })();
+            // Current plan pill, shown alongside the role badges. Re-rendered on plan changes
+            // via window.refreshPlanPill() (defined near checkCapacity).
+            if (typeof window.refreshPlanPill === 'function') window.refreshPlanPill();
           }
 
           // Generate initials dynamically for the avatar circle
@@ -1197,6 +1183,28 @@ function formatCurrency(amount, currency) {
         if (res.ok) window._capacityCache = await res.json();
       } catch { /* non-fatal */ }
       return window._capacityCache;
+    };
+
+    // Render/refresh the current-plan pill in the header. Pass force=true to re-fetch capacity
+    // first (e.g. right after an upgrade) so the pill reflects the new plan without a reload.
+    window.refreshPlanPill = async function (force = false) {
+      const badgesEl = document.getElementById('header-role-badges');
+      if (!badgesEl) return;
+      let cap = null;
+      try {
+        cap = typeof window.checkCapacity === 'function' ? await window.checkCapacity(force) : window._capacityCache;
+      } catch { /* non-fatal */ }
+      const planName = cap ? (cap.tierName || (cap.tierKey == null ? 'Free' : null)) : null;
+      let pill = document.getElementById('header-plan-pill');
+      if (!planName) { if (pill) pill.remove(); return; }
+      if (!pill) {
+        pill = document.createElement('span');
+        pill.id = 'header-plan-pill';
+        badgesEl.appendChild(pill);
+      }
+      pill.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
+      pill.title = 'Current plan';
+      pill.textContent = planName;
     };
 
     // Open the upgrade modal with context-specific copy.
@@ -2079,6 +2087,7 @@ function formatCurrency(amount, currency) {
             clearInterval(poll);
             gateModal.classList.add('hidden');
             applyGateBlur(false);
+            if (typeof window.refreshPlanPill === 'function') window.refreshPlanPill(); // cache already fresh
             // Welcome modal retired — welcome + setup checklist now live in the
             // Notifications area (see initGettingStarted / notifications.js).
           } else if (attempts >= 5) {

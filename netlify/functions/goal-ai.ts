@@ -10,7 +10,7 @@ import { getDb } from '../../db/client';
 import { goals, aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 import { getActiveTierKeyByOrg } from '../../src/utils/plan-features';
-import { getGoalMetric, tierAllows, type GoalAiFeature } from '../../src/config/goal-metrics';
+import { getGoalMetric, tierAllows, TUNABLE_BRIEF_FIELDS, type GoalAiFeature } from '../../src/config/goal-metrics';
 import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 import { gatewayGenerate } from '../../src/lib/ai-gateway';
 
@@ -18,11 +18,7 @@ const json = (statusCode: number, payload: unknown) => ({
     statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
 });
 
-const FIELD_LABELS: Record<string, string> = {
-    tone_of_voice: 'Brand Voice',
-    target_audience: 'Target Audience',
-    content_pillars: 'Content Strategy',
-};
+const FIELD_LABELS = TUNABLE_BRIEF_FIELDS;
 
 function goalSummary(goal: any): string {
     const metric = getGoalMetric(goal.metricKey);
@@ -65,18 +61,19 @@ export const handler: Handler = async (event) => {
         if (!goal || goal.organisationId !== orgId) return json(404, { error: 'Goal not found.' });
 
         const [assistant] = await db
-            .select({ name: aiAssistants.name, role: aiAssistants.aiAssistantJobRole, configuration: aiAssistants.configuration })
+            .select({ name: aiAssistants.name, role: aiAssistants.aiAssistantJobRole, onboardingContext: aiAssistants.onboardingContext })
             .from(aiAssistants)
             .where(and(eq(aiAssistants.id, goal.assistantId), eq(aiAssistants.organisationId, orgId)))
             .limit(1);
 
-        const inputs = (assistant?.configuration as any)?.inputs ?? {};
+        // Brief fields live in onboardingContext (the store the UI + generation use).
+        const ctx = (assistant?.onboardingContext as Record<string, any>) ?? {};
         const brief = [
             `Role: ${assistant?.role ?? 'assistant'}`,
-            inputs.tone_of_voice ? `Brand voice: ${inputs.tone_of_voice}` : '',
-            inputs.target_audience ? `Audience: ${inputs.target_audience}` : '',
-            inputs.content_pillars ? `Content strategy: ${inputs.content_pillars}` : '',
-            Array.isArray(inputs.strictRules) && inputs.strictRules.length ? `Rules: ${inputs.strictRules.join('; ')}` : '',
+            ctx.tone_of_voice ? `Brand voice: ${ctx.tone_of_voice}` : '',
+            ctx.target_audience ? `Audience: ${ctx.target_audience}` : '',
+            ctx.content_pillars ? `Content strategy: ${ctx.content_pillars}` : '',
+            ctx.posting_frequency ? `Posting frequency: ${ctx.posting_frequency}` : '',
         ].filter(Boolean).join('\n');
 
         const system = 'You are a growth strategist for an AI marketing assistant. Given a measurable goal, '

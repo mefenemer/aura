@@ -8,9 +8,11 @@ window.updateNotificationBadge = async function() {
             const data = await res.json();
             const badge = document.getElementById('sidebar-nav-badge');
             if (badge) {
-                // Badge reflects open ACTION items ("things you must deal with"), not
-                // every unread update. Falls back to unreadCount for older responses.
-                const count = (typeof data.actionCount === 'number') ? data.actionCount : (data.unreadCount || 0);
+                // Badge reflects open ACTION items + unread UPDATES. Falls back to the older
+                // actionCount / unreadCount fields if the server hasn't been updated yet.
+                const count = (typeof data.badgeCount === 'number') ? data.badgeCount
+                    : (typeof data.actionCount === 'number') ? data.actionCount
+                    : (data.unreadCount || 0);
                 if (count > 0) {
                     badge.textContent = count;
                     badge.classList.remove('hidden');
@@ -213,6 +215,11 @@ window.initNotifications = async function() {
                 // Open the tab that has something waiting: unresolved actions first, else updates.
                 activeTab = notificationsData.some(n => kindOf(n) === 'action' && !isResolved(n)) ? 'action' : 'updates';
                 renderList();
+                // A plan change happened in-session → refresh the header plan pill (force re-fetch).
+                if (notificationsData.some(n => n.type === 'plan_upgraded' || n.type === 'plan_activated')
+                    && typeof window.refreshPlanPill === 'function') {
+                    window.refreshPlanPill(true);
+                }
             }
         } catch (error) {
             console.error('Failed to load notifications:', error);
