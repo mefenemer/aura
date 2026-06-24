@@ -134,14 +134,30 @@ export const RUN_RATE_THRESHOLDS = {
 
 // AC4.1.1 — polling cadence by subscription tier. The cron runs hourly; each goal is polled
 // at most once per its tier's cadence. Higher tiers get near-real-time tracking.
+// Tier prices: trial=free, buster=£20, saver=£50, employee=£100 → saver+employee are the
+// premium tiers that get hourly telemetry; trial+buster get daily.
 export const POLL_CADENCE_HOURS_BY_TIER: Record<string, number> = {
-    buster: 1,
     employee: 1,
-    saver: 24,
+    saver: 1,
+    buster: 24,
     trial: 24,
 };
 export const DEFAULT_POLL_CADENCE_HOURS = 24;
 
 export function pollCadenceHours(tierKey: string | null | undefined): number {
     return (tierKey && POLL_CADENCE_HOURS_BY_TIER[tierKey]) || DEFAULT_POLL_CADENCE_HOURS;
+}
+
+// Feature 3 (premium AI) tier gates. saver+employee unlock AI recommendations + magic-wand
+// rewrite (US3.1/3.2) and autonomous optimization (US3.3); buster/trial are base tier and get
+// the padlock → upgrade modal (AC3.1.1). Editable here as the gating SoT.
+export type GoalAiFeature = 'recommendations' | 'magicWand' | 'autonomous';
+export const GOAL_AI_TIERS: Record<GoalAiFeature, readonly string[]> = {
+    recommendations: ['saver', 'employee'],
+    magicWand:       ['saver', 'employee'],
+    autonomous:      ['saver', 'employee'],
+};
+
+export function tierAllows(feature: GoalAiFeature, tierKey: string | null | undefined): boolean {
+    return !!tierKey && GOAL_AI_TIERS[feature].includes(tierKey);
 }

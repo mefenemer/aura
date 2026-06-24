@@ -35,10 +35,17 @@
             <span id="detail-status" class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">…</span>
           </div>
           <p id="detail-role" class="text-gray-500 font-medium mt-1 text-sm">Reviewing tasks…</p>
+          <!-- AC2.1.2 — primary goal progress bar (populated by _fetchAndRenderGoals) -->
+          <div id="detail-primary-goal" class="hidden mt-3 max-w-md"></div>
         </div>
       </div>
       <div class="flex items-center gap-3 w-full sm:w-auto shrink-0">
         <span id="detail-save-status" class="text-sm font-semibold text-emerald-600 transition-all mr-2"></span>
+        <!-- AC2.2.1 — Review Progress (shown when this assistant has goals) -->
+        <button id="btn-review-progress" onclick="window._openReviewProgress()" type="button"
+          class="hidden flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm cursor-pointer">
+          Review Progress
+        </button>
         <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm cursor-pointer" type="button">
           Pause Assistant
         </button>
@@ -303,16 +310,31 @@
       </div>
       <div class="space-y-5">
         <div>
-          <label for="edit_audience" class="block text-sm font-bold text-gray-700 mb-1">Target Audience</label>
+          <div class="flex items-center justify-between mb-1">
+            <label for="edit_audience" class="block text-sm font-bold text-gray-700">Target Audience</label>
+            <button type="button" onclick="window._magicWand('target_audience','edit_audience', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>AI
+            </button>
+          </div>
           <input type="text" id="edit_audience" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Tech founders aged 30–45 building B2B SaaS products…">
           <p class="text-xs text-gray-400 mt-1">Be specific — the more detail, the more targeted the content.</p>
         </div>
         <div>
-          <label for="edit_tone" class="block text-sm font-bold text-gray-700 mb-1">Brand Voice &amp; Tone</label>
+          <div class="flex items-center justify-between mb-1">
+            <label for="edit_tone" class="block text-sm font-bold text-gray-700">Brand Voice &amp; Tone</label>
+            <button type="button" onclick="window._magicWand('tone_of_voice','edit_tone', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>AI
+            </button>
+          </div>
           <input type="text" id="edit_tone" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Professional yet friendly, Witty, Authoritative…">
         </div>
         <div>
-          <label for="edit_pillars" class="block text-sm font-bold text-gray-700 mb-1">Content Pillars / Core Topics</label>
+          <div class="flex items-center justify-between mb-1">
+            <label for="edit_pillars" class="block text-sm font-bold text-gray-700">Content Pillars / Core Topics</label>
+            <button type="button" onclick="window._magicWand('content_pillars','edit_pillars', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>AI
+            </button>
+          </div>
           <input type="text" id="edit_pillars" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Growth hacking, Leadership, Behind the scenes…">
           <p class="text-xs text-gray-400 mt-1">Separate topics with commas.</p>
         </div>
@@ -496,6 +518,21 @@
         <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading goals…</div>
       </div>
     </div>
+
+    <!-- Autonomous Optimization Mode (US3.3) — highest-tier self-adjusting toggle -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">Autonomous Goal Seeking <span id="autonomous-lock" class="hidden text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">🔒 Premium</span></h3>
+          <p class="text-sm text-gray-500 mt-1">When a goal goes off track, let this assistant automatically fine-tune its own brand voice to recover — no manual edits needed. Every change is logged and you're notified.</p>
+        </div>
+        <button id="toggle-autonomous-goals" type="button" role="switch" aria-checked="false"
+          onclick="window._toggleAutonomousGoals()"
+          class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-gray-300 mt-1">
+          <span id="toggle-autonomous-goals-dot" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- tab-integrations removed — merged into tab-platforms as "Connections" -->
@@ -538,6 +575,63 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
         Copy rules
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Review Progress (SMART Goals US2.2) ───────────────── -->
+<div id="modal-review-progress" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+      <div class="min-w-0">
+        <h3 class="font-extrabold text-gray-900 text-lg">Review Progress</h3>
+        <p class="text-xs text-gray-500 mt-0.5">Actual performance against the trajectory needed to hit your target.</p>
+      </div>
+      <button onclick="document.getElementById('modal-review-progress').classList.add('hidden')" type="button"
+        class="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="px-6 py-5 space-y-4">
+      <div>
+        <label for="review-goal-select" class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Goal</label>
+        <select id="review-goal-select" onchange="window._renderReviewChart(Number(this.value))"
+          class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"></select>
+      </div>
+      <div id="review-status-banner"></div>
+      <!-- Trendline vs trajectory chart (dependency-free SVG) — AC2.2.2 -->
+      <div id="review-chart" style="min-height:220px" class="rounded-xl border border-gray-100 bg-gray-50/50 p-3 flex items-center justify-center text-sm text-gray-400">Loading chart…</div>
+      <div class="flex items-center gap-4 text-xs text-gray-500">
+        <span class="inline-flex items-center gap-1.5"><span class="w-4 h-0.5 bg-emerald-500 inline-block"></span>Actual</span>
+        <span class="inline-flex items-center gap-1.5"><span class="w-4 h-0.5 inline-block" style="background:repeating-linear-gradient(90deg,#9ca3af 0,#9ca3af 3px,transparent 3px,transparent 6px)"></span>Required trajectory</span>
+      </div>
+      <!-- AI recommendations output (AC3.1.3) -->
+      <div id="review-recommendations" class="hidden"></div>
+    </div>
+    <div id="review-footer" class="px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl flex items-center justify-end gap-3 flex-wrap"></div>
+  </div>
+</div>
+
+<!-- ── Modal: Magic Wand suggestion (US3.2 — goal-aware field rewrite) ─── -->
+<div id="modal-wand" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-emerald-50">
+      <div>
+        <h3 class="font-extrabold text-gray-900">AI Suggestion</h3>
+        <p id="wand-field-label" class="text-xs text-emerald-600 mt-0.5"></p>
+      </div>
+      <button onclick="document.getElementById('modal-wand').classList.add('hidden')" type="button"
+        class="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="px-6 py-5">
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Optimized for your goals</p>
+      <div id="wand-suggestion" style="min-height:64px" class="text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg p-3"></div>
+    </div>
+    <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl flex items-center justify-end gap-3">
+      <button onclick="document.getElementById('modal-wand').classList.add('hidden')" type="button" class="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition cursor-pointer">Dismiss</button>
+      <button id="wand-accept" type="button" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer">Accept Suggestion</button>
     </div>
   </div>
 </div>

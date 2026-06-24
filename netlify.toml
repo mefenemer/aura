@@ -154,3 +154,7 @@ node_bundler = "esbuild"
 # SMART Goals AC4.2.2: collapse the previous day's goal telemetry to one close-of-day point — 00:00 UTC.
 [functions.rollup-goal-telemetry]
   schedule = "0 0 * * *"
+
+# SMART Goals US3.3: autonomous optimizer — rewrite allowed brief params for off-track goals — 04:00 UTC daily.
+[functions.autonomous-goal-optimizer]
+  schedule = "0 4 * * *"

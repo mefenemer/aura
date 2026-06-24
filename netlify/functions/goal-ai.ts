@@ -1,0 +1,139 @@
+// netlify/functions/goal-ai.ts
+// SMART Goals — Feature 3 (premium AI). Two actions, both premium-tier gated (AC3.1.1):
+//   action=recommend  { goalId }                      → AC3.1.2/3.1.3: 1–3 actionable recommendations.
+//   action=rewrite    { assistantId, field, text }    → AC3.2.2: goal-aware rewrite of one brief field.
+// The LLM only ever sees a hidden prompt assembled here (goal + trajectory + current brief).
+
+import { Handler } from '@netlify/functions';
+import { and, eq } from 'drizzle-orm';
+import { getDb } from '../../db/client';
+import { goals, aiAssistants } from '../../db/schema';
+import { requireTenant } from '../../src/utils/tenant';
+import { getActiveTierKeyByOrg } from '../../src/utils/plan-features';
+import { getGoalMetric, tierAllows, type GoalAiFeature } from '../../src/config/goal-metrics';
+import { isGlobalAiDisabled } from '../../src/utils/platform-config';
+import { gatewayGenerate } from '../../src/lib/ai-gateway';
+
+const json = (statusCode: number, payload: unknown) => ({
+    statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+});
+
+const FIELD_LABELS: Record<string, string> = {
+    tone_of_voice: 'Brand Voice',
+    target_audience: 'Target Audience',
+    content_pillars: 'Content Strategy',
+};
+
+function goalSummary(goal: any): string {
+    const metric = getGoalMetric(goal.metricKey);
+    const target = Number(goal.targetValue);
+    const latest = goal.latestValue != null ? Number(goal.latestValue) : null;
+    const due = new Date(goal.targetDate).toISOString().slice(0, 10);
+    return `Goal: reach ${target.toLocaleString()} ${metric?.unit ?? ''} of "${metric?.label ?? goal.metricKey}" by ${due}. `
+        + `Current value: ${latest != null ? latest.toLocaleString() : 'unknown'}. Status: ${goal.status}.`;
+}
+
+async function gate(db: any, orgId: number, feature: GoalAiFeature): Promise<{ error: any } | null> {
+    if (await isGlobalAiDisabled()) return { error: json(503, { error: 'AI features are temporarily unavailable.' }) };
+    const tierKey = await getActiveTierKeyByOrg(db, orgId);
+    if (!tierAllows(feature, tierKey)) {
+        return { error: json(402, { error: 'This AI feature requires a higher plan.', code: 'UPGRADE_REQUIRED' }) };
+    }
+    return null;
+}
+
+export const handler: Handler = async (event) => {
+    if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' });
+
+    const db = getDb();
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { organisationId: orgId } = ctx;
+
+    let body: any = {};
+    try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON.' }); }
+
+    // ── action=recommend — 1–3 fixes for a goal that's off pace ──────────────
+    if (body.action === 'recommend') {
+        const blocked = await gate(db, orgId, 'recommendations');
+        if (blocked) return blocked.error;
+
+        const goalId = Number(body.goalId);
+        if (!goalId) return json(400, { error: 'goalId is required.' });
+
+        const [goal] = await db.select().from(goals).where(eq(goals.id, goalId)).limit(1);
+        if (!goal || goal.organisationId !== orgId) return json(404, { error: 'Goal not found.' });
+
+        const [assistant] = await db
+            .select({ name: aiAssistants.name, role: aiAssistants.aiAssistantJobRole, configuration: aiAssistants.configuration })
+            .from(aiAssistants)
+            .where(and(eq(aiAssistants.id, goal.assistantId), eq(aiAssistants.organisationId, orgId)))
+            .limit(1);
+
+        const inputs = (assistant?.configuration as any)?.inputs ?? {};
+        const brief = [
+            `Role: ${assistant?.role ?? 'assistant'}`,
+            inputs.tone_of_voice ? `Brand voice: ${inputs.tone_of_voice}` : '',
+            inputs.target_audience ? `Audience: ${inputs.target_audience}` : '',
+            inputs.content_pillars ? `Content strategy: ${inputs.content_pillars}` : '',
+            Array.isArray(inputs.strictRules) && inputs.strictRules.length ? `Rules: ${inputs.strictRules.join('; ')}` : '',
+        ].filter(Boolean).join('\n');
+
+        const system = 'You are a growth strategist for an AI marketing assistant. Given a measurable goal, '
+            + 'its current trajectory and the assistant\'s current brief, return 1 to 3 SPECIFIC, actionable changes '
+            + 'to the brief that would improve results. Each recommendation is one sentence, concrete, and references '
+            + 'what to change and why. Respond ONLY with a JSON array of strings.';
+        const userMsg = `${goalSummary(goal)}\n\nCurrent brief:\n${brief || '(no brief details set)'}`;
+
+        let recommendations: string[] = [];
+        try {
+            const { text } = await gatewayGenerate({ system, messages: [{ role: 'user', content: userMsg }], maxTokens: 500 });
+            const match = text.match(/\[[\s\S]*\]/);
+            if (match) recommendations = JSON.parse(match[0]);
+        } catch { /* fall through to graceful error below */ }
+
+        recommendations = (recommendations || []).filter(r => typeof r === 'string' && r.trim()).slice(0, 3);
+        if (!recommendations.length) return json(502, { error: 'Could not generate recommendations. Please try again.' });
+        return json(200, { recommendations });
+    }
+
+    // ── action=rewrite — goal-aware rewrite of one brief field (magic wand) ───
+    if (body.action === 'rewrite') {
+        const blocked = await gate(db, orgId, 'magicWand');
+        if (blocked) return blocked.error;
+
+        const assistantId = Number(body.assistantId);
+        const field = String(body.field || '');
+        const currentText = String(body.text || '');
+        if (!assistantId || !FIELD_LABELS[field]) return json(400, { error: 'assistantId and a valid field are required.' });
+
+        const [assistant] = await db
+            .select({ id: aiAssistants.id, role: aiAssistants.aiAssistantJobRole })
+            .from(aiAssistants)
+            .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
+            .limit(1);
+        if (!assistant) return json(404, { error: 'Assistant not found.' });
+
+        const activeGoals = await db
+            .select().from(goals)
+            .where(and(eq(goals.assistantId, assistantId), eq(goals.organisationId, orgId), eq(goals.isActive, true)));
+        const goalText = activeGoals.length ? activeGoals.map(goalSummary).join('\n') : 'No active goals set.';
+
+        const system = `You optimise one field of an AI assistant's brief to better achieve the assistant's goals. `
+            + `Rewrite the "${FIELD_LABELS[field]}" field so it is sharper and more likely to hit the goals below. `
+            + `Keep it concise and practical. Respond ONLY with the rewritten field text — no preamble, no quotes.`;
+        const userMsg = `Assistant role: ${assistant.role ?? 'assistant'}\n\nGoals:\n${goalText}\n\n`
+            + `Current "${FIELD_LABELS[field]}":\n${currentText || '(empty)'}`;
+
+        try {
+            const { text } = await gatewayGenerate({ system, messages: [{ role: 'user', content: userMsg }], maxTokens: 400 });
+            const suggestion = text.trim();
+            if (!suggestion) return json(502, { error: 'Could not generate a suggestion. Please try again.' });
+            return json(200, { suggestion, field });
+        } catch {
+            return json(502, { error: 'Could not generate a suggestion. Please try again.' });
+        }
+    }
+
+    return json(400, { error: 'Unknown action.' });
+};

@@ -80,6 +80,7 @@ const TYPE_CATEGORY: Record<string, NotificationCategory> = {
     org_invite_accepted: 'state_change', org_joined: 'state_change',
     risk_assessment_decision: 'state_change', risk_reclassification: 'state_change',
     account_update: 'state_change', assistant_task: 'state_change', assistant_ready: 'state_change',
+    goal_autonomous_adjustment: 'state_change', // SMART Goals AC3.3.3 — autonomous brief change FYI
     // celebratory
     setup_complete: 'celebratory', milestone_unlock: 'celebratory', referral_reward: 'celebratory',
     // informational (explicit; unknown types also fall here)

@@ -25,6 +25,17 @@ window.generateAssistantCardHTML = function(assistant) {
     const db = DIR_BADGE[lifecycle] || DIR_BADGE.working;
     const statusHtml = `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold ${db.cls}"><span class="w-1.5 h-1.5 rounded-full ${db.dot}"></span> ${db.label}</span>`;
 
+    // SMART Goals AC2.1.1 — "X On Track | Y Off Track" micro-summary + Review Progress button (AC2.2.1).
+    const gs = assistant.goalSummary || { onTrack: 0, offTrack: 0, total: 0 };
+    const goalsHtml = gs.total > 0 ? `
+        <div class="flex items-center gap-4 text-xs font-semibold mb-5">
+            <span class="inline-flex items-center gap-1.5 text-emerald-600"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>${gs.onTrack} On Track</span>
+            <span class="inline-flex items-center gap-1.5 text-red-600"><span class="w-2 h-2 rounded-full bg-red-500"></span>${gs.offTrack} Off Track</span>
+        </div>` : '';
+    const reviewBtn = gs.total > 0
+        ? `<button type="button" onclick="event.stopPropagation(); window._reviewProgressOnLoad=true; window.routeToAssistantDetail('${assistant.id}')" class="text-sm font-bold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer">Review Progress</button>`
+        : '';
+
     return `
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col cursor-pointer group" onclick="window.routeToAssistantDetail('${assistant.id}')">
         <div class="flex justify-between items-start mb-4">
@@ -34,8 +45,10 @@ window.generateAssistantCardHTML = function(assistant) {
             ${statusHtml}
         </div>
         <h3 class="text-lg font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">${assistant.name}</h3>
-        <p class="text-sm text-gray-500 mb-6">${role}</p>
-        <div class="mt-auto pt-4 border-t border-gray-50 flex justify-end">
+        <p class="text-sm text-gray-500 mb-4">${role}</p>
+        ${goalsHtml}
+        <div class="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
+            ${reviewBtn || '<span></span>'}
             <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">Board Room &rarr;</span>
         </div>
     </div>`;
@@ -1221,6 +1234,9 @@ window._confirmCopyRules = async function () {
 const GOALS_API = '/.netlify/functions/manage-goals';
 let _goalsAssistantId = null;
 let _goalMetrics = [];   // available metric catalog entries for this workspace (AC1.1.3)
+let _goalsCache = [];    // last-loaded goals for this assistant (for the header bar + review modal)
+let _goalEntitlements = { aiRecommendations: false, magicWand: false, autonomous: false }; // Feature 3 tier gates
+let _autonomousGoalSeeking = false;
 
 const _GOAL_STATUS_META = {
     pending:            { label: 'Pending',        dot: 'bg-gray-300',    text: 'text-gray-500'   },
@@ -1247,12 +1263,18 @@ async function _fetchAndRenderGoals(assistantId) {
             const data = await res.json();
             goals = data.goals || [];
             _goalMetrics = data.availableMetrics || [];
+            _goalEntitlements = data.entitlements || _goalEntitlements;
+            _autonomousGoalSeeking = !!data.autonomousGoalSeeking;
         }
     } catch (e) {
         console.warn('Could not load goals:', e);
     }
 
+    _goalsCache = goals;
     _populateGoalMetricDropdown();
+    _renderPrimaryGoalHeader();
+    _syncReviewButton();
+    _applyGoalEntitlementsUi();
 
     if (!goals.length) {
         list.innerHTML = `<div class="py-8 text-center text-sm text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
@@ -1260,6 +1282,43 @@ async function _fetchAndRenderGoals(assistantId) {
         return;
     }
     list.innerHTML = goals.map(_buildGoalCard).join('');
+
+    // AC2.2.1 — a dashboard "Review Progress" click deep-links here; open the modal once.
+    if (window._reviewProgressOnLoad) {
+        window._reviewProgressOnLoad = false;
+        setTimeout(() => window._openReviewProgress(), 150);
+    }
+}
+
+// AC2.1.2 — primary goal progress bar in the assistant detail header.
+function _renderPrimaryGoalHeader() {
+    const box = document.getElementById('detail-primary-goal');
+    if (!box) return;
+    const primary = _goalsCache.find(g => g.isPrimary) || _goalsCache[0];
+    if (!primary) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+
+    const meta = _GOAL_STATUS_META[primary.status] || _GOAL_STATUS_META.pending;
+    const { label, unit } = _goalMetricLabel(primary.metricKey);
+    const target = Number(primary.targetValue);
+    const latest = primary.latestValue != null ? Number(primary.latestValue) : null;
+    const pct = (latest != null && target > 0) ? Math.max(0, Math.min(100, Math.round((latest / target) * 100))) : 0;
+    const fmt = (n) => n == null ? '—' : Number(n).toLocaleString();
+
+    box.classList.remove('hidden');
+    box.innerHTML = `
+        <div class="flex items-center justify-between text-xs mb-1">
+            <span class="font-bold text-gray-700">${_escapeHtml(label)}</span>
+            <span class="inline-flex items-center gap-1.5 font-bold ${meta.text}"><span class="w-2 h-2 rounded-full ${meta.dot}"></span>${meta.label}</span>
+        </div>
+        <div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full ${meta.dot} transition-all" style="width:${pct}%"></div>
+        </div>
+        <p class="text-[11px] text-gray-400 mt-1">${latest != null ? fmt(latest) : '—'} / ${fmt(target)} ${_escapeHtml(unit)}</p>`;
+}
+
+function _syncReviewButton() {
+    const btn = document.getElementById('btn-review-progress');
+    if (btn) btn.classList.toggle('hidden', _goalsCache.length === 0);
 }
 
 // AC1.1.3 — the dropdown only offers metrics the workspace can actually measure.
@@ -1374,6 +1433,231 @@ window._deleteGoal = async function (id) {
     try {
         const res = await fetch(`${GOALS_API}?id=${id}`, { method: 'DELETE' });
         if (res.ok) await _fetchAndRenderGoals(_goalsAssistantId);
+    } catch { /* no-op */ }
+};
+
+// ── Review Progress (US2.2) — trendline vs trajectory chart + base-tier manual path ──
+const GOAL_TELEMETRY_API = '/.netlify/functions/get-goal-telemetry';
+
+const _REVIEW_BANNER = {
+    on_track:          { tone: 'emerald', text: 'On track to hit your target by the deadline.' },
+    at_risk:           { tone: 'amber',   text: 'Slightly behind pace. A small adjustment now keeps you on target.' },
+    off_track:         { tone: 'red',     text: 'Off track — at the current rate this goal will miss its target.' },
+    pending:           { tone: 'gray',    text: 'Gathering data. Status appears once a few data points are in.' },
+    data_disconnected: { tone: 'gray',    text: 'We lost connection to the data source. Re-authenticate to resume tracking.' },
+};
+const _REVIEW_TONE_CLS = {
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+    amber:   'bg-amber-50 border-amber-200 text-amber-800',
+    red:     'bg-red-50 border-red-200 text-red-800',
+    gray:    'bg-gray-50 border-gray-200 text-gray-600',
+};
+
+window._openReviewProgress = function (goalId) {
+    const modal = document.getElementById('modal-review-progress');
+    const sel = document.getElementById('review-goal-select');
+    if (!modal || !sel || !_goalsCache.length) return;
+    sel.innerHTML = _goalsCache.map(g => {
+        const { label } = _goalMetricLabel(g.metricKey);
+        return `<option value="${g.id}">${_escapeHtml(label)}${g.isPrimary ? ' (Primary)' : ''}</option>`;
+    }).join('');
+    const initial = goalId || (_goalsCache.find(g => g.isPrimary) || _goalsCache[0]).id;
+    sel.value = String(initial);
+    modal.classList.remove('hidden');
+    window._renderReviewChart(Number(initial));
+};
+
+window._renderReviewChart = async function (goalId) {
+    const chart = document.getElementById('review-chart');
+    const banner = document.getElementById('review-status-banner');
+    const footer = document.getElementById('review-footer');
+    if (!chart) return;
+    chart.innerHTML = '<span class="text-sm text-gray-400">Loading chart…</span>';
+    if (banner) banner.innerHTML = '';
+    if (footer) footer.innerHTML = '';
+
+    let data = null;
+    try {
+        const res = await fetch(`${GOAL_TELEMETRY_API}?id=${goalId}`);
+        if (res.ok) data = await res.json();
+    } catch { /* handled below */ }
+    if (!data) { chart.innerHTML = '<span class="text-sm text-red-500">Could not load telemetry.</span>'; return; }
+
+    const status = data.goal.status;
+    const b = _REVIEW_BANNER[status] || _REVIEW_BANNER.pending;
+    if (banner) {
+        banner.innerHTML = `<div class="flex items-start gap-2 text-sm font-medium border rounded-lg px-3 py-2.5 ${_REVIEW_TONE_CLS[b.tone]}">
+            <span class="font-bold">${(_GOAL_STATUS_META[status] || _GOAL_STATUS_META.pending).label}:</span><span>${b.text}</span></div>`;
+    }
+
+    chart.innerHTML = _buildTelemetrySvg(data.actual || [], data.trajectory || []);
+
+    const recsBox = document.getElementById('review-recommendations');
+    if (recsBox) { recsBox.classList.add('hidden'); recsBox.innerHTML = ''; }
+
+    // Footer: premium "Get AI Recommendations" (padlock if base tier, AC3.1.1) + base-tier
+    // manual "Edit Assistant Brief" when off pace (AC2.2.3).
+    if (footer) {
+        const lock = _goalEntitlements.aiRecommendations ? '' : '🔒 ';
+        const recsBtn = `<button type="button" onclick="window._getAiRecommendations(${goalId})" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer">${lock}Get AI Recommendations</button>`;
+        const editBtn = (status === 'off_track' || status === 'at_risk')
+            ? `<button type="button" onclick="window._editBriefFromReview()" class="px-5 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-bold rounded-lg transition cursor-pointer">Edit Assistant Brief</button>`
+            : '';
+        footer.innerHTML = editBtn + recsBtn;
+    }
+};
+
+window._editBriefFromReview = function () {
+    document.getElementById('modal-review-progress')?.classList.add('hidden');
+    document.querySelector('.detail-tab-btn[data-tab="guardrails"]')?.click();
+    setTimeout(() => {
+        const el = document.getElementById('edit_strict_rules');
+        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+    }, 120);
+};
+
+// Dependency-free line chart: actual (solid emerald) vs required trajectory (dashed grey).
+function _buildTelemetrySvg(actual, trajectory) {
+    const all = [...actual, ...trajectory];
+    if (!all.length) return '<span class="text-sm text-gray-400">No data yet — the first sync will populate this chart.</span>';
+
+    const W = 560, H = 220, PAD = { l: 52, r: 16, t: 14, b: 28 };
+    const xs = all.map(p => new Date(p.date).getTime());
+    const ys = all.map(p => Number(p.value));
+    let minX = Math.min(...xs), maxX = Math.max(...xs);
+    let minY = Math.min(0, ...ys), maxY = Math.max(...ys);
+    if (maxX === minX) maxX = minX + 1;
+    if (maxY === minY) maxY = minY + 1;
+    const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
+    const sx = t => PAD.l + ((t - minX) / (maxX - minX)) * plotW;
+    const sy = v => PAD.t + (1 - (v - minY) / (maxY - minY)) * plotH;
+    const path = pts => pts.map((p, i) => `${i ? 'L' : 'M'}${sx(new Date(p.date).getTime()).toFixed(1)},${sy(Number(p.value)).toFixed(1)}`).join(' ');
+
+    const trajPath = trajectory.length >= 2 ? `<path d="${path(trajectory)}" fill="none" stroke="#9ca3af" stroke-width="2" stroke-dasharray="5 5"/>` : '';
+    const actPath = actual.length >= 2 ? `<path d="${path(actual)}" fill="none" stroke="#059669" stroke-width="2.5"/>` : '';
+    const actDots = actual.map(p => `<circle cx="${sx(new Date(p.date).getTime()).toFixed(1)}" cy="${sy(Number(p.value)).toFixed(1)}" r="3" fill="#059669"/>`).join('');
+
+    const fmtV = v => Number(v).toLocaleString();
+    const fmtD = t => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    const axis = `<line x1="${PAD.l}" y1="${PAD.t}" x2="${PAD.l}" y2="${H - PAD.b}" stroke="#e5e7eb"/><line x1="${PAD.l}" y1="${H - PAD.b}" x2="${W - PAD.r}" y2="${H - PAD.b}" stroke="#e5e7eb"/>`;
+    const labels =
+        `<text x="${PAD.l - 6}" y="${(sy(maxY) + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="#9ca3af">${fmtV(maxY)}</text>` +
+        `<text x="${PAD.l - 6}" y="${(sy(minY) + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="#9ca3af">${fmtV(minY)}</text>` +
+        `<text x="${PAD.l}" y="${H - 8}" text-anchor="start" font-size="10" fill="#9ca3af">${fmtD(minX)}</text>` +
+        `<text x="${W - PAD.r}" y="${H - 8}" text-anchor="end" font-size="10" fill="#9ca3af">${fmtD(maxX)}</text>`;
+
+    return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg">${axis}${trajPath}${actPath}${actDots}${labels}</svg>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Feature 3 — Premium AI Optimization (recommendations, magic wand, autonomous)
+// ══════════════════════════════════════════════════════════════════
+const GOAL_AI_API = '/.netlify/functions/goal-ai';
+const _WAND_FIELD_LABELS = { tone_of_voice: 'Brand Voice', target_audience: 'Target Audience', content_pillars: 'Content Strategy' };
+
+function _openUpgrade(msg) {
+    if (typeof window.openUpgradeModal === 'function') {
+        window.openUpgradeModal('Upgrade your plan', 'Premium AI optimization', msg);
+    } else {
+        alert(msg);
+    }
+}
+
+// Reflect tier entitlements + autonomous state onto the UI (toggle, premium lock chip).
+function _applyGoalEntitlementsUi() {
+    const tog = document.getElementById('toggle-autonomous-goals');
+    const dot = document.getElementById('toggle-autonomous-goals-dot');
+    const lock = document.getElementById('autonomous-lock');
+    if (tog && dot) {
+        const on = _autonomousGoalSeeking;
+        tog.setAttribute('aria-checked', on ? 'true' : 'false');
+        tog.classList.toggle('bg-emerald-600', on);
+        tog.classList.toggle('bg-gray-300', !on);
+        dot.classList.toggle('translate-x-5', on);
+        dot.classList.toggle('translate-x-0', !on);
+    }
+    if (lock) lock.classList.toggle('hidden', _goalEntitlements.autonomous);
+}
+
+// AC3.1 — premium AI recommendations for an off-track goal.
+window._getAiRecommendations = async function (goalId) {
+    if (!_goalEntitlements.aiRecommendations) {
+        return _openUpgrade('AI Recommendations are available on the Saver and Employee plans.');
+    }
+    const box = document.getElementById('review-recommendations');
+    if (box) { box.classList.remove('hidden'); box.innerHTML = '<p class="text-sm text-gray-400 mt-3">Analysing your goal…</p>'; }
+    try {
+        const res = await fetch(GOAL_AI_API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'recommend', goalId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 402) { if (box) box.classList.add('hidden'); return _openUpgrade('AI Recommendations require a higher plan.'); }
+        if (!res.ok || !Array.isArray(data.recommendations)) {
+            if (box) box.innerHTML = `<p class="text-sm text-red-500 mt-3">${_escapeHtml(data.error || 'Could not generate recommendations.')}</p>`;
+            return;
+        }
+        if (box) box.innerHTML = `<div class="mt-3 space-y-2">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">AI Recommendations</p>
+            ${data.recommendations.map(r => `<div class="flex items-start gap-2 text-sm text-gray-700 bg-emerald-50/60 border border-emerald-100 rounded-lg px-3 py-2"><span class="text-emerald-600 font-bold">✦</span><span>${_escapeHtml(r)}</span></div>`).join('')}
+        </div>`;
+    } catch {
+        if (box) box.innerHTML = '<p class="text-sm text-red-500 mt-3">Could not generate recommendations.</p>';
+    }
+};
+
+// AC3.2 — goal-aware field rewrite (magic wand).
+window._magicWand = async function (field, inputId, btn) {
+    if (!_goalEntitlements.magicWand) {
+        return _openUpgrade('The AI Magic Wand is available on the Saver and Employee plans.');
+    }
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const orig = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+    try {
+        const res = await fetch(GOAL_AI_API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'rewrite', assistantId: _goalsAssistantId, field, text: input.value }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 402) return _openUpgrade('The AI Magic Wand requires a higher plan.');
+        if (!res.ok || !data.suggestion) { alert(data.error || 'Could not generate a suggestion.'); return; }
+        _showWandSuggestion(field, inputId, data.suggestion);
+    } catch {
+        alert('Could not generate a suggestion.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = orig; }
+    }
+};
+
+function _showWandSuggestion(field, inputId, suggestion) {
+    const lbl = document.getElementById('wand-field-label');
+    const sug = document.getElementById('wand-suggestion');
+    const accept = document.getElementById('wand-accept');
+    if (lbl) lbl.textContent = _WAND_FIELD_LABELS[field] || field;
+    if (sug) sug.textContent = suggestion;
+    if (accept) accept.onclick = () => {            // AC3.2.3 — one-click apply (then autosave)
+        const input = document.getElementById(inputId);
+        if (input) { input.value = suggestion; input.dispatchEvent(new Event('input', { bubbles: true })); }
+        document.getElementById('modal-wand')?.classList.add('hidden');
+    };
+    document.getElementById('modal-wand')?.classList.remove('hidden');
+}
+
+// AC3.3.1 — toggle Autonomous Goal Seeking (premium-gated).
+window._toggleAutonomousGoals = async function () {
+    if (!_goalEntitlements.autonomous && !_autonomousGoalSeeking) {
+        return _openUpgrade('Autonomous Goal Seeking is available on the Saver and Employee plans.');
+    }
+    const next = !_autonomousGoalSeeking;
+    try {
+        const res = await fetch(GOALS_API, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assistantId: _goalsAssistantId, autonomousGoalSeeking: next }),
+        });
+        if (res.ok) { _autonomousGoalSeeking = next; _applyGoalEntitlementsUi(); }
+        else if (res.status === 402) _openUpgrade('Autonomous Goal Seeking requires a higher plan.');
     } catch { /* no-op */ }
 };
 

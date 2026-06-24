@@ -14,10 +14,12 @@ import { and, eq, desc, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { goals, aiAssistants, systemConnections } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
+import { getActiveTierKeyByOrg } from '../../src/utils/plan-features';
 import {
     availableMetricsForConnections,
     getGoalMetric,
     isValidMetricKey,
+    tierAllows,
 } from '../../src/config/goal-metrics';
 
 const json = (statusCode: number, payload: unknown) => ({
@@ -64,9 +66,12 @@ export const handler: Handler = async (event) => {
         if (!assistantId || Number.isNaN(assistantId)) {
             return json(400, { error: 'assistantId is required.' });
         }
-        if (!(await assertOwnedAssistant(db, assistantId, orgId))) {
-            return json(404, { error: 'Assistant not found.' });
-        }
+        const [assistant] = await db
+            .select({ id: aiAssistants.id, autonomousGoalSeeking: aiAssistants.autonomousGoalSeeking })
+            .from(aiAssistants)
+            .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
+            .limit(1);
+        if (!assistant) return json(404, { error: 'Assistant not found.' });
 
         const rows = await db
             .select()
@@ -75,7 +80,19 @@ export const handler: Handler = async (event) => {
             .orderBy(desc(goals.isPrimary), desc(goals.createdAt));
 
         const services = await connectedServices(db, orgId);
-        return json(200, { goals: rows, availableMetrics: availableMetricsForConnections(services) });
+        const tierKey = await getActiveTierKeyByOrg(db, orgId);
+
+        return json(200, {
+            goals: rows,
+            availableMetrics: availableMetricsForConnections(services),
+            autonomousGoalSeeking: assistant.autonomousGoalSeeking,
+            // Feature 3 premium gates (AC3.1.1) — the client shows padlocks / upgrade prompts off these.
+            entitlements: {
+                aiRecommendations: tierAllows('recommendations', tierKey),
+                magicWand: tierAllows('magicWand', tierKey),
+                autonomous: tierAllows('autonomous', tierKey),
+            },
+        });
     }
 
     // ── POST — create a goal ─────────────────────────────────────────────────
@@ -135,10 +152,27 @@ export const handler: Handler = async (event) => {
         return json(201, { goal: created });
     }
 
-    // ── PATCH — update a goal ────────────────────────────────────────────────
+    // ── PATCH — update a goal, or toggle autonomous mode (US3.3) ──────────────
     if (method === 'PATCH') {
         let body: any = {};
         try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON.' }); }
+
+        // Assistant-level: Autonomous Goal Seeking toggle (premium-gated, AC3.3.1).
+        if (body.assistantId != null && typeof body.autonomousGoalSeeking === 'boolean') {
+            if (!(await assertOwnedAssistant(db, Number(body.assistantId), orgId))) {
+                return json(404, { error: 'Assistant not found.' });
+            }
+            if (body.autonomousGoalSeeking) {
+                const tierKey = await getActiveTierKeyByOrg(db, orgId);
+                if (!tierAllows('autonomous', tierKey)) {
+                    return json(402, { error: 'Autonomous optimization requires a higher plan.', code: 'UPGRADE_REQUIRED' });
+                }
+            }
+            await db.update(aiAssistants)
+                .set({ autonomousGoalSeeking: body.autonomousGoalSeeking })
+                .where(and(eq(aiAssistants.id, Number(body.assistantId)), eq(aiAssistants.organisationId, orgId)));
+            return json(200, { autonomousGoalSeeking: body.autonomousGoalSeeking });
+        }
 
         const { id, targetValue, targetDate, isPrimary, isActive } = body;
         if (!id) return json(400, { error: 'id is required.' });

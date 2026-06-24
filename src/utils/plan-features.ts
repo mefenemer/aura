@@ -27,3 +27,15 @@ export async function hasFeature(db: Db, userId: number, featureKey: string): Pr
     const features = await getActiveFeatures(db, userId);
     return !!features[featureKey];
 }
+
+/** The active plan's tier key for an organisation (e.g. 'saver' | 'employee'), or null if none. */
+export async function getActiveTierKeyByOrg(db: Db, orgId: number): Promise<string | null> {
+    const [row] = await db
+        .select({ tierKey: masterPlans.tierKey })
+        .from(plans)
+        .leftJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
+        .where(and(eq(plans.organisationId, orgId), eq(plans.status, 'active')))
+        .orderBy(plans.startedAt)
+        .limit(1);
+    return row?.tierKey ?? null;
+}

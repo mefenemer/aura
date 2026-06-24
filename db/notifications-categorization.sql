@@ -69,6 +69,7 @@ RETURNS text LANGUAGE sql IMMUTABLE AS $$
     WHEN 'action_rejected' THEN 'suggested_action'
     WHEN 'action_expired' THEN 'suggested_action'
     -- state_change
+    WHEN 'goal_autonomous_adjustment' THEN 'state_change'  -- SMART Goals AC3.3.3
     WHEN 'billing_renewed' THEN 'state_change'
     WHEN 'billing_payment_received' THEN 'state_change'
     WHEN 'payment_confirmation' THEN 'state_change'

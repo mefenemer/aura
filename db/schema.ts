@@ -288,6 +288,9 @@ export const aiAssistants = pgTable("ai_assistants", {
   // transitionAssistantStatus() helper writes forward-only states (e.g. ready_for_work).
   // Schema + trigger live in db/assistant-lifecycle-status.sql (apply manually).
   lifecycleStatus: text("lifecycle_status").notNull().default("provisioning"),
+  // SMART Goals US3.3 — Autonomous Goal Seeking: when on, the optimizer cron may rewrite allowed
+  // brief params (tone/frequency) if a goal goes off_track. Premium-tier gated. db/goal-autonomous.sql.
+  autonomousGoalSeeking: boolean("autonomous_goal_seeking").notNull().default(false),
 }, (t) => [
   // US-DB-1.3.1: assistants are org-owned & member-shared — names are unique per organisation.
   // (userId is retained as creator/attribution only.)
