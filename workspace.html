@@ -918,6 +918,24 @@ function formatCurrency(amount, currency) {
             else if (oRole === 'admin') badges.push('<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">Org Admin</span>');
             badgesEl.innerHTML = badges.join('');
             window._profileRoles = { platformRole: pRole, organisationRole: oRole };
+
+            // Current plan pill, shown alongside the role badges.
+            (async () => {
+              try {
+                const cap = typeof window.checkCapacity === 'function' ? await window.checkCapacity() : null;
+                const planName = cap ? (cap.tierName || (cap.tierKey == null ? 'Free' : null)) : null;
+                if (!planName) return;
+                let pill = document.getElementById('header-plan-pill');
+                if (!pill) {
+                  pill = document.createElement('span');
+                  pill.id = 'header-plan-pill';
+                  badgesEl.appendChild(pill);
+                }
+                pill.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
+                pill.title = 'Current plan';
+                pill.textContent = planName;
+              } catch { /* non-fatal */ }
+            })();
           }
 
           // Generate initials dynamically for the avatar circle
