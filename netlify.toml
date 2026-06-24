@@ -101,6 +101,11 @@ node_bundler = "esbuild"
 [functions.autonomous-media-suggestions]
   schedule = "0 7 * * *"
 
+# Epic 3 US8: AI approvals email digest — daily 08:00 UTC; emails opted-in workspaces a summary of
+# pending AI drafts (daily, or weekly on Mondays). Sends nothing when the queue is empty.
+[functions.ai-approvals-digest]
+  schedule = "0 8 * * *"
+
 # US-SMM-2.4.2: Review urgency check (red-zone alerts + missed post detection) — every 15 minutes
 [functions.check-review-urgency]
   schedule = "*/15 * * * *"

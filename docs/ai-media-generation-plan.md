@@ -55,9 +55,12 @@ Nothing exists for **Fal.ai**, a **credit system**, or actual **image/video byte
   `autonomous-media-suggestions.ts` drafts copy (`gatewayGenerate`) + AI image (`media-persist.ts`)
   within the cap (`holdAutonomousCredits`), writing `scheduled_posts` (`isAutonomous`,
   `pending_approval`, `generation_reason`). SQL: `db/autonomous-media.sql`.
-- **Phase 6 — US6/7/8 Approval pipeline:** "AI Approvals" tab + dynamic badge, card view, reasoning note,
-  filters (US6); Approve&Schedule / Edit / Regenerate Media (credit-cost confirm) / Discard + feedback
-  (US7); in-app toast, opt-in daily/weekly email digest, zero-spam rule (US8).
+- **Phase 6 — US6/7/8 Approval pipeline:** ✅ "AI Approvals" tab + dynamic badge, card view (thumbnail,
+  reasoning note, platform, suggested time), platform/type filters (US6 — `get-ai-approvals.ts`);
+  Approve&Schedule (`approve-post`) / inline Edit (`scheduled-posts` PATCH) / Regenerate Media with
+  credit-cost confirm (`regenerate-post-media.ts`) / Discard + feedback (`reject-post`) (US7);
+  per-run in-app summary notification + opt-in daily/weekly email digest with zero-spam
+  (`ai-approvals-digest.ts`, `organisations.ai_digest_frequency`) (US8). SQL: `db/ai-digest.sql`.
 
 ## Credit economics (decided 2026-06-24)
 

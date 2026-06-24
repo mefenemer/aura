@@ -235,6 +235,7 @@ async function submitTosAcceptance(btn) {
       <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="hitl" data-status="rejected" onclick="rqSetTab('rejected',this,'hitl')">Rejected</button>
       <div class="w-px bg-gray-200 mx-1 self-stretch my-1"></div>
       <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="social" data-status="pending_approval" onclick="rqSetTab('pending_approval',this,'social')">Social Drafts <span id="rq-social-tab-count" class="ml-1 bg-violet-100 text-violet-700 text-xs px-1.5 py-0.5 rounded-full hidden"></span></button>
+      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="ai" data-status="pending_approval" onclick="rqSetTab('pending_approval',this,'ai')">AI Approvals <span id="rq-ai-tab-count" class="ml-1 bg-pink-100 text-pink-700 text-xs px-1.5 py-0.5 rounded-full hidden"></span></button>
     </div>
     <!-- List -->
     <div id="rq-list" class="flex-1 overflow-y-auto divide-y divide-gray-100 px-6 py-2"></div>
@@ -3376,7 +3377,44 @@ async function rqLoadItems(status, tabType) {
     if (!list) return;
     list.innerHTML = '<p class="text-sm text-gray-400 py-8 text-center">Loading…</p>';
     try {
-        if ((tabType || _rqCurrentTabType) === 'social') {
+        if ((tabType || _rqCurrentTabType) === 'ai') {
+            const params = new URLSearchParams();
+            if (_rqAiPlatform) params.set('platform', _rqAiPlatform);
+            if (_rqAiType) params.set('type', _rqAiType);
+            const res = await fetch(`/.netlify/functions/get-ai-approvals?${params.toString()}`);
+            if (!res.ok) throw new Error();
+            const { drafts, count, digestFrequency } = await res.json();
+            const aiCount = document.getElementById('rq-ai-tab-count');
+            if (aiCount) { aiCount.textContent = count || ''; aiCount.classList.toggle('hidden', !count); }
+            const df = digestFrequency || 'off';
+            const filterBar = `
+              <div class="flex items-center flex-wrap gap-2 py-3 sticky top-0 bg-white z-10">
+                <select onchange="_rqAiPlatform=this.value; rqLoadItems('pending_approval','ai')" class="text-xs border border-gray-300 rounded-lg px-2 py-1.5">
+                  <option value=""${!_rqAiPlatform?' selected':''}>All platforms</option>
+                  <option value="instagram"${_rqAiPlatform==='instagram'?' selected':''}>Instagram</option>
+                  <option value="facebook"${_rqAiPlatform==='facebook'?' selected':''}>Facebook</option>
+                  <option value="linkedin"${_rqAiPlatform==='linkedin'?' selected':''}>LinkedIn</option>
+                  <option value="x"${_rqAiPlatform==='x'?' selected':''}>X</option>
+                </select>
+                <select onchange="_rqAiType=this.value; rqLoadItems('pending_approval','ai')" class="text-xs border border-gray-300 rounded-lg px-2 py-1.5">
+                  <option value=""${!_rqAiType?' selected':''}>All media</option>
+                  <option value="image"${_rqAiType==='image'?' selected':''}>Image</option>
+                  <option value="video"${_rqAiType==='video'?' selected':''}>Video</option>
+                </select>
+                <label class="text-xs text-gray-400 ml-auto flex items-center gap-1">Email digest:
+                  <select onchange="aiSetDigest(this.value)" class="text-xs border border-gray-300 rounded-lg px-2 py-1.5">
+                    <option value="off"${df==='off'?' selected':''}>Off</option>
+                    <option value="daily"${df==='daily'?' selected':''}>Daily</option>
+                    <option value="weekly"${df==='weekly'?' selected':''}>Weekly</option>
+                  </select>
+                </label>
+              </div>`;
+            if (!drafts.length) {
+                list.innerHTML = filterBar + '<p class="text-sm text-gray-400 py-12 text-center">No AI-drafted posts awaiting review.</p>';
+                return;
+            }
+            list.innerHTML = filterBar + drafts.map(d => rqRenderAiCard(d)).join('');
+        } else if ((tabType || _rqCurrentTabType) === 'social') {
             const res = await fetch(`/.netlify/functions/get-social-drafts?status=${status}`);
             if (!res.ok) throw new Error();
             const { drafts } = await res.json();
@@ -3479,6 +3517,123 @@ async function sdSubmitReject(postId) {
         if (!res.ok) { alert(d.error || 'Failed to reject post.'); return; }
         rqLoadItems(_rqCurrentTab, 'social');
     } catch { alert('Network error — please try again.'); }
+}
+
+// ── Epic 3 US6/US7: AI Approvals dashboard ───────────────────────────────────
+let _rqAiPlatform = '';
+let _rqAiType = '';
+
+function rqRenderAiCard(d) {
+    const platformLabel = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X' }[d.platform] || d.platform;
+    const when = d.publishDate ? new Date(d.publishDate).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    const isVideo = d.mediaType === 'video';
+    const thumb = d.thumbnailUrl
+        ? (isVideo
+            ? `<video src="${d.thumbnailUrl}" muted class="w-20 h-20 object-cover rounded-lg bg-black"></video>`
+            : `<img src="${d.thumbnailUrl}" alt="" class="w-20 h-20 object-cover rounded-lg">`)
+        : `<div class="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 text-xs">no media</div>`;
+    return `<div class="py-4" data-ai-post-id="${d.id}">
+      <div class="flex gap-3">
+        <div class="flex-shrink-0 relative">${thumb}
+          <span class="absolute -top-1 -right-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isVideo ? 'bg-violet-600' : 'bg-pink-600'} text-white">${isVideo ? 'VIDEO' : 'IMAGE'}</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <p class="text-sm font-semibold text-gray-900 truncate">${_rqEsc(platformLabel)}</p>
+            ${when ? `<span class="text-xs text-gray-400">· ${_rqEsc(when)}</span>` : ''}
+          </div>
+          <p class="text-xs text-gray-500 mb-1">${_rqEsc(d.assistantName || 'AI Assistant')}</p>
+          ${d.generationReason ? `<p class="text-xs text-pink-700 bg-pink-50 border border-pink-100 rounded px-2 py-1 mb-2">💡 ${_rqEsc(d.generationReason)}</p>` : ''}
+          ${d.caption ? `<p class="text-sm text-gray-700 mb-1 line-clamp-3 rq-ai-caption-${d.id}">${_rqEsc(d.caption)}</p>` : ''}
+          ${d.hashtags ? `<p class="text-xs text-violet-700 mb-1">${_rqEsc(d.hashtags)}</p>` : ''}
+        </div>
+      </div>
+      <div class="rq-ai-edit-${d.id} hidden mt-2">
+        <textarea id="rq-ai-caption-input-${d.id}" rows="3" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300">${_rqEsc(d.caption || '')}</textarea>
+        <div class="flex gap-2 mt-1"><button onclick="aiSaveEdit(${d.id})" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-lg">Save</button><button onclick="aiToggleEdit(${d.id})" class="px-3 py-1.5 text-xs font-bold text-gray-500">Cancel</button></div>
+      </div>
+      <div class="rq-ai-discard-${d.id} hidden mt-2">
+        <input type="text" id="rq-ai-discard-reason-${d.id}" placeholder="Why? (optional — helps future drafts, e.g. Off-brand)" maxlength="300" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300">
+      </div>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button onclick="aiApprove(${d.id})" class="flex-1 min-w-[120px] py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Approve &amp; Schedule</button>
+        <button onclick="aiToggleEdit(${d.id})" class="py-2.5 px-3 text-xs font-bold border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition cursor-pointer">Edit</button>
+        ${!isVideo ? `<button onclick="aiRegenerate(${d.id})" class="py-2.5 px-3 text-xs font-bold border border-pink-300 text-pink-700 hover:bg-pink-50 rounded-lg transition cursor-pointer">Regenerate</button>` : ''}
+        <button onclick="aiToggleDiscard(${d.id})" id="rq-ai-discard-btn-${d.id}" class="py-2.5 px-3 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer">Discard</button>
+      </div>
+    </div>`;
+}
+
+async function aiApprove(postId) {
+    try {
+        const res = await fetch('/.netlify/functions/approve-post', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId, action: 'approve' }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(d.error || 'Failed to approve.'); return; }
+        rqLoadItems('pending_approval', 'ai');
+    } catch { alert('Network error — please try again.'); }
+}
+
+function aiToggleEdit(id) {
+    document.querySelector(`.rq-ai-edit-${id}`)?.classList.toggle('hidden');
+}
+
+async function aiSaveEdit(postId) {
+    const caption = (document.getElementById(`rq-ai-caption-input-${postId}`) || {}).value ?? '';
+    try {
+        const res = await fetch(`/.netlify/functions/scheduled-posts?id=${postId}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ caption }),
+        });
+        if (!res.ok) { alert('Could not save edits.'); return; }
+        rqLoadItems('pending_approval', 'ai');
+    } catch { alert('Network error — please try again.'); }
+}
+
+async function aiRegenerate(postId) {
+    if (!confirm('Regenerate the image for this post? This will use 1 credit.')) return;
+    try {
+        const res = await fetch('/.netlify/functions/regenerate-post-media', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (res.status === 402) { alert('Not enough credits to regenerate.'); return; }
+        if (!res.ok) { alert(d.error || 'Could not regenerate media.'); return; }
+        rqLoadItems('pending_approval', 'ai');
+    } catch { alert('Network error — please try again.'); }
+}
+
+function aiToggleDiscard(id) {
+    const form = document.querySelector(`.rq-ai-discard-${id}`);
+    const btn  = document.getElementById(`rq-ai-discard-btn-${id}`);
+    if (!form) return;
+    const hidden = form.classList.toggle('hidden');
+    if (!hidden) { btn.textContent = 'Confirm Discard'; btn.onclick = () => aiSubmitDiscard(id); }
+    else { btn.textContent = 'Discard'; btn.onclick = () => aiToggleDiscard(id); }
+}
+
+async function aiSubmitDiscard(postId) {
+    const feedbackText = ((document.getElementById(`rq-ai-discard-reason-${postId}`) || {}).value || '').trim() || 'Discarded from AI review queue';
+    try {
+        const res = await fetch('/.netlify/functions/reject-post', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId, feedbackText, applyAsRule: false }),
+        });
+        if (!res.ok) { alert('Could not discard the draft.'); return; }
+        rqLoadItems('pending_approval', 'ai');
+    } catch { alert('Network error — please try again.'); }
+}
+
+async function aiSetDigest(frequency) {
+    try {
+        await fetch('/.netlify/functions/set-ai-digest', {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frequency }),
+        });
+    } catch { /* non-critical */ }
 }
 
 function rqRenderCard(item) {

@@ -34,6 +34,8 @@ export const organisations = pgTable('organisations', {
   aiDisclosureFooterText: text('ai_disclosure_footer_text'),
   // US3 AC3.3: opt-in "Photo by … on Pexels" attribution line appended to drafts sourced from Pexels.
   pexelsAttributionEnabled: boolean('pexels_attribution_enabled').notNull().default(false),
+  // Epic 3 US8: AI approvals email digest cadence — 'off' | 'daily' | 'weekly'. db/ai-digest.sql.
+  aiDigestFrequency: text('ai_digest_frequency').notNull().default('off'),
   // Referral Program Expansion: extra assistant slots unlocked by redeeming referral tokens.
   // Stacks ON TOP of the Stripe tier's assistantLimit, so plan syncing is never touched (AC2.2/AC4.2).
   bonusAssistants: integer('bonus_assistants').notNull().default(0),

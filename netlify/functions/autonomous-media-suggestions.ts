@@ -82,6 +82,7 @@ export const handler: Handler = async (event) => {
         ));
 
     let drafted = 0, skippedNoGap = 0, skippedCap = 0, failed = 0;
+    const draftedByUser = new Map<number, number>();   // US8: aggregate for one summary notification per user
 
     for (const a of assistants) {
         const horizonDays = a.horizonDays ?? 7;
@@ -140,13 +141,7 @@ export const handler: Handler = async (event) => {
 
             await db.insert(scheduledPostAssets).values({ scheduledPostId: post.id, contentAssetId: assetId, position: 0 }).onConflictDoNothing();
 
-            await db.insert(notifications).values({
-                userId: a.userId, type: 'ai_review',
-                title: `${a.name} drafted a new post`,
-                message: `A new AI-drafted ${PLATFORM} post is waiting for your review.`,
-                metadata: { postId: post.id, assistantId: a.id },
-            }).catch(() => {});
-
+            draftedByUser.set(a.userId, (draftedByUser.get(a.userId) || 0) + 1);
             drafted++;
         } catch (err) {
             // Failure / policy flag → refund the hold, mark the job, move on.
@@ -157,6 +152,16 @@ export const handler: Handler = async (event) => {
                 .where(eq(mediaGenerationJobs.id, job.id));
             failed++;
         }
+    }
+
+    // US8 in-app alert: one summary notification per user ("drafted N new posts for your review").
+    for (const [uid, n] of draftedByUser) {
+        await db.insert(notifications).values({
+            userId: uid, type: 'ai_review',
+            title: 'New AI drafts ready for review',
+            message: `Your AI assistant drafted ${n} new post${n === 1 ? '' : 's'} for your review.`,
+            metadata: { count: n },
+        }).catch(() => {});
     }
 
     return {
