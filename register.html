@@ -170,6 +170,10 @@
 
       const data = await response.json();
 
+      // Mark this device as belonging to a registered user, so the public site's CTAs send them to
+      // login (not register) on their next visit. Survives logout; cleared only if they clear storage.
+      if (response.ok) { try { localStorage.setItem('bms_known_user', '1'); } catch (e) {} }
+
       if (response.ok && data.consolidation) {
         // US4: the email's domain already belongs to a paid workspace — pause and offer to join it
         // instead of creating a duplicate account. Stash the entered details for the join request.

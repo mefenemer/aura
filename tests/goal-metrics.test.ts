@@ -10,6 +10,8 @@ import {
     isValidMetricKey,
     availableMetricsForConnections,
     assessGoalRealism,
+    objectivesWithMetrics,
+    GOAL_OBJECTIVES,
     GOAL_STATUSES,
 } from '../src/config/goal-metrics';
 
@@ -75,6 +77,22 @@ check('AC: realism — blocks the egregiously impossible, allows the ambitious',
 
     // Metrics without a realism config (none today) or non-growth targets never block.
     assert.equal(assessGoalRealism({ metricKey: 'content_published', targetValue: 100, targetDate: inDays(90) }).ok, true);
+});
+
+check('US-01 AC1.1/AC1.2 — every metric maps to one of the three objectives', () => {
+    const validObjectives = new Set(GOAL_OBJECTIVES.map(o => o.key));
+    assert.equal(GOAL_OBJECTIVES.length, 3);
+    for (const m of GOAL_METRICS) assert.ok(validObjectives.has(m.objective), `${m.key} has invalid objective`);
+});
+
+check('US-01 AC1.2 — objective→metric filtering respects connections', () => {
+    // With Instagram connected, the engagement objective surfaces the IG engagement metric.
+    const ig = availableMetricsForConnections(['instagram']);
+    assert.ok(ig.some(m => m.objective === 'engagement' && m.key === 'instagram_engagement_rate'));
+    // With nothing connected, only internal metrics remain — so only their objectives are offered.
+    const offline = objectivesWithMetrics([]);
+    assert.ok(offline.includes('action'), 'qualified_leads (internal) keeps the action objective available');
+    assert.ok(!offline.includes('engagement'), 'engagement has no internal metric, so it drops when IG is absent');
 });
 
 check('status model includes the four tracked states + pending', () => {

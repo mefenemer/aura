@@ -604,6 +604,12 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     const genBtn = document.getElementById('btn-generate-name');
     if (genBtn) {
         genBtn.addEventListener('click', () => {
+            // Brief "casting" flourish so the click registers as an action even though it's instant.
+            const wandImg = genBtn.querySelector('img');
+            if (wandImg) {
+                wandImg.classList.add('is-casting');
+                setTimeout(() => wandImg.classList.remove('is-casting'), 600);
+            }
             _namePoolIdx = (_namePoolIdx + 1) % _namePool.length;
             const nameInput = document.getElementById('detail-name-input');
             if (nameInput) {
@@ -1360,25 +1366,41 @@ function _syncReviewButton() {
     if (btn) btn.classList.toggle('hidden', _goalsCache.length === 0);
 }
 
-// AC1.1.3 — the dropdown only offers metrics the workspace can actually measure.
+// US-01 AC1.1/AC1.2 — the Objective dropdown drives which metrics appear; AC1.1.3 still gates the
+// metrics by which apps are actually connected. Selecting an objective instantly (re)populates the
+// Metric dropdown with that objective's measurable metrics.
 function _populateGoalMetricDropdown() {
+    const objSel = document.getElementById('goal-objective');
     const sel = document.getElementById('goal-metric');
     const help = document.getElementById('goal-metric-help');
-    if (!sel) return;
-    if (!_goalMetrics.length) {
-        sel.innerHTML = '<option value="">No measurable metrics — connect an app first</option>';
-        sel.disabled = true;
-        if (help) help.innerHTML = 'Connect a social or data app on the <span class="font-semibold">Connections</span> tab to unlock follower and engagement metrics.';
-        return;
-    }
-    sel.disabled = false;
-    sel.innerHTML = '<option value="">Select a metric…</option>' +
-        _goalMetrics.map(m => `<option value="${m.key}" data-unit="${_escapeHtml(m.unit)}">${_escapeHtml(m.label)}</option>`).join('');
-    if (help) help.textContent = '';
+    if (!objSel || !sel) return;
+
+    const renderMetrics = () => {
+        const objective = objSel.value;
+        if (help) help.textContent = '';
+        if (!objective) {
+            sel.innerHTML = '<option value="">Select an objective first…</option>';
+            sel.disabled = true;
+            return;
+        }
+        const metrics = _goalMetrics.filter(m => m.objective === objective);
+        if (!metrics.length) {
+            sel.innerHTML = '<option value="">No measurable metrics for this objective yet</option>';
+            sel.disabled = true;
+            if (help) help.innerHTML = 'Connect a social or data app on the <span class="font-semibold">Connections</span> tab to unlock metrics for this objective.';
+            return;
+        }
+        sel.disabled = false;
+        sel.innerHTML = '<option value="">Select a metric…</option>' +
+            metrics.map(m => `<option value="${m.key}" data-unit="${_escapeHtml(m.unit)}">${_escapeHtml(m.label)}</option>`).join('');
+    };
+
+    objSel.onchange = renderMetrics;
     sel.onchange = () => {
         const m = _goalMetrics.find(x => x.key === sel.value);
         if (help) help.textContent = m ? m.description : '';
     };
+    renderMetrics();
 }
 
 function _buildGoalCard(g) {
@@ -1429,9 +1451,12 @@ window._toggleGoalBuilder = function (show) {
         builder.classList.remove('hidden');
         const t = document.getElementById('goal-target'); if (t) t.value = '';
         const d = document.getElementById('goal-date'); if (d) d.value = '';
+        const o = document.getElementById('goal-objective'); if (o) o.value = '';
         const m = document.getElementById('goal-metric'); if (m) m.value = '';
         const p = document.getElementById('goal-primary'); if (p) p.checked = false;
         const help = document.getElementById('goal-metric-help'); if (help) help.textContent = '';
+        // Reset the Metric dropdown back to its "select an objective first" state.
+        _populateGoalMetricDropdown();
     } else {
         builder.classList.add('hidden');
     }
@@ -1652,8 +1677,9 @@ window._magicWand = async function (field, inputId, btn) {
     }
     const input = document.getElementById(inputId);
     if (!input) return;
-    const orig = btn ? btn.innerHTML : '';
-    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+    const wandImg = btn ? btn.querySelector('img') : null;
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
+    wandImg?.classList.add('is-casting');   // visible "something's happening" feedback
     try {
         const res = await fetch(GOAL_AI_API, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1666,7 +1692,8 @@ window._magicWand = async function (field, inputId, btn) {
     } catch {
         alert('Could not generate a suggestion.');
     } finally {
-        if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = orig; }
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+        wandImg?.classList.remove('is-casting');
     }
 };
 

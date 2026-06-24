@@ -14,6 +14,21 @@
 export type MetricSource = 'connection' | 'internal';
 export type MetricDirection = 'increase' | 'decrease';
 
+// US-01 AC1.1/AC1.2 — the funnel objective a metric serves. The Goal Builder shows an Objective
+// dropdown first, then populates the Metric dropdown with the metrics for the chosen objective.
+//   awareness  → top of funnel  (Followers, Reach, Impressions…)
+//   engagement → middle         (Engagement rate, Saves, Shares…)
+//   action     → bottom         (Leads, Link clicks, Profile visits…)
+export type GoalObjective = 'awareness' | 'engagement' | 'action';
+
+export interface GoalObjectiveDef { key: GoalObjective; label: string; }
+
+export const GOAL_OBJECTIVES: readonly GoalObjectiveDef[] = [
+    { key: 'awareness',  label: 'Grow my Audience (Awareness)' },
+    { key: 'engagement', label: 'Increase Interaction (Engagement)' },
+    { key: 'action',     label: 'Drive Traffic (Action)' },
+];
+
 /**
  * Attainability guardrails for a metric (the "A" in SMART). These keep a goal from being set to
  * something physically impossible (e.g. "+10,000,000 Instagram followers in 1 day"). The ceilings
@@ -44,6 +59,8 @@ export interface GoalMetric {
     connectionService?: string;
     /** Whether progress = value going up or down. */
     direction: MetricDirection;
+    /** US-01 AC1.2 — the funnel objective this metric measures (drives the Objective→Metric dropdown). */
+    objective: GoalObjective;
     /** One-line helper shown under the dropdown. */
     description: string;
     /**
@@ -64,6 +81,7 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         source: 'connection',
         connectionService: 'instagram',
         direction: 'increase',
+        objective: 'awareness',
         description: 'Total follower count on the connected Instagram account.',
         available: true,
         // Even viral organic growth rarely exceeds a few thousand new followers a day.
@@ -76,6 +94,7 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         source: 'connection',
         connectionService: 'instagram',
         direction: 'increase',
+        objective: 'engagement',
         description: 'Interactions ÷ reach across recent Instagram posts.',
         available: true,
         // A rate, not a count — it simply can't exceed 100%.
@@ -88,6 +107,7 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         source: 'connection',
         connectionService: 'instagram',
         direction: 'increase',
+        objective: 'awareness',
         description: 'Unique accounts reached by Instagram posts in the trailing 30 days.',
         available: true,
         realism: { maxDailyDelta: 500000, maxDailyGrowthPct: 0.5 },
@@ -98,6 +118,7 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         unit: 'leads',
         source: 'internal',
         direction: 'increase',
+        objective: 'action',
         description: 'Qualified leads captured in your Be More Swan workspace.',
         available: true,
         realism: { maxDailyDelta: 1000, maxDailyGrowthPct: 1 },
@@ -108,6 +129,7 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         unit: 'posts',
         source: 'internal',
         direction: 'increase',
+        objective: 'awareness',
         description: 'Posts this assistant has published.',
         available: true,
         // Bounded by posting cadence — dozens a day is already aggressive.
@@ -137,6 +159,12 @@ export function availableMetricsForConnections(connectedServices: readonly strin
     return GOAL_METRICS.filter(m =>
         m.source === 'internal' || (m.connectionService != null && connected.has(m.connectionService)),
     );
+}
+
+/** US-01 AC1.2 — the objectives that actually have at least one measurable metric for this workspace. */
+export function objectivesWithMetrics(connectedServices: readonly string[]): GoalObjective[] {
+    const have = new Set(availableMetricsForConnections(connectedServices).map(m => m.objective));
+    return GOAL_OBJECTIVES.filter(o => have.has(o.key)).map(o => o.key);
 }
 
 // ── Goal attainability (the "A" in SMART) ───────────────────────────────────────

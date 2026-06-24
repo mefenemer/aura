@@ -1,3 +1,20 @@
+<style>
+  /* Be More Swan AI wand — shared across every "optimise with AI" / "generate" affordance.
+     Artwork: /images/BeMoreSwan_SwanAI.png (transparent pink swan + AI wand). */
+  .ai-wand-img { height: 22px; width: auto; display: inline-block; }
+  #btn-generate-name .ai-wand-img { height: 20px; }
+  /* Click feedback — the wand "casts" while an AI request is in flight, so the user sees activity. */
+  .ai-wand-img.is-casting { animation: aiWandCast 0.7s ease-in-out infinite; transform-origin: bottom center; }
+  @keyframes aiWandCast {
+    0%   { transform: rotate(-9deg) scale(1);    }
+    50%  { transform: rotate(9deg)  scale(1.12); }
+    100% { transform: rotate(-9deg) scale(1);    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ai-wand-img.is-casting { animation: aiWandPulse 0.9s ease-in-out infinite; }
+    @keyframes aiWandPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+  }
+</style>
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full pb-20">
 
   <!-- US-LEGAL-3.1: EU AI Act Art.50 — persistent AI interaction disclosure (non-dismissable) -->
@@ -29,8 +46,8 @@
               class="text-2xl font-extrabold text-gray-900 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-emerald-500 focus:outline-none focus:ring-0 transition-colors min-w-0 w-auto"
               style="width: 100%; max-width: 320px;"
               placeholder="Assistant Name">
-            <button id="btn-generate-name" title="Generate a name" class="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer" type="button">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+            <button id="btn-generate-name" title="Generate a name" class="p-1.5 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer" type="button">
+              <img src="/images/BeMoreSwan_SwanAI.png" alt="Generate a name with Be More Swan AI" class="ai-wand-img">
             </button>
             <span id="detail-status" class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">…</span>
           </div>
@@ -174,7 +191,7 @@
         <div class="flex items-center justify-between mb-1">
           <label class="block text-sm font-bold text-gray-700">Your Bottleneck <span class="text-red-500">*</span></label>
           <button type="button" onclick="window._magicWand('problem_statement','edit_problem', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><img src="/favicon/favicon-96x96.png" alt="Be More Swan" class="shrink-0" style="width:22px;height:auto">
+            <img src="/images/BeMoreSwan_SwanAI.png" alt="Optimise with Be More Swan AI" class="ai-wand-img shrink-0">
           </button>
         </div>
         <textarea id="edit_problem" rows="3"
@@ -279,7 +296,7 @@
           <div class="flex items-center justify-between mb-1">
             <label for="edit_core_message" class="block text-sm font-bold text-gray-700">Core Message</label>
             <button type="button" onclick="window._magicWand('core_message','edit_core_message', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><img src="/favicon/favicon-96x96.png" alt="Be More Swan" class="shrink-0" style="width:22px;height:auto">
+              <img src="/images/BeMoreSwan_SwanAI.png" alt="Optimise with Be More Swan AI" class="ai-wand-img shrink-0">
             </button>
           </div>
           <textarea id="edit_core_message" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="E.g., We help busy founders reclaim their time without sacrificing growth."></textarea>
@@ -304,7 +321,7 @@
           <div class="flex items-center justify-between mb-1">
             <label for="edit_audience" class="block text-sm font-bold text-gray-700">Target Audience</label>
             <button type="button" onclick="window._magicWand('target_audience','edit_audience', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><img src="/favicon/favicon-96x96.png" alt="Be More Swan" class="shrink-0" style="width:22px;height:auto">
+              <img src="/images/BeMoreSwan_SwanAI.png" alt="Optimise with Be More Swan AI" class="ai-wand-img shrink-0">
             </button>
           </div>
           <textarea id="edit_audience" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="E.g., Tech founders aged 30–45 building B2B SaaS products…"></textarea>
@@ -314,7 +331,7 @@
           <div class="flex items-center justify-between mb-1">
             <label for="edit_tone" class="block text-sm font-bold text-gray-700">Brand Voice &amp; Tone</label>
             <button type="button" onclick="window._magicWand('tone_of_voice','edit_tone', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><img src="/favicon/favicon-96x96.png" alt="Be More Swan" class="shrink-0" style="width:22px;height:auto">
+              <img src="/images/BeMoreSwan_SwanAI.png" alt="Optimise with Be More Swan AI" class="ai-wand-img shrink-0">
             </button>
           </div>
           <textarea id="edit_tone" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="E.g., Professional yet friendly, Witty, Authoritative…"></textarea>
@@ -323,7 +340,7 @@
           <div class="flex items-center justify-between mb-1">
             <label for="edit_pillars" class="block text-sm font-bold text-gray-700">Content Pillars / Core Topics</label>
             <button type="button" onclick="window._magicWand('content_pillars','edit_pillars', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><img src="/favicon/favicon-96x96.png" alt="Be More Swan" class="shrink-0" style="width:22px;height:auto">
+              <img src="/images/BeMoreSwan_SwanAI.png" alt="Optimise with Be More Swan AI" class="ai-wand-img shrink-0">
             </button>
           </div>
           <textarea id="edit_pillars" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="E.g., Growth hacking, Leadership, Behind the scenes…"></textarea>
@@ -493,9 +510,19 @@
       <div id="goal-builder" class="hidden mt-5 border border-emerald-100 bg-emerald-50/40 rounded-xl p-5">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="sm:col-span-3">
+            <label for="goal-objective" class="block text-sm font-bold text-gray-700 mb-1">Objective</label>
+            <select id="goal-objective" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+              <option value="">Select an objective…</option>
+              <option value="awareness">Grow my Audience (Awareness)</option>
+              <option value="engagement">Increase Interaction (Engagement)</option>
+              <option value="action">Drive Traffic (Action)</option>
+            </select>
+            <p class="text-xs text-gray-400 mt-1">Choose what this goal is for — we'll show the metrics that measure it.</p>
+          </div>
+          <div class="sm:col-span-3">
             <label for="goal-metric" class="block text-sm font-bold text-gray-700 mb-1">Target Metric</label>
-            <select id="goal-metric" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
-              <option value="">Loading metrics…</option>
+            <select id="goal-metric" disabled class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition disabled:bg-gray-50 disabled:text-gray-400">
+              <option value="">Select an objective first…</option>
             </select>
             <p id="goal-metric-help" class="text-xs text-gray-400 mt-1"></p>
           </div>

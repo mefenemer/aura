@@ -1756,6 +1756,10 @@ function formatCurrency(amount, currency) {
     // ADD THIS LINE: Expose the main router globally so inline clicks can trigger page changes
     window.loadView = loadView;
 
+    // Reaching the authenticated workspace definitively means this is a registered user — remember
+    // it on the device so the public site's CTAs route returning visitors to login, not register.
+    try { localStorage.setItem('bms_known_user', '1'); } catch (e) {}
+
     function updateActiveNav(activeKey) {
       Object.values(navLinks).forEach(link => {
         if (!link) return;
