@@ -1518,6 +1518,8 @@ let _goalMetrics = [];   // available metric catalog entries for this workspace 
 let _goalsCache = [];    // last-loaded goals for this assistant (for the header bar + review modal)
 let _goalEntitlements = { aiRecommendations: false, magicWand: false, autonomous: false }; // Feature 3 tier gates
 let _autonomousGoalSeeking = false;
+let _autonomousMediaEnabled = false;   // Epic 2 US5
+let _autonomousMediaCap = 20;
 
 const _GOAL_STATUS_META = {
     pending:            { label: 'Pending',        dot: 'bg-gray-300',    text: 'text-gray-500'   },
@@ -1546,6 +1548,8 @@ async function _fetchAndRenderGoals(assistantId) {
             _goalMetrics = data.availableMetrics || [];
             _goalEntitlements = data.entitlements || _goalEntitlements;
             _autonomousGoalSeeking = !!data.autonomousGoalSeeking;
+            _autonomousMediaEnabled = !!data.autonomousMediaEnabled;
+            _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? 20;
         }
     } catch (e) {
         console.warn('Could not load goals:', e);
@@ -1556,6 +1560,7 @@ async function _fetchAndRenderGoals(assistantId) {
     _renderPrimaryGoalHeader();
     _syncReviewButton();
     _applyGoalEntitlementsUi();
+    _applyAutonomousMediaUi();
 
     if (!goals.length) {
         list.innerHTML = `<div class="py-8 text-center text-sm text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
@@ -1887,6 +1892,55 @@ function _applyGoalEntitlementsUi() {
     }
     if (lock) lock.classList.toggle('hidden', _goalEntitlements.autonomous);
 }
+
+// Epic 2 US5 — reflect autonomous media-suggestion state on the toggle + cap input.
+function _applyAutonomousMediaUi() {
+    const tog = document.getElementById('toggle-autonomous-media');
+    const dot = document.getElementById('toggle-autonomous-media-dot');
+    const capRow = document.getElementById('autonomous-media-cap-row');
+    const capInput = document.getElementById('autonomous-media-cap');
+    if (tog && dot) {
+        const on = _autonomousMediaEnabled;
+        tog.setAttribute('aria-checked', on ? 'true' : 'false');
+        tog.classList.toggle('bg-emerald-600', on);
+        tog.classList.toggle('bg-gray-300', !on);
+        dot.classList.toggle('translate-x-5', on);
+        dot.classList.toggle('translate-x-0', !on);
+    }
+    if (capRow) capRow.classList.toggle('hidden', !_autonomousMediaEnabled);
+    if (capInput) capInput.value = _autonomousMediaCap;
+}
+
+async function _setAutonomousMedia(patch) {
+    const res = await fetch('/.netlify/functions/set-autonomous-media', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assistantId: _goalsAssistantId, ...patch }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    return res.json();
+}
+
+window._toggleAutonomousMedia = async function () {
+    const next = !_autonomousMediaEnabled;
+    try {
+        const data = await _setAutonomousMedia({ enabled: next });
+        _autonomousMediaEnabled = !!data.autonomousMediaEnabled;
+        _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? _autonomousMediaCap;
+        _applyAutonomousMediaUi();
+    } catch (e) { alert('Could not update the setting: ' + e.message); }
+};
+
+window._saveAutonomousMediaCap = async function () {
+    const input = document.getElementById('autonomous-media-cap');
+    const cap = parseInt(input?.value, 10);
+    if (!Number.isFinite(cap) || cap < 0) { input.value = _autonomousMediaCap; return; }
+    try {
+        const data = await _setAutonomousMedia({ monthlyCap: cap });
+        _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? cap;
+        _applyAutonomousMediaUi();
+    } catch (e) { alert('Could not update the cap: ' + e.message); input.value = _autonomousMediaCap; }
+};
 
 // AC3.1 — premium AI recommendations for an off-track goal.
 window._getAiRecommendations = async function (goalId) {

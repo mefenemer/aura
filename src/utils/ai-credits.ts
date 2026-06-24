@@ -135,6 +135,37 @@ export async function holdCredits(db: Db, params: {
 }
 
 /**
+ * Atomically reserve credits for an AUTONOMOUS (assistant-driven) generation, enforcing both the
+ * spendable balance AND the per-period autonomous cap (US5 credit-threshold protection). Returns
+ * { ok:false, reason } when blocked. autonomous_used is incremented on successful settle.
+ */
+export async function holdAutonomousCredits(db: Db, params: {
+    orgId: number;
+    amount: number;
+    monthlyCap: number;
+}): Promise<{ ok: boolean; balance: number; reason?: 'insufficient_balance' | 'cap_reached' }> {
+    await ensureMonthlyGrant(db, params.orgId);
+    const rows = await db.execute<{ balance: number }>(sql`
+        UPDATE ai_credit_balance
+        SET balance = balance - ${params.amount}, held = held + ${params.amount}, updated_at = now()
+        WHERE organisation_id = ${params.orgId}
+          AND balance >= ${params.amount}
+          AND autonomous_used + held + ${params.amount} <= ${params.monthlyCap}
+        RETURNING balance
+    `);
+    if (rows[0]) return { ok: true, balance: rows[0].balance };
+
+    // Distinguish why it failed for clearer logging.
+    const cur = await db.execute<{ balance: number; held: number; autonomous_used: number }>(sql`
+        SELECT balance, held, autonomous_used FROM ai_credit_balance WHERE organisation_id = ${params.orgId}
+    `);
+    const row = cur[0];
+    const reason: 'insufficient_balance' | 'cap_reached' =
+        row && row.balance < params.amount ? 'insufficient_balance' : 'cap_reached';
+    return { ok: false, balance: row?.balance ?? 0, reason };
+}
+
+/**
  * Settle a previously-held amount once a job finishes.
  *   success=true  → consume the hold and record a debit in the ledger (credits spent).
  *   success=false → return the hold to the spendable balance (no ledger entry, no charge).

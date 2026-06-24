@@ -96,6 +96,11 @@ node_bundler = "esbuild"
 [functions.schedule-conversion-posts]
   schedule = "0 7 * * *"
 
+# Epic 2 US5: Autonomous AI media suggestions — daily 07:00 UTC; drafts copy + AI media into the
+# AI review queue for assistants that opted in, within their monthly autonomous credit cap.
+[functions.autonomous-media-suggestions]
+  schedule = "0 7 * * *"
+
 # US-SMM-2.4.2: Review urgency check (red-zone alerts + missed post detection) — every 15 minutes
 [functions.check-review-urgency]
   schedule = "*/15 * * * *"

@@ -68,7 +68,12 @@ export const handler: Handler = async (event) => {
             return json(400, { error: 'assistantId is required.' });
         }
         const [assistant] = await db
-            .select({ id: aiAssistants.id, autonomousGoalSeeking: aiAssistants.autonomousGoalSeeking })
+            .select({
+                id: aiAssistants.id,
+                autonomousGoalSeeking: aiAssistants.autonomousGoalSeeking,
+                autonomousMediaEnabled: aiAssistants.autonomousMediaEnabled,
+                autonomousMediaMonthlyCap: aiAssistants.autonomousMediaMonthlyCap,
+            })
             .from(aiAssistants)
             .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
             .limit(1);
@@ -87,6 +92,8 @@ export const handler: Handler = async (event) => {
             goals: rows,
             availableMetrics: availableMetricsForConnections(services),
             autonomousGoalSeeking: assistant.autonomousGoalSeeking,
+            autonomousMediaEnabled: assistant.autonomousMediaEnabled,
+            autonomousMediaMonthlyCap: assistant.autonomousMediaMonthlyCap,
             // Feature 3 premium gates (AC3.1.1) — the client shows padlocks / upgrade prompts off these.
             entitlements: {
                 aiRecommendations: tierAllows('recommendations', tierKey),

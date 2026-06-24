@@ -292,6 +292,12 @@ export const aiAssistants = pgTable("ai_assistants", {
   // SMART Goals US3.3 — Autonomous Goal Seeking: when on, the optimizer cron may rewrite allowed
   // brief params (tone/frequency) if a goal goes off_track. Premium-tier gated. db/goal-autonomous.sql.
   autonomousGoalSeeking: boolean("autonomous_goal_seeking").notNull().default(false),
+
+  // Epic 2 US5 — Autonomous AI media suggestions: when on, a daily cron drafts posts (copy +
+  // AI-generated media) into the AI review queue, never auto-published. The monthly cap limits
+  // autonomous credit spend. db/autonomous-media.sql.
+  autonomousMediaEnabled: boolean("autonomous_media_enabled").notNull().default(false),
+  autonomousMediaMonthlyCap: integer("autonomous_media_monthly_cap").notNull().default(20),
 }, (t) => [
   // US-DB-1.3.1: assistants are org-owned & member-shared — names are unique per organisation.
   // (userId is retained as creator/attribution only.)
@@ -1193,6 +1199,9 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   jobId: text("job_id"),                                   // FK to contentGenerationJobs.jobId
   blueprintId: integer("blueprint_id").references(() => aiBlueprints.id, { onDelete: "set null" }),
   suggestedMediaDescription: text("suggested_media_description"),
+  // Epic 3 US6: human-readable note explaining why an autonomous draft was created
+  // (e.g. "Drafted to fill a 3-day gap in your Instagram schedule").
+  generationReason: text("generation_reason"),
   conflictNotice: text("conflict_notice"),              // set when context prompt conflicted with a strict rule
   generatedAt: timestamp("generated_at"),
   // US-SMM-3.4.1: On-demand generation trigger type

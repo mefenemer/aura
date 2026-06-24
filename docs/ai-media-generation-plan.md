@@ -50,9 +50,11 @@ Nothing exists for **Fal.ai**, a **credit system**, or actual **image/video byte
   meets social constraints.
 - **Phase 4 — US3 Generated Media Library:** "My AI Uploads" tab in `assets.html`
   (`content_assets WHERE provider='fal'`), prompt on info hover, delete (soft-delete + R2 lifecycle).
-- **Phase 5 — US5 Autonomous generation:** per-assistant "Enable Autonomous Suggestions" + monthly credit
-  cap; extend `draft-horizon-fill.ts`/worker to draft copy + media within cap, write `scheduled_posts`
-  (`isAutonomous`, `pending_approval`, `generation_reason`).
+- **Phase 5 — US5 Autonomous generation:** ✅ per-assistant "Autonomous Content Suggestions" toggle +
+  monthly credit cap (assistant-detail.html → `set-autonomous-media.ts`); daily cron
+  `autonomous-media-suggestions.ts` drafts copy (`gatewayGenerate`) + AI image (`media-persist.ts`)
+  within the cap (`holdAutonomousCredits`), writing `scheduled_posts` (`isAutonomous`,
+  `pending_approval`, `generation_reason`). SQL: `db/autonomous-media.sql`.
 - **Phase 6 — US6/7/8 Approval pipeline:** "AI Approvals" tab + dynamic badge, card view, reasoning note,
   filters (US6); Approve&Schedule / Edit / Regenerate Media (credit-cost confirm) / Discard + feedback
   (US7); in-app toast, opt-in daily/weekly email digest, zero-spam rule (US8).
