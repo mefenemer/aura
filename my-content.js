@@ -246,6 +246,18 @@ function _openUploadModal() {
     document.getElementById('ai-loading')?.classList.add('hidden');
     document.getElementById('ai-error')?.classList.add('hidden');
     document.getElementById('ai-insufficient')?.classList.add('hidden');
+    // Reset the Generate AI Video panel
+    if (typeof _mcVidStopPolling === 'function') _mcVidStopPolling();
+    _mcVidJobId = null;
+    const vidPrompt = document.getElementById('vid-prompt');
+    if (vidPrompt) vidPrompt.value = '';
+    document.getElementById('vid-prompt-count') && (document.getElementById('vid-prompt-count').textContent = '0 / 1000');
+    document.getElementById('vid-generating')?.classList.add('hidden');
+    document.getElementById('vid-result')?.classList.add('hidden');
+    document.getElementById('vid-error')?.classList.add('hidden');
+    document.getElementById('vid-insufficient')?.classList.add('hidden');
+    document.getElementById('vid-form')?.classList.remove('hidden');
+    if (typeof _mcVidSetDuration === 'function') _mcVidSetDuration(3);
     document.getElementById('modal-upload')?.classList.remove('hidden');
 }
 
@@ -256,20 +268,23 @@ window._mcSwitchTab = function (tab) {
     const AI_EXTRA = ' flex items-center justify-center gap-1';
 
     const tabs = {
-        file: { btn: 'tab-file', panel: 'panel-file' },
-        link: { btn: 'tab-link', panel: 'panel-link' },
-        ai:   { btn: 'tab-ai',   panel: 'panel-ai' },
+        file:  { btn: 'tab-file',  panel: 'panel-file' },
+        link:  { btn: 'tab-link',  panel: 'panel-link' },
+        ai:    { btn: 'tab-ai',    panel: 'panel-ai' },
+        video: { btn: 'tab-video', panel: 'panel-video' },
     };
+    const ICON_TABS = ['ai', 'video'];
     for (const [key, ids] of Object.entries(tabs)) {
         const btn = document.getElementById(ids.btn);
         const panel = document.getElementById(ids.panel);
-        if (btn) btn.className = (key === tab ? ACTIVE : IDLE) + (key === 'ai' ? AI_EXTRA : '');
+        if (btn) btn.className = (key === tab ? ACTIVE : IDLE) + (ICON_TABS.includes(key) ? AI_EXTRA : '');
         if (panel) panel.classList.toggle('hidden', key !== tab);
     }
 
-    // The AI panel has its own Generate button + click-to-select, so hide the standard footer.
-    document.getElementById('upload-footer')?.classList.toggle('hidden', tab === 'ai');
+    // The AI/video panels have their own buttons, so hide the standard footer there.
+    document.getElementById('upload-footer')?.classList.toggle('hidden', tab === 'ai' || tab === 'video');
     if (tab === 'ai') _mcRefreshAiBalance();
+    if (tab === 'video') _mcVidOnOpen();
 };
 
 // ── Generate AI Image ─────────────────────────────────────────────
@@ -397,6 +412,146 @@ window._mcSelectAI = async function (index) {
         errorEl.textContent = 'Could not save that image. Please try again.';
         errorEl.classList.remove('hidden');
     }
+};
+
+// ── Generate AI Video ─────────────────────────────────────────────
+let _mcVidJobId = null;
+let _mcVidDuration = 3;
+let _mcVidPollTimer = null;
+
+window._mcVidPromptInput = function () {
+    const el = document.getElementById('vid-prompt');
+    const counter = document.getElementById('vid-prompt-count');
+    if (el && counter) counter.textContent = `${el.value.length} / 1000`;
+};
+
+window._mcVidSetDuration = function (n) {
+    _mcVidDuration = n;
+    const on  = 'flex-1 py-1.5 text-sm font-bold rounded-md transition bg-white shadow text-gray-900 cursor-pointer';
+    const off = 'flex-1 py-1.5 text-sm font-bold rounded-md transition text-gray-500 hover:text-gray-700 cursor-pointer';
+    document.getElementById('vid-dur-3').className = n === 3 ? on : off;
+    document.getElementById('vid-dur-5').className = n === 5 ? on : off;
+};
+
+async function _mcVidOnOpen() {
+    const locked = document.getElementById('vid-locked');
+    const form = document.getElementById('vid-form');
+    try {
+        const res = await fetch('/.netlify/functions/get-ai-credit-balance');
+        if (!res.ok) return;
+        const { balance, canVideo } = await res.json();
+        document.getElementById('vid-balance').textContent = `${balance} credit${balance === 1 ? '' : 's'}`;
+        locked.classList.toggle('hidden', !!canVideo);
+        form.classList.toggle('hidden', !canVideo);
+        if (canVideo) {
+            const btn = document.getElementById('vid-generate-btn');
+            const warn = document.getElementById('vid-insufficient');
+            const canAfford = balance >= 5;
+            btn.disabled = !canAfford;
+            btn.classList.toggle('opacity-50', !canAfford);
+            btn.classList.toggle('cursor-not-allowed', !canAfford);
+            warn.classList.toggle('hidden', canAfford);
+        }
+    } catch { /* leave default */ }
+}
+
+window._mcGenerateVideo = async function () {
+    const prompt = (document.getElementById('vid-prompt')?.value || '').trim();
+    const aspect = document.getElementById('vid-aspect').value;
+    const errEl  = document.getElementById('vid-error');
+    errEl.classList.add('hidden');
+    if (!prompt) { errEl.textContent = 'Please describe the video you want.'; errEl.classList.remove('hidden'); return; }
+
+    document.getElementById('vid-form').classList.add('hidden');
+    document.getElementById('vid-result').classList.add('hidden');
+    document.getElementById('vid-generating').classList.remove('hidden');
+
+    try {
+        const res = await fetch('/.netlify/functions/generate-ai-video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, aspectRatio: aspect, durationSeconds: _mcVidDuration }),
+        });
+
+        if (res.status === 403) {
+            document.getElementById('vid-generating').classList.add('hidden');
+            document.getElementById('vid-locked').classList.remove('hidden');
+            return;
+        }
+        if (res.status === 402) {
+            document.getElementById('vid-generating').classList.add('hidden');
+            document.getElementById('vid-form').classList.remove('hidden');
+            document.getElementById('vid-insufficient').classList.remove('hidden');
+            return;
+        }
+        if (res.status === 422) {
+            const { error } = await res.json().catch(() => ({}));
+            document.getElementById('vid-generating').classList.add('hidden');
+            document.getElementById('vid-form').classList.remove('hidden');
+            errEl.textContent = error || 'Prompt flagged for policy violation. Please adjust your text and try again.';
+            errEl.classList.remove('hidden');
+            return;
+        }
+        if (!res.ok) {
+            document.getElementById('vid-generating').classList.add('hidden');
+            document.getElementById('vid-form').classList.remove('hidden');
+            errEl.textContent = 'Could not start video generation. Please try again.';
+            errEl.classList.remove('hidden');
+            return;
+        }
+
+        const { jobId } = await res.json();
+        _mcVidJobId = jobId;
+        _mcRefreshHeaderCredits();   // credits were held
+        _mcVidStartPolling();
+    } catch (e) {
+        document.getElementById('vid-generating').classList.add('hidden');
+        document.getElementById('vid-form').classList.remove('hidden');
+        errEl.textContent = 'Could not start video generation. Please try again.';
+        errEl.classList.remove('hidden');
+    }
+};
+
+function _mcVidStartPolling() {
+    _mcVidStopPolling();
+    _mcVidPollTimer = setInterval(async () => {
+        if (_mcVidJobId == null) return;
+        try {
+            const res = await fetch(`/.netlify/functions/generate-ai-video?jobId=${_mcVidJobId}`);
+            if (!res.ok) return;
+            const { status, videoUrl, errorMessage } = await res.json();
+            if (status === 'completed') {
+                _mcVidStopPolling();
+                document.getElementById('vid-generating').classList.add('hidden');
+                if (videoUrl) document.getElementById('vid-player').src = videoUrl;
+                document.getElementById('vid-result').classList.remove('hidden');
+                _loadAssets();
+                _mcRefreshHeaderCredits();
+            } else if (status === 'failed' || status === 'flagged') {
+                _mcVidStopPolling();
+                document.getElementById('vid-generating').classList.add('hidden');
+                document.getElementById('vid-form').classList.remove('hidden');
+                const errEl = document.getElementById('vid-error');
+                errEl.textContent = status === 'flagged'
+                    ? 'Prompt flagged for policy violation. Please adjust your text and try again.'
+                    : (errorMessage || 'Video generation failed. Your credits were refunded.');
+                errEl.classList.remove('hidden');
+                _mcRefreshHeaderCredits();   // refund restored balance
+            }
+        } catch { /* keep polling */ }
+    }, 5000);
+}
+
+function _mcVidStopPolling() {
+    if (_mcVidPollTimer) { clearInterval(_mcVidPollTimer); _mcVidPollTimer = null; }
+}
+
+window._mcVideoDone = function () {
+    _mcVidStopPolling();
+    _mcVidJobId = null;
+    document.getElementById('modal-upload')?.classList.add('hidden');
+    _loadAssets();
+    _mcRefreshHeaderCredits();
 };
 
 // ── File selection ────────────────────────────────────────────────

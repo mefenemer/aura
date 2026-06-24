@@ -5,7 +5,8 @@
 import { Handler } from '@netlify/functions';
 import { getDb } from '../../db/client';
 import { requireTenant } from '../../src/utils/tenant';
-import { getBalance, IMAGE_CREDIT_COST, VIDEO_CREDIT_COST } from '../../src/utils/ai-credits';
+import { getActiveTierKeyByOrg } from '../../src/utils/plan-features';
+import { getBalance, tierCanGenerateVideo, IMAGE_CREDIT_COST, VIDEO_CREDIT_COST } from '../../src/utils/ai-credits';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method Not Allowed' };
@@ -15,9 +16,14 @@ export const handler: Handler = async (event) => {
     if ('error' in ctx) return ctx.error;
 
     const { balance, held } = await getBalance(db, ctx.organisationId);
+    const tierKey = await getActiveTierKeyByOrg(db, ctx.organisationId);
     return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ balance, held, imageCost: IMAGE_CREDIT_COST, videoCost: VIDEO_CREDIT_COST }),
+        body: JSON.stringify({
+            balance, held,
+            imageCost: IMAGE_CREDIT_COST, videoCost: VIDEO_CREDIT_COST,
+            canVideo: tierCanGenerateVideo(tierKey),
+        }),
     };
 };
