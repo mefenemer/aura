@@ -63,9 +63,13 @@ export const handler: Handler = async (event) => {
         .limit(1);
 
     const ctx = (assistant?.onboardingContext as Record<string, unknown>) ?? {};
+    // AC1: prefer platform-tailored bios from the bio generator when present.
+    const profileBios = (ctx.profile_bios as { facebook?: string; linkedin?: string } | undefined) ?? {};
     // AC: use stored business_bio field if set; fall back to derived value
     const businessBio: string = (ctx.business_bio as string)
         || ((ctx.target_audience as string) ? `Serving ${ctx.target_audience}. ${ctx.tone_of_voice ?? ''}` : `${org.name} — managed via Be More Swan.`);
+    const metaBio: string = profileBios.facebook || businessBio;
+    const linkedinBio: string = profileBios.linkedin || businessBio;
     const websiteUrl  = baseUrl;
 
     // AC: business hours in Meta page-level format (day_of_week: { open, close })
@@ -90,7 +94,7 @@ export const handler: Handler = async (event) => {
             try {
                 const updatePayload: Record<string, unknown> = {
                     website: websiteUrl,
-                    description: businessBio.slice(0, 255),
+                    description: metaBio.slice(0, 255),
                     access_token: token,
                 };
                 if (businessCategory) updatePayload.category_list = JSON.stringify([businessCategory]);
@@ -142,7 +146,7 @@ export const handler: Handler = async (event) => {
                         method: 'POST',
                         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Restli-Method': 'partial_update' },
                         body: JSON.stringify({
-                            patch: { $set: { websiteUrl, description: { localized: { en_US: businessBio.slice(0, 700) } } } },
+                            patch: { $set: { websiteUrl, description: { localized: { en_US: linkedinBio.slice(0, 700) } } } },
                         }),
                         signal: AbortSignal.timeout(5000),
                     });

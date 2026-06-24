@@ -128,11 +128,57 @@ function _detailSetVal(id, val) {
     if (el) el.value = val || '';
 }
 
+// Posting Frequency is now a discrete <select>. A legacy/custom stored value (free text like
+// "twice a day", or a key like "3x_week") won't match a built-in option, so inject it as a
+// selectable option to preserve it — the backend cadence parser still understands it.
+function _setFrequencySelect(val) {
+    const sel = document.getElementById('edit_frequency');
+    if (!sel) return;
+    const value = (val || '').toString();
+    if (value && !Array.from(sel.options).some(o => o.value === value)) {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = value;
+        sel.appendChild(opt);
+    }
+    sel.value = value;
+}
+
+// Content Pillars are stored as a discrete array. Parse the comma/semicolon/newline-separated
+// entry field into a deduped, trimmed list of up to 5 themes.
+function _parsePillars(raw) {
+    const seen = new Set();
+    return (Array.isArray(raw) ? raw : String(raw ?? ''))
+        .toString()
+        .split(/[,;\n]/)
+        .map(p => p.trim())
+        .filter(p => {
+            if (!p) return false;
+            const key = p.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .slice(0, 5);
+}
+
+// Render a live chip preview of the discrete pillars below the entry field.
+function _renderPillarChips() {
+    const host = document.getElementById('pillars-chips');
+    if (!host) return;
+    const pillars = _parsePillars(document.getElementById('edit_pillars')?.value);
+    if (!pillars.length) { host.innerHTML = ''; return; }
+    const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    host.innerHTML = pillars.map(p =>
+        `<span class="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">${esc(p)}</span>`
+    ).join('');
+}
+
 // Brief fields that auto-grow with their content. These can hold a lot of text (especially the
 // AI-wand fields), so they're rendered as textareas that expand to keep everything visible —
 // no inner scrollbar, no truncation. Heights must be recomputed when a hidden tab is revealed,
 // since scrollHeight is 0 while the panel is display:none.
-const _AUTOGROW_FIELDS = ['edit_problem', 'edit_core_message', 'edit_audience', 'edit_tone', 'edit_pillars'];
+const _AUTOGROW_FIELDS = ['edit_problem', 'edit_core_message', 'edit_audience', 'edit_tone', 'edit_pillars', 'edit_offerings', 'edit_objections'];
 
 function _autoGrowField(el) {
     if (!el) return;
@@ -147,6 +193,13 @@ function _initBriefAutoGrow() {
         el.dataset.autogrow = '1';
         el.addEventListener('input', () => _autoGrowField(el));
     });
+    // Keep the discrete pillar chips in sync as the user types (and on wand-applied changes,
+    // which dispatch an 'input' event on edit_pillars).
+    const pillarsEl = document.getElementById('edit_pillars');
+    if (pillarsEl && !pillarsEl.dataset.chipsync) {
+        pillarsEl.dataset.chipsync = '1';
+        pillarsEl.addEventListener('input', _renderPillarChips);
+    }
 }
 
 function _resizeBriefAutoGrow() {
@@ -180,7 +233,7 @@ function _renderOnboardingSummary(data) {
         ['Primary CTA', clean(ctx.cta || inputs.cta)],
         ['Incentive', clean(ctx.incentive || inputs.incentive)],
         ['Target Audience', clean(ctx.target_audience)],
-        ['Content Pillars', clean(ctx.content_pillars)],
+        ['Content Pillars', Array.isArray(ctx.content_pillars) ? ctx.content_pillars.join(', ') : clean(ctx.content_pillars)],
         ['Tone of Voice', clean(ctx.tone_of_voice)],
         ['Posting Frequency', clean(ctx.posting_frequency)],
         ['Platforms', platforms.map(clean).filter(Boolean).join(', ')],
@@ -235,7 +288,7 @@ function _detailHydrate(data) {
     const inputs = cfg.inputs || {};
 
     _detailSetVal('edit_problem', ctx.problem_statement || inputs.problem || '');
-    _detailSetVal('edit_frequency', ctx.posting_frequency || '');
+    _setFrequencySelect(ctx.posting_frequency || '');
 
     // Objective
     const objectiveVal = ctx.primary_objective || inputs.primary_objective || '';
@@ -249,7 +302,11 @@ function _detailHydrate(data) {
     _detailSetVal('edit_incentive', ctx.incentive || inputs.incentive || '');
     _detailSetVal('edit_audience', ctx.target_audience || '');
     _detailSetVal('edit_tone', ctx.tone_of_voice || '');
-    _detailSetVal('edit_pillars', ctx.content_pillars || '');
+    _detailSetVal('edit_pillars', Array.isArray(ctx.content_pillars) ? ctx.content_pillars.join(', ') : (ctx.content_pillars || ''));
+    _renderPillarChips();
+    // Sales context — feeds the auto-responder objection playbook (P4) and DM drafting.
+    _detailSetVal('edit_offerings', ctx.service_offerings || '');
+    _detailSetVal('edit_objections', ctx.sales_objections || '');
     // workflowText is Be More Swan IP — not displayed to the user
 
     // Radios — trigger / source.
@@ -401,7 +458,11 @@ function _detailCollect(currentData) {
     const knowledge = document.getElementById('edit_knowledge')?.value || '';
     if (knowledge) strictLines.push(`- KNOWLEDGE BASE (TEXT): Consider the following brand stories and context: "${knowledge}"`);
 
+    // update-assistant-context REPLACES onboarding_context wholesale, so spread the existing
+    // context first to preserve fields not surfaced in this form (business_bio/profile_bios,
+    // business_hours, business_category, etc.) — otherwise a save here would wipe them.
     const newContext = {
+        ...(currentData.context || {}),
         problem_statement: document.getElementById('edit_problem')?.value || '',
         primary_objective: document.querySelector('input[name="edit_objective"]:checked')?.value || '',
         core_message: document.getElementById('edit_core_message')?.value || '',
@@ -410,7 +471,9 @@ function _detailCollect(currentData) {
         posting_frequency: document.getElementById('edit_frequency')?.value || '',
         target_audience: document.getElementById('edit_audience')?.value || '',
         tone_of_voice: document.getElementById('edit_tone')?.value || '',
-        content_pillars: document.getElementById('edit_pillars')?.value || '',
+        content_pillars: _parsePillars(document.getElementById('edit_pillars')?.value),
+        service_offerings: document.getElementById('edit_offerings')?.value || '',
+        sales_objections: document.getElementById('edit_objections')?.value || '',
         primary_platforms: platforms,
     };
 
@@ -726,6 +789,123 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
 
     // ── SMART Goals (Feature 1) ───────────────────────────────────
     await _fetchAndRenderGoals(assistantId);
+
+    // ── AC6: Daily Relationship-Building Checklist ────────────────
+    await _fetchAndRenderRelationshipChecklist(assistantId);
+};
+
+// ─────────────────────────────────────────────────────────────────
+// AC6: Daily Relationship-Building Checklist — loads today's actions, renders
+// tickable items, persists completion. The card stays hidden for non-social
+// assistants (the endpoint returns 403 CONNECTION_NOT_RELEVANT).
+// ─────────────────────────────────────────────────────────────────
+async function _fetchAndRenderRelationshipChecklist(assistantId) {
+    const card = document.getElementById('relationship-checklist-card');
+    const list = document.getElementById('rbc-list');
+    if (!card || !list) return;
+    window._rbcAssistantId = assistantId;
+    try {
+        const res = await fetch(`/.netlify/functions/relationship-checklist?assistantId=${assistantId}`);
+        if (!res.ok) { card.classList.add('hidden'); return; }  // 403 for non-social assistants → stay hidden
+        const data = await res.json();
+        card.classList.remove('hidden');
+        _rbcRender(data.items || []);
+    } catch {
+        card.classList.add('hidden');
+    }
+}
+
+function _rbcRender(items) {
+    const list = document.getElementById('rbc-list');
+    const progress = document.getElementById('rbc-progress');
+    if (!list) return;
+    if (!items.length) {
+        list.innerHTML = '<p class="text-sm text-gray-400 text-center py-3">No checklist items today.</p>';
+        if (progress) progress.textContent = '';
+        return;
+    }
+    const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const CAT = {
+        engagement: { label: 'Engage', cls: 'bg-emerald-50 text-emerald-700' },
+        outreach:   { label: 'Outreach', cls: 'bg-blue-50 text-blue-700' },
+        community:  { label: 'Community', cls: 'bg-violet-50 text-violet-700' },
+        follow_up:  { label: 'Follow-up', cls: 'bg-amber-50 text-amber-700' },
+    };
+    list.innerHTML = items.map(item => {
+        const cat = CAT[item.category];
+        const badge = cat ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${cat.cls} shrink-0">${cat.label}</span>` : '';
+        return `<label class="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:border-emerald-200 transition cursor-pointer" id="rbc-item-${item.id}">
+            <input type="checkbox" ${item.completed ? 'checked' : ''} onchange="window._rbcToggle(${item.id}, this.checked)" class="mt-0.5 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer">
+            <span class="flex-1 min-w-0">
+                <span class="flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-semibold ${item.completed ? 'text-gray-400 line-through' : 'text-gray-800'}" id="rbc-title-${item.id}">${esc(item.title)}</span>
+                    ${badge}
+                </span>
+                ${item.description ? `<span class="block text-xs text-gray-500 mt-0.5">${esc(item.description)}</span>` : ''}
+            </span>
+        </label>`;
+    }).join('');
+    _rbcUpdateProgress(items);
+    window._rbcItems = items;
+}
+
+function _rbcUpdateProgress(items) {
+    const progress = document.getElementById('rbc-progress');
+    if (!progress) return;
+    const done = items.filter(i => i.completed).length;
+    progress.textContent = `${done} of ${items.length} done${done === items.length ? ' — nice work! 🎉' : ''}`;
+}
+
+window._rbcToggle = async function (taskId, completed) {
+    // Optimistic UI: update title styling + progress immediately, persist in the background.
+    const titleEl = document.getElementById(`rbc-title-${taskId}`);
+    if (titleEl) {
+        titleEl.classList.toggle('line-through', completed);
+        titleEl.classList.toggle('text-gray-400', completed);
+        titleEl.classList.toggle('text-gray-800', !completed);
+    }
+    const item = (window._rbcItems || []).find(i => i.id === taskId);
+    if (item) { item.completed = completed; _rbcUpdateProgress(window._rbcItems); }
+    try {
+        const res = await fetch('/.netlify/functions/relationship-checklist', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taskId, completed }),
+        });
+        if (!res.ok) throw new Error('save failed');
+    } catch {
+        // Revert on failure.
+        const cb = document.querySelector(`#rbc-item-${taskId} input[type=checkbox]`);
+        if (cb) cb.checked = !completed;
+        if (titleEl) {
+            titleEl.classList.toggle('line-through', !completed);
+            titleEl.classList.toggle('text-gray-400', !completed);
+            titleEl.classList.toggle('text-gray-800', completed);
+        }
+        if (item) { item.completed = !completed; _rbcUpdateProgress(window._rbcItems); }
+        window.showToast?.('Could not save — please try again.');
+    }
+};
+
+window._rbcRegenerate = async function () {
+    const assistantId = window._rbcAssistantId;
+    if (!assistantId) return;
+    const btn = document.getElementById('rbc-regenerate-btn');
+    const list = document.getElementById('rbc-list');
+    if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+    if (list) list.innerHTML = '<div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Generating a fresh checklist…</div>';
+    try {
+        const res = await fetch('/.netlify/functions/relationship-checklist', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assistantId, regenerate: true }),
+        });
+        const data = await res.json();
+        if (data.ok) _rbcRender(data.items || []);
+        else window.showToast?.(data.error || 'Could not regenerate the checklist.');
+    } catch {
+        window.showToast?.('Network error — please try again.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Regenerate'; }
+    }
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -969,6 +1149,27 @@ async function _loadAssistantMetrics(assistantId) {
             setDot('ctr', 'live');
         } else {
             trendEl('ctr').textContent = 'Not tracked on Instagram';
+        }
+
+        // Meaningful Engagement (AC8) — saves + shares + comments over reach, the value-weighted
+        // headline. Trend shows the raw value signals so success isn't judged on views alone.
+        if (valEl('value')) {
+            valEl('value').textContent = pct(m.meaningfulEngagementRate);
+            const c = data.current || {};
+            const parts = [];
+            if (c.saves != null)  parts.push(`${c.saves} saves`);
+            if (c.shares != null) parts.push(`${c.shares} shares`);
+            if (parts.length) trendEl('value').textContent = parts.join(' · ');
+            if (m.meaningfulEngagementRate != null) {
+                setDot('value', m.valueScoreGrowth != null && m.valueScoreGrowth < 0 ? 'down' : 'up');
+            }
+            // Recognise high-value / low-reach posts as wins.
+            const wins = (data.topValuePosts || []).filter(p => p.lowReachHighValue).length;
+            const winsEl = document.getElementById('metric-value-wins');
+            if (winsEl && wins > 0) {
+                winsEl.textContent = `★ ${wins} post${wins === 1 ? '' : 's'} converted strongly on saves/shares despite low reach — counted as wins.`;
+                winsEl.classList.remove('hidden');
+            }
         }
     } catch {
         // Network/parse failure — leave the static "—" placeholders untouched.
@@ -1661,7 +1862,7 @@ function _buildTelemetrySvg(actual, trajectory) {
 // Feature 3 — Premium AI Optimization (recommendations, magic wand, autonomous)
 // ══════════════════════════════════════════════════════════════════
 const GOAL_AI_API = '/.netlify/functions/goal-ai';
-const _WAND_FIELD_LABELS = { tone_of_voice: 'Brand Voice', target_audience: 'Target Audience', content_pillars: 'Content Strategy', core_message: 'Core Message', problem_statement: 'Your Bottleneck' };
+const _WAND_FIELD_LABELS = { tone_of_voice: 'Brand Voice', target_audience: 'Target Audience', content_pillars: 'Content Strategy', core_message: 'Core Message', problem_statement: 'Your Bottleneck', service_offerings: 'Products & Services' };
 
 function _openUpgrade(msg) {
     if (typeof window.openUpgradeModal === 'function') {

@@ -91,6 +91,11 @@ node_bundler = "esbuild"
 [functions.draft-horizon-fill]
   schedule = "0 6 * * *"
 
+# US-SMM (AC7): Periodic conversion-post scheduler — daily 07:00 UTC; enqueues at most one
+# conversion post per eligible assistant per 7 days (see schedule-conversion-posts.ts).
+[functions.schedule-conversion-posts]
+  schedule = "0 7 * * *"
+
 # US-SMM-2.4.2: Review urgency check (red-zone alerts + missed post detection) — every 15 minutes
 [functions.check-review-urgency]
   schedule = "*/15 * * * *"

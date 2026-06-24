@@ -25,11 +25,26 @@ type Totals = {
     reach: number | null;
     interactions: number | null;
     linkClicks: number | null;
+    saves: number | null;
+    shares: number | null;
+    comments: number | null;
 };
 
 function ratio(numerator: number | null, denominator: number | null): number | null {
     if (numerator === null || denominator === null || denominator === 0) return null;
     return numerator / denominator;
+}
+
+// US-SMM (AC8): weight bottom-line, intent-rich signals over vanity reach.
+// Saves & Shares are the strongest organic conversion signals, comments next.
+// A single value-weighted score lets the UI rank a low-reach/high-save post as a
+// success rather than burying it under view-count.
+const VALUE_WEIGHTS = { saves: 5, shares: 4, comments: 2 } as const;
+function valueScore(t: Pick<Totals, 'saves' | 'shares' | 'comments'>): number | null {
+    if (t.saves === null && t.shares === null && t.comments === null) return null;
+    return (t.saves ?? 0) * VALUE_WEIGHTS.saves
+        + (t.shares ?? 0) * VALUE_WEIGHTS.shares
+        + (t.comments ?? 0) * VALUE_WEIGHTS.comments;
 }
 
 export const handler: Handler = async (event) => {
@@ -78,6 +93,9 @@ export const handler: Handler = async (event) => {
                 reach: sql<number | null>`sum(${postInsights.reach})`,
                 interactions: sql<number | null>`sum(${postInsights.totalInteractions})`,
                 linkClicks: sql<number | null>`sum(${postInsights.linkClicks})`,
+                saves: sql<number | null>`sum(${postInsights.saves})`,
+                shares: sql<number | null>`sum(${postInsights.shares})`,
+                comments: sql<number | null>`sum(${postInsights.comments})`,
             })
             .from(postInsights)
             .where(and(
@@ -88,12 +106,16 @@ export const handler: Handler = async (event) => {
             ))
             .groupBy(isCurrent);
 
-        const empty: Totals = { posts: 0, reach: null, interactions: null, linkClicks: null };
+        const empty: Totals = { posts: 0, reach: null, interactions: null, linkClicks: null, saves: null, shares: null, comments: null };
+        const num = (v: number | null) => v === null ? null : Number(v);
         const norm = (r: typeof rows[number] | undefined): Totals => r ? {
             posts: Number(r.posts) || 0,
-            reach: r.reach === null ? null : Number(r.reach),
-            interactions: r.interactions === null ? null : Number(r.interactions),
-            linkClicks: r.linkClicks === null ? null : Number(r.linkClicks),
+            reach: num(r.reach),
+            interactions: num(r.interactions),
+            linkClicks: num(r.linkClicks),
+            saves: num(r.saves),
+            shares: num(r.shares),
+            comments: num(r.comments),
         } : { ...empty };
 
         const current = norm(rows.find(r => Number(r.bucket) === 1));
@@ -103,6 +125,56 @@ export const handler: Handler = async (event) => {
             current.reach !== null && previous.reach !== null ? current.reach - previous.reach : null,
             previous.reach,
         );
+
+        // US-SMM (AC8): surface the posts that converted on VALUE (saves + shares) regardless of
+        // reach, so a high-save / low-view post is recognised as a success. Ranked by value score.
+        const valuePostRows = await db
+            .select({
+                postId: postInsights.scheduledPostId,
+                platform: postInsights.platform,
+                publishedAt: postInsights.publishedAt,
+                reach: postInsights.reach,
+                saves: postInsights.saves,
+                shares: postInsights.shares,
+                comments: postInsights.comments,
+            })
+            .from(postInsights)
+            .where(and(
+                eq(postInsights.assistantId, aId),
+                eq(postInsights.organisationId, orgId),
+                gte(postInsights.publishedAt, periodStart),
+                lt(postInsights.publishedAt, new Date(now)),
+            ));
+
+        const periodMedianReach = (() => {
+            const vals = valuePostRows.map(r => r.reach).filter((v): v is number => v != null).sort((a, b) => a - b);
+            if (!vals.length) return null;
+            const mid = Math.floor(vals.length / 2);
+            return vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2;
+        })();
+
+        const topValuePosts = valuePostRows
+            .map(r => {
+                const score = valueScore({ saves: r.saves, shares: r.shares, comments: r.comments });
+                return {
+                    postId: r.postId,
+                    platform: r.platform,
+                    publishedAt: r.publishedAt,
+                    reach: r.reach,
+                    saves: r.saves,
+                    shares: r.shares,
+                    comments: r.comments,
+                    valueScore: score,
+                    // Flag a genuine "punched above its reach" win: meaningful value despite
+                    // below-median views — the kind of post vanity dashboards hide.
+                    lowReachHighValue: score != null && score > 0
+                        && periodMedianReach != null && r.reach != null
+                        && r.reach < periodMedianReach,
+                };
+            })
+            .filter(p => p.valueScore != null && p.valueScore > 0)
+            .sort((a, b) => (b.valueScore ?? 0) - (a.valueScore ?? 0))
+            .slice(0, 5);
 
         return {
             statusCode: 200,
@@ -115,17 +187,39 @@ export const handler: Handler = async (event) => {
                     reach: current.reach,
                     interactions: current.interactions,
                     linkClicks: current.linkClicks,
+                    saves: current.saves,
+                    shares: current.shares,
+                    comments: current.comments,
+                    valueScore: valueScore(current),
                 },
                 previous: {
                     posts: previous.posts,
                     reach: previous.reach,
+                    valueScore: valueScore(previous),
                 },
                 metrics: {
                     // All ratios are 0–1 fractions; the frontend formats as a percentage.
                     engagementRate: ratio(current.interactions, current.reach),
                     reachGrowth,                       // can be negative; null if no prior reach
                     clickThroughRate: ratio(current.linkClicks, current.reach), // null for IG organic
+                    // US-SMM (AC8): value-weighted signals — these are the headline numbers, with
+                    // reach/CTR as supporting context rather than the score.
+                    saveRate: ratio(current.saves, current.reach),
+                    shareRate: ratio(current.shares, current.reach),
+                    // Meaningful engagement = saves + shares + comments, weighed over likes/views.
+                    meaningfulEngagementRate: ratio(
+                        current.saves !== null || current.shares !== null || current.comments !== null
+                            ? (current.saves ?? 0) + (current.shares ?? 0) + (current.comments ?? 0)
+                            : null,
+                        current.reach,
+                    ),
+                    valueScoreGrowth: ratio(
+                        valueScore(current) !== null && valueScore(previous) !== null
+                            ? (valueScore(current) ?? 0) - (valueScore(previous) ?? 0) : null,
+                        valueScore(previous),
+                    ),
                 },
+                topValuePosts,
             }),
         };
     } catch (err: any) {

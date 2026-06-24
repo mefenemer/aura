@@ -386,10 +386,15 @@ function _platformCard(platform, conn) {
     const autoRespBtn = (isConnected && (platform.id === 'Instagram' || platform.id === 'Facebook'))
         ? `<button onclick="window._intGenerateAutoResponder()" class="text-xs font-bold text-purple-600 hover:text-purple-800 transition cursor-pointer" type="button">Auto-Responder</button>`
         : '';
+    // AC1: Generate Bio for the social profile platforms.
+    const bioBtn = (isConnected && (platform.id === 'Instagram' || platform.id === 'Facebook' || platform.id === 'LinkedIn'))
+        ? `<button onclick="window._intGenerateBio()" class="text-xs font-bold text-emerald-600 hover:text-emerald-800 transition cursor-pointer" type="button">Generate Bio</button>`
+        : '';
 
     const action = isConnected
         ? `<div class="flex items-center gap-2 flex-wrap">
                ${syncBtn}
+               ${bioBtn}
                ${autoRespBtn}
                ${reconnectBtn}
                <button onclick="window._intPromptDisconnect(${conn.id})" class="text-sm font-bold text-red-500 hover:text-red-700 transition cursor-pointer" type="button">Disconnect</button>
@@ -709,6 +714,23 @@ function _intRenderAutoResponderChatPanel(draft, metaPushStatus) {
         </div>`;
     }
 
+    // AC7: objection replies are review-only drafts (not pushed to Meta) — the user copies
+    // them into a DM/comment when a matching sales enquiry comes in.
+    function objectionBlock(responses) {
+        if (!Array.isArray(responses) || !responses.length) return '';
+        const esc = v => String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const rows = responses.map(r => `
+            <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <p class="text-xs font-bold text-gray-700">“${esc(r.objection)}”</p>
+                <p class="text-sm text-gray-800 mt-1">${esc(r.reply)}</p>
+            </div>`).join('');
+        return `<div class="border border-emerald-200 rounded-xl p-4 flex flex-col gap-2">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">Sales Objection Replies — staged for your review</p>
+            <p class="text-xs text-gray-500">Copy these into a DM or comment reply when a matching enquiry comes in. They are not sent automatically.</p>
+            <div class="flex flex-col gap-2 mt-1">${rows}</div>
+        </div>`;
+    }
+
     panel.innerHTML = `
         <div class="flex items-start gap-3 p-5 border-b border-emerald-100">
             <div class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 font-bold text-sm">AI</div>
@@ -721,6 +743,7 @@ function _intRenderAutoResponderChatPanel(draft, metaPushStatus) {
             ${scriptBlock('messengerGreeting', 'Messenger Greeting (max 160 chars)', draft.messengerGreeting)}
             ${scriptBlock('messengerAutoReply', 'Messenger Auto-Reply', draft.messengerAutoReply)}
             ${scriptBlock('instagramDmAutoReply', 'Instagram DM Auto-Reply', draft.instagramDmAutoReply)}
+            ${objectionBlock(draft.objectionResponses)}
         </div>
         <div class="px-5 pb-5 flex items-center justify-between gap-3">
             <button onclick="_intUndoAutoResponder(${undoDeadline})" id="ar-undo-btn" class="text-xs font-bold text-gray-400 hover:text-red-600 cursor-pointer transition">Undo (revert within 15 min)</button>
@@ -794,6 +817,133 @@ window._intUndoAutoResponder = async function (deadline) {
     } catch {
         if (undoBtn) { undoBtn.disabled = false; undoBtn.textContent = 'Undo (revert within 15 min)'; }
         alert('Undo failed. Please clear the messages manually in Meta Business Suite.');
+    }
+};
+
+// ── AC1: Generate profile bios ───────────────────────────────────
+window._intGenerateBio = async function () {
+    const panel = document.getElementById('profile-bio-chat-panel');
+    if (panel) {
+        panel.classList.remove('hidden');
+        panel.innerHTML = `<div class="flex items-center gap-3 p-5 border-b border-emerald-100">
+            <div class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 font-bold text-sm">AI</div>
+            <p class="text-sm text-gray-500 italic">Writing your profile bios…</p>
+        </div>`;
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    try {
+        const res = await fetch('/.netlify/functions/generate-profile-bio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        const data = await res.json();
+        if (data.ok && data.draft) {
+            _intRenderBioChatPanel(data.draft);
+        } else if (panel) {
+            panel.innerHTML = `<div class="p-5 flex items-start gap-3">
+                <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0 text-red-600 font-bold text-sm">AI</div>
+                <p class="text-sm text-red-700 mt-1">${data.error ?? 'Bio generation failed. Please try again.'}</p>
+            </div>`;
+        }
+    } catch {
+        if (panel) {
+            panel.innerHTML = `<div class="p-5 flex items-start gap-3">
+                <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0 text-red-600 font-bold text-sm">AI</div>
+                <p class="text-sm text-red-700 mt-1">Bio generation failed. Please try again.</p>
+            </div>`;
+        }
+    }
+};
+
+// Render generated bios with per-platform Edit/Save + a hint to push via Sync Profile.
+function _intRenderBioChatPanel(draft) {
+    const panel = document.getElementById('profile-bio-chat-panel');
+    if (!panel) return;
+    const limits = { instagram: 150, facebook: 255, linkedin: 700 };
+    const labels = { instagram: 'Instagram Bio', facebook: 'Facebook Page About', linkedin: 'LinkedIn About' };
+
+    function bioBlock(key, value) {
+        const esc = v => String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return `<div class="border border-gray-200 rounded-xl p-4 flex flex-col gap-2" id="bio-block-${key}">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">${labels[key]} (max ${limits[key]} chars)</p>
+            <p class="text-sm text-gray-800 whitespace-pre-line" id="bio-text-${key}">${esc(value)}</p>
+            <textarea class="hidden w-full text-sm border border-emerald-300 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-300" id="bio-editor-${key}" rows="4" maxlength="${limits[key]}">${esc(value)}</textarea>
+            <div class="flex gap-2 mt-1">
+                <button onclick="_intEditBio('${key}')" id="bio-edit-btn-${key}" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 cursor-pointer">Edit</button>
+                <button onclick="_intSaveBio('${key}')" id="bio-save-btn-${key}" class="hidden text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2 py-0.5 rounded cursor-pointer">Save</button>
+                <button onclick="_intCancelBioEdit('${key}')" id="bio-cancel-btn-${key}" class="hidden text-xs font-bold text-gray-500 hover:text-gray-700 cursor-pointer">Cancel</button>
+                <button onclick="_intCopyBio('${key}')" class="text-xs font-bold text-gray-500 hover:text-gray-700 cursor-pointer ml-auto">Copy</button>
+            </div>
+        </div>`;
+    }
+
+    panel.innerHTML = `
+        <div class="flex items-start gap-3 p-5 border-b border-emerald-100">
+            <div class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 font-bold text-sm">AI</div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-gray-900">Here are profile bios tailored to each platform. Edit any you like, then use <span class="font-bold">Sync Profile</span> to push the Facebook &amp; LinkedIn versions to your connected pages.</p>
+                <p class="text-xs text-gray-500 mt-1">Instagram bios must be pasted in manually — use Copy.</p>
+            </div>
+        </div>
+        <div class="p-5 flex flex-col gap-3">
+            ${bioBlock('instagram', draft.instagram)}
+            ${bioBlock('facebook', draft.facebook)}
+            ${bioBlock('linkedin', draft.linkedin)}
+        </div>
+        <div class="px-5 pb-5 flex items-center justify-end">
+            <button onclick="document.getElementById('profile-bio-chat-panel').classList.add('hidden')" class="text-xs text-gray-400 hover:text-gray-600 cursor-pointer">Dismiss</button>
+        </div>`;
+
+    panel._bioDraft = draft;
+}
+
+window._intEditBio = function (key) {
+    document.getElementById(`bio-text-${key}`)?.classList.add('hidden');
+    document.getElementById(`bio-editor-${key}`)?.classList.remove('hidden');
+    document.getElementById(`bio-edit-btn-${key}`)?.classList.add('hidden');
+    document.getElementById(`bio-save-btn-${key}`)?.classList.remove('hidden');
+    document.getElementById(`bio-cancel-btn-${key}`)?.classList.remove('hidden');
+};
+
+window._intCancelBioEdit = function (key) {
+    document.getElementById(`bio-text-${key}`)?.classList.remove('hidden');
+    document.getElementById(`bio-editor-${key}`)?.classList.add('hidden');
+    document.getElementById(`bio-edit-btn-${key}`)?.classList.remove('hidden');
+    document.getElementById(`bio-save-btn-${key}`)?.classList.add('hidden');
+    document.getElementById(`bio-cancel-btn-${key}`)?.classList.add('hidden');
+};
+
+window._intCopyBio = function (key) {
+    const panel = document.getElementById('profile-bio-chat-panel');
+    const value = panel?._bioDraft?.[key];
+    if (value) navigator.clipboard?.writeText(value).catch(() => {});
+};
+
+window._intSaveBio = async function (key) {
+    const panel = document.getElementById('profile-bio-chat-panel');
+    const editor = document.getElementById(`bio-editor-${key}`);
+    const textEl = document.getElementById(`bio-text-${key}`);
+    const saveBtn = document.getElementById(`bio-save-btn-${key}`);
+    if (!editor || !textEl || !panel?._bioDraft) return;
+    const newVal = editor.value.trim();
+    if (!newVal) return;
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    const updatedDraft = { ...panel._bioDraft, [key]: newVal };
+    try {
+        const res = await fetch('/.netlify/functions/generate-profile-bio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ editedDraft: updatedDraft }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            panel._bioDraft = data.draft ?? updatedDraft;
+            textEl.textContent = newVal;
+            window._intCancelBioEdit(key);
+        } else {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+            alert(data.error ?? 'Failed to save. Please try again.');
+        }
+    } catch {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+        alert('Network error. Please try again.');
     }
 };
 

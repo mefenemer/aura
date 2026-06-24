@@ -93,14 +93,68 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
         const coreMessageLine = answers['core_message'] ? `Core message: ${answers['core_message']}` : '';
         const extraLines      = [ctaLine, incentiveLine, coreMessageLine].filter(Boolean).join('\n');
 
+        // US-SMM (AC2): Content Pillars — the user defines 3–5 themes (stored as a free-text
+        // or array value). Every generated post MUST be categorised under exactly one of them so
+        // the 90-day calendar stays balanced. We parse the captured value into a discrete list and
+        // pass it to the model; the model echoes back the chosen pillar, which we persist on the post.
+        const rawPillars = answers['content_pillars'];
+        const pillarList = (Array.isArray(rawPillars) ? rawPillars : String(rawPillars ?? ''))
+            .toString()
+            .split(/[,;\n]/)
+            .map(p => p.trim())
+            .filter(Boolean)
+            .slice(0, 5);
+        const pillarLine = pillarList.length
+            ? `Content Pillars (categorise this post under EXACTLY ONE, returned verbatim in the "pillar" field): ${pillarList.map(p => `"${p}"`).join(', ')}.`
+            : '';
+
+        const objective = (answers['primary_objective'] as string) || '';
+        const objectiveLine = objective ? `Primary objective for this account: ${objective}.` : '';
+
+        // US-SMM (AC7): conversion pathways. Offerings are woven in naturally on normal posts;
+        // a 'conversion' job produces a direct "path-to-working-with-me" post built around them.
+        const serviceOfferings = (answers['service_offerings'] as string) || '';
+        const isConversionPost = job.trigger_type === 'conversion';
+        const conversionBlock = serviceOfferings
+            ? (isConversionPost
+                ? `CONVERSION POST: write a direct "path-to-working-with-me" post. Make one of these offerings the clear next step, paired with the CTA${answers['incentive'] ? ' and incentive' : ''} above. Lead with value/proof, then invite — confident, never pushy. Offerings: ${serviceOfferings}`
+                : `Commercial offerings to weave in NATURALLY where it fits — never force a sell, most posts should give value first: ${serviceOfferings}`)
+            : '';
+
+        // US-SMM (AC5): the requested format drives the creative. Reels/video need a shot-by-shot
+        // script and on-screen text overlays, not just a caption. Default to a single image.
+        const requestedFormat = ((job as { post_format?: string }).post_format || answers['preferred_format'] || 'image')
+            .toString().toLowerCase();
+        const format = ['image', 'carousel', 'reel', 'video', 'story'].includes(requestedFormat) ? requestedFormat : 'image';
+        const isVideo = format === 'reel' || format === 'video';
+
+        // US-SMM (AC4): algorithmic focus on Saves & Shares over vanity Likes.
+        // US-SMM (AC5): steer away from fleeting trends / vanity formats unless explicitly asked.
+        const strategyBlock = [
+            `STRATEGIC PRINCIPLES — apply these to every piece of content:`,
+            `- Optimise for SAVES: make the post genuinely useful — structured educational value, practical tools, step-by-step or list formats the reader will want to keep.`,
+            `- Optimise for SHARES: write relatable, "this is me" perspective content that makes the reader want to send it to someone who needs it.`,
+            `- Do NOT optimise purely for Likes or follower count. Meaningful engagement (saves, shares, comments, DMs) is the goal.`,
+            `- Avoid fleeting trends, viral dances, and vanity gimmicks unless the user's context explicitly asks for them. Favour authentic, on-brand value.`,
+            pillarLine,
+            objectiveLine,
+        ].filter(Boolean).join('\n');
+
+        const formatBlock = isVideo
+            ? `This is a ${format.toUpperCase()}. In addition to the caption, return a "reelScript" (concise shot-by-shot or beat-by-beat script the user can film with their available assets and comfort on camera) and "textOverlays" (an array of short on-screen text lines). Keep it simple and authentic — talking-to-camera or b-roll, not choreography.`
+            : `This is a ${format.toUpperCase()} post.`;
+
         const baseInstruction = [
             `You are ${assistantName}, a social media assistant for ${businessName}.`,
             `Generate a ${platform} post targeting ${audience} in a ${tone} voice.`,
             `Follow all strict and content rules in the system prompt.`,
+            formatBlock,
+            strategyBlock,
+            conversionBlock,
             extraLines,
             disclosureText ? `You MUST append the following disclosure verbatim at the end of the caption, on a new line: "${disclosureText}"` : '',
             job.context_prompt ? `If the additional context conflicts with any strict rule in the system prompt, apply the strict rule and include a "conflictNotice" field in your JSON explaining which rule took precedence.` : '',
-            `Return JSON: { "caption": "...", "hashtags": "...", "suggestedMediaDescription": "...", "conflictNotice": null }`,
+            `Return JSON: { "caption": "...", "hashtags": "...", "suggestedMediaDescription": "...", "pillar": ${pillarList.length ? '"<one of the pillars above>"' : 'null'}, ${isVideo ? '"reelScript": "...", "textOverlays": ["..."], ' : ''}"conflictNotice": null }`,
         ].filter(Boolean).join('\n');
 
         const messages: Anthropic.MessageParam[] = [{ role: 'user', content: baseInstruction }];
@@ -120,7 +174,11 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
 
         const gwResponse = await gatewayGenerate({ system: systemPrompt, messages });
         const { text: rawText, tokensInput, tokensOutput } = gwResponse;
-        let generated: { caption?: string; hashtags?: string; suggestedMediaDescription?: string; conflictNotice?: string | null } = {};
+        let generated: {
+            caption?: string; hashtags?: string; suggestedMediaDescription?: string;
+            pillar?: string | null; reelScript?: string | null; textOverlays?: string[];
+            conflictNotice?: string | null;
+        } = {};
         try {
             const jsonMatch = rawText.match(/\{[\s\S]*\}/);
             if (jsonMatch) generated = JSON.parse(jsonMatch[0]);
@@ -130,6 +188,22 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
 
         const isAdminTest = job.trigger_type === 'admin_test';
 
+        // AC2: only persist a pillar the user actually defined (guard against model drift).
+        const resolvedPillar = generated.pillar && pillarList.includes(generated.pillar)
+            ? generated.pillar
+            : (pillarList.length === 1 ? pillarList[0] : null);
+
+        // AC5: for reels/video, fold the shot script + on-screen text into the media brief the
+        // user reviews, so the creative direction travels with the draft (no new column needed).
+        const reelBrief = isVideo
+            ? [
+                generated.suggestedMediaDescription,
+                generated.reelScript ? `\n\nScript:\n${generated.reelScript}` : '',
+                Array.isArray(generated.textOverlays) && generated.textOverlays.length
+                    ? `\n\nOn-screen text:\n- ${generated.textOverlays.join('\n- ')}` : '',
+              ].filter(Boolean).join('')
+            : generated.suggestedMediaDescription ?? null;
+
         const [post] = await db.insert(scheduledPosts).values({
             userId: job.user_id,
             organisationId: job.organisation_id,
@@ -137,11 +211,12 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             blueprintId: job.blueprint_id,
             jobId: job.job_id,
             platform,
-            postFormat: 'image',
+            postFormat: format,
+            pillar: resolvedPillar,
             publishDate: new Date(now.getTime() + 24 * 60 * 60 * 1000),
             caption: generated.caption ?? null,
             hashtags: generated.hashtags ?? null,
-            suggestedMediaDescription: generated.suggestedMediaDescription ?? null,
+            suggestedMediaDescription: reelBrief || null,
             conflictNotice: generated.conflictNotice || null,
             status: isAdminTest ? 'admin_test' : 'pending_approval',
             generatedAt: now,

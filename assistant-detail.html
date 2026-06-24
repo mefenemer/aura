@@ -106,13 +106,28 @@
   <!-- Goals section is relocated here (directly under Recent Activity) by initAssistantDetail;
        its markup lives in #tab-goals further down and is moved into this slot on load. -->
 
+  <!-- AC6: Daily Relationship-Building Checklist — hidden until loaded; only shown for social assistants. -->
+  <div id="relationship-checklist-card" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8 hidden">
+    <div class="flex items-start justify-between gap-3 mb-4">
+      <div>
+        <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Today's Relationship-Building Checklist</h3>
+        <p class="text-xs text-gray-400 mt-1">Daily community actions to build genuine relationships. Tick them off as you go.</p>
+      </div>
+      <button type="button" id="rbc-regenerate-btn" onclick="window._rbcRegenerate()" class="text-xs font-bold text-emerald-600 hover:text-emerald-800 transition cursor-pointer shrink-0">Regenerate</button>
+    </div>
+    <div id="rbc-list" class="space-y-2">
+      <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading checklist…</div>
+    </div>
+    <p id="rbc-progress" class="text-xs font-medium text-gray-400 mt-3"></p>
+  </div>
+
   <!-- Performance KPIs -->
   <div class="mb-8">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Performance Metrics</h3>
       <span id="metrics-status-note" class="text-xs text-gray-400 font-medium">Last 30 days</span>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
       <!-- The Thumb Stopper -->
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
@@ -162,7 +177,25 @@
         </div>
       </div>
 
+      <!-- Meaningful Engagement — value over vanity (AC8) -->
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Meaningful Engagement</span>
+          <span id="metric-value-dot" class="w-2 h-2 rounded-full bg-gray-200"></span>
+        </div>
+        <div>
+          <p id="metric-value-value" class="text-2xl font-extrabold text-gray-900">—</p>
+          <p class="text-base font-bold text-gray-700 mt-0.5">Saves, Shares &amp; DMs</p>
+          <p class="text-xs text-gray-500 mt-1">The signals that convert trust into business — weighed above likes and view count.</p>
+        </div>
+        <div class="mt-auto pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-400">Trending: <span id="metric-value-trend" class="font-semibold text-gray-500">—</span></p>
+        </div>
+      </div>
+
     </div>
+    <!-- Value wins: posts that converted on saves/shares regardless of reach (AC8) -->
+    <p id="metric-value-wins" class="hidden text-xs text-emerald-700 font-medium mt-3"></p>
   </div>
 
   <!-- Configuration -->
@@ -248,7 +281,16 @@
         </div>
         <div>
           <label for="edit_frequency" class="block text-sm font-bold text-gray-700 mb-1">Posting Frequency</label>
-          <input type="text" id="edit_frequency" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., 3 times a week, Daily, On demand…">
+          <select id="edit_frequency" class="w-full border border-gray-300 rounded-lg p-3 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition shadow-sm">
+            <option value="">Select a cadence…</option>
+            <option value="Daily">Daily</option>
+            <option value="5 times a week">5 times a week</option>
+            <option value="3 times a week">3 times a week</option>
+            <option value="2 times a week">2 times a week</option>
+            <option value="Weekly">Weekly</option>
+            <option value="On demand">On demand</option>
+          </select>
+          <p class="text-xs text-gray-400 mt-1">How often this assistant should publish. Used to schedule posts automatically.</p>
         </div>
       </div>
     </div>
@@ -343,7 +385,33 @@
             </button>
           </div>
           <textarea id="edit_pillars" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="E.g., Growth hacking, Leadership, Behind the scenes…"></textarea>
-          <p class="text-xs text-gray-400 mt-1">Separate topics with commas.</p>
+          <div id="pillars-chips" class="flex flex-wrap gap-1.5 mt-2"></div>
+          <p class="text-xs text-gray-400 mt-1">Separate topics with commas — up to 5. Each becomes a discrete pillar your posts are categorised under.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sales Context — feeds the auto-responder objection playbook + DM reply drafting -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-gray-900">Sales Context</h3>
+        <p class="text-sm text-gray-500 mt-1">What you sell and how to handle common objections. Used to draft replies to sales enquiries in comments and DMs.</p>
+      </div>
+      <div class="space-y-5">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="edit_offerings" class="block text-sm font-bold text-gray-700">Products &amp; Services</label>
+            <button type="button" onclick="window._magicWand('service_offerings','edit_offerings', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
+              <img src="/images/BeMoreSwan_SwanAI.png" alt="Optimise with Be More Swan AI" class="ai-wand-img shrink-0">
+            </button>
+          </div>
+          <textarea id="edit_offerings" rows="3" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="E.g., 1:1 coaching (£200/mo), group programme (£75/mo), free starter guide…"></textarea>
+          <p class="text-xs text-gray-400 mt-1">List your offers and prices so replies can point to the right one.</p>
+        </div>
+        <div>
+          <label for="edit_objections" class="block text-sm font-bold text-gray-700 mb-1">Sales Objection Playbook</label>
+          <textarea id="edit_objections" rows="4" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="One per line — objection, then your preferred response. E.g., &quot;Too expensive&quot; — Emphasise the time saved and the money-back guarantee."></textarea>
+          <p class="text-xs text-gray-400 mt-1">One objection per line with your preferred response. The assistant drafts replies from these — it never invents pricing or claims.</p>
         </div>
       </div>
     </div>
@@ -361,6 +429,9 @@
 
     <!-- AC2.1.3: Workspace chat panel — rendered by integrations.js after auto-responder generation -->
     <div id="auto-responder-chat-panel" class="hidden bg-white border border-emerald-200 rounded-2xl shadow-sm overflow-hidden"></div>
+
+    <!-- AC1: Workspace panel — rendered by integrations.js after profile-bio generation -->
+    <div id="profile-bio-chat-panel" class="hidden bg-white border border-emerald-200 rounded-2xl shadow-sm overflow-hidden"></div>
 
     <!-- Platform grid — populated by integrations.js (initAssistantConnections) -->
     <div id="connections-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-5">

@@ -56,21 +56,29 @@ export const handler: Handler = async (event) => {
     const targetAudience = (ctx.target_audience as string) ?? 'customers';
     const contentPillars = Array.isArray(ctx.content_pillars) ? (ctx.content_pillars as string[]).join(', ') : (ctx.content_pillars as string) ?? '';
 
+    // US-SMM (AC7): the objection playbook + offerings let the assistant draft replies to sales
+    // enquiries in DMs. These are staged for the user to review, not auto-sent.
+    const serviceOfferings = (ctx.service_offerings as string) ?? '';
+    const salesObjections  = (ctx.sales_objections  as string) ?? '';
+
     // Include blueprint sections in the prompt (AC: full context)
     const blueprintContext = [
         assistant.systemPrompt ? `## System Prompt\n${assistant.systemPrompt}` : '',
         contentPillars ? `## Content Pillars\n${contentPillars}` : '',
+        serviceOfferings ? `## Service Offerings\n${serviceOfferings}` : '',
+        salesObjections ? `## Sales Objection Playbook (objection — preferred response)\n${salesObjections}` : '',
         (ctx.strict_rules as string) ? `## Strict Rules\n${ctx.strict_rules}` : '',
         (ctx.brand_guidelines as string) ? `## Brand Guidelines\n${ctx.brand_guidelines}` : '',
     ].filter(Boolean).join('\n\n');
 
     const prompt = `You are a social media assistant for ${businessName}. Tone: ${toneOfVoice}. Target audience: ${targetAudience}.
 
-${blueprintContext ? `## Assistant Blueprint Context\n${blueprintContext}\n\n` : ''}Generate three auto-responder messages that reflect the brand voice above. Return ONLY valid JSON with these exact keys:
+${blueprintContext ? `## Assistant Blueprint Context\n${blueprintContext}\n\n` : ''}Generate auto-responder messages that reflect the brand voice above. Return ONLY valid JSON with these exact keys:
 {
   "messengerGreeting": "string, max 160 chars — the welcome message shown when someone opens Messenger for the first time",
   "messengerAutoReply": "string, max 500 chars — the auto-reply sent when someone messages the Facebook Page",
-  "instagramDmAutoReply": "string, max 500 chars — the auto-reply sent when someone DMs on Instagram (stored as a draft — Instagram DM automation must be enabled separately in Meta Business Suite)"
+  "instagramDmAutoReply": "string, max 500 chars — the auto-reply sent when someone DMs on Instagram (stored as a draft — Instagram DM automation must be enabled separately in Meta Business Suite)"${salesObjections ? `,
+  "objectionResponses": "array of { \\"objection\\": string, \\"reply\\": string (max 500 chars) } — for EACH objection in the Sales Objection Playbook above, a ready-to-send DM/comment reply that handles it in the brand voice and points to the relevant service offering. These are staged for the user to review, not sent automatically."` : ''}
 }
 
 Rules:
@@ -78,9 +86,12 @@ Rules:
 - Keep a warm, ${toneOfVoice} tone consistent with the blueprint
 - Do not make promises you cannot keep
 - Do not include placeholders like [NAME] or [DATE]
-- Ensure the Messenger greeting is ≤160 characters exactly`;
+- Ensure the Messenger greeting is ≤160 characters exactly${salesObjections ? `\n- Base objection replies on the playbook's preferred responses; never invent pricing or claims not present in the context` : ''}`;
 
-    let draft: { messengerGreeting: string; messengerAutoReply: string; instagramDmAutoReply: string } | null = null;
+    let draft: {
+        messengerGreeting: string; messengerAutoReply: string; instagramDmAutoReply: string;
+        objectionResponses?: { objection: string; reply: string }[];
+    } | null = null;
     const MAX_RETRIES = 3;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
@@ -114,6 +125,14 @@ Rules:
     draft.messengerGreeting    = draft.messengerGreeting.slice(0, 160);
     draft.messengerAutoReply   = draft.messengerAutoReply.slice(0, 500);
     draft.instagramDmAutoReply = draft.instagramDmAutoReply.slice(0, 500);
+    // AC7: staged objection replies — clamp to the same DM length budget; tolerate a malformed shape.
+    if (Array.isArray(draft.objectionResponses)) {
+        draft.objectionResponses = draft.objectionResponses
+            .filter(r => r && typeof r.objection === 'string' && typeof r.reply === 'string')
+            .map(r => ({ objection: r.objection.slice(0, 200), reply: r.reply.slice(0, 500) }));
+    } else {
+        delete draft.objectionResponses;
+    }
 
     // Store draft in assistant configuration
     const existingConfig = (assistant.configuration as Record<string, unknown>) ?? {};

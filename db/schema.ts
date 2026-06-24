@@ -14,6 +14,7 @@ import {
   index,
   check,
   uuid,
+  date,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -757,6 +758,29 @@ export const referralInvites = pgTable("referral_invites", {
 }, (t) => [
   unique("referral_invites_referrer_email_unique").on(t.referrerId, t.email),
   index("referral_invites_referrer_idx").on(t.referrerId),
+]);
+
+// ── Relationship-Building Checklist (AC6, SMM) ───────────────────────────────
+// Per-assistant daily engagement actions, generated from the blueprint and ticked
+// off by the user. Lazily generated on first view of a new day. See
+// db/relationship-building-tasks.sql and netlify/functions/relationship-checklist.ts.
+export const relationshipBuildingTasks = pgTable("relationship_building_tasks", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  assistantId: integer("assistant_id").notNull().references(() => aiAssistants.id, { onDelete: "cascade" }),
+  taskDate: date("task_date").notNull(),                 // the day this item belongs to (UTC)
+  title: text("title").notNull(),                        // short imperative action
+  description: text("description"),                      // one-line guidance / why it matters
+  category: text("category"),                            // 'engagement' | 'outreach' | 'community' | 'follow_up'
+  sortOrder: integer("sort_order").notNull().default(0),
+  completed: boolean("completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  completedBy: integer("completed_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("relationship_building_tasks_assistant_date_idx").on(t.assistantId, t.taskDate),
+  index("relationship_building_tasks_org_idx").on(t.organisationId),
+  uniqueIndex("relationship_building_tasks_unique").on(t.assistantId, t.taskDate, t.title),
 ]);
 
 // ── Reward Redemptions — Referral Program Expansion ──────────────────────────
