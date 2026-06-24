@@ -10,7 +10,7 @@ import { getDb } from '../../db/client';
 import { goals, aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 import { getActiveTierKeyByOrg } from '../../src/utils/plan-features';
-import { getGoalMetric, tierAllows, TUNABLE_BRIEF_FIELDS, type GoalAiFeature } from '../../src/config/goal-metrics';
+import { getGoalMetric, tierAllows, WAND_REWRITABLE_FIELDS, type GoalAiFeature } from '../../src/config/goal-metrics';
 import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 import { gatewayGenerate } from '../../src/lib/ai-gateway';
 
@@ -18,7 +18,7 @@ const json = (statusCode: number, payload: unknown) => ({
     statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
 });
 
-const FIELD_LABELS = TUNABLE_BRIEF_FIELDS;
+const FIELD_LABELS = WAND_REWRITABLE_FIELDS;
 
 function goalSummary(goal: any): string {
     const metric = getGoalMetric(goal.metricKey);

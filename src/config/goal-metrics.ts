@@ -171,6 +171,16 @@ export const TUNABLE_BRIEF_FIELDS: Record<string, string> = {
     content_pillars: 'Content Strategy',
 };
 
+// Fields a user may rewrite with the Magic Wand on the assistant detail page. This is the
+// strategy set PLUS the foundational message/problem fields. Kept separate from
+// AUTONOMOUS_TUNABLE_FIELDS so autonomous mode never auto-edits the core message or bottleneck —
+// those stay user-driven and are only ever rewritten on an explicit wand click.
+export const WAND_REWRITABLE_FIELDS: Record<string, string> = {
+    ...TUNABLE_BRIEF_FIELDS,
+    core_message: 'Core Message',
+    problem_statement: 'Your Bottleneck',
+};
+
 // Fields Autonomous mode (US3.3) may auto-adjust: the Magic Wand set PLUS posting frequency.
 // posting_frequency is a free-text cadence directive in the brief (e.g. "3 times a week") — the
 // content worker interprets it, so it's safe to tune as text, not a hard scheduler flip.

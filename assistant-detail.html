@@ -151,25 +151,6 @@
   <!-- Read-only summary of every answer captured during onboarding (populated by assistants.js) -->
   <div id="onboarding-summary" class="mb-8"></div>
 
-  <!-- Mandatory platform-wide safety layer applied to every post (full detail on Assistant Rules) -->
-  <div class="mb-8 rounded-2xl border border-indigo-200 bg-indigo-50/60 shadow-sm px-6 py-5 flex items-start gap-4">
-    <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-    </div>
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2 flex-wrap">
-        <h4 class="text-base font-bold text-indigo-900">Be More Swan Safe Content Benchmark</h4>
-        <span class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-100 border border-indigo-300 px-2.5 py-0.5 rounded-full">Mandatory</span>
-      </div>
-      <p class="text-sm text-indigo-800 leading-relaxed mt-1">
-        A built-in safety layer is applied to <strong>every post</strong> this assistant creates. It runs at the highest priority in the system prompt and cannot be disabled, overridden, or bypassed by any setting below — keeping your brand shielded from content that violates platform policies or community standards.
-      </p>
-      <a href="#" onclick="window._openSafetyBenchmark(); return false;" class="inline-flex items-center gap-1 text-sm font-bold text-indigo-700 hover:text-indigo-900 mt-2">
-        View the full benchmark <span aria-hidden="true">&rarr;</span>
-      </a>
-    </div>
-  </div>
-
   <!-- Tab bar -->
   <div class="border-b border-gray-200 mb-8 overflow-x-auto">
     <nav class="-mb-px flex space-x-1 min-w-max" aria-label="Tabs">
@@ -190,9 +171,14 @@
         <p class="text-sm text-gray-500 mt-1">What bottleneck or time-drain were you trying to solve? This shapes everything your assistant prioritises.</p>
       </div>
       <div>
-        <label class="block text-sm font-bold text-gray-700 mb-1">Your Bottleneck <span class="text-red-500">*</span></label>
-        <textarea id="edit_problem" rows="5"
-          class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-y"
+        <div class="flex items-center justify-between mb-1">
+          <label class="block text-sm font-bold text-gray-700">Your Bottleneck <span class="text-red-500">*</span></label>
+          <button type="button" onclick="window._magicWand('problem_statement','edit_problem', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><img src="/favicon/favicon-96x96.png" alt="Be More Swan" class="shrink-0" style="width:22px;height:auto">
+          </button>
+        </div>
+        <textarea id="edit_problem" rows="3"
+          class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden"
           placeholder="E.g., I spend hours every week researching topics, writing captions, and remembering to schedule posts…"></textarea>
         <p class="text-xs text-gray-400 mt-1">Be as specific as possible — the more detail, the smarter your assistant.</p>
       </div>
@@ -290,8 +276,13 @@
           </div>
         </div>
         <div>
-          <label for="edit_core_message" class="block text-sm font-bold text-gray-700 mb-1">Core Message</label>
-          <input type="text" id="edit_core_message" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., We help busy founders reclaim their time without sacrificing growth.">
+          <div class="flex items-center justify-between mb-1">
+            <label for="edit_core_message" class="block text-sm font-bold text-gray-700">Core Message</label>
+            <button type="button" onclick="window._magicWand('core_message','edit_core_message', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><img src="/favicon/favicon-96x96.png" alt="Be More Swan" class="shrink-0" style="width:22px;height:auto">
+            </button>
+          </div>
+          <textarea id="edit_core_message" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="E.g., We help busy founders reclaim their time without sacrificing growth."></textarea>
         </div>
         <div>
           <label for="edit_cta" class="block text-sm font-bold text-gray-700 mb-1">Primary Call-to-Action (CTA)</label>
@@ -313,29 +304,29 @@
           <div class="flex items-center justify-between mb-1">
             <label for="edit_audience" class="block text-sm font-bold text-gray-700">Target Audience</label>
             <button type="button" onclick="window._magicWand('target_audience','edit_audience', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>AI
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><img src="/favicon/favicon-96x96.png" alt="Be More Swan" class="shrink-0" style="width:22px;height:auto">
             </button>
           </div>
-          <input type="text" id="edit_audience" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Tech founders aged 30–45 building B2B SaaS products…">
+          <textarea id="edit_audience" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="E.g., Tech founders aged 30–45 building B2B SaaS products…"></textarea>
           <p class="text-xs text-gray-400 mt-1">Be specific — the more detail, the more targeted the content.</p>
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
             <label for="edit_tone" class="block text-sm font-bold text-gray-700">Brand Voice &amp; Tone</label>
             <button type="button" onclick="window._magicWand('tone_of_voice','edit_tone', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>AI
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><img src="/favicon/favicon-96x96.png" alt="Be More Swan" class="shrink-0" style="width:22px;height:auto">
             </button>
           </div>
-          <input type="text" id="edit_tone" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Professional yet friendly, Witty, Authoritative…">
+          <textarea id="edit_tone" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="E.g., Professional yet friendly, Witty, Authoritative…"></textarea>
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
             <label for="edit_pillars" class="block text-sm font-bold text-gray-700">Content Pillars / Core Topics</label>
             <button type="button" onclick="window._magicWand('content_pillars','edit_pillars', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>AI
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><img src="/favicon/favicon-96x96.png" alt="Be More Swan" class="shrink-0" style="width:22px;height:auto">
             </button>
           </div>
-          <input type="text" id="edit_pillars" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="E.g., Growth hacking, Leadership, Behind the scenes…">
+          <textarea id="edit_pillars" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="E.g., Growth hacking, Leadership, Behind the scenes…"></textarea>
           <p class="text-xs text-gray-400 mt-1">Separate topics with commas.</p>
         </div>
       </div>
@@ -376,6 +367,25 @@
 
   <!-- ── TAB: Guardrails ───────────────────────────────────────── -->
   <div id="tab-guardrails" class="detail-tab-content hidden space-y-6">
+
+    <!-- Mandatory platform-wide safety layer applied to every post (full detail on Assistant Rules) -->
+    <div class="rounded-2xl border border-indigo-200 bg-indigo-50/60 shadow-sm px-6 py-5 flex items-start gap-4">
+      <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h4 class="text-base font-bold text-indigo-900">Be More Swan Safe Content Benchmark</h4>
+          <span class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-100 border border-indigo-300 px-2.5 py-0.5 rounded-full">Mandatory</span>
+        </div>
+        <p class="text-sm text-indigo-800 leading-relaxed mt-1">
+          A built-in safety layer is applied to <strong>every post</strong> this assistant creates. It runs at the highest priority in the system prompt and cannot be disabled, overridden, or bypassed by any setting below — keeping your brand shielded from content that violates platform policies or community standards.
+        </p>
+        <a href="#" onclick="window._openSafetyBenchmark(); return false;" class="inline-flex items-center gap-1 text-sm font-bold text-indigo-700 hover:text-indigo-900 mt-2">
+          View the full benchmark <span aria-hidden="true">&rarr;</span>
+        </a>
+      </div>
+    </div>
 
     <!-- Assistant-specific strict rules -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">

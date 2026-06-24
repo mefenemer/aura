@@ -121,6 +121,31 @@ function _detailSetVal(id, val) {
     if (el) el.value = val || '';
 }
 
+// Brief fields that auto-grow with their content. These can hold a lot of text (especially the
+// AI-wand fields), so they're rendered as textareas that expand to keep everything visible —
+// no inner scrollbar, no truncation. Heights must be recomputed when a hidden tab is revealed,
+// since scrollHeight is 0 while the panel is display:none.
+const _AUTOGROW_FIELDS = ['edit_problem', 'edit_core_message', 'edit_audience', 'edit_tone', 'edit_pillars'];
+
+function _autoGrowField(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+}
+
+function _initBriefAutoGrow() {
+    _AUTOGROW_FIELDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.autogrow) return;
+        el.dataset.autogrow = '1';
+        el.addEventListener('input', () => _autoGrowField(el));
+    });
+}
+
+function _resizeBriefAutoGrow() {
+    _AUTOGROW_FIELDS.forEach(id => _autoGrowField(document.getElementById(id)));
+}
+
 
 // Read-only "Your Onboarding Answers" summary — guarantees every answer the user gave
 // during onboarding is visible on the detail page, regardless of which editable fields are
@@ -251,6 +276,11 @@ function _detailHydrate(data) {
     // Per-assistant AI disclosure (EU AI Act transparency rules — Art. 50)
     _detailSetVal('edit_ai_disclosure', data.disclosureText || '');
     _renderDisclosureHelp(data);
+
+    // Size the auto-growing brief fields to their loaded content (visible tab only — the rest
+    // are resized when their tab is first shown, see the tab-switching handler).
+    _initBriefAutoGrow();
+    requestAnimationFrame(_resizeBriefAutoGrow);
 }
 
 // Tailor the AI-disclosure guidance to what this assistant actually produces.
@@ -382,6 +412,8 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
             btn.classList.add('active-tab');
             const panel = document.getElementById('tab-' + btn.dataset.tab);
             if (panel) panel.classList.remove('hidden');
+            // Recompute auto-grow heights now the panel is visible (scrollHeight was 0 while hidden).
+            _resizeBriefAutoGrow();
         });
     });
 
@@ -1553,7 +1585,7 @@ function _buildTelemetrySvg(actual, trajectory) {
 // Feature 3 — Premium AI Optimization (recommendations, magic wand, autonomous)
 // ══════════════════════════════════════════════════════════════════
 const GOAL_AI_API = '/.netlify/functions/goal-ai';
-const _WAND_FIELD_LABELS = { tone_of_voice: 'Brand Voice', target_audience: 'Target Audience', content_pillars: 'Content Strategy' };
+const _WAND_FIELD_LABELS = { tone_of_voice: 'Brand Voice', target_audience: 'Target Audience', content_pillars: 'Content Strategy', core_message: 'Core Message', problem_statement: 'Your Bottleneck' };
 
 function _openUpgrade(msg) {
     if (typeof window.openUpgradeModal === 'function') {
