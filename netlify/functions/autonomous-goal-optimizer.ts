@@ -15,7 +15,7 @@ import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants, goals, auditLogs, notifications } from '../../db/schema';
 import { getActiveTierKeyByOrg } from '../../src/utils/plan-features';
-import { tierAllows, AUTONOMOUS_TUNABLE_FIELDS } from '../../src/config/goal-metrics';
+import { tierAllows, AUTONOMOUS_TUNABLE_FIELDS, funnelDiagnosticFor } from '../../src/config/goal-metrics';
 import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 import { gatewayGenerate } from '../../src/lib/ai-gateway';
 
@@ -47,7 +47,7 @@ export const handler: Handler = async () => {
         if (!allowed) continue;
 
         const offTrack = await db
-            .select({ id: goals.id })
+            .select({ id: goals.id, metricKey: goals.metricKey })
             .from(goals)
             .where(and(
                 eq(goals.assistantId, a.id),
@@ -68,12 +68,16 @@ export const handler: Handler = async () => {
             .map(([key, label]) => `- ${key} (${label}): ${ctx[key] ? String(ctx[key]) : '(unset)'}`)
             .join('\n');
 
+        // US-02 — bias the rewrite toward the funnel stage where the off-track metric is leaking.
+        const funnel = funnelDiagnosticFor(offTrack[0].metricKey);
         let field = '';
         let newValue = '';
         try {
             const { text } = await gatewayGenerate({
                 system: `An AI ${a.role || 'assistant'} is off-track on its growth goal. From the brief fields below, pick the `
-                    + `SINGLE field whose improvement would most help recover the goal, and rewrite it. Respond ONLY with JSON: `
+                    + `SINGLE field whose improvement would most help recover the goal, and rewrite it. `
+                    + (funnel ? `The goal is a ${funnel.stage} metric, so favour changes that pull these levers: ${funnel.focus.join('; ')}. ` : '')
+                    + `Respond ONLY with JSON: `
                     + `{"field":"<one of: ${Object.keys(AUTONOMOUS_TUNABLE_FIELDS).join(', ')}>","value":"<rewritten text>"}. `
                     + `If you choose posting_frequency, keep the cadence realistic — between "2 times a week" and "twice a day".`,
                 messages: [{ role: 'user', content: `Brief fields:\n${fieldList}` }],

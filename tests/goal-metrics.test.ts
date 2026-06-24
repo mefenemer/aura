@@ -12,6 +12,11 @@ import {
     assessGoalRealism,
     objectivesWithMetrics,
     GOAL_OBJECTIVES,
+    FUNNEL_DIAGNOSTICS,
+    funnelDiagnosticFor,
+    strategyChanges,
+    TUNABLE_BRIEF_FIELDS,
+    connectionDisplayName,
     GOAL_STATUSES,
 } from '../src/config/goal-metrics';
 
@@ -93,6 +98,76 @@ check('US-01 AC1.2 — objective→metric filtering respects connections', () =>
     const offline = objectivesWithMetrics([]);
     assert.ok(offline.includes('action'), 'qualified_leads (internal) keeps the action objective available');
     assert.ok(!offline.includes('engagement'), 'engagement has no internal metric, so it drops when IG is absent');
+});
+
+check('US-02 AC2.2–2.4 — funnel diagnostics steer fixes by the metric\'s funnel stage', () => {
+    // Every objective has a playbook, and each metric resolves to the right stage.
+    for (const o of GOAL_OBJECTIVES) {
+        const fd = FUNNEL_DIAGNOSTICS[o.key];
+        assert.ok(fd && fd.stage && fd.focus.length, `${o.key} missing funnel diagnostic`);
+    }
+    // AC2.2 — an Awareness metric (reach) → top-of-funnel levers (Reels / hooks).
+    const reach = funnelDiagnosticFor('instagram_reach')!;
+    assert.ok(/Awareness/.test(reach.stage));
+    assert.ok(reach.focus.join(' ').match(/Reels|hook/i), 'awareness should mention format/hook levers');
+    // AC2.3 — an Interaction metric (engagement rate) → conversational / utility levers.
+    assert.ok(/Interaction/.test(funnelDiagnosticFor('instagram_engagement_rate')!.stage));
+    // AC2.4 — a Traffic/Action metric (leads) → CTA / lead-magnet levers.
+    const leads = funnelDiagnosticFor('qualified_leads')!;
+    assert.ok(/Action/.test(leads.stage));
+    assert.ok(leads.focus.join(' ').match(/call-to-action|lead-magnet/i), 'action should mention CTA/lead-magnet levers');
+    // Unknown metric → no diagnostic (graceful).
+    assert.equal(funnelDiagnosticFor('made_up'), undefined);
+});
+
+check('US-03 AC3.3/AC3.4 — strategyChanges returns only the genuinely changed strategy fields', () => {
+    const keys = Object.keys(TUNABLE_BRIEF_FIELDS);
+    assert.ok(keys.length, 'there should be tunable brief fields to diff');
+    const [first, second] = keys;
+
+    const current = { [first]: 'Old voice', [second]: 'Same audience' };
+    const suggested = { [first]: 'New punchy voice', [second]: 'Same audience' };
+    const changes = strategyChanges(current, suggested);
+    // Only the field that actually changed is surfaced (unchanged second field is dropped).
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].field, first);
+    assert.equal(changes[0].current, 'Old voice');
+    assert.equal(changes[0].suggested, 'New punchy voice');
+    assert.equal(changes[0].label, TUNABLE_BRIEF_FIELDS[first]);
+
+    // Whitespace-only deltas don't count as a change; an empty suggestion is never offered.
+    assert.equal(strategyChanges({ [first]: 'Voice' }, { [first]: '  Voice  ' }).length, 0);
+    assert.equal(strategyChanges({ [first]: 'Voice' }, { [first]: '' }).length, 0);
+    // A field unset on the current side but suggested → surfaced as a change from ''.
+    const filled = strategyChanges({}, { [first]: 'Fresh voice' });
+    assert.equal(filled.length, 1);
+    assert.equal(filled[0].current, '');
+    // No suggestion object at all → nothing to apply (graceful).
+    assert.equal(strategyChanges(current, null).length, 0);
+});
+
+check('US-04 — LinkedIn followers is a connection-gated awareness metric the poller can fetch', () => {
+    const li = getGoalMetric('linkedin_followers');
+    assert.ok(li, 'linkedin_followers should be in the catalog');
+    assert.equal(li!.source, 'connection');
+    assert.equal(li!.connectionService, 'linkedin');
+    assert.equal(li!.objective, 'awareness');
+    assert.equal(li!.available, true, 'metric must be pollable now that the LinkedIn poller exists');
+
+    // Gated by the LinkedIn connection — hidden until connected, shown once connected.
+    assert.ok(!availableMetricsForConnections([]).some(m => m.key === 'linkedin_followers'));
+    assert.ok(availableMetricsForConnections(['linkedin']).some(m => m.key === 'linkedin_followers'));
+    // case-insensitive service matching, like the IG path.
+    assert.ok(availableMetricsForConnections(['LinkedIn']).some(m => m.key === 'linkedin_followers'));
+
+    // It resolves to a top-of-funnel diagnostic, so off-track fixes draw on awareness levers.
+    assert.ok(/Awareness/.test(funnelDiagnosticFor('linkedin_followers')!.stage));
+
+    // The disconnect alert uses a properly-cased service name ("LinkedIn", not "Linkedin").
+    assert.equal(connectionDisplayName('linkedin'), 'LinkedIn');
+    assert.equal(connectionDisplayName('instagram'), 'Instagram');
+    assert.equal(connectionDisplayName('shopify'), 'Shopify');   // fallback capitalisation
+    assert.equal(connectionDisplayName(null), undefined);
 });
 
 check('status model includes the four tracked states + pending', () => {

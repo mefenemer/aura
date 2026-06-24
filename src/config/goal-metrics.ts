@@ -7,7 +7,7 @@
 // The Goal Builder dropdown, the connection-gating, and the Phase-2 telemetry poller all
 // read this catalog — add a new metric HERE, never inline at a call site.
 //
-// v1 scope: Instagram + internal metrics only (the data we can actually measure today —
+// v1 scope: Instagram + LinkedIn + internal metrics (the data we can actually measure today —
 // see [[smm-golive-readiness]]). HubSpot / Shopify / Salesforce etc. are added later as new
 // catalog entries once their pollers exist.
 
@@ -113,6 +113,19 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         realism: { maxDailyDelta: 500000, maxDailyGrowthPct: 0.5 },
     },
     {
+        key: 'linkedin_followers',
+        label: 'LinkedIn Followers',
+        unit: 'followers',
+        source: 'connection',
+        connectionService: 'linkedin',
+        direction: 'increase',
+        objective: 'awareness',
+        description: 'Total followers of your connected LinkedIn organisation.',
+        available: true,
+        // B2B follower growth is steadier than IG, but keep the ceiling generous, not blocking.
+        realism: { maxDailyDelta: 5000, maxDailyGrowthPct: 0.25 },
+    },
+    {
         key: 'qualified_leads',
         label: 'Qualified Leads',
         unit: 'leads',
@@ -136,6 +149,22 @@ export const GOAL_METRICS: readonly GoalMetric[] = [
         realism: { maxDailyDelta: 50 },
     },
 ];
+
+// Proper-cased display names for the services a metric can be backed by — used in user-facing copy
+// (e.g. the "we lost connection to X" alert) so casing like "LinkedIn" survives. Falls back to a
+// capitalised serviceName for anything not listed.
+const SERVICE_DISPLAY_NAMES: Record<string, string> = {
+    instagram: 'Instagram',
+    linkedin: 'LinkedIn',
+    facebook: 'Facebook',
+    x: 'X',
+};
+
+/** Proper-cased display name for a connection service, or undefined when none is given. */
+export function connectionDisplayName(service: string | null | undefined): string | undefined {
+    if (!service) return undefined;
+    return SERVICE_DISPLAY_NAMES[service.toLowerCase()] ?? service.replace(/^\w/, c => c.toUpperCase());
+}
 
 const METRIC_BY_KEY: ReadonlyMap<string, GoalMetric> = new Map(GOAL_METRICS.map(m => [m.key, m]));
 
@@ -165,6 +194,54 @@ export function availableMetricsForConnections(connectedServices: readonly strin
 export function objectivesWithMetrics(connectedServices: readonly string[]): GoalObjective[] {
     const have = new Set(availableMetricsForConnections(connectedServices).map(m => m.objective));
     return GOAL_OBJECTIVES.filter(o => have.has(o.key)).map(o => o.key);
+}
+
+// US-02 AC2.2–AC2.4 — when an off-track metric is diagnosed, the tactical recommendations are
+// steered by the metric's funnel stage. `focus` is the playbook the evaluation model must draw
+// from for that stage. SoT here so the playbook stays tunable + testable (never inlined in the
+// prompt at the call site).
+export interface FunnelDiagnostic {
+    /** Human label of the funnel position, e.g. "top of funnel (Awareness)". */
+    stage: string;
+    /** The tactical levers the recommendations should pull for this stage. */
+    focus: readonly string[];
+}
+
+export const FUNNEL_DIAGNOSTICS: Record<GoalObjective, FunnelDiagnostic> = {
+    // AC2.2 — Awareness (Reach / Impressions / Followers)
+    awareness: {
+        stage: 'top of funnel (Awareness)',
+        focus: [
+            'short-form video format pivots (Reels / Shorts)',
+            'stronger hook optimisation in the first few seconds',
+            'series / episodic content to build return viewership',
+            'tighter niche alignment so the content reaches the right audience',
+        ],
+    },
+    // AC2.3 — Interaction (Engagements / Saves / Shares)
+    engagement: {
+        stage: 'middle of funnel (Interaction)',
+        focus: [
+            'conversational prompts that invite replies and DMs',
+            'utility / educational value (how-tos, tips, saveable posts)',
+            'relatable, industry-specific formatting that prompts shares',
+        ],
+    },
+    // AC2.4 — Traffic / Action (Link clicks / Profile visits / Leads)
+    action: {
+        stage: 'bottom of funnel (Traffic / Action)',
+        focus: [
+            'clearer call-to-action placement',
+            'stronger, more compelling call-to-action wording',
+            'lead-magnet promotion to give viewers a reason to click',
+        ],
+    },
+};
+
+/** US-02 — the funnel diagnostic playbook for the metric a goal tracks. */
+export function funnelDiagnosticFor(metricKey: string): FunnelDiagnostic | undefined {
+    const m = getGoalMetric(metricKey);
+    return m ? FUNNEL_DIAGNOSTICS[m.objective] : undefined;
 }
 
 // ── Goal attainability (the "A" in SMART) ───────────────────────────────────────
@@ -295,6 +372,38 @@ export const TUNABLE_BRIEF_FIELDS: Record<string, string> = {
     target_audience: 'Target Audience',
     content_pillars: 'Content Strategy',
 };
+
+// US-03 One-Click Fix — a single changed strategy field, ready for the side-by-side diff.
+export interface StrategyFieldChange {
+    /** onboardingContext key, e.g. 'tone_of_voice'. */
+    field: string;
+    /** Display label, e.g. 'Brand Voice'. */
+    label: string;
+    /** The current brief text (trimmed; '' when unset). */
+    current: string;
+    /** The AI-suggested replacement (trimmed). */
+    suggested: string;
+}
+
+/**
+ * US-03 AC3.3/AC3.4 — diff the current strategy fields against an AI-suggested set, returning only
+ * the TUNABLE_BRIEF_FIELDS that genuinely changed (a non-empty suggestion that differs from the
+ * current text). Unchanged fields have nothing to diff and nothing to apply, so they're dropped.
+ * Pure + deterministic so the One-Click Fix behaviour is locked by tests, not the live model.
+ */
+export function strategyChanges(
+    current: Record<string, string | null | undefined>,
+    suggested: Record<string, unknown> | null | undefined,
+): StrategyFieldChange[] {
+    return Object.keys(TUNABLE_BRIEF_FIELDS)
+        .map(k => ({
+            field: k,
+            label: TUNABLE_BRIEF_FIELDS[k],
+            current: String(current?.[k] ?? '').trim(),
+            suggested: String(suggested?.[k] ?? '').trim(),
+        }))
+        .filter(c => c.suggested && c.suggested !== c.current);
+}
 
 // Fields a user may rewrite with the Magic Wand on the assistant detail page. This is the
 // strategy set PLUS the foundational message/problem fields. Kept separate from

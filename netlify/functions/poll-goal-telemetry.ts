@@ -19,7 +19,7 @@ import {
     scheduledPosts, leads, plans, masterPlans, notifications,
 } from '../../db/schema';
 import { getSecret } from '../../src/utils/vault';
-import { getGoalMetric, pollCadenceHours, RUN_RATE_THRESHOLDS } from '../../src/config/goal-metrics';
+import { connectionDisplayName, getGoalMetric, pollCadenceHours, RUN_RATE_THRESHOLDS } from '../../src/config/goal-metrics';
 import { computeGoalProgress } from '../../src/utils/goal-progress';
 
 const GRAPH_VERSION = 'v19.0';
@@ -45,9 +45,61 @@ async function fetchIgFollowers(igUserId: string, token: string): Promise<FetchR
     return { value: null, disconnected: false };         // exhausted retries — treat as transient, not disconnected
 }
 
-async function fetchMetric(db: any, goal: any, igConn: { externalUserId: string | null; vaultRefKey: string | null } | null): Promise<FetchResult> {
+type LiConn = { id: number; vaultRefKey: string | null; metadata: any };
+
+// ── LinkedIn GET with the same 429-backoff + auth handling as the IG path ───────
+async function liFetch(url: string, token: string): Promise<{ ok: boolean; disconnected: boolean; body: any }> {
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'X-Restli-Protocol-Version': '2.0.0' } });
+        if (res.status === 429) {                        // AC4.3.1 — exponential backoff before retry
+            await sleep(1000 * 2 ** attempt);
+            continue;
+        }
+        if (res.status === 401 || res.status === 403) return { ok: false, disconnected: true, body: null };
+        if (!res.ok) return { ok: false, disconnected: false, body: null };
+        return { ok: true, disconnected: false, body: await res.json().catch(() => null) };
+    }
+    return { ok: false, disconnected: false, body: null };   // exhausted retries — transient
+}
+
+// ── LinkedIn organisation follower count (org URN resolved once, then cached on the connection) ──
+async function fetchLinkedInFollowers(db: any, conn: LiConn): Promise<FetchResult> {
+    if (!conn.vaultRefKey) return { value: null, disconnected: true };
+    const secret = await getSecret(db, conn.vaultRefKey);
+    const token = (secret?.token as string | undefined) ?? null;
+    if (!token) return { value: null, disconnected: true };
+
+    // Resolve the administered organisation URN, caching it so we skip the ACL call next time.
+    const meta = (conn.metadata as Record<string, any>) ?? {};
+    let orgUrn: string | null = typeof meta.organizationUrn === 'string' ? meta.organizationUrn : null;
+    if (!orgUrn) {
+        const acl = await liFetch('https://api.linkedin.com/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization))', token);
+        if (acl.disconnected) return { value: null, disconnected: true };
+        if (!acl.ok) return { value: null, disconnected: false };
+        orgUrn = (acl.body?.elements?.[0]?.organization as string | undefined) ?? null;
+        if (!orgUrn) return { value: null, disconnected: false };   // no administered org yet — transient, token is fine
+        await db.update(systemConnections)
+            .set({ metadata: { ...meta, organizationUrn: orgUrn }, updatedAt: new Date() })
+            .where(eq(systemConnections.id, conn.id))
+            .catch(() => {});
+    }
+
+    // firstDegreeSize = the org's follower count. Requires r_organization_social.
+    const orgId = orgUrn.split(':').pop();
+    const net = await liFetch(`https://api.linkedin.com/v2/networkSizes/urn:li:organization:${orgId}?edgeType=CompanyFollowedByMember`, token);
+    if (net.disconnected) return { value: null, disconnected: true };
+    if (!net.ok) return { value: null, disconnected: false };
+    return { value: typeof net.body?.firstDegreeSize === 'number' ? net.body.firstDegreeSize : null, disconnected: false };
+}
+
+async function fetchMetric(
+    db: any,
+    goal: any,
+    conns: { ig: { externalUserId: string | null; vaultRefKey: string | null } | null; li: LiConn | null },
+): Promise<FetchResult> {
     const metric = getGoalMetric(goal.metricKey);
     if (!metric) return { value: null, disconnected: false };
+    const igConn = conns.ig;
 
     switch (goal.metricKey) {
         case 'instagram_followers': {
@@ -73,6 +125,10 @@ async function fetchMetric(db: any, goal: any, igConn: { externalUserId: string 
             const r = row as any;
             const rate = r && r.reach > 0 ? (r.inter / r.reach) * 100 : 0;
             return { value: Math.round(rate * 100) / 100, disconnected: false };
+        }
+        case 'linkedin_followers': {
+            if (!conns.li) return { value: null, disconnected: true };
+            return fetchLinkedInFollowers(db, conns.li);
         }
         case 'qualified_leads': {
             // "Qualified" = leads that progressed to a won/converted state for this workspace.
@@ -115,10 +171,11 @@ export const handler: Handler = async () => {
         .where(and(inArray(plans.organisationId, orgIds), eq(plans.status, 'active')));
     const tierByOrg = new Map<number, string | null>(tierRows.map(r => [r.orgId as number, r.tierKey]));
 
-    // One Instagram connection per org (for follower polling).
+    // One Instagram + one LinkedIn connection per org (for follower polling).
     const igByOrg = new Map<number, { externalUserId: string | null; vaultRefKey: string | null }>();
+    const liByOrg = new Map<number, LiConn>();
     for (const orgId of orgIds) {
-        const [conn] = await db
+        const [ig] = await db
             .select({ externalUserId: systemConnections.externalUserId, vaultRefKey: systemConnections.vaultRefKey })
             .from(systemConnections)
             .where(and(
@@ -128,7 +185,19 @@ export const handler: Handler = async () => {
                 eq(systemConnections.isActive, true),
             ))
             .limit(1);
-        if (conn) igByOrg.set(orgId, conn);
+        if (ig) igByOrg.set(orgId, ig);
+
+        const [li] = await db
+            .select({ id: systemConnections.id, vaultRefKey: systemConnections.vaultRefKey, metadata: systemConnections.metadata })
+            .from(systemConnections)
+            .where(and(
+                eq(systemConnections.organisationId, orgId),
+                eq(systemConnections.serviceName, 'linkedin'),
+                eq(systemConnections.status, 'active'),
+                eq(systemConnections.isActive, true),
+            ))
+            .limit(1);
+        if (li) liByOrg.set(orgId, li);
     }
 
     let polled = 0, disconnectedCount = 0, skipped = 0;
@@ -146,7 +215,10 @@ export const handler: Handler = async () => {
         // Throttle by tier cadence.
         if (lastTelemetryAt && now.getTime() - lastTelemetryAt.getTime() < cadenceMs) { skipped++; return; }
 
-        const { value, disconnected } = await fetchMetric(db, goal, igByOrg.get(goal.organisationId) ?? null);
+        const { value, disconnected } = await fetchMetric(db, goal, {
+            ig: igByOrg.get(goal.organisationId) ?? null,
+            li: liByOrg.get(goal.organisationId) ?? null,
+        });
 
         if (value != null) {
             const startValue = goal.startValue == null ? value : Number(goal.startValue);
@@ -181,7 +253,7 @@ export const handler: Handler = async () => {
             await db.update(goals).set({ status: 'data_disconnected', statusUpdatedAt: now, updatedAt: now }).where(eq(goals.id, goal.id));
             disconnectedCount++;
             const metric = getGoalMetric(goal.metricKey);
-            const integration = metric?.connectionService ? metric.connectionService.replace(/^\w/, c => c.toUpperCase()) : 'your data source';
+            const integration = connectionDisplayName(metric?.connectionService) ?? 'your data source';
             if (goal.createdByUserId) {
                 await db.insert(notifications).values({
                     userId: goal.createdByUserId,

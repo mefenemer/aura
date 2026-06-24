@@ -1562,12 +1562,21 @@ window._renderReviewChart = async function (goalId) {
     // Footer: premium "Get AI Recommendations" (padlock if base tier, AC3.1.1) + base-tier
     // manual "Edit Assistant Brief" when off pace (AC2.2.3).
     if (footer) {
+        const offPace = status === 'off_track' || status === 'at_risk';
         const lock = _goalEntitlements.aiRecommendations ? '' : '🔒 ';
-        const recsBtn = `<button type="button" onclick="window._getAiRecommendations(${goalId})" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer">${lock}Get AI Recommendations</button>`;
-        const editBtn = (status === 'off_track' || status === 'at_risk')
+        // US-03 — the headline resolution flow for a failing goal: diagnosis + a one-click strategy fix.
+        // It's the primary CTA when off pace; "Get AI Recommendations" drops to a secondary outline.
+        const fixBtn = offPace
+            ? `<button type="button" onclick="window._openStrategyFix(${goalId})" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer">${lock}One-Click Fix</button>`
+            : '';
+        const recsCls = offPace
+            ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow';
+        const recsBtn = `<button type="button" onclick="window._getAiRecommendations(${goalId})" class="px-5 py-2 ${recsCls} text-sm font-bold rounded-lg transition cursor-pointer">${lock}Get AI Recommendations</button>`;
+        const editBtn = offPace
             ? `<button type="button" onclick="window._editBriefFromReview()" class="px-5 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-bold rounded-lg transition cursor-pointer">Edit Assistant Brief</button>`
             : '';
-        footer.innerHTML = editBtn + recsBtn;
+        footer.innerHTML = editBtn + recsBtn + fixBtn;
     }
 };
 
@@ -1661,8 +1670,15 @@ window._getAiRecommendations = async function (goalId) {
             if (box) box.innerHTML = `<p class="text-sm text-red-500 mt-3">${_escapeHtml(data.error || 'Could not generate recommendations.')}</p>`;
             return;
         }
+        // US-02 — the diagnosis is steered by the metric's funnel stage; label it so the user sees why.
+        const funnelTag = data.funnelStage
+            ? `<span class="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">${_escapeHtml(data.funnelStage)}</span>`
+            : '';
         if (box) box.innerHTML = `<div class="mt-3 space-y-2">
-            <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">AI Recommendations</p>
+            <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">AI Recommendations</p>
+                ${funnelTag}
+            </div>
             ${data.recommendations.map(r => `<div class="flex items-start gap-2 text-sm text-gray-700 bg-emerald-50/60 border border-emerald-100 rounded-lg px-3 py-2"><span class="text-emerald-600 font-bold">✦</span><span>${_escapeHtml(r)}</span></div>`).join('')}
         </div>`;
     } catch {
@@ -1709,6 +1725,130 @@ function _showWandSuggestion(field, inputId, suggestion) {
         document.getElementById('modal-wand')?.classList.add('hidden');
     };
     document.getElementById('modal-wand')?.classList.remove('hidden');
+}
+
+// ── US-03 One-Click Fix — diagnosis + side-by-side strategy diff + apply-all ──
+// Strategy field (onboardingContext key) → the Guardrails-tab input that holds it. Applying a fix
+// just writes these inputs and lets the detail page's debounced autosave persist them (the same
+// path the Magic Wand uses), so all changed fields save together in one round-trip (AC3.4).
+const _STRATEGY_FIELD_INPUTS = { tone_of_voice: 'edit_tone', target_audience: 'edit_audience', content_pillars: 'edit_pillars' };
+
+window._openStrategyFix = async function (goalId) {
+    if (!_goalEntitlements.aiRecommendations) {
+        return _openUpgrade('One-Click Fix is available on the Saver and Employee plans.');
+    }
+    const modal = document.getElementById('modal-strategy-fix');
+    const body = document.getElementById('strategy-fix-body');
+    const footer = document.getElementById('strategy-fix-footer');
+    if (!modal || !body) return;
+    footer?.classList.add('hidden');
+    body.innerHTML = '<div class="flex items-center justify-center py-10 text-sm text-gray-400">Analysing your strategy…</div>';
+    modal.classList.remove('hidden');
+
+    try {
+        const res = await fetch(GOAL_AI_API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'strategy', goalId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 402) { modal.classList.add('hidden'); return _openUpgrade('One-Click Fix requires a higher plan.'); }
+        if (!res.ok) {
+            body.innerHTML = `<p class="text-sm text-red-500 py-6 text-center">${_escapeHtml(data.error || 'Could not generate a strategy fix.')}</p>`;
+            return;
+        }
+        _renderStrategyFix(data);
+    } catch {
+        body.innerHTML = '<p class="text-sm text-red-500 py-6 text-center">Could not generate a strategy fix.</p>';
+    }
+};
+
+function _renderStrategyFix(data) {
+    const body = document.getElementById('strategy-fix-body');
+    const footer = document.getElementById('strategy-fix-footer');
+    const accept = document.getElementById('strategy-fix-accept');
+    const changes = Array.isArray(data.changes) ? data.changes : [];
+
+    // AC3.2 — plain-text diagnosis of why the goal is failing.
+    const funnelTag = data.funnelStage
+        ? `<span class="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">${_escapeHtml(data.funnelStage)}</span>`
+        : '';
+    const diagnosis = data.diagnosis
+        ? `<div class="space-y-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">Diagnosis</p>${funnelTag}
+              </div>
+              <p class="text-sm text-gray-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">${_escapeHtml(data.diagnosis)}</p>
+           </div>`
+        : '';
+
+    if (!changes.length) {
+        // Diagnosis only — nothing to apply. Offer manual editing instead.
+        if (body) body.innerHTML = `${diagnosis || '<p class="text-sm text-gray-600">No strategy changes are recommended right now.</p>'}
+            <p class="text-sm text-gray-500">Your current strategy already looks well-aligned to this goal — no automatic changes are recommended.</p>`;
+        footer?.classList.remove('hidden');
+        if (accept) { accept.textContent = 'Edit Assistant Brief'; accept.onclick = () => { document.getElementById('modal-strategy-fix')?.classList.add('hidden'); window._editBriefFromReview(); }; }
+        return;
+    }
+
+    // AC3.3 — Git-style side-by-side Current vs AI-Suggested diff for each changed field.
+    const diffRows = changes.map(c => `
+        <div class="border border-gray-200 rounded-xl overflow-hidden">
+            <div class="px-3 py-2 bg-gray-50 border-b border-gray-200"><p class="text-xs font-bold text-gray-700">${_escapeHtml(c.label)}</p></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
+                <div class="p-3 bg-red-50/40">
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-red-400 mb-1">− Current</p>
+                    <p class="text-sm text-gray-600 whitespace-pre-wrap">${c.current ? _escapeHtml(c.current) : '<span class="italic text-gray-400">(empty)</span>'}</p>
+                </div>
+                <div class="p-3 bg-emerald-50/50">
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-emerald-600 mb-1">+ AI-Suggested</p>
+                    <p class="text-sm text-gray-800 whitespace-pre-wrap">${_escapeHtml(c.suggested)}</p>
+                </div>
+            </div>
+        </div>`).join('');
+
+    if (body) body.innerHTML = `${diagnosis}
+        <div class="space-y-3">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">Suggested strategy changes</p>
+            ${diffRows}
+        </div>`;
+    footer?.classList.remove('hidden');
+    if (accept) { accept.textContent = 'Accept & Update Strategy'; accept.onclick = () => _applyStrategyFix(changes); }
+}
+
+// AC3.4 — apply every suggested field at once. Writes the Guardrails inputs and fires the input
+// event so the detail page's debounced autosave persists the whole brief in one save.
+function _applyStrategyFix(changes) {
+    let applied = 0;
+    changes.forEach(c => {
+        const inputId = _STRATEGY_FIELD_INPUTS[c.field];
+        const input = inputId && document.getElementById(inputId);
+        if (input) {
+            input.value = c.suggested;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            if (window.cachedContext) window.cachedContext[c.field] = c.suggested;
+            applied++;
+        }
+    });
+    const modal = document.getElementById('modal-strategy-fix');
+    if (!applied) {
+        // Detail inputs weren't on the page — fall back to opening the brief for manual editing.
+        modal?.classList.add('hidden');
+        window._editBriefFromReview();
+        return;
+    }
+    // Confirm in-place, then close both the fix modal and Review Progress.
+    const body = document.getElementById('strategy-fix-body');
+    const footer = document.getElementById('strategy-fix-footer');
+    if (body) body.innerHTML = `<div class="flex flex-col items-center justify-center py-10 text-center gap-2">
+        <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-2xl">✓</div>
+        <p class="text-sm font-bold text-gray-800">Strategy updated</p>
+        <p class="text-xs text-gray-500">${applied} field${applied === 1 ? '' : 's'} updated and saving automatically.</p>
+    </div>`;
+    footer?.classList.add('hidden');
+    setTimeout(() => {
+        modal?.classList.add('hidden');
+        document.getElementById('modal-review-progress')?.classList.add('hidden');
+    }, 1600);
 }
 
 // AC3.3.1 — toggle Autonomous Goal Seeking (premium-gated).

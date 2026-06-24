@@ -1,6 +1,10 @@
 // netlify/functions/goal-ai.ts
-// SMART Goals — Feature 3 (premium AI). Two actions, both premium-tier gated (AC3.1.1):
+// SMART Goals — Feature 3 (premium AI). Three actions, all premium-tier gated (AC3.1.1):
 //   action=recommend  { goalId }                      → AC3.1.2/3.1.3: 1–3 actionable recommendations.
+//   action=strategy   { goalId }                      → US-03: plain-text diagnosis (AC3.2) + a
+//                                                        field-by-field Current→Suggested strategy
+//                                                        rewrite the UI diffs (AC3.3) and applies in
+//                                                        one click (AC3.4).
 //   action=rewrite    { assistantId, field, text }    → AC3.2.2: goal-aware rewrite of one brief field.
 // The LLM only ever sees a hidden prompt assembled here (goal + trajectory + current brief).
 
@@ -10,7 +14,7 @@ import { getDb } from '../../db/client';
 import { goals, aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 import { getActiveTierKeyByOrg } from '../../src/utils/plan-features';
-import { getGoalMetric, tierAllows, WAND_REWRITABLE_FIELDS, type GoalAiFeature } from '../../src/config/goal-metrics';
+import { funnelDiagnosticFor, getGoalMetric, strategyChanges, tierAllows, TUNABLE_BRIEF_FIELDS, WAND_REWRITABLE_FIELDS, type GoalAiFeature } from '../../src/config/goal-metrics';
 import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 import { gatewayGenerate } from '../../src/lib/ai-gateway';
 
@@ -76,10 +80,17 @@ export const handler: Handler = async (event) => {
             ctx.posting_frequency ? `Posting frequency: ${ctx.posting_frequency}` : '',
         ].filter(Boolean).join('\n');
 
-        const system = 'You are a growth strategist for an AI marketing assistant. Given a measurable goal, '
-            + 'its current trajectory and the assistant\'s current brief, return 1 to 3 SPECIFIC, actionable changes '
-            + 'to the brief that would improve results. Each recommendation is one sentence, concrete, and references '
-            + 'what to change and why. Respond ONLY with a JSON array of strings.';
+        // US-02 AC2.2–AC2.4 — steer the diagnosis by the metric's funnel stage so the tactical
+        // recommendations match WHERE the funnel is leaking (awareness vs interaction vs action).
+        const funnel = funnelDiagnosticFor(goal.metricKey);
+        const system = 'You are a growth strategist for an AI marketing assistant. A measurable goal is OFF TRACK. '
+            + (funnel
+                ? `This is a ${funnel.stage} metric, so the funnel is leaking at that stage. Diagnose the likely cause and `
+                  + `draw your fixes from these levers for this stage: ${funnel.focus.join('; ')}. `
+                : 'Diagnose the likely cause from the goal trajectory and brief. ')
+            + 'Return 1 to 3 SPECIFIC, actionable changes to the assistant\'s brief that would get the metric back on '
+            + 'track. Each recommendation is one sentence, concrete, and references what to change and why. '
+            + 'Respond ONLY with a JSON array of strings.';
         const userMsg = `${goalSummary(goal)}\n\nCurrent brief:\n${brief || '(no brief details set)'}`;
 
         let recommendations: string[] = [];
@@ -91,7 +102,65 @@ export const handler: Handler = async (event) => {
 
         recommendations = (recommendations || []).filter(r => typeof r === 'string' && r.trim()).slice(0, 3);
         if (!recommendations.length) return json(502, { error: 'Could not generate recommendations. Please try again.' });
-        return json(200, { recommendations });
+        return json(200, { recommendations, funnelStage: funnel?.stage ?? null });
+    }
+
+    // ── action=strategy — US-03 one-click fix: plain-text diagnosis (AC3.2) + a
+    //    Current→Suggested rewrite of every strategy field (AC3.3) the UI applies at once (AC3.4) ──
+    if (body.action === 'strategy') {
+        const blocked = await gate(db, orgId, 'recommendations');
+        if (blocked) return blocked.error;
+
+        const goalId = Number(body.goalId);
+        if (!goalId) return json(400, { error: 'goalId is required.' });
+
+        const [goal] = await db.select().from(goals).where(eq(goals.id, goalId)).limit(1);
+        if (!goal || goal.organisationId !== orgId) return json(404, { error: 'Goal not found.' });
+
+        const [assistant] = await db
+            .select({ id: aiAssistants.id, role: aiAssistants.aiAssistantJobRole, onboardingContext: aiAssistants.onboardingContext })
+            .from(aiAssistants)
+            .where(and(eq(aiAssistants.id, goal.assistantId), eq(aiAssistants.organisationId, orgId)))
+            .limit(1);
+        if (!assistant) return json(404, { error: 'Assistant not found.' });
+
+        const actx = (assistant.onboardingContext as Record<string, any>) ?? {};
+        // The strategy set the diff/apply works over (Brand Voice, Audience, Content Strategy).
+        const fieldKeys = Object.keys(TUNABLE_BRIEF_FIELDS);
+        const current: Record<string, string> = {};
+        for (const k of fieldKeys) current[k] = String(actx[k] ?? '').trim();
+
+        const funnel = funnelDiagnosticFor(goal.metricKey);
+        const system = 'You are a growth strategist for an AI marketing assistant. A measurable goal is OFF TRACK. '
+            + (funnel
+                ? `This is a ${funnel.stage} metric, so the funnel is leaking at that stage. `
+                  + `Draw your fixes from these levers for this stage: ${funnel.focus.join('; ')}. `
+                : 'Diagnose the likely cause from the goal and current strategy. ')
+            + 'First write a short plain-English diagnosis (2–3 sentences, no jargon) of why this goal is most '
+            + 'likely failing. Then rewrite the strategy fields so they would get the metric back on track — only '
+            + 'change a field when a change genuinely helps, otherwise return its current text unchanged. '
+            + 'Respond ONLY with JSON of the form '
+            + `{"diagnosis": string, "fields": {${fieldKeys.map(k => `"${k}": string`).join(', ')}}}.`;
+        const currentBlock = fieldKeys
+            .map(k => `${TUNABLE_BRIEF_FIELDS[k]}:\n${current[k] || '(empty)'}`)
+            .join('\n\n');
+        const userMsg = `${goalSummary(goal)}\n\nRole: ${assistant.role ?? 'assistant'}\n\nCurrent strategy:\n${currentBlock}`;
+
+        let parsed: any = null;
+        try {
+            const { text } = await gatewayGenerate({ system, messages: [{ role: 'user', content: userMsg }], maxTokens: 700 });
+            const match = text.match(/\{[\s\S]*\}/);
+            if (match) parsed = JSON.parse(match[0]);
+        } catch { /* fall through to graceful error below */ }
+
+        const diagnosis = typeof parsed?.diagnosis === 'string' ? parsed.diagnosis.trim() : '';
+        const suggested = (parsed?.fields && typeof parsed.fields === 'object') ? parsed.fields : null;
+        // AC3.3 — only surface fields that actually changed; an unchanged field has nothing to diff.
+        // strategyChanges is the shared SoT helper, so this matches what the tests lock.
+        const changes = strategyChanges(current, suggested);
+
+        if (!diagnosis && !changes.length) return json(502, { error: 'Could not generate a strategy fix. Please try again.' });
+        return json(200, { diagnosis, funnelStage: funnel?.stage ?? null, changes });
     }
 
     // ── action=rewrite — goal-aware rewrite of one brief field (magic wand) ───
