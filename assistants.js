@@ -310,6 +310,8 @@ function _renderDisclosureHelp(data) {
     const field = document.getElementById('edit_ai_disclosure');
     if (!box) return;
 
+    // A single post can mix image, video and text — each may need its own disclosure line.
+    // Each example is therefore a TOGGLE that adds/removes its line, so several can be combined.
     const example = (icon, label, text, note) => `
         <div class="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5">
             <span class="text-base leading-5 shrink-0">${icon}</span>
@@ -318,17 +320,18 @@ function _renderDisclosureHelp(data) {
                 <p class="text-xs text-gray-600 italic">&ldquo;${text}&rdquo;</p>
                 <p class="text-[11px] text-gray-400 mt-0.5">${note}</p>
             </div>
-            <button type="button" data-disclosure-example="${_escapeHtml(text)}"
-                class="ar-use-example shrink-0 self-center text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md transition cursor-pointer">
-                Use this
+            <button type="button" role="switch" aria-checked="false" data-disclosure-example="${_escapeHtml(text)}"
+                title="Include this disclosure"
+                class="ar-disclosure-toggle relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none self-center bg-gray-300">
+                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out translate-x-0"></span>
             </button>
         </div>`;
 
     if (_isSocialPostingAssistant(data)) {
-        if (desc) desc.textContent = "How this assistant labels the content it publishes as AI-generated, as required by the EU AI Act's transparency rules (Art. 50). Set the wording that fits the content you post. This must be set before the assistant can be activated in the Kick Off Meeting.";
-        if (field) field.placeholder = 'e.g. Some content on this account is created with the help of Be More Swan AI.';
+        if (desc) desc.textContent = "How this assistant labels the content it publishes as AI-generated, as required by the EU AI Act's transparency rules (Art. 50). A single post can mix image, video and text — switch on every disclosure that applies and they'll be combined. This must be set before the assistant can be activated in the Kick Off Meeting.";
+        if (field) field.placeholder = 'Switch on the disclosures that apply above, or write your own — e.g. Some content on this account is created with the help of Be More Swan AI.';
         box.innerHTML = `
-            <p class="text-xs font-semibold text-gray-500 mb-2">Examples by content type — adapt or write your own:</p>
+            <p class="text-xs font-semibold text-gray-500 mb-2">Switch on every disclosure that applies — combine image, video and text as needed, then fine-tune the wording below:</p>
             <div class="space-y-2">
                 ${example('🖼️', 'AI-generated images', 'Image created with Be More Swan AI.',
                     'Required for realistic or altered AI images (Art. 50 — “deepfake” labelling).')}
@@ -341,24 +344,51 @@ function _renderDisclosureHelp(data) {
         if (desc) desc.textContent = "The notice shown to people interacting with this assistant, confirming they're dealing with an AI system, as required by the EU AI Act's transparency rules (Art. 50). This must be set before the assistant can be activated in the Kick Off Meeting.";
         if (field) field.placeholder = "e.g. You're chatting with an AI assistant working on behalf of [your business]. Responses are AI-generated.";
         box.innerHTML = `
-            <p class="text-xs font-semibold text-gray-500 mb-2">Example — adapt or write your own:</p>
+            <p class="text-xs font-semibold text-gray-500 mb-2">Switch on the disclosure to use it, or write your own:</p>
             <div class="space-y-2">
                 ${example('💬', 'AI interaction notice', "You're chatting with an AI assistant working on behalf of [your business]. Responses are AI-generated.",
                     'Shown to people the moment they interact with the assistant (Art. 50 — AI-interaction transparency).')}
             </div>`;
     }
 
-    // "Use this" buttons copy the example into the disclosure field and trigger the
-    // existing auto-save (the textarea's input listener persists it).
-    box.querySelectorAll('.ar-use-example').forEach(btn => {
+    // Each toggle adds/removes its disclosure line so multiple content types can be combined in
+    // one post. The textarea stays the saved source of truth; toggling fires its input listener
+    // (the existing auto-save) and keeps the switch in sync with what's actually in the field.
+    const fieldLines = () => (field?.value || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const setToggleVisual = (btn, on) => {
+        btn.setAttribute('aria-checked', on ? 'true' : 'false');
+        btn.classList.toggle('bg-emerald-500', on);
+        btn.classList.toggle('bg-gray-300', !on);
+        const dot = btn.querySelector('span');
+        if (dot) { dot.classList.toggle('translate-x-5', on); dot.classList.toggle('translate-x-0', !on); }
+    };
+
+    const toggles = Array.from(box.querySelectorAll('.ar-disclosure-toggle'));
+    const syncToggles = () => {
+        const present = fieldLines();
+        toggles.forEach(b => setToggleVisual(b, present.includes((b.dataset.disclosureExample || '').trim())));
+    };
+
+    toggles.forEach(btn => {
         btn.addEventListener('click', () => {
             if (!field) return;
-            field.value = btn.dataset.disclosureExample || '';
+            const line = (btn.dataset.disclosureExample || '').trim();
+            const lines = fieldLines();
+            const idx = lines.indexOf(line);
+            if (idx >= 0) lines.splice(idx, 1); else lines.push(line);
+            field.value = lines.join('\n');
             field.dispatchEvent(new Event('input', { bubbles: true }));
             _autoGrowField(field);
-            field.focus();
+            syncToggles();
         });
     });
+
+    // Reflect the saved disclosure (and any manual edits) in the switches.
+    syncToggles();
+    if (field && !field._disclosureSyncBound) {
+        field._disclosureSyncBound = true;
+        field.addEventListener('input', syncToggles);
+    }
 }
 
 function _detailCollect(currentData) {
@@ -427,6 +457,17 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         newBtn.addEventListener('click', () => loadViewCb('assistants'));
     }
 
+    // ── Goals section — relocated out of the tab bar to sit directly under Recent Activity.
+    // The markup still lives in #tab-goals (further down the page); move it into place on load.
+    (function relocateGoalsSection() {
+        const goals = document.getElementById('tab-goals');
+        const activityCard = document.getElementById('recent-activity-list')?.closest('.bg-white');
+        if (goals && activityCard && activityCard.parentNode) {
+            activityCard.parentNode.insertBefore(goals, activityCard.nextSibling);
+            goals.classList.remove('hidden');
+        }
+    })();
+
     // ── Tab switching ─────────────────────────────────────────────
     document.querySelectorAll('.detail-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -440,11 +481,17 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         });
     });
 
-    // Deep-link to a specific tab (e.g. post-OAuth returns to the Connections tab).
+    // Deep-link to a specific tab (e.g. post-OAuth returns to the Connections tab). Goals is no
+    // longer a tab — it's a section under Recent Activity — so for 'goals' we scroll to it instead.
     if (window._assistantDetailInitialTab) {
-        const target = document.querySelector(`.detail-tab-btn[data-tab="${window._assistantDetailInitialTab}"]`);
+        const wanted = window._assistantDetailInitialTab;
         window._assistantDetailInitialTab = null;
-        if (target) target.click();
+        if (wanted === 'goals') {
+            document.getElementById('tab-goals')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            const target = document.querySelector(`.detail-tab-btn[data-tab="${wanted}"]`);
+            if (target) target.click();
+        }
     }
 
     // ── Platform handle toggles ───────────────────────────────────
@@ -938,80 +985,49 @@ window.fetchAndRenderIntegrations = async function() {
 // Workspace Defaults renderer — Brand Profile + Assistant Rules
 // ─────────────────────────────────────────────────────────────────
 async function _fetchAndRenderWorkspaceDefaults(assistantId, currentData, triggerAutoSave) {
-    const appliedDefaults = currentData.configuration?.appliedDefaults || {};
-
-    let defaults = { assistantRules: [], brandProfile: null };
-    try {
-        const res = await fetch('/.netlify/functions/get-workspace-defaults');
-        if (res.ok) defaults = await res.json();
-    } catch (e) {
-        console.warn('Could not load workspace defaults:', e);
-    }
-
     // ── Assistant Rules now live per-assistant — see _fetchAndRenderAssistantRules() ──
 
-    // ── Brand Profile ─────────────────────────────────────────────
-    const brandContainer = document.getElementById('global-brand-profile-content');
-    if (brandContainer) {
-        if (!defaults.brandProfile || Object.keys(defaults.brandProfile).length === 0) {
-            brandContainer.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-6 text-center gap-2">
-                    <p class="text-sm text-gray-500">No brand profile has been configured yet.</p>
-                    <a href="#" onclick="window.loadView('assets')" class="text-sm font-bold text-emerald-600 hover:underline cursor-pointer">Go to Brand Profile settings →</a>
+    // ── Business Information & Brand Knowledge ─────────────────────
+    // There is no longer a separate "Brand Profile". The documents and links the user adds in
+    // Business Information are mandatory context: they're always applied to this assistant as a
+    // strict rule that can't be turned off — so this panel is informational only, no toggle.
+    const knowledgeContainer = document.getElementById('business-knowledge-content');
+    if (knowledgeContainer) {
+        let assets = [];
+        try {
+            const aRes = await fetch('/.netlify/functions/get-workspace-assets');
+            if (aRes.ok) assets = (await aRes.json()).assets || [];
+        } catch { /* non-fatal — still show the strict-rule notice below */ }
+
+        const strictNote = `
+            <div class="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800 mb-4">
+                <svg class="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>Your business details and every document or link in Business Information are considered by Be More Swan AI whenever it generates content. This is applied as a <strong>strict rule that can't be turned off</strong>.</span>
+            </div>`;
+
+        const catLabel = (c) => ({ tone_of_voice: 'Tone of Voice', logo: 'Brand Logo', product_info: 'Product Knowledge', general: 'General Context' }[c] || 'General Context');
+
+        if (!assets.length) {
+            knowledgeContainer.innerHTML = strictNote + `
+                <div class="flex flex-col items-center justify-center py-4 text-center gap-2">
+                    <p class="text-sm text-gray-500">No documents or links added yet.</p>
+                    <a href="#" onclick="window.loadView('assets')" class="text-sm font-bold text-emerald-600 hover:underline cursor-pointer">Add documents or links in Business Information →</a>
                 </div>`;
         } else {
-            const bp = defaults.brandProfile;
-            const brandEnabled = appliedDefaults.brandProfile !== false; // default ON
-            const fields = [
-                { label: 'Business Name', value: bp.businessName },
-                { label: 'Industry', value: bp.industry },
-                { label: 'Brand Values', value: bp.brandValues },
-                { label: 'Mission', value: bp.mission },
-                { label: 'Website', value: bp.website },
-            ].filter(f => f.value);
-
-            brandContainer.innerHTML = `
-                <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
-                    <p class="text-sm font-bold text-gray-700">Apply this Brand Profile to the assistant</p>
-                    <label class="flex items-center cursor-pointer relative">
-                        <input type="checkbox" id="brand-profile-toggle" class="sr-only peer" ${brandEnabled ? 'checked' : ''}>
-                        <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-                    </label>
-                </div>
-                <dl id="brand-profile-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 ${brandEnabled ? '' : 'opacity-40 pointer-events-none'}">
-                    ${fields.map(f => `
-                        <div>
-                            <dt class="text-xs font-bold text-gray-400 uppercase tracking-wide">${_escapeHtml(f.label)}</dt>
-                            <dd class="text-sm text-gray-800 mt-0.5">${_escapeHtml(f.value)}</dd>
-                        </div>`).join('')}
-                </dl>`;
-
-            document.getElementById('brand-profile-toggle')?.addEventListener('change', async (e) => {
-                const enabled = e.target.checked;
-                const fieldsEl = document.getElementById('brand-profile-fields');
-                if (fieldsEl) fieldsEl.className = fieldsEl.className.replace(/opacity-40 pointer-events-none/g, '') + (enabled ? '' : ' opacity-40 pointer-events-none');
-                const statusEl = document.getElementById('brand-save-status');
-                if (statusEl) statusEl.textContent = 'Saving…';
-                try {
-                    const r = await fetch('/.netlify/functions/update-assistant-context', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            assistantId: parseInt(assistantId),
-                            newContext: window.cachedContext,
-                            appliedDefaults: { brandProfile: enabled },
-                        }),
-                    });
-                    if (r.ok) {
-                        if (!currentData.configuration) currentData.configuration = {};
-                        if (!currentData.configuration.appliedDefaults) currentData.configuration.appliedDefaults = {};
-                        currentData.configuration.appliedDefaults.brandProfile = enabled;
-                        if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(() => statusEl.textContent = '', 2000); }
-                    }
-                } catch {
-                    if (document.getElementById('brand-save-status')) document.getElementById('brand-save-status').textContent = 'Error saving';
-                }
-            });
+            knowledgeContainer.innerHTML = strictNote + `
+                <ul class="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+                    ${assets.map(a => `
+                        <li class="flex items-center justify-between gap-3 px-4 py-3">
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 truncate">${_escapeHtml(a.name)}</p>
+                                <p class="text-xs text-gray-400 mt-0.5">${a.isFile ? 'Document' : 'Link'} · ${_escapeHtml(catLabel(a.category))}</p>
+                            </div>
+                            ${(a.externalUrl && !a.isFile) ? `<a href="${_escapeHtml(a.externalUrl)}" target="_blank" rel="noopener" class="text-xs font-bold text-emerald-700 hover:underline shrink-0">Open</a>` : ''}
+                        </li>`).join('')}
+                </ul>
+                <div class="mt-3 text-right">
+                    <a href="#" onclick="window.loadView('assets')" class="text-sm font-bold text-emerald-600 hover:underline cursor-pointer">Manage in Business Information →</a>
+                </div>`;
         }
     }
 }
@@ -1079,10 +1095,13 @@ async function _fetchAndRenderAssistantRules(assistantId) {
 }
 
 // Show the copy-rules button only when the user has another assistant to copy from.
+// NOTE: the button is `inline-flex`, and in the prebuilt style.css `.inline-flex` is declared
+// AFTER `.hidden`, so the `hidden` class can't hide it (display:inline-flex wins). We must toggle
+// visibility via inline style.display, which beats any class-based display rule.
 async function _toggleCopyRulesButton() {
     const btn = document.getElementById('btn-copy-rules');
     if (!btn) return;
-    btn.classList.add('hidden'); // default hidden until we confirm another assistant exists
+    btn.style.display = 'none'; // default hidden until we confirm another assistant exists
     try {
         const res = await fetch('/.netlify/functions/get-assistants');
         if (!res.ok) return;
@@ -1090,7 +1109,7 @@ async function _toggleCopyRulesButton() {
         const others = (data.assistants || []).filter(a =>
             a && a.id && parseInt(a.id) !== _rulesAssistantId &&
             a.lifecycleStatus !== 'archived' && a.status !== 'cancelled');
-        if (others.length) btn.classList.remove('hidden');
+        if (others.length) btn.style.display = 'inline-flex'; // reveal with correct icon/text layout
     } catch { /* leave hidden on error — copying needs a successful list anyway */ }
 }
 

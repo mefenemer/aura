@@ -52,6 +52,8 @@
             <span id="detail-status" class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">…</span>
           </div>
           <p id="detail-role" class="text-gray-500 font-medium mt-1 text-sm">Reviewing tasks…</p>
+          <!-- AC2.1.2 — primary goal progress bar (populated by _fetchAndRenderGoals) -->
+          <div id="detail-primary-goal" class="hidden mt-3 max-w-md"></div>
         </div>
       </div>
       <div class="flex items-center gap-3 w-full sm:w-auto shrink-0">
@@ -101,8 +103,8 @@
     </div>
   </div>
 
-  <!-- Primary Goal (AC2.1.2 — populated by _fetchAndRenderGoals; sits below Recent Activity) -->
-  <div id="detail-primary-goal" class="hidden bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8"></div>
+  <!-- Goals section is relocated here (directly under Recent Activity) by initAssistantDetail;
+       its markup lives in #tab-goals further down and is moved into this slot on load. -->
 
   <!-- Performance KPIs -->
   <div class="mb-8">
@@ -175,7 +177,6 @@
       <button data-tab="problem"      class="detail-tab-btn active-tab cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-bold text-sm">The Problem</button>
       <button data-tab="operation"    class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">How it Works</button>
       <button data-tab="strategy"     class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Creative Strategy</button>
-      <button data-tab="goals"        class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Goals</button>
       <button data-tab="platforms"    class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Connections</button>
       <button data-tab="guardrails"   class="detail-tab-btn cursor-pointer whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Guardrails</button>
     </nav>
@@ -256,17 +257,14 @@
   <!-- ── TAB: Creative Strategy ────────────────────────────────── -->
   <div id="tab-strategy" class="detail-tab-content hidden space-y-6">
 
-    <!-- Global Brand Profile -->
+    <!-- Business Information & Brand Knowledge (always applied — strict, non-overridable) -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
-      <div class="flex items-start justify-between mb-5 gap-4">
-        <div>
-          <h3 class="text-lg font-bold text-gray-900">Brand Profile</h3>
-          <p class="text-sm text-gray-500 mt-1">Your global brand identity from <a href="#" onclick="window.loadView('assets')" class="text-emerald-600 hover:underline font-medium">Brand Profile settings</a>. Toggle to apply it to this assistant.</p>
-        </div>
-        <span id="brand-save-status" class="text-sm font-bold text-emerald-600 shrink-0 transition-all"></span>
+      <div class="mb-5">
+        <h3 class="text-lg font-bold text-gray-900">Business Information &amp; Brand Knowledge</h3>
+        <p class="text-sm text-gray-500 mt-1">Your business details and any documents or links added in <a href="#" onclick="window.loadView('assets')" class="text-emerald-600 hover:underline font-medium">Business Information</a> are automatically applied to this assistant.</p>
       </div>
-      <div id="global-brand-profile-content">
-        <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading brand profile…</div>
+      <div id="business-knowledge-content">
+        <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading brand knowledge…</div>
       </div>
     </div>
 
@@ -439,7 +437,7 @@
       <textarea id="edit_ai_disclosure" rows="3" maxlength="500"
         class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-y"
         placeholder="e.g. Some content on this account is created with the help of Be More Swan AI."></textarea>
-      <p class="text-xs text-gray-400 mt-1">Write your own wording, or adapt an example above. Saved automatically. Once saved, the “AI disclosure acknowledged” item in the Kick Off checklist is ticked. It can't be cleared while the assistant is active.</p>
+      <p class="text-xs text-gray-400 mt-1">Switch on the disclosures above to combine them (one per line), or write your own wording. Saved automatically. Once saved, the “AI disclosure acknowledged” item in the Kick Off checklist is ticked. It can't be cleared while the assistant is active.</p>
     </div>
 
     <!-- Autonomous Content Fallback (US5) -->
@@ -474,8 +472,8 @@
         </div>
         <div class="flex items-center gap-3 shrink-0">
           <span id="assistant-rules-status" class="text-sm font-bold text-emerald-600 transition-all"></span>
-          <button type="button" id="btn-copy-rules" onclick="window._openCopyRules()"
-            class="hidden inline-flex items-center gap-1.5 text-sm font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition cursor-pointer">
+          <button type="button" id="btn-copy-rules" onclick="window._openCopyRules()" style="display:none"
+            class="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition cursor-pointer">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
             Copy from another assistant
           </button>
@@ -492,8 +490,8 @@
 
   </div>
 
-  <!-- ── TAB: Goals (SMART Goals — Feature 1) ───────────────────── -->
-  <div id="tab-goals" class="detail-tab-content hidden space-y-6">
+  <!-- ── Goals (SMART Goals — Feature 1) — relocated under Recent Activity on load ───── -->
+  <div id="tab-goals" class="space-y-6 mb-8 hidden">
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="flex items-start justify-between mb-2 gap-4 flex-wrap">
         <div>
