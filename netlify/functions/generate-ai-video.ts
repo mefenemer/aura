@@ -19,14 +19,18 @@ import { resolveBaseUrl } from '../../src/utils/base-url';
 import { presignR2Get } from '../../src/utils/social-publish';
 import { getActiveTierKeyByOrg } from '../../src/utils/plan-features';
 import {
-    submitVideo, falConfigured, ASPECT_RATIOS,
-    FalContentPolicyError, FalError, type AspectRatio,
+    submitVideo, falConfigured, ASPECT_RATIOS, VIDEO_DURATIONS,
+    FalContentPolicyError, FalError, type AspectRatio, type VideoDurationSeconds,
 } from '../../src/lib/fal-gateway';
 import { holdCredits, settleHold, tierCanGenerateVideo, VIDEO_CREDIT_COST } from '../../src/utils/ai-credits';
 
 const PROMPT_MAX = 1000;
-const VIDEO_MODEL = process.env.FAL_VIDEO_MODEL ?? 'fal-ai/minimax/hailuo-2.3';
-const VALID_DURATIONS = [3, 5];
+const VIDEO_MODEL = process.env.FAL_VIDEO_MODEL ?? 'fal-ai/minimax/hailuo-2.3/standard/text-to-video';
+// Hailuo 2.3 text-to-video only accepts 6s or 10s clips (see VIDEO_DURATIONS in fal-gateway).
+const VALID_DURATIONS = VIDEO_DURATIONS;
+// Hailuo text-to-video has no aspect-ratio input; we still record one on the job/asset for
+// downstream display, defaulting to a vertical/Reel frame when the client doesn't supply one.
+const DEFAULT_ASPECT: AspectRatio = '9:16';
 
 // Kick the background poller (fire-and-forget). Mirrors triggerExtraction in storage-confirm-upload.
 function triggerWorker(headers: Record<string, string | undefined>, jobId: number): void {
@@ -88,11 +92,13 @@ export const handler: Handler = async (event) => {
     catch { return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON.' }) }; }
 
     const prompt = (body.prompt || '').trim();
-    const aspectRatio = body.aspectRatio as AspectRatio;
-    const durationSeconds = Number(body.durationSeconds);
+    // Aspect ratio is metadata only — the model ignores it — so accept a valid hint or default.
+    const aspectRatio: AspectRatio = ASPECT_RATIOS.includes(body.aspectRatio as AspectRatio)
+        ? (body.aspectRatio as AspectRatio)
+        : DEFAULT_ASPECT;
+    const durationSeconds = Number(body.durationSeconds) as VideoDurationSeconds;
     if (!prompt) return { statusCode: 400, body: JSON.stringify({ error: 'A prompt is required.' }) };
     if (prompt.length > PROMPT_MAX) return { statusCode: 400, body: JSON.stringify({ error: `Prompt must be ${PROMPT_MAX} characters or fewer.` }) };
-    if (!ASPECT_RATIOS.includes(aspectRatio)) return { statusCode: 400, body: JSON.stringify({ error: `aspectRatio must be one of: ${ASPECT_RATIOS.join(', ')}` }) };
     if (!VALID_DURATIONS.includes(durationSeconds)) return { statusCode: 400, body: JSON.stringify({ error: `durationSeconds must be one of: ${VALID_DURATIONS.join(', ')}` }) };
 
     // Gate: the org must have an active assistant whose TYPE has AI video generation enabled.
@@ -123,7 +129,7 @@ export const handler: Handler = async (event) => {
     }
 
     try {
-        const { requestId, statusUrl, responseUrl } = await submitVideo({ prompt, aspectRatio, durationSeconds });
+        const { requestId, statusUrl, responseUrl } = await submitVideo({ prompt, durationSeconds });
         const [job] = await db.insert(mediaGenerationJobs).values({
             organisationId: orgId, userId, mediaType: 'video', prompt, aspectRatio, durationSeconds,
             model: VIDEO_MODEL, creditCost: VIDEO_CREDIT_COST, status: 'processing',

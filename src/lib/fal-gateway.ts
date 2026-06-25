@@ -12,13 +12,16 @@
 // Config:
 //   FAL_KEY               — API key (required; gateway is mock/disabled without it)
 //   FAL_IMAGE_MODEL       — defaults to 'fal-ai/flux-pro/v1.1'      (FLUX 1.1 Pro, 1 credit)
-//   FAL_VIDEO_MODEL       — defaults to 'fal-ai/minimax/hailuo-2.3' (Hailuo 2.3, 5 credits)
+//   FAL_VIDEO_MODEL       — defaults to 'fal-ai/minimax/hailuo-2.3/standard/text-to-video'
+//                           (Hailuo 2.3 Standard, 768p, 5 credits). NOTE: the bare
+//                           'fal-ai/minimax/hailuo-2.3' is NOT a routable endpoint — it 404s on
+//                           poll ("Path /hailuo-2.3 not found"); the variant suffix is required.
 //   FAL_SAFETY_TOLERANCE  — FLUX safety level 1 (strictest) … 6 (most permissive); default 2
 //   FAL_OUTPUT_FORMAT     — 'png' (default, lossless — best for crisp text overlays) or 'jpeg'
 
 const FAL_KEY     = process.env.FAL_KEY;
 const IMAGE_MODEL = process.env.FAL_IMAGE_MODEL ?? 'fal-ai/flux-pro/v1.1';
-const VIDEO_MODEL = process.env.FAL_VIDEO_MODEL ?? 'fal-ai/minimax/hailuo-2.3';
+const VIDEO_MODEL = process.env.FAL_VIDEO_MODEL ?? 'fal-ai/minimax/hailuo-2.3/standard/text-to-video';
 
 // FLUX 1.1 Pro safety_tolerance: 1 (strictest) … 6 (most permissive). We run our own prompt
 // moderation upstream, so the model-level gate is a backstop — keep Fal's default of 2.
@@ -220,15 +223,24 @@ export async function generateImages(opts: {
     }));
 }
 
-/** Submit an async video generation job with Hailuo 2.3. Poll with status()/result(). */
+// Hailuo 2.3 text-to-video accepts only "6" or "10" second clips.
+export type VideoDurationSeconds = 6 | 10;
+export const VIDEO_DURATIONS: VideoDurationSeconds[] = [6, 10];
+
+/**
+ * Submit an async video generation job with Hailuo 2.3 (Standard). Poll with status()/result().
+ *
+ * The text-to-video endpoint takes only `prompt`, `prompt_optimizer` and a `duration` of "6"|"10".
+ * There is NO `aspect_ratio` input — the model infers framing from the prompt and emits a
+ * fixed-resolution clip — so we deliberately omit it (passing it 404s/422s on some variants).
+ */
 export async function submitVideo(opts: {
     prompt: string;
-    aspectRatio: AspectRatio;
-    durationSeconds: number;
+    durationSeconds: VideoDurationSeconds;
 }): Promise<FalSubmitResult> {
     const input: Record<string, unknown> = {
         prompt: opts.prompt,
-        aspect_ratio: opts.aspectRatio,
+        prompt_optimizer: true,
         duration: String(opts.durationSeconds),
     };
     return submit(VIDEO_MODEL, input);

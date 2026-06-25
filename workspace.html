@@ -210,39 +210,9 @@ async function submitTosAcceptance(btn) {
 }
 </script>
 
-<!-- US-GOV-2.1.1: Review Queue drawer -->
-<div id="review-queue-drawer" class="hidden fixed inset-0 z-[65] items-stretch" role="dialog" aria-modal="true" aria-labelledby="rq-title">
-  <!-- Backdrop -->
-  <div class="flex-1 bg-gray-900/60 backdrop-blur-sm" onclick="closeReviewQueue()"></div>
-  <!-- Panel -->
-  <div class="w-full max-w-2xl bg-white flex flex-col shadow-2xl">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
-      <h2 id="rq-title" class="text-lg font-extrabold text-gray-900">Pending Approvals</h2>
-      <div class="flex items-center gap-2">
-        <button onclick="openGeneratePostSheet()" class="px-3 py-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition cursor-pointer flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Create Post
-        </button>
-        <button onclick="closeReviewQueue()" class="text-gray-400 hover:text-gray-600 transition cursor-pointer">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-    </div>
-    <!-- Tabs -->
-    <div class="flex gap-1 px-6 pt-3 border-b border-gray-100 overflow-x-auto shrink-0">
-      <button class="rq-tab px-4 py-2 text-sm font-semibold rounded-t border-b-2 border-emerald-600 text-emerald-700 whitespace-nowrap" data-tab-type="hitl" data-status="pending" onclick="rqSetTab('pending',this,'hitl')">Pending <span id="rq-pending-tab-count" class="ml-1 bg-emerald-100 text-emerald-700 text-xs px-1.5 py-0.5 rounded-full"></span></button>
-      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="hitl" data-status="approved" onclick="rqSetTab('approved',this,'hitl')">Approved</button>
-      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="hitl" data-status="rejected" onclick="rqSetTab('rejected',this,'hitl')">Rejected</button>
-      <div class="w-px bg-gray-200 mx-1 self-stretch my-1"></div>
-      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="social" data-status="pending_approval" onclick="rqSetTab('pending_approval',this,'social')">Social Drafts <span id="rq-social-tab-count" class="ml-1 bg-violet-100 text-violet-700 text-xs px-1.5 py-0.5 rounded-full hidden"></span></button>
-      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="ai" data-status="pending_approval" onclick="rqSetTab('pending_approval',this,'ai')">AI Approvals <span id="rq-ai-tab-count" class="ml-1 bg-pink-100 text-pink-700 text-xs px-1.5 py-0.5 rounded-full hidden"></span></button>
-      <button class="rq-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap" data-tab-type="ideas" data-status="ideas" onclick="rqSetTab('ideas',this,'ideas')">Ideas <span id="rq-ideas-tab-count" class="ml-1 bg-amber-100 text-amber-700 text-xs px-1.5 py-0.5 rounded-full hidden"></span></button>
-    </div>
-    <!-- List -->
-    <div id="rq-list" class="flex-1 overflow-y-auto divide-y divide-gray-100 px-6 py-2"></div>
-    <!-- Reject reason input (shown inline on card) -->
-  </div>
-</div>
+<!-- US-GOV-2.1.1: Review Queue drawer removed — superseded by the full review-queue.html page.
+     The drawer reused the same element IDs (rq-list, rq-*-tab-count) and, being earlier in the
+     DOM, hijacked getElementById('rq-list') so the injected page never populated. -->
 
 <!-- US-SMM-3.4.1: Generate Post on-demand bottom sheet -->
 <div id="gen-post-backdrop" class="hidden fixed inset-0 z-[70] bg-gray-900/60 backdrop-blur-sm" onclick="closeGeneratePostSheet()"></div>
@@ -3534,34 +3504,11 @@ async function refreshPendingBadge() {
     } catch { /* non-blocking */ }
 }
 
-// ── Review Queue drawer ──────────────────────────────────────────────────────
+// ── Review Queue (shared by the review-queue.html page) ──────────────────────
+// State shared by rqSetTab / rqLoadItems. The old drawer (openReviewQueue) was
+// removed; the full review-queue.html page now drives these functions.
 let _rqCurrentTab = 'pending';
 let _rqCurrentTabType = 'hitl';
-
-async function openReviewQueue() {
-    const el = document.getElementById('review-queue-drawer');
-    if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
-
-    // Fetch HITL pending count; if 0 but social drafts exist, auto-switch to Social Drafts tab
-    try {
-        const res = await fetch('/.netlify/functions/get-pending-actions?status=pending&limit=1');
-        const { totalPending } = res.ok ? await res.json() : { totalPending: 0 };
-        if (!totalPending) {
-            const socialRes = await fetch('/.netlify/functions/get-social-drafts?status=pending_approval');
-            const { drafts } = socialRes.ok ? await socialRes.json() : { drafts: [] };
-            if ((drafts || []).length > 0) {
-                const socialBtn = document.querySelector('.rq-tab[data-tab-type="social"]');
-                if (socialBtn) { rqSetTab('pending_approval', socialBtn, 'social'); return; }
-            }
-        }
-    } catch { /* fall through to default tab */ }
-    rqLoadItems('pending', 'hitl');
-}
-
-function closeReviewQueue() {
-    const el = document.getElementById('review-queue-drawer');
-    if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
-}
 
 function rqSetTab(status, btn, tabType) {
     _rqCurrentTab = status;
@@ -4917,11 +4864,12 @@ async function gpAiGenerateVideo() {
     gpAiMediaBusy(true);
     gpAiMediaStatus('Starting your AI video… this can take a minute or two.');
     try {
-        // Vertical 9:16, 5s — a sensible social default. Prompt comes from the media description.
+        // 6s — the shortest clip Hailuo 2.3 supports; a sensible social default. Prompt comes from
+        // the media description. (Aspect ratio is metadata only — the model infers framing.)
         const res = await fetch('/.netlify/functions/generate-ai-video', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: _gpAiMediaPrompt || 'On-brand social media video', aspectRatio: '9:16', durationSeconds: 5 }),
+            body: JSON.stringify({ prompt: _gpAiMediaPrompt || 'On-brand social media video', aspectRatio: '9:16', durationSeconds: 6 }),
         });
         const d = await res.json().catch(() => ({}));
         if (res.status === 403 && d.error === 'video_requires_upgrade') { gpAiMediaStatus(d.message || 'AI video is available on the Saver and Employee plans.', 'error'); gpAiMediaBusy(false); return; }

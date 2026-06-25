@@ -262,7 +262,7 @@ function _openUploadModal() {
     document.getElementById('vid-error')?.classList.add('hidden');
     document.getElementById('vid-insufficient')?.classList.add('hidden');
     document.getElementById('vid-form')?.classList.remove('hidden');
-    if (typeof _mcVidSetDuration === 'function') _mcVidSetDuration(3);
+    if (typeof _mcVidSetDuration === 'function') _mcVidSetDuration(6);
     document.getElementById('modal-upload')?.classList.remove('hidden');
 }
 
@@ -467,7 +467,7 @@ window._mcSelectAI = async function (index) {
 
 // ── Generate AI Video ─────────────────────────────────────────────
 let _mcVidJobId = null;
-let _mcVidDuration = 3;
+let _mcVidDuration = 6;
 let _mcVidPollTimer = null;
 
 window._mcVidPromptInput = function () {
@@ -480,8 +480,8 @@ window._mcVidSetDuration = function (n) {
     _mcVidDuration = n;
     const on  = 'flex-1 py-1.5 text-sm font-bold rounded-md transition bg-white shadow text-gray-900 cursor-pointer';
     const off = 'flex-1 py-1.5 text-sm font-bold rounded-md transition text-gray-500 hover:text-gray-700 cursor-pointer';
-    document.getElementById('vid-dur-3').className = n === 3 ? on : off;
-    document.getElementById('vid-dur-5').className = n === 5 ? on : off;
+    document.getElementById('vid-dur-6').className  = n === 6  ? on : off;
+    document.getElementById('vid-dur-10').className = n === 10 ? on : off;
 };
 
 async function _mcVidOnOpen() {
@@ -507,7 +507,6 @@ async function _mcVidOnOpen() {
 
 window._mcGenerateVideo = async function () {
     const prompt = (document.getElementById('vid-prompt')?.value || '').trim();
-    const aspect = document.getElementById('vid-aspect').value;
     const errEl  = document.getElementById('vid-error');
     errEl.classList.add('hidden');
     if (!prompt) { errEl.textContent = 'Please describe the video you want.'; errEl.classList.remove('hidden'); return; }
@@ -520,7 +519,7 @@ window._mcGenerateVideo = async function () {
         const res = await fetch('/.netlify/functions/generate-ai-video', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, aspectRatio: aspect, durationSeconds: _mcVidDuration }),
+            body: JSON.stringify({ prompt, durationSeconds: _mcVidDuration }),
         });
 
         if (res.status === 403) {

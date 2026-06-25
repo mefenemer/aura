@@ -2,33 +2,23 @@
 // US-SMM-3.4.1: Returns scheduled_posts with status='pending_approval' for the authenticated org.
 
 import { Handler } from '@netlify/functions';
-import jwt from 'jsonwebtoken';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { scheduledPosts, aiAssistants, userOrganisations, postIdeaSuggestions } from '../../db/schema';
+import { scheduledPosts, aiAssistants, postIdeaSuggestions } from '../../db/schema';
 import { resolvePostImage } from '../../src/utils/social-publish';
-
-const JWT_SECRET = process.env.JWT_SECRET;
+import { requireTenant } from '../../src/utils/tenant';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method Not Allowed' };
 
     try {
-        const cookie = event.headers.cookie || '';
-        const token = cookie.match(/aura_session=([^;]+)/)?.[1];
-        if (!token || !JWT_SECRET) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
-        const session = jwt.verify(token, JWT_SECRET) as { userId: number };
-
         const db = getDb();
 
-        // JWT only contains userId — resolve the org from userOrganisations
-        const [membership] = await db
-            .select({ organisationId: userOrganisations.organisationId })
-            .from(userOrganisations)
-            .where(eq(userOrganisations.userId, session.userId))
-            .limit(1);
-        if (!membership) return { statusCode: 403, body: JSON.stringify({ error: 'No organisation found.' }) };
-        const organisationId = membership.organisationId;
+        // Resolve the *active* organisation from the session (re-verifying membership),
+        // not the user's first membership — multi-org users were getting the wrong tenant.
+        const ctx = await requireTenant(event, db);
+        if ('error' in ctx) return ctx.error;
+        const organisationId = ctx.organisationId;
 
         const statusFilter = event.queryStringParameters?.status || 'pending_approval';
 
