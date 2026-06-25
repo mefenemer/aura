@@ -246,10 +246,11 @@ function _openUploadModal() {
     document.getElementById('ai-loading')?.classList.add('hidden');
     document.getElementById('ai-error')?.classList.add('hidden');
     document.getElementById('ai-insufficient')?.classList.add('hidden');
-    document.getElementById('ai-no-assistant')?.classList.add('hidden');
-    document.getElementById('vid-no-assistant')?.classList.add('hidden');
-    // Re-check on each open so hiring an assistant lifts the gate without a reload.
-    _mcActiveAssistant = null;
+    // Resolve which AI tabs this org may see (admin-managed per-assistant capabilities).
+    // Reset to "none" first so a stale capability never flashes a forbidden tab.
+    _mcCaps = { canImage: false, assistantCanVideo: false, tierCanVideo: false };
+    _mcApplyTabVisibility();
+    _mcLoadCapabilities();
     // Reset the Generate AI Video panel
     if (typeof _mcVidStopPolling === 'function') _mcVidStopPolling();
     _mcVidJobId = null;
@@ -287,27 +288,38 @@ window._mcSwitchTab = function (tab) {
 
     // The AI/video panels have their own buttons, so hide the standard footer there.
     document.getElementById('upload-footer')?.classList.toggle('hidden', tab === 'ai' || tab === 'video');
-    if (tab === 'ai') _mcAiOnOpen();
+    // switchTab rewrites every tab's className above (dropping `hidden`) — re-apply capability
+    // visibility so forbidden tabs stay hidden.
+    _mcApplyTabVisibility();
+    if (tab === 'ai') _mcRefreshAiBalance();
     if (tab === 'video') _mcVidOnOpen();
 };
 
-// ── Active-assistant gate ─────────────────────────────────────────
-// Like the Review Queue, AI media can't be generated without an active assistant to
-// action the result. Cached per modal-open so switching AI/Video tabs only fetches once.
-let _mcActiveAssistant = null; // null = not yet checked
+// ── AI media capabilities (admin-managed, per assistant type) ──────
+// Which AI tabs this org may use. Resolved on each modal-open from get-ai-credit-balance:
+//   canImage          — an active assistant's type has AI image generation enabled
+//   assistantCanVideo — an active assistant's type has AI video generation enabled
+//   tierCanVideo      — the plan tier permits video (video needs BOTH this and assistantCanVideo)
+let _mcCaps = { canImage: false, assistantCanVideo: false, tierCanVideo: false };
 
-async function _mcHasActiveAssistant() {
-    if (_mcActiveAssistant !== null) return _mcActiveAssistant;
+async function _mcLoadCapabilities() {
     try {
-        const res = await fetch('/.netlify/functions/get-assistants');
-        const data = res.ok ? await res.json() : { assistants: [] };
-        _mcActiveAssistant = (data.assistants || []).some(a =>
-            a.status !== 'pending' && a.status !== 'failed' && a.lifecycleStatus !== 'archived');
-    } catch {
-        // On failure, don't hard-block — the server-side gate is the source of truth.
-        _mcActiveAssistant = true;
-    }
-    return _mcActiveAssistant;
+        const res = await fetch('/.netlify/functions/get-ai-credit-balance');
+        if (!res.ok) return;
+        const d = await res.json();
+        _mcCaps = {
+            canImage: !!d.canImage,
+            assistantCanVideo: !!d.assistantCanVideo,
+            tierCanVideo: !!d.tierCanVideo,
+        };
+    } catch { /* leave tabs hidden on failure — server-side gate is the source of truth */ }
+    _mcApplyTabVisibility();
+}
+
+// Show the AI Image / AI Video tabs only when the org's assistants grant the capability.
+function _mcApplyTabVisibility() {
+    document.getElementById('tab-ai')?.classList.toggle('hidden', !_mcCaps.canImage);
+    document.getElementById('tab-video')?.classList.toggle('hidden', !_mcCaps.assistantCanVideo);
 }
 
 function _mcDisableBtn(id, disabled) {
@@ -327,18 +339,6 @@ window._mcAiPromptInput = function () {
     const counter = document.getElementById('ai-prompt-count');
     if (el && counter) counter.textContent = `${el.value.length} / 1000`;
 };
-
-// Opening the AI Image tab: gate on an active assistant first, then on credit balance.
-async function _mcAiOnOpen() {
-    const hasAssistant = await _mcHasActiveAssistant();
-    document.getElementById('ai-no-assistant')?.classList.toggle('hidden', hasAssistant);
-    if (!hasAssistant) {
-        document.getElementById('ai-insufficient')?.classList.add('hidden');
-        _mcDisableBtn('ai-generate-btn', true);
-        return;
-    }
-    _mcRefreshAiBalance();
-}
 
 async function _mcRefreshAiBalance() {
     const el = document.getElementById('ai-balance');
@@ -392,8 +392,10 @@ window._mcGenerateAI = async function () {
         });
 
         if (res.status === 403) {
-            // No active assistant — surface the gate notice (button stays gated on next open).
-            document.getElementById('ai-no-assistant')?.classList.remove('hidden');
+            // Capability was revoked since the modal opened — drop the tab and bail out.
+            _mcCaps.canImage = false;
+            _mcApplyTabVisibility();
+            _mcSwitchTab('file');
             return;
         }
         if (res.status === 402) {
@@ -488,19 +490,13 @@ async function _mcVidOnOpen() {
     try {
         const res = await fetch('/.netlify/functions/get-ai-credit-balance');
         if (!res.ok) return;
-        const { balance, canVideo } = await res.json();
+        const { balance, tierCanVideo } = await res.json();
         document.getElementById('vid-balance').textContent = `${balance} credit${balance === 1 ? '' : 's'}`;
-        locked.classList.toggle('hidden', !!canVideo);
-        form.classList.toggle('hidden', !canVideo);
-        if (canVideo) {
-            // Gate on an active assistant before credit balance (mirrors the Review Queue).
-            const hasAssistant = await _mcHasActiveAssistant();
-            document.getElementById('vid-no-assistant')?.classList.toggle('hidden', hasAssistant);
-            if (!hasAssistant) {
-                document.getElementById('vid-insufficient')?.classList.add('hidden');
-                _mcDisableBtn('vid-generate-btn', true);
-                return;
-            }
+        // The tab is only shown when the assistant grants video, so here we only resolve the
+        // remaining plan-tier gate: tier-locked → upgrade CTA; otherwise the credit check.
+        locked.classList.toggle('hidden', !!tierCanVideo);
+        form.classList.toggle('hidden', !tierCanVideo);
+        if (tierCanVideo) {
             const warn = document.getElementById('vid-insufficient');
             const canAfford = balance >= 5;
             _mcDisableBtn('vid-generate-btn', !canAfford);
@@ -530,10 +526,13 @@ window._mcGenerateVideo = async function () {
         if (res.status === 403) {
             const { code } = await res.json().catch(() => ({}));
             document.getElementById('vid-generating').classList.add('hidden');
-            if (code === 'no_active_assistant') {
-                document.getElementById('vid-form').classList.remove('hidden');
-                document.getElementById('vid-no-assistant').classList.remove('hidden');
+            if (code === 'feature_unavailable') {
+                // Assistant no longer grants video — drop the tab and bail to file upload.
+                _mcCaps.assistantCanVideo = false;
+                _mcApplyTabVisibility();
+                _mcSwitchTab('file');
             } else {
+                // Tier-locked → show the upgrade CTA.
                 document.getElementById('vid-locked').classList.remove('hidden');
             }
             return;

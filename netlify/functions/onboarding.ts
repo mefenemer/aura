@@ -263,12 +263,24 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
     });
 
     // 8. TRIGGER ASYNC PROVISIONING
+    // provision-assistant-background is a Netlify *background* function: it acks with 202
+    // immediately, then provisions independently (up to 15 min). We AWAIT the trigger so the
+    // request is guaranteed delivered before this handler returns — a fire-and-forget fetch to a
+    // plain function was silently dropped on Lambda freeze, leaving assistants stuck in
+    // `provisioning` forever (the 409 "still being set up" the user then hits on Kick-Off).
     const baseUrl = resolveBaseUrl(event.headers);
     if (!baseUrl) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
-    fetch(`${baseUrl}/.netlify/functions/provision-assistant-async`, {
-      method: 'POST',
-      body: JSON.stringify({ assistantId: newAssistant.id }),
-    }).catch(err => console.error('Async provisioning trigger failed:', err));
+    try {
+      const provRes = await fetch(`${baseUrl}/.netlify/functions/provision-assistant-background`, {
+        method: 'POST',
+        body: JSON.stringify({ assistantId: newAssistant.id }),
+      });
+      if (!provRes.ok && provRes.status !== 202) {
+        console.error(`[onboarding] Provisioning trigger returned ${provRes.status} for assistant ${newAssistant.id}`);
+      }
+    } catch (err) {
+      console.error('Async provisioning trigger failed:', err);
+    }
 
     return {
       statusCode: 200,

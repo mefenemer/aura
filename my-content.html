@@ -4,7 +4,7 @@
   <div class="flex items-start justify-between mb-8 gap-4">
     <div>
       <h1 class="text-3xl font-extrabold text-gray-900">My Content</h1>
-      <p class="text-gray-500 mt-1">Upload images, videos, and links for your assistants to use. Track where each asset is in the publishing pipeline.</p>
+      <p class="text-gray-500 mt-1">Upload images, videos, and links — or generate images and videos with AI — for your assistants to use. Track where each asset is in the publishing pipeline.</p>
     </div>
     <div class="shrink-0 flex items-center gap-3">
       <span id="mc-credit-pill" title="AI generation credits" class="hidden items-center gap-2 px-3 py-2 bg-pink-50 border border-pink-200 text-pink-700 text-sm font-bold rounded-xl">
@@ -54,12 +54,12 @@
           Add Link
         </button>
         <button id="tab-ai" type="button" onclick="window._mcSwitchTab('ai')"
-          class="flex-1 py-2 text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-700 cursor-pointer flex items-center justify-center gap-1">
+          class="hidden flex-1 py-2 text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-700 cursor-pointer flex items-center justify-center gap-1">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L20 12l-4.714 2.143L13 21l-2.286-6.857L6 12l4.714-2.143L13 3z"/></svg>
           AI Image
         </button>
         <button id="tab-video" type="button" onclick="window._mcSwitchTab('video')"
-          class="flex-1 py-2 text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-700 cursor-pointer flex items-center justify-center gap-1">
+          class="hidden flex-1 py-2 text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-700 cursor-pointer flex items-center justify-center gap-1">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
           AI Video
         </button>
@@ -160,12 +160,6 @@
           <a href="/billing.html" class="font-bold text-emerald-700 underline">Upgrade your plan →</a>
         </div>
 
-        <!-- No active assistant: nothing to action the image once generated -->
-        <div id="ai-no-assistant" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          You need an active assistant to generate AI images.
-          <a href="/assistant-catalogue.html" class="font-bold text-emerald-700 underline">Hire one from the catalogue →</a>
-        </div>
-
         <!-- Loading state -->
         <div id="ai-loading" class="hidden flex flex-col items-center justify-center py-10 text-gray-500">
           <svg class="w-7 h-7 animate-spin mb-3 text-emerald-500" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/></svg>
@@ -237,11 +231,6 @@
           <div id="vid-insufficient" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             You don't have enough credits to generate a video.
             <a href="/billing.html" class="font-bold text-emerald-700 underline">Upgrade your plan →</a>
-          </div>
-
-          <div id="vid-no-assistant" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            You need an active assistant to generate AI videos.
-            <a href="/assistant-catalogue.html" class="font-bold text-emerald-700 underline">Hire one from the catalogue →</a>
           </div>
         </div>
 

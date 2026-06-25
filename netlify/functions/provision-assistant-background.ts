@@ -1,3 +1,14 @@
+// provision-assistant-background.ts — async assistant provisioning (US2 Lifecycle).
+//
+// MUST stay a Netlify *background* function (the `-background` filename suffix). It is fired
+// from onboarding via fetch(); a background function is queued + acked with 202 immediately and
+// then runs (up to 15 min) independently of the caller. A plain function invoked the same
+// fire-and-forget way is NOT reliably delivered — the caller's Lambda freezes on return before
+// the request lands — which historically left every assistant stuck in `provisioning`.
+//
+// On success the assistant lands in `ready_for_work` (inactive, action-locked) and waits for the
+// user to Initiate Kick-Off (kickoff-assistant.ts) → `working`.
+
 import { Handler } from '@netlify/functions';
 import { and, eq } from 'drizzle-orm';
 import { getDb, withUpdatedAt } from '../../db/client';
@@ -45,7 +56,7 @@ export const handler: Handler = async (event) => {
             .limit(1);
 
         if (!preCheck?.disclosureText?.trim()) {
-            console.warn(`[provision-assistant-async] Blocked activation for assistant ${assistantId}: disclosureText missing (EU AI Act Art. 52)`);
+            console.warn(`[provision-assistant-background] Blocked activation for assistant ${assistantId}: disclosureText missing (EU AI Act Art. 52)`);
             return { statusCode: 422, body: JSON.stringify({ error: 'AI disclosure text is required before this assistant can be activated (EU AI Act Art. 52).' }) };
         }
 
@@ -53,7 +64,7 @@ export const handler: Handler = async (event) => {
         if (preCheck?.userId) {
             const tosBlock = await requireTosAcceptance(preCheck.userId);
             if (tosBlock) {
-                console.warn(`[provision-assistant-async] Blocked activation for assistant ${assistantId}: ToS not accepted (userId=${preCheck.userId})`);
+                console.warn(`[provision-assistant-background] Blocked activation for assistant ${assistantId}: ToS not accepted (userId=${preCheck.userId})`);
                 return tosBlock;
             }
         }
@@ -70,7 +81,7 @@ export const handler: Handler = async (event) => {
             if (puCheck.detected) {
                 // If the deployer has not acknowledged prohibited-use categories, block activation
                 if (!assistantFull.prohibitedUseAcknowledged) {
-                    console.warn(`[provision-assistant-async] Blocked activation for assistant ${assistantId}: prohibited-use patterns detected (${puCheck.categories.join(', ')}) without acknowledgment`);
+                    console.warn(`[provision-assistant-background] Blocked activation for assistant ${assistantId}: prohibited-use patterns detected (${puCheck.categories.join(', ')}) without acknowledgment`);
                     return {
                         statusCode: 422,
                         headers: { 'Content-Type': 'application/json' },
@@ -112,7 +123,7 @@ export const handler: Handler = async (event) => {
                 .limit(1);
 
             if (!dpa) {
-                console.warn(`[provision-assistant-async] Blocked activation for assistant ${assistantId}: DPA not accepted for org ${preCheck.organisationId}`);
+                console.warn(`[provision-assistant-background] Blocked activation for assistant ${assistantId}: DPA not accepted for org ${preCheck.organisationId}`);
                 return { statusCode: 403, body: JSON.stringify({ error: 'Your organisation must accept the Data Processing Agreement before activating an assistant.', code: 'DPA_REQUIRED' }) };
             }
         }
@@ -148,7 +159,7 @@ export const handler: Handler = async (event) => {
                         .limit(1);
 
                     if (!assessment) {
-                        console.warn(`[provision-assistant-async] Blocked EU activation for assistant ${assistantId}: high_risk classification requires approved conformity assessment`);
+                        console.warn(`[provision-assistant-background] Blocked EU activation for assistant ${assistantId}: high_risk classification requires approved conformity assessment`);
                         return { statusCode: 403, body: JSON.stringify({
                             error: 'This assistant is classified as High Risk under the EU AI Act. A completed conformity assessment must be approved before EU-market deployment.',
                             code: 'HIGH_RISK_EU_BLOCKED',
@@ -182,7 +193,7 @@ export const handler: Handler = async (event) => {
                     message: `${updated.name} is provisioned and ready for work. Open it and Initiate Kick-Off to put it to work.`,
                 });
             } catch (notifErr) {
-                console.warn('[provision-assistant-async] Notification insert failed (non-blocking):', notifErr);
+                console.warn('[provision-assistant-background] Notification insert failed (non-blocking):', notifErr);
             }
 
             // US-GAP-6.2.1 SC1/SC2: Assistant ready confirmation email
@@ -213,7 +224,7 @@ export const handler: Handler = async (event) => {
                     }).catch(() => {});
                 }
             } catch (emailErr) {
-                console.warn('[provision-assistant-async] Ready email failed (non-blocking):', emailErr);
+                console.warn('[provision-assistant-background] Ready email failed (non-blocking):', emailErr);
             }
         }
 

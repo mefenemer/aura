@@ -246,6 +246,14 @@
         </div>
       </section>
 
+      <!-- ── Assistant Features ─────────────────────────────────────── -->
+      <section id="view-assistant-features" class="admin-view hidden">
+        <p class="text-sm text-gray-500 mb-5">Choose which features each assistant type exposes to customers. Toggling a box takes effect immediately — customers see the feature only if one of their active assistants is a type with it enabled (some features also require a specific plan tier).</p>
+        <div id="assistant-features-grid" class="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
+          <div class="px-5 py-8 text-center text-gray-400">Loading…</div>
+        </div>
+      </section>
+
       <!-- ── Analytics ──────────────────────────────────────────────── -->
       <section id="view-analytics" class="admin-view hidden">
         <!-- Date range filter (US9 Sc3) -->
@@ -1780,7 +1788,7 @@ function debounce(fn, ms) {
 // ── Navigation — US-ADM-1.4.1 Two-tier nav ───────────────────────────────────
 const VIEW_LABELS = {
   dashboard: 'Dashboard', users: 'All Users', tickets: 'Support Tickets',
-  catalog: 'Assistant Catalog', analytics: 'Analytics', 'model-config': 'AI Model Config',
+  catalog: 'Assistant Catalog', 'assistant-features': 'Assistant Features', analytics: 'Analytics', 'model-config': 'AI Model Config',
   logs: 'System Logs', 'audit-log': 'Audit Log', 'security-abuse': 'Security & Abuse', cogs: 'COGS Dashboard',
   reconciliation: 'Stripe Reconciliation', dunning: 'Dunning Queue',
   'manage-admins': 'Admin Accounts', 'kill-switches': 'Emergency Controls',
@@ -1810,6 +1818,7 @@ const ADMIN_CATS = {
   ]},
   assistants: { label: 'Assistants', roles: ['admin','super_admin','platform_admin'], children: [
     { view: 'catalog',              icon: '🤖', label: 'Assistant Catalog' },
+    { view: 'assistant-features',   icon: '🎚️', label: 'Assistant Features' },
     { view: 'model-config',         icon: '⚙️', label: 'AI Model Config' },
     { view: 'blueprint-inspector',  icon: '🔬', label: 'Blueprint Inspector' },
   ]},
@@ -2022,6 +2031,7 @@ function adminNav(view) {
   if (view === 'users')        loadUsers();
   if (view === 'tickets')      loadTickets();
   if (view === 'catalog')      loadCatalog();
+  if (view === 'assistant-features') loadAssistantFeatures();
   if (view === 'analytics')    { loadAnalytics(); loadChurnSignals(); }
   if (view === 'model-config') loadModelConfig();
   if (view === 'logs')         loadLogs();
@@ -3801,6 +3811,59 @@ async function toggleCatalogStatus(id, currentlyComingSoon) {
     if (d.notifiedCount) alert(`✅ Role launched! ${d.notifiedCount} users notified.`);
     loadCatalog();
   } catch(e) { alert(e.message); }
+}
+
+// ── Assistant Features — per-type capability matrix ────────────────────────────
+async function loadAssistantFeatures() {
+  const el = document.getElementById('assistant-features-grid');
+  el.innerHTML = '<div class="px-5 py-8 text-center text-gray-400 animate-pulse">Loading…</div>';
+  try {
+    const d = await api('/.netlify/functions/admin-api?resource=assistant-features');
+    const features = d.features || [];
+    const assistants = d.assistants || [];
+
+    const head = `<th class="px-5 py-3 text-left">Assistant Type</th>` +
+      features.map(f => `<th class="px-4 py-3 text-center" title="${escapeHtmlJs(f.description)}">${escapeHtmlJs(f.label)}</th>`).join('');
+
+    const rows = assistants.map(a => {
+      const cells = features.map(f => {
+        const on = !!(a.features && a.features[f.key]);
+        return `<td class="px-4 py-3 text-center">
+          <input type="checkbox" ${on ? 'checked' : ''}
+            onchange="toggleAssistantFeature(${a.id}, '${f.key}', this.checked, this)"
+            class="w-4 h-4 accent-emerald-600 cursor-pointer">
+        </td>`;
+      }).join('');
+      return `<tr class="border-t border-gray-50 hover:bg-gray-50 transition">
+        <td class="px-5 py-3">
+          <div class="font-medium">${escapeHtmlJs(a.name)}</div>
+          <div class="text-xs text-gray-400">${escapeHtmlJs(a.roleKey || '')}</div>
+        </td>${cells}
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `<table class="w-full text-sm">
+      <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase"><tr>${head}</tr></thead>
+      <tbody>${rows || `<tr><td class="px-5 py-8 text-center text-gray-400" colspan="${features.length + 1}">No assistant types found.</td></tr>`}</tbody>
+    </table>`;
+  } catch(e) {
+    el.innerHTML = `<div class="px-5 py-5 text-red-500 text-sm">${escapeHtmlJs(e.message)}</div>`;
+  }
+}
+
+async function toggleAssistantFeature(masterAssistantId, featureKey, enabled, input) {
+  if (input) input.disabled = true;
+  try {
+    await api(`/.netlify/functions/admin-api?resource=assistant-features&id=${masterAssistantId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ featureKey, enabled }),
+    });
+  } catch(e) {
+    alert(e.message);
+    if (input) input.checked = !enabled; // revert optimistic toggle on failure
+  } finally {
+    if (input) input.disabled = false;
+  }
 }
 
 // ── System Logs ───────────────────────────────────────────────────────────────

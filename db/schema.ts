@@ -672,6 +672,23 @@ export const masterAssistants = pgTable("master_assistants", {
   check("master_assistants_lifecycle_check", sql`${t.lifecycleState} IN ('draft', 'review', 'beta', 'live', 'deprecated', 'archived')`),
 ]);
 
+// Per-assistant feature capabilities — admin-managed, keyed by assistant TYPE.
+// One row per (master_assistant, feature_key); absent row = disabled. Feature keys are the
+// canonical list in src/config/assistant-features.ts. Gates user-facing capabilities
+// (e.g. AI image/video generation) via src/utils/assistant-capabilities.ts.
+// DDL + SMM seed: db/assistant-features.sql (apply manually — no db:push).
+export const assistantFeatures = pgTable("assistant_features", {
+  id: serial().primaryKey(),
+  masterAssistantId: integer("master_assistant_id").notNull().references(() => masterAssistants.id, { onDelete: "cascade" }),
+  featureKey: text("feature_key").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  unique("assistant_features_master_feature_key").on(t.masterAssistantId, t.featureKey),
+]);
+
 // US-ADM-4.1.1: Immutable version history for master assistant prompts/config
 export const assistantVersions = pgTable("assistant_versions", {
   id: serial().primaryKey(),

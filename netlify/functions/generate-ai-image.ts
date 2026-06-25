@@ -17,7 +17,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getDb } from '../../db/client';
 import { contentAssets, mediaGenerationJobs } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
-import { hasActiveAssistant, NO_ACTIVE_ASSISTANT_RESPONSE } from '../../src/utils/active-assistant';
+import { orgHasAssistantFeature, featureUnavailableResponse } from '../../src/utils/assistant-capabilities';
 import { enforcePromptModeration } from '../../src/utils/moderation';
 import {
     generateImages, falConfigured, ASPECT_RATIOS,
@@ -84,9 +84,11 @@ export const handler: Handler = async (event) => {
         return { statusCode: 400, body: JSON.stringify({ error: `aspectRatio must be one of: ${ASPECT_RATIOS.join(', ')}` }) };
     }
 
-    // Gate: an assistant must exist to action the generated media (mirrors the Review Queue's
-    // "you need an active assistant to generate posts" rule). Checked before spending anything.
-    if (!await hasActiveAssistant(orgId)) return NO_ACTIVE_ASSISTANT_RESPONSE;
+    // Gate: the org must have an active assistant whose TYPE has AI image generation enabled
+    // (admin-managed per-type capability). Checked before spending anything.
+    if (!await orgHasAssistantFeature(db, orgId, 'ai_image_generation')) {
+        return featureUnavailableResponse('None of your assistants can generate AI images.');
+    }
 
     // AC: prompt safety — our own moderation gate BEFORE spending anything (no credit touched).
     const blocked = await enforcePromptModeration({ text: prompt, userId, organisationId: orgId, source: 'generate-ai-image' });
