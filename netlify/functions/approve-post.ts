@@ -15,6 +15,7 @@ import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
 import { aiAssistants, auditLogs, scheduledPosts } from '../../db/schema';
 import { recordPostedAssets } from '../../src/utils/pexels';
+import { resolvePostImage } from '../../src/utils/social-publish';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
@@ -93,6 +94,15 @@ export const handler: Handler = async (event) => {
             statusCode: 409,
             body: JSON.stringify({ error: `Post is already in '${post.status}' state and cannot be approved.` }),
         };
+    }
+
+    // Instagram cannot publish a text-only post — an image is mandatory. Enforce server-side so a draft
+    // can't be approved/scheduled/published for Instagram without one (the client guards this too).
+    if (post.platform === 'instagram') {
+        const image = await resolvePostImage(db, post.contentAssetIds).catch(() => null);
+        if (!image) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'Instagram requires an image. Add one to this post before approving.' }) };
+        }
     }
 
     const scheduledFor = new Date(post.publishDate);

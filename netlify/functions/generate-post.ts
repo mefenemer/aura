@@ -9,6 +9,7 @@ import { getDb } from '../../db/client';
 import { aiBlueprints, aiAssistants, contentGenerationJobs, notifications } from '../../db/schema';
 import { enforcePromptModeration } from '../../src/utils/moderation';
 import { requireTenant } from '../../src/utils/tenant';
+import { assembleBlueprint } from '../../src/utils/blueprint';
 
 export const handler: Handler = async (event) => {
     const db = getDb();
@@ -95,7 +96,21 @@ export const handler: Handler = async (event) => {
         .orderBy(desc(aiBlueprints.compiledAt))
         .limit(1);
 
-    const [bp] = await bpQuery;
+    let [bp] = await bpQuery;
+
+    // Self-serve assistants are never compiled by the admin Blueprint tool, so on their first
+    // on-demand generation no blueprint exists yet. Compile one now from the assistant's current
+    // data instead of hard-failing — this is what previously surfaced as a 404 "Blueprint not found".
+    // (An explicit blueprintId that can't be resolved is still an error — don't paper over that.)
+    if (!bp && !blueprintId) {
+        try {
+            const result = await assembleBlueprint(assistantId, String(userId), 'auto-on-demand');
+            bp = { id: result.blueprint.id, missingFields: result.blueprint.missingFields };
+        } catch (err) {
+            console.error('[generate-post] auto-compile blueprint failed', err);
+            return { statusCode: 500, body: JSON.stringify({ error: 'Could not prepare your assistant for generation. Please try again shortly.' }) };
+        }
+    }
 
     if (!bp) return { statusCode: 404, body: JSON.stringify({ error: 'Blueprint not found.' }) };
 

@@ -13,8 +13,8 @@ import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, userOrganisations, organisations, scheduledPosts } from '../../db/schema';
 import {
-    searchUniqueImages, attachPexelsImageToPost, creditLine,
-    PexelsRateLimitError, PEXELS_RATE_LIMIT_MESSAGE, type PexelsCandidate,
+    searchUniqueImages, searchUniqueVideos, attachPexelsImageToPost, creditLine,
+    PexelsRateLimitError, PEXELS_RATE_LIMIT_MESSAGE, type PexelsCandidate, type PexelsVideoCandidate,
 } from '../../src/utils/pexels';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -47,8 +47,10 @@ export const handler: Handler = async (event) => {
     if (!user) return { statusCode: 403, body: JSON.stringify({ error: 'User not found.' }) };
     const orgId = user.organisationId;
 
-    let body: { action?: string; topic?: string; postId?: number; candidate?: PexelsCandidate };
+    let body: { action?: string; topic?: string; postId?: number; candidate?: PexelsCandidate | PexelsVideoCandidate; mediaType?: string };
     try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
+
+    const mediaType: 'image' | 'video' = body.mediaType === 'video' ? 'video' : 'image';
 
     try {
         // ── SELECT: attach a chosen candidate to the post draft ───────────────
@@ -66,7 +68,7 @@ export const handler: Handler = async (event) => {
                 .limit(1);
             if (!post) return { statusCode: 404, body: JSON.stringify({ error: 'Post not found.' }) };
 
-            const assetId = await attachPexelsImageToPost(db, { postId, userId, orgId, candidate });
+            const assetId = await attachPexelsImageToPost(db, { postId, userId, orgId, candidate, assetType: mediaType });
 
             // US3 AC3.3: append the credit line to the draft only when the org opts in.
             let attributionAppended = false;
@@ -100,8 +102,10 @@ export const handler: Handler = async (event) => {
         }
         if (!context) return { statusCode: 400, body: JSON.stringify({ error: 'A topic or postId with content is required.' }) };
 
-        const { keywords, candidates } = await searchUniqueImages(db, orgId, context);
-        return { statusCode: 200, body: JSON.stringify({ keywords, candidates }) };
+        const { keywords, candidates } = mediaType === 'video'
+            ? await searchUniqueVideos(db, orgId, context)
+            : await searchUniqueImages(db, orgId, context);
+        return { statusCode: 200, body: JSON.stringify({ keywords, candidates, mediaType }) };
 
     } catch (err) {
         if (err instanceof PexelsRateLimitError) {

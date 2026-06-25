@@ -355,13 +355,15 @@ async function submitTosAcceptance(btn) {
         <p class="text-xs text-gray-400 mt-1">Your assistant will weave this into an upcoming scheduled draft — it won't be posted automatically.</p>
       </div>
       <div class="mb-4">
-        <label class="block text-xs font-semibold text-gray-700 mb-1.5">Suggested platform <span class="font-normal text-gray-400">(optional)</span></label>
+        <label class="block text-xs font-semibold text-gray-700 mb-1.5">Platforms</label>
         <div id="gpi-platforms" class="flex flex-wrap gap-2">
-          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="instagram" onclick="gpiSelectPlatform(this)">Instagram</button>
-          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="facebook" onclick="gpiSelectPlatform(this)">Facebook</button>
-          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="linkedin" onclick="gpiSelectPlatform(this)">LinkedIn</button>
-          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="x" onclick="gpiSelectPlatform(this)">X</button>
+          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="all" onclick="gpiTogglePlatform(this)">All platforms</button>
+          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="instagram" onclick="gpiTogglePlatform(this)">Instagram</button>
+          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="facebook" onclick="gpiTogglePlatform(this)">Facebook</button>
+          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="linkedin" onclick="gpiTogglePlatform(this)">LinkedIn</button>
+          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="x" onclick="gpiTogglePlatform(this)">X</button>
         </div>
+        <p class="text-xs text-gray-400 mt-1">Pick one or more — leave “All platforms” selected to use it everywhere.</p>
       </div>
       <div id="gpi-status" class="hidden mb-4 text-sm rounded-xl p-3 bg-emerald-50 text-emerald-800 border border-emerald-200"></div>
       <div class="flex gap-2">
@@ -405,28 +407,42 @@ async function submitTosAcceptance(btn) {
       <p id="gen-post-preview-hashtags" class="text-violet-700 text-xs"></p>
       <p id="gen-post-preview-media" class="text-gray-500 text-xs mt-1 italic"></p>
     </div>
-    <!-- Media for the AI draft: your assistant attaches a stock photo automatically; the user can
-         swap it for an AI-generated image or pick a different Pexels photo. Shown after generation. -->
+    <!-- Media for the AI draft. Shown after generation. The user picks a media TYPE (image or video)
+         and a SOURCE: use their own (My Content), let AI find stock (Pexels), or have AI generate it. -->
     <div id="gp-ai-media" class="hidden mb-4">
-      <div class="flex items-center justify-between mb-1.5">
-        <p class="text-xs font-semibold text-gray-700">Post image <span class="font-normal text-gray-400">(optional)</span></p>
-        <div id="gp-ai-media-actions" class="flex gap-1.5">
-          <button type="button" onclick="gpAiGenerateImage()" class="px-2.5 py-1 text-xs font-semibold border border-violet-300 text-violet-700 hover:bg-violet-50 rounded-lg transition cursor-pointer flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-            Generate with AI
-          </button>
-          <button type="button" onclick="gpAiFindPexels()" class="px-2.5 py-1 text-xs font-semibold border border-sky-300 text-sky-700 hover:bg-sky-50 rounded-lg transition cursor-pointer flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            Find a photo
-          </button>
-        </div>
+      <p class="text-xs font-semibold text-gray-700 mb-1.5">Post media <span class="font-normal text-gray-400">(optional)</span></p>
+      <!-- Media type toggle -->
+      <div class="inline-flex p-0.5 bg-gray-100 rounded-lg mb-2">
+        <button type="button" id="gp-ai-type-image" onclick="gpAiSetMediaType('image')" class="px-3 py-1 text-xs font-semibold rounded-md transition cursor-pointer bg-white text-gray-900 shadow-sm">Image</button>
+        <button type="button" id="gp-ai-type-video" onclick="gpAiSetMediaType('video')" class="px-3 py-1 text-xs font-semibold rounded-md transition cursor-pointer text-gray-500 hover:text-gray-700">Video</button>
+      </div>
+      <!-- Source actions -->
+      <div id="gp-ai-media-actions" class="flex flex-wrap gap-1.5">
+        <button type="button" onclick="gpAiUseOwn()" class="px-2.5 py-1 text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span id="gp-ai-own-label">Use my own</span>
+        </button>
+        <button type="button" onclick="gpAiFind()" class="px-2.5 py-1 text-xs font-semibold border border-sky-300 text-sky-700 hover:bg-sky-50 rounded-lg transition cursor-pointer flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <span id="gp-ai-find-label">Find a photo</span>
+        </button>
+        <button type="button" onclick="gpAiGenerate()" class="px-2.5 py-1 text-xs font-semibold border border-violet-300 text-violet-700 hover:bg-violet-50 rounded-lg transition cursor-pointer flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+          <span id="gp-ai-gen-label">Generate with AI</span>
+        </button>
       </div>
       <p id="gp-ai-media-status" class="hidden text-xs"></p>
-      <!-- Pexels candidate grid (shown after "Find a photo") -->
+      <!-- My Content picker (shown after "Use my own") -->
+      <div id="gp-ai-own" class="hidden mt-2 border border-gray-200 rounded-xl p-2 max-h-48 overflow-y-auto">
+        <div id="gp-ai-own-grid" class="grid grid-cols-3 gap-2"></div>
+        <p id="gp-ai-own-empty" class="hidden text-xs text-gray-400 text-center py-4">No matching media in My Content yet.</p>
+      </div>
+      <!-- Stock candidate grid (shown after "Find with AI") -->
       <div id="gp-ai-pexels" class="hidden mt-2 grid grid-cols-3 gap-2"></div>
-      <!-- Currently-attached image -->
+      <!-- Currently-attached media -->
       <div id="gp-ai-media-thumb" class="hidden mt-2">
-        <img id="gp-ai-media-thumb-img" src="" alt="Attached post image" class="w-full max-h-48 object-contain rounded-lg border border-gray-200 bg-gray-50">
+        <img id="gp-ai-media-thumb-img" src="" alt="Attached post media" class="w-full max-h-48 object-contain rounded-lg border border-gray-200 bg-gray-50">
+        <video id="gp-ai-media-thumb-video" controls playsinline class="hidden w-full max-h-48 rounded-lg border border-gray-200 bg-black"></video>
       </div>
     </div>
     <!-- Actions -->
@@ -4032,7 +4048,8 @@ let _gpSelectedPlatform = 'instagram';
 let _gpCap = null;                 // cached capacity (connected platforms + AI task limit)
 let _gpwSelectedPlatforms = [];    // write-your-own: multi-select
 let _gpwSelectedAssets = [];       // write-your-own: chosen My Content asset ids
-let _gpiSelectedPlatform = null;   // suggest-an-idea: optional single platform
+let _gpiSelectedPlatforms = [];    // suggest-an-idea: multi-select ([] === all platforms)
+let _gpHasMedia = false;           // work-with-AI: whether the current draft has an image attached
 
 // Opens the sheet on the mode chooser. The AI task-limit gate is enforced only when the user
 // actually picks the "Work with AI" mode (gpChooseMode) — writing your own post or suggesting an
@@ -4080,6 +4097,8 @@ function gpBackToChooser() {
     if (aiBtn) { aiBtn.disabled = false; aiBtn.textContent = 'Generate'; }
     // Reset the AI media controls.
     _gpAiMediaPrompt = '';
+    _gpHasMedia = false;
+    _gpAiMediaType = 'image';
     document.getElementById('gp-ai-media')?.classList.add('hidden');
     document.getElementById('gp-ai-pexels')?.classList.add('hidden');
     document.getElementById('gp-ai-media-thumb')?.classList.add('hidden');
@@ -4096,11 +4115,11 @@ function gpBackToChooser() {
     const wBtn = document.getElementById('gpw-submit-btn');
     if (wBtn) { wBtn.disabled = false; wBtn.textContent = 'Add to Review Queue'; }
 
-    // Reset suggest-an-idea.
-    _gpiSelectedPlatform = null;
+    // Reset suggest-an-idea (default selection = All platforms).
+    _gpiSelectedPlatforms = [];
     const idea = document.getElementById('gpi-idea'); if (idea) idea.value = '';
     const ideaCount = document.getElementById('gpi-idea-count'); if (ideaCount) ideaCount.textContent = '0';
-    document.querySelectorAll('.gpi-platform-btn').forEach(b => gpwSetChipState(b, false));
+    gpiSyncPlatformChips();
     gpSetPanelStatus('gpi-status', '');
     const iBtn = document.getElementById('gpi-submit-btn');
     if (iBtn) { iBtn.disabled = false; iBtn.textContent = 'Submit Idea'; }
@@ -4304,8 +4323,10 @@ async function gpLoadPreview(postId) {
         gpAiMediaStatus('');
         gpAiMediaBusy(false);
         document.getElementById('gp-ai-pexels')?.classList.add('hidden');
+        document.getElementById('gp-ai-own')?.classList.add('hidden');
         document.getElementById('gp-ai-media-thumb')?.classList.add('hidden');
-        gpAiShowThumb(draft.thumbnailUrl);   // reveals the thumb only if a URL is present
+        gpAiSetMediaType('image');           // default the type toggle back to Image each open
+        gpAiShowThumb(draft.thumbnailUrl);   // reveals the thumb only if a URL is present (type inferred)
         document.getElementById('gp-ai-media')?.classList.remove('hidden');
 
         // Show conflict notice if LLM detected a context prompt vs strict rule conflict
@@ -4317,8 +4338,21 @@ async function gpLoadPreview(postId) {
     } catch { gpSetStatus('Post generated but preview failed to load. Check Social Drafts tab.'); }
 }
 
+// Image rules before publishing/scheduling a Work-with-AI draft: Instagram cannot publish without an
+// image (hard block); other platforms can post text-only but an image is strongly recommended, so
+// prompt before continuing without one. Returns true when it's OK to proceed.
+function gpEnsureMediaBeforeApproval() {
+    if (_gpHasMedia) return true;
+    if (_gpSelectedPlatform === 'instagram') {
+        gpSetStatus('Instagram requires an image or video. Use the media options above to attach one before posting.', 'error');
+        return false;
+    }
+    return window.confirm("You haven't added any media. Posts with images or video perform better — post without one?");
+}
+
 async function gpApprovePost() {
     if (!_gpCurrentPostId) return;
+    if (!gpEnsureMediaBeforeApproval()) return;
     await sdApprove(_gpCurrentPostId, 'publish_now');
     gpSetStatus('Post approved and queued to publish now.');
     document.getElementById('gen-post-approve-actions')?.classList.add('hidden');
@@ -4328,6 +4362,7 @@ async function gpApprovePost() {
 
 function gpSchedulePost() {
     if (!_gpCurrentPostId) return;
+    if (!gpEnsureMediaBeforeApproval()) return;
     // Show date/time picker — set minimum to 5 minutes from now
     const picker = document.getElementById('gen-post-schedule-input');
     if (picker) {
@@ -4492,6 +4527,24 @@ async function gpwSubmit() {
     if (!_gpwSelectedPlatforms.length) { gpSetPanelStatus('gpw-status', 'Pick at least one platform.', 'error'); return; }
     if (!caption) { gpSetPanelStatus('gpw-status', 'Write your post text first.', 'error'); return; }
 
+    // Image rules: Instagram cannot publish without an image (hard block); other platforms can post
+    // text-only but an image is strongly recommended, so prompt before continuing without one.
+    if (!_gpwSelectedAssets.length) {
+        const openMediaPicker = () => {
+            const picker = document.getElementById('gpw-media-picker');
+            if (picker?.classList.contains('hidden')) gpwToggleMediaPicker();
+        };
+        if (_gpwSelectedPlatforms.includes('instagram')) {
+            gpSetPanelStatus('gpw-status', 'Instagram requires an image. Add one from My Content before adding to the queue.', 'error');
+            openMediaPicker();
+            return;
+        }
+        if (!window.confirm("You haven't added an image. Posts with images perform better — add to the queue without one?")) {
+            openMediaPicker();
+            return;
+        }
+    }
+
     const btn = document.getElementById('gpw-submit-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
     gpSetPanelStatus('gpw-status', 'Adding to your Review Queue…');
@@ -4526,12 +4579,27 @@ async function gpwSubmit() {
 }
 
 // ── Mode 2: Suggest an idea ─────────────────────────────────────────────────────────────────────
-function gpiSelectPlatform(btn) {
+// Multi-select platforms: the user can pick one, some, or all. The "All platforms" chip clears any
+// individual picks; an empty selection ([]) means all. Picking every individual platform collapses
+// back to "all" on submit.
+const _GPI_PLATFORMS = ['instagram', 'facebook', 'linkedin', 'x'];
+
+function gpiTogglePlatform(btn) {
     const p = btn.dataset.platform;
-    if (_gpiSelectedPlatform === p) { _gpiSelectedPlatform = null; gpwSetChipState(btn, false); return; }
-    document.querySelectorAll('.gpi-platform-btn').forEach(b => gpwSetChipState(b, false));
-    _gpiSelectedPlatform = p;
-    gpwSetChipState(btn, true);
+    if (p === 'all') { _gpiSelectedPlatforms = []; gpiSyncPlatformChips(); return; }
+    const i = _gpiSelectedPlatforms.indexOf(p);
+    if (i >= 0) _gpiSelectedPlatforms.splice(i, 1);
+    else _gpiSelectedPlatforms.push(p);
+    gpiSyncPlatformChips();
+}
+
+// Reflect _gpiSelectedPlatforms onto the chips. Empty selection lights up "All platforms".
+function gpiSyncPlatformChips() {
+    const all = _gpiSelectedPlatforms.length === 0;
+    document.querySelectorAll('.gpi-platform-btn').forEach(b => {
+        const p = b.dataset.platform;
+        gpwSetChipState(b, p === 'all' ? all : (!all && _gpiSelectedPlatforms.includes(p)));
+    });
 }
 
 async function gpiSubmit() {
@@ -4548,7 +4616,10 @@ async function gpiSubmit() {
             body: JSON.stringify({
                 assistantId: _gpCurrentAssistantId,
                 idea,
-                platform: _gpiSelectedPlatform || undefined,
+                // [] or all four === every platform; the server treats an empty/complete list as "all".
+                platforms: (_gpiSelectedPlatforms.length && _gpiSelectedPlatforms.length < _GPI_PLATFORMS.length)
+                    ? _gpiSelectedPlatforms
+                    : undefined,
             }),
         });
         const d = await res.json().catch(() => ({}));
@@ -4567,6 +4638,7 @@ async function gpiSubmit() {
 
 // ── Mode 3 media: replace the AI draft's image with a fresh AI render or a Pexels photo ──────────
 let _gpAiMediaPrompt = '';
+let _gpAiMediaType = 'image';      // work-with-AI: 'image' | 'video' — the chosen media type
 
 function gpAiMediaStatus(msg, type) {
     const el = document.getElementById('gp-ai-media-status');
@@ -4585,17 +4657,176 @@ function gpAiMediaBusy(busy) {
     });
 }
 
-function gpAiShowThumb(url) {
+// Switch the media type (image ⇄ video). Updates the toggle styling + button labels and collapses
+// any open picker/grid, since candidates from the previous type no longer apply.
+function gpAiSetMediaType(type) {
+    _gpAiMediaType = (type === 'video') ? 'video' : 'image';
+    const on = 'px-3 py-1 text-xs font-semibold rounded-md transition cursor-pointer bg-white text-gray-900 shadow-sm';
+    const off = 'px-3 py-1 text-xs font-semibold rounded-md transition cursor-pointer text-gray-500 hover:text-gray-700';
+    const imgBtn = document.getElementById('gp-ai-type-image');
+    const vidBtn = document.getElementById('gp-ai-type-video');
+    if (imgBtn) imgBtn.className = _gpAiMediaType === 'image' ? on : off;
+    if (vidBtn) vidBtn.className = _gpAiMediaType === 'video' ? on : off;
+    const findLabel = document.getElementById('gp-ai-find-label');
+    if (findLabel) findLabel.textContent = _gpAiMediaType === 'video' ? 'Find a video' : 'Find a photo';
+    document.getElementById('gp-ai-own')?.classList.add('hidden');
+    document.getElementById('gp-ai-pexels')?.classList.add('hidden');
+    gpAiMediaStatus('');
+}
+
+// Reveal the currently-attached media. type is 'image'|'video'; if omitted we infer from the URL.
+function gpAiShowThumb(url, type) {
     const wrap = document.getElementById('gp-ai-media-thumb');
     const img = document.getElementById('gp-ai-media-thumb-img');
-    if (url && img) img.src = url;
-    if (url) wrap?.classList.remove('hidden');
+    const vid = document.getElementById('gp-ai-media-thumb-video');
+    const isVideo = type ? type === 'video' : /\.mp4(\?|$)/i.test(url || '');
+    if (url) {
+        if (isVideo) {
+            if (vid) { vid.src = url; vid.classList.remove('hidden'); }
+            img?.classList.add('hidden');
+        } else {
+            if (img) { img.src = url; img.classList.remove('hidden'); }
+            vid?.classList.add('hidden');
+        }
+        wrap?.classList.remove('hidden');
+    }
+    _gpHasMedia = !!url;
     document.getElementById('gp-ai-pexels')?.classList.add('hidden');
+    document.getElementById('gp-ai-own')?.classList.add('hidden');
     gpAiMediaBusy(false);
 }
 
-async function gpAiGenerateImage() {
+// ── Source: Use my own (My Content) ─────────────────────────────────────────
+async function gpAiUseOwn() {
     if (!_gpCurrentPostId) return;
+    const panel = document.getElementById('gp-ai-own');
+    const grid = document.getElementById('gp-ai-own-grid');
+    const empty = document.getElementById('gp-ai-own-empty');
+    if (!panel || !grid) return;
+    document.getElementById('gp-ai-pexels')?.classList.add('hidden');
+    panel.classList.remove('hidden');
+    empty?.classList.add('hidden');
+    grid.innerHTML = '<p class="col-span-3 text-xs text-gray-400 text-center py-4">Loading your media…</p>';
+    gpAiMediaStatus('');
+    try {
+        const res = await fetch('/.netlify/functions/content-assets');
+        const data = res.ok ? await res.json() : { assets: {} };
+        const all = Object.values(data.assets || {}).flat();
+        const items = all.filter(a => a.assetType === _gpAiMediaType && !a.purgedAt);
+        grid.innerHTML = '';
+        if (!items.length) { empty?.classList.remove('hidden'); return; }
+        items.forEach(a => {
+            const thumb = a.storageUrl || a.externalUrl || '';
+            const cell = document.createElement('button');
+            cell.type = 'button';
+            cell.className = 'relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-400 transition cursor-pointer bg-gray-100';
+            cell.title = a.name || '';
+            cell.onclick = () => gpAiSelectOwn(a.id);
+            cell.innerHTML = (a.assetType === 'video')
+                ? `<video src="${thumb}" muted playsinline preload="metadata" class="w-full h-full object-cover"></video><span class="absolute inset-0 flex items-center justify-center text-white/90"><svg class="w-6 h-6 drop-shadow" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.8A1 1 0 005 3.7v12.6a1 1 0 001.5.9l9.5-6.3a1 1 0 000-1.8L6.3 2.8z"/></svg></span>`
+                : `<img src="${thumb}" alt="${(a.name || '').replace(/"/g, '&quot;')}" class="w-full h-full object-cover" loading="lazy">`;
+            grid.appendChild(cell);
+        });
+    } catch {
+        grid.innerHTML = '<p class="col-span-3 text-xs text-red-500 text-center py-4">Could not load your media.</p>';
+    }
+}
+
+async function gpAiSelectOwn(assetId) {
+    if (!_gpCurrentPostId) return;
+    gpAiMediaStatus('Attaching media…');
+    try {
+        const res = await fetch('/.netlify/functions/attach-draft-media', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: _gpCurrentPostId, assetId }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { gpAiMediaStatus(d.error || 'Could not attach that media.', 'error'); return; }
+        gpAiShowThumb(d.thumbnailUrl, d.assetType);
+        gpAiMediaStatus('Media attached to this post.');
+    } catch {
+        gpAiMediaStatus('Network error — please try again.', 'error');
+    }
+}
+
+// ── Source: Find with AI (Pexels stock, image or video) ─────────────────────
+async function gpAiFind() {
+    if (!_gpCurrentPostId) return;
+    const noun = _gpAiMediaType === 'video' ? 'video' : 'photo';
+    gpAiMediaBusy(true);
+    document.getElementById('gp-ai-own')?.classList.add('hidden');
+    gpAiMediaStatus(`Searching for a ${noun}…`);
+    try {
+        const res = await fetch('/.netlify/functions/pexels-search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: _gpCurrentPostId, mediaType: _gpAiMediaType }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (res.status === 429) { gpAiMediaStatus(d.error || 'Stock search is resting — try again shortly.', 'error'); gpAiMediaBusy(false); return; }
+        if (!res.ok) { gpAiMediaStatus(d.error || `Could not search for a ${noun}.`, 'error'); gpAiMediaBusy(false); return; }
+        const candidates = d.candidates || [];
+        if (!candidates.length) { gpAiMediaStatus(`No fresh ${noun}s found for this topic — try generating one instead.`, 'error'); gpAiMediaBusy(false); return; }
+        gpAiRenderPexels(candidates);
+        gpAiMediaStatus(`Pick a ${noun} to attach it to your post.`);
+        gpAiMediaBusy(false);
+    } catch {
+        gpAiMediaStatus('Network error — please try again.', 'error');
+        gpAiMediaBusy(false);
+    }
+}
+
+function gpAiRenderPexels(candidates) {
+    const grid = document.getElementById('gp-ai-pexels');
+    if (!grid) return;
+    const isVideo = _gpAiMediaType === 'video';
+    grid.innerHTML = '';
+    candidates.forEach(c => {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-sky-400 transition cursor-pointer bg-gray-100';
+        cell.title = c.photographer ? `By ${c.photographer} on Pexels` : 'Pexels';
+        cell.onclick = () => gpAiSelectPexels(c);
+        cell.innerHTML = isVideo
+            ? `<video src="${c.url}" muted playsinline preload="metadata" class="w-full h-full object-cover"></video><span class="absolute inset-0 flex items-center justify-center text-white/90"><svg class="w-6 h-6 drop-shadow" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.8A1 1 0 005 3.7v12.6a1 1 0 001.5.9l9.5-6.3a1 1 0 000-1.8L6.3 2.8z"/></svg></span>`
+            : `<img src="${c.url}" alt="${(c.title || '').replace(/"/g, '&quot;')}" class="w-full h-full object-cover" loading="lazy">`;
+        grid.appendChild(cell);
+    });
+    grid.classList.remove('hidden');
+}
+
+async function gpAiSelectPexels(candidate) {
+    if (!_gpCurrentPostId) return;
+    const noun = _gpAiMediaType === 'video' ? 'video' : 'photo';
+    const Noun = noun[0].toUpperCase() + noun.slice(1);
+    gpAiMediaStatus(`Attaching ${noun}…`);
+    try {
+        const res = await fetch('/.netlify/functions/pexels-search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'select', postId: _gpCurrentPostId, candidate, mediaType: _gpAiMediaType }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { gpAiMediaStatus(d.error || `Could not attach the ${noun}.`, 'error'); return; }
+        gpAiShowThumb(candidate.url, _gpAiMediaType);
+        // pexels-search appends the credit line server-side when the org opts in — mirror it in the preview.
+        if (d.attributionAppended && candidate.photographer) {
+            const cap = document.getElementById('gen-post-preview-caption');
+            if (cap) cap.textContent = `${cap.textContent || ''}\n\nPhoto by ${candidate.photographer} on Pexels`;
+        }
+        gpAiMediaStatus(d.attributionAppended ? `${Noun} attached — a credit line was added to your caption.` : `${Noun} attached to this post.`);
+    } catch {
+        gpAiMediaStatus('Network error — please try again.', 'error');
+    }
+}
+
+// ── Source: Generate with AI (Fal — image now, video async) ─────────────────
+async function gpAiGenerate() {
+    if (!_gpCurrentPostId) return;
+    document.getElementById('gp-ai-own')?.classList.add('hidden');
+    document.getElementById('gp-ai-pexels')?.classList.add('hidden');
+    if (_gpAiMediaType === 'video') return gpAiGenerateVideo();
     gpAiMediaBusy(true);
     gpAiMediaStatus('Generating an image… this usually takes ~20 seconds.');
     try {
@@ -4608,7 +4839,7 @@ async function gpAiGenerateImage() {
         if (res.status === 402) { gpAiMediaStatus("You're out of image credits — upgrade to generate more.", 'error'); gpAiMediaBusy(false); return; }
         if (res.status === 422) { gpAiMediaStatus(d.error || 'That description was flagged. Try different wording.', 'error'); gpAiMediaBusy(false); return; }
         if (!res.ok) { gpAiMediaStatus(d.error || 'Could not generate an image.', 'error'); gpAiMediaBusy(false); return; }
-        gpAiShowThumb(d.thumbnailUrl);
+        gpAiShowThumb(d.thumbnailUrl, 'image');
         gpAiMediaStatus('New AI image attached to this post.');
     } catch {
         gpAiMediaStatus('Network error — please try again.', 'error');
@@ -4616,67 +4847,58 @@ async function gpAiGenerateImage() {
     }
 }
 
-async function gpAiFindPexels() {
+async function gpAiGenerateVideo() {
     if (!_gpCurrentPostId) return;
     gpAiMediaBusy(true);
-    gpAiMediaStatus('Searching for a photo…');
+    gpAiMediaStatus('Starting your AI video… this can take a minute or two.');
     try {
-        const res = await fetch('/.netlify/functions/pexels-search', {
+        // Vertical 9:16, 5s — a sensible social default. Prompt comes from the media description.
+        const res = await fetch('/.netlify/functions/generate-ai-video', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ postId: _gpCurrentPostId }),
+            body: JSON.stringify({ prompt: _gpAiMediaPrompt || 'On-brand social media video', aspectRatio: '9:16', durationSeconds: 5 }),
         });
         const d = await res.json().catch(() => ({}));
-        if (res.status === 429) { gpAiMediaStatus(d.error || 'Image search is resting — try again shortly.', 'error'); gpAiMediaBusy(false); return; }
-        if (!res.ok) { gpAiMediaStatus(d.error || 'Could not search for a photo.', 'error'); gpAiMediaBusy(false); return; }
-        const candidates = d.candidates || [];
-        if (!candidates.length) { gpAiMediaStatus('No fresh photos found for this topic — try generating one instead.', 'error'); gpAiMediaBusy(false); return; }
-        gpAiRenderPexels(candidates);
-        gpAiMediaStatus('Pick a photo to attach it to your post.');
-        gpAiMediaBusy(false);
+        if (res.status === 403 && d.error === 'video_requires_upgrade') { gpAiMediaStatus(d.message || 'AI video is available on the Saver and Employee plans.', 'error'); gpAiMediaBusy(false); return; }
+        if (res.status === 402) { gpAiMediaStatus("You're out of video credits — upgrade to generate more.", 'error'); gpAiMediaBusy(false); return; }
+        if (res.status === 422) { gpAiMediaStatus(d.error || 'That description was flagged. Try different wording.', 'error'); gpAiMediaBusy(false); return; }
+        if (!res.ok || !d.jobId) { gpAiMediaStatus(d.error || d.message || 'Could not start video generation.', 'error'); gpAiMediaBusy(false); return; }
+        gpAiPollVideo(d.jobId);
     } catch {
         gpAiMediaStatus('Network error — please try again.', 'error');
         gpAiMediaBusy(false);
     }
 }
 
-function gpAiRenderPexels(candidates) {
-    const grid = document.getElementById('gp-ai-pexels');
-    if (!grid) return;
-    grid.innerHTML = '';
-    candidates.forEach(c => {
-        const cell = document.createElement('button');
-        cell.type = 'button';
-        cell.className = 'relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-sky-400 transition cursor-pointer bg-gray-100';
-        cell.title = c.photographer ? `Photo by ${c.photographer} on Pexels` : 'Pexels photo';
-        cell.onclick = () => gpAiSelectPexels(c);
-        cell.innerHTML = `<img src="${c.url}" alt="${(c.title || '').replace(/"/g, '&quot;')}" class="w-full h-full object-cover" loading="lazy">`;
-        grid.appendChild(cell);
-    });
-    grid.classList.remove('hidden');
-}
-
-async function gpAiSelectPexels(candidate) {
-    if (!_gpCurrentPostId) return;
-    gpAiMediaStatus('Attaching photo…');
-    try {
-        const res = await fetch('/.netlify/functions/pexels-search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'select', postId: _gpCurrentPostId, candidate }),
-        });
-        const d = await res.json().catch(() => ({}));
-        if (!res.ok) { gpAiMediaStatus(d.error || 'Could not attach the photo.', 'error'); return; }
-        gpAiShowThumb(candidate.url);
-        // pexels-search appends the credit line server-side when the org opts in — mirror it in the preview.
-        if (d.attributionAppended && candidate.photographer) {
-            const cap = document.getElementById('gen-post-preview-caption');
-            if (cap) cap.textContent = `${cap.textContent || ''}\n\nPhoto by ${candidate.photographer} on Pexels`;
+// Poll the async video job; on completion attach the resulting asset to the draft.
+function gpAiPollVideo(jobId) {
+    let tries = 0;
+    const poll = async () => {
+        tries++;
+        try {
+            const res = await fetch(`/.netlify/functions/generate-ai-video?jobId=${jobId}`);
+            const d = await res.json().catch(() => ({}));
+            if (d.status === 'completed' && d.assetId) {
+                const aRes = await fetch('/.netlify/functions/attach-draft-media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postId: _gpCurrentPostId, assetId: d.assetId }),
+                });
+                const aData = await aRes.json().catch(() => ({}));
+                if (!aRes.ok) { gpAiMediaStatus(aData.error || 'Video generated but could not be attached.', 'error'); gpAiMediaBusy(false); return; }
+                gpAiShowThumb(aData.thumbnailUrl || d.videoUrl, 'video');
+                gpAiMediaStatus('New AI video attached to this post.');
+                return;
+            }
+            if (d.status === 'failed') { gpAiMediaStatus(d.errorMessage || 'Video generation failed. Please try again.', 'error'); gpAiMediaBusy(false); return; }
+            if (tries > 60) { gpAiMediaStatus('Still working on your video — check the Social Drafts tab shortly.', 'error'); gpAiMediaBusy(false); return; }
+            setTimeout(poll, 4000);
+        } catch {
+            if (tries > 60) { gpAiMediaBusy(false); return; }
+            setTimeout(poll, 4000);
         }
-        gpAiMediaStatus(d.attributionAppended ? 'Photo attached — a credit line was added to your caption.' : 'Photo attached to this post.');
-    } catch {
-        gpAiMediaStatus('Network error — please try again.', 'error');
-    }
+    };
+    setTimeout(poll, 4000);
 }
 
 async function gpSubmitReject() {

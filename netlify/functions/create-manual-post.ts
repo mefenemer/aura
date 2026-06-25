@@ -51,6 +51,12 @@ export const handler: Handler = async (event) => {
     const invalid = platforms.filter(p => !VALID_PLATFORMS.includes(p));
     if (invalid.length) return { statusCode: 400, body: JSON.stringify({ error: `Unsupported platform: ${invalid.join(', ')}.` }) };
 
+    // Instagram cannot publish a text-only post — an image is mandatory. Other platforms may post
+    // without media (the client prompts but allows it). Enforce the Instagram rule server-side too.
+    if (platforms.includes('instagram') && contentAssetIds.length === 0) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'Instagram requires an image. Add one from My Content before adding to the queue.' }) };
+    }
+
     // Verify the assistant belongs to this org.
     const [asst] = await db
         .select({ id: aiAssistants.id })

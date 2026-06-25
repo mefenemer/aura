@@ -20,12 +20,22 @@ export const handler: Handler = async (event) => {
     if ('error' in ctx) return ctx.error;
     const { userId, organisationId } = ctx;
 
-    let body: { assistantId?: number; idea?: string; platform?: string };
+    let body: { assistantId?: number; idea?: string; platform?: string; platforms?: string[] };
     try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
 
     const { assistantId } = body;
     const idea = (body.idea || '').trim();
-    const platform = body.platform && VALID_PLATFORMS.includes(body.platform) ? body.platform : null;
+
+    // Platform targeting: accept a multi-select `platforms` array (new) or a single `platform`
+    // string (legacy). Stored as a comma-separated list in the `platform` column. An empty selection
+    // — or one covering every platform — is stored as null, meaning "all platforms".
+    const requested = Array.isArray(body.platforms)
+        ? body.platforms
+        : (body.platform ? [body.platform] : []);
+    const selected = [...new Set(requested.filter((p): p is string => VALID_PLATFORMS.includes(p)))];
+    const platform = (selected.length === 0 || selected.length === VALID_PLATFORMS.length)
+        ? null
+        : selected.join(',');
 
     if (!assistantId) return { statusCode: 400, body: JSON.stringify({ error: 'assistantId is required.' }) };
     if (!idea) return { statusCode: 400, body: JSON.stringify({ error: 'Please describe your post idea.' }) };

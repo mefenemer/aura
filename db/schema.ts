@@ -1341,7 +1341,7 @@ export const postIdeaSuggestions = pgTable("post_idea_suggestions", {
   assistantId: integer("assistant_id").notNull().references(() => aiAssistants.id, { onDelete: "cascade" }),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   idea: text("idea").notNull(),
-  platform: text("platform"),                       // optional hint: facebook|instagram|linkedin|x
+  platform: text("platform"),                       // target platforms, comma-separated (facebook|instagram|linkedin|x); null === all
   status: text("status").notNull().default("pending"), // 'pending' | 'used' | 'discarded'
   usedPostId: integer("used_post_id").references(() => scheduledPosts.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
