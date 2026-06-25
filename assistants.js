@@ -982,17 +982,29 @@ async function _renderKickOff(assistantId) {
     if (data.blocked) {
         const b = data.blocked;
         subEl.textContent = 'Action required before this assistant can start.';
-        listEl.innerHTML = '';
         const panel = document.getElementById('kickoff-summary');
         if (panel) {
-            panel.className = 'mb-5 p-4 rounded-xl bg-amber-50 border border-amber-200';
+            panel.className = 'mb-5 p-4 rounded-xl bg-red-50 border border-red-200';
             panel.innerHTML = `
-                <p class="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">⚠ ${b.title || 'Action required'}</p>
-                <p class="text-sm font-semibold text-amber-800 mb-3">${b.message || 'An action is needed before setup can finish.'}</p>
+                <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">⚠ ${b.title || 'Action required'}</p>
+                <p class="text-sm font-semibold text-red-800 mb-3">${b.message || 'An action is needed before setup can finish.'}</p>
                 <button type="button" id="btn-retry-prov" class="px-4 py-2 text-sm font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg shadow-sm transition cursor-pointer">${b.cta || 'Retry'} &amp; retry</button>`;
             const r = document.getElementById('btn-retry-prov');
             if (r) r.onclick = () => window.retryProvisioning?.(assistantId, r);
         }
+        // Render the checklist inline so the user sees exactly which gates failed — incomplete
+        // items as red rows (rather than the normal gray-cross/green-tick neutral flow).
+        const bItems = data.items || [];
+        const bTick = `<svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`;
+        const bCross = `<svg class="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-width="2.5" d="M9 9l6 6m0-6l-6 6"/></svg>`;
+        listEl.innerHTML = bItems.map(it => `
+            <li class="flex items-start gap-3">
+                ${it.done ? bTick : bCross}
+                <span class="min-w-0">
+                    <span class="block text-sm font-semibold ${it.done ? 'text-gray-800' : 'text-red-700'}">${it.label}${it.required ? '' : ' <span class="text-xs font-normal text-gray-400">(recommended)</span>'}</span>
+                    ${it.done ? '' : `<span class="block text-xs text-red-500 mt-0.5">${it.hint || ''}</span>`}
+                </span>
+            </li>`).join('') || '';
         btn.classList.add('hidden');
         hintEl.textContent = '';
         return;

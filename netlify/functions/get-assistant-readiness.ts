@@ -7,9 +7,12 @@
 import { Handler } from '@netlify/functions';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
-import { aiAssistants, systemConnections, contentRules } from '../../db/schema';
+import { aiAssistants, systemConnections, contentRules, tosAcceptances, dpaAcceptances, masterAssistants, riskAssessments } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 import { provisioningBlockInfo } from '../../src/utils/assistant-lifecycle';
+import { checkProhibitedUsePatterns } from '../../src/utils/tos-gate';
+import { CURRENT_TOS_VERSION } from './accept-tos';
+import { CURRENT_DPA_VERSION } from './accept-dpa';
 
 const json = (statusCode: number, body: unknown) => ({
     statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -36,12 +39,15 @@ export const handler: Handler = async (event) => {
                 id: aiAssistants.id,
                 name: aiAssistants.name,
                 role: aiAssistants.aiAssistantJobRole,
+                userId: aiAssistants.userId,
+                masterAssistantId: aiAssistants.masterAssistantId,
                 isActive: aiAssistants.isActive,
                 provisioningStatus: aiAssistants.provisioningStatus,
                 provisioningBlockedReason: aiAssistants.provisioningBlockedReason,
                 lifecycleStatus: aiAssistants.lifecycleStatus,
                 configuration: aiAssistants.configuration,
                 onboardingContext: aiAssistants.onboardingContext,
+                systemPrompt: aiAssistants.systemPrompt,
                 disclosureText: aiAssistants.disclosureText,
                 prohibitedUseAcknowledged: aiAssistants.prohibitedUseAcknowledged,
                 updatedAt: aiAssistants.updatedAt,
@@ -51,11 +57,14 @@ export const handler: Handler = async (event) => {
             if (!assistant) return null;
 
             const exists = async (rows: Promise<{ id: number }[]>) => (await rows).length > 0;
-            const [hasConnection, hasRule] = await Promise.all([
-                // ≥1 active connection for this assistant, else any org-level connection.
+            const [hasHealthyConnection, hasRule] = await Promise.all([
+                // ≥1 *healthy* connection (active + status='active', not expired/failed). Mirrors the
+                // kick-off gate (kickoff-assistant.ts) so this item can't read green while kick-off
+                // would 422 NO_CONNECTION on a stale token.
                 exists(tx.select({ id: systemConnections.id }).from(systemConnections).where(and(
                     eq(systemConnections.organisationId, orgId),
                     eq(systemConnections.isActive, true),
+                    eq(systemConnections.status, 'active'),
                 )).limit(1)),
                 // ≥1 guardrail/rule configured for this assistant.
                 exists(tx.select({ id: contentRules.id }).from(contentRules).where(and(
@@ -77,11 +86,11 @@ export const handler: Handler = async (event) => {
                     inArray(systemConnections.status, ['expired', 'failed', 'revoked', 'token_refresh_failed']),
                 ));
             const brokenConnections = [...new Set(brokenRows.map(r => r.serviceName).filter(Boolean))];
-            return { assistant, hasConnection, hasRule, connections, brokenConnections };
+            return { assistant, hasHealthyConnection, hasRule, connections, brokenConnections };
         });
 
         if (!result) return json(404, { error: 'Assistant not found.' });
-        const { assistant, hasConnection, hasRule, connections, brokenConnections } = result;
+        const { assistant, hasHealthyConnection, hasRule, connections, brokenConnections } = result;
 
         // US5 AC5.2: when system_paused, surface WHY + which fix the user needs. Derived on read
         // (no extra column): billing/limit come from provisioningStatus, otherwise a broken
@@ -105,18 +114,80 @@ export const handler: Handler = async (event) => {
         const brandConfigured = Object.keys(oc).length > 0 || Object.keys(cfg).length > 0;
         const disclosureDone = Boolean(assistant.disclosureText?.trim());
 
-        // required: must pass before the assistant can be kicked off (the disclosure item is
-        // also enforced server-side by manage-assistant's resume guard — EU AI Act Art. 52).
+        // ── Compliance readiness ────────────────────────────────────────────────────────────
+        // These are the gates provision-assistant-background enforces before an assistant reaches
+        // ready_for_work (ToS, DPA, prohibited-use ack, EU high-risk conformity). Surfacing them in
+        // the same checklist makes it the single list of everything required to put the assistant to
+        // work. Each done-flag is `<real evidence> || provisioned`: reaching provisioningStatus
+        // 'complete' provably means every provisioning gate already passed, so an assistant that's
+        // ready_for_work never shows a false "not done" (and kick-off itself only re-gates disclosure
+        // + connection). When provisioning is *blocked*, the dedicated panel above takes over the UI.
+        const provisioned = assistant.provisioningStatus === 'complete';
+
+        const [tosRow, dpaRow] = await Promise.all([
+            assistant.userId
+                ? db.select({ id: tosAcceptances.id }).from(tosAcceptances).where(and(
+                    eq(tosAcceptances.userId, assistant.userId),
+                    eq(tosAcceptances.version, CURRENT_TOS_VERSION),
+                  )).limit(1)
+                : Promise.resolve([] as { id: number }[]),
+            db.select({ id: dpaAcceptances.id }).from(dpaAcceptances).where(and(
+                eq(dpaAcceptances.organisationId, orgId),
+                eq(dpaAcceptances.version, CURRENT_DPA_VERSION),
+            )).limit(1),
+        ]);
+        const tosDone = tosRow.length > 0 || provisioned;
+        const dpaDone = dpaRow.length > 0 || provisioned;
+
+        // Prohibited-use ack only applies when the system prompt trips a regulated-category pattern.
+        const prohibitedUseDetected = assistant.systemPrompt
+            ? checkProhibitedUsePatterns(assistant.systemPrompt).detected
+            : false;
+        const ackDone = Boolean(assistant.prohibitedUseAcknowledged) || provisioned;
+
+        // Conformity assessment only applies to High-Risk master assistants (EU AI Act).
+        let conformityApplicable = false;
+        let conformityDone = true;
+        if (assistant.masterAssistantId) {
+            const [master] = await db.select({ riskClassification: masterAssistants.riskClassification })
+                .from(masterAssistants).where(eq(masterAssistants.id, assistant.masterAssistantId)).limit(1);
+            if (master?.riskClassification === 'high_risk') {
+                conformityApplicable = true;
+                const [assessment] = await db.select({ id: riskAssessments.id }).from(riskAssessments).where(and(
+                    eq(riskAssessments.masterAssistantId, assistant.masterAssistantId),
+                    eq(riskAssessments.organisationId, orgId),
+                    eq(riskAssessments.approvalStatus, 'approved'),
+                )).limit(1);
+                // `|| provisioned` covers non-EU high-risk orgs, which clear provisioning without an
+                // assessment (the gate is EU-jurisdiction-only) — they shouldn't read as not-done.
+                conformityDone = Boolean(assessment) || provisioned;
+            }
+        }
+
+        // required: must pass before the assistant can be kicked off. brand_strategy is recommended
+        // (not enforced at kick-off), so it no longer gates allRequiredDone.
         const items = [
-            { key: 'brand_strategy', label: 'Brand & strategy configured', done: brandConfigured, required: true,
-              hint: 'Complete the onboarding form so your assistant knows your brand and goals.' },
-            { key: 'connections', label: 'Tools connected', done: hasConnection, required: true,
-              hint: 'Connect at least one account so your assistant can do its work.' },
+            { key: 'brand_strategy', label: 'Brand & strategy configured', done: brandConfigured, required: false,
+              hint: 'Complete the onboarding form so your assistant knows your brand and goals (recommended).' },
+            { key: 'connections', label: 'Tools connected', done: hasHealthyConnection, required: true,
+              hint: 'Connect at least one account — and reconnect any expired ones — so your assistant can do its work.' },
             { key: 'disclosure', label: 'AI disclosure acknowledged', done: disclosureDone, required: true,
               hint: 'Add the AI disclosure text (required by EU AI Act Art. 52) before activation.' },
-            { key: 'guardrails', label: 'Guardrails & rules set', done: hasRule, required: false,
-              hint: 'Add at least one rule to steer tone and content (recommended).' },
+            { key: 'tos', label: 'Terms of Service accepted', done: tosDone, required: true,
+              hint: 'Accept the current Terms of Service before this assistant can be activated.' },
+            { key: 'dpa', label: 'Data Processing Agreement accepted', done: dpaDone, required: true,
+              hint: 'Your organisation must accept the Data Processing Agreement (GDPR) before activation.' },
         ];
+        if (prohibitedUseDetected) {
+            items.push({ key: 'prohibited_use', label: 'Prohibited-use compliance acknowledged', done: ackDone, required: true,
+              hint: "This assistant's instructions touch regulated categories — review the Terms (clauses 10.3 & 11.4) and acknowledge compliance." });
+        }
+        if (conformityApplicable) {
+            items.push({ key: 'conformity', label: 'Conformity assessment approved', done: conformityDone, required: true,
+              hint: 'This assistant is High Risk under the EU AI Act and needs an approved conformity assessment for EU deployment.' });
+        }
+        items.push({ key: 'guardrails', label: 'Guardrails & rules set', done: hasRule, required: false,
+          hint: 'Add at least one rule to steer tone and content (recommended).' });
 
         const allRequiredDone = items.filter(i => i.required).every(i => i.done);
 

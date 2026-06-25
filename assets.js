@@ -42,6 +42,49 @@ window.initBrandAssets = function() {
     };
     const FILE_ICON = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>`;
 
+    // On-brand replacement for the native window.confirm() — styled to match the
+    // site's modals (see my-content.html). Returns a Promise<boolean>; only uses
+    // Tailwind classes already present in the prebuilt style.css.
+    function confirmDialog({ title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel' }) {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-gray-900/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm';
+            overlay.innerHTML = `
+                <div class="bg-white w-full sm:rounded-2xl sm:max-w-md shadow-2xl flex flex-col overflow-hidden">
+                    <div class="p-6">
+                        <div class="flex items-start gap-4">
+                            <div class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0 text-red-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="text-lg font-bold text-gray-900">${escHtml(title)}</h3>
+                                <p class="text-sm text-gray-500 mt-1">${escHtml(message)}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                        <button type="button" data-confirm-cancel class="px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 text-sm font-bold rounded-xl transition cursor-pointer">${escHtml(cancelLabel)}</button>
+                        <button type="button" data-confirm-ok class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl shadow transition cursor-pointer">${escHtml(confirmLabel)}</button>
+                    </div>
+                </div>`;
+
+            const close = (result) => {
+                document.removeEventListener('keydown', onKey);
+                overlay.remove();
+                resolve(result);
+            };
+            const onKey = (e) => { if (e.key === 'Escape') close(false); };
+
+            overlay.querySelector('[data-confirm-cancel]').addEventListener('click', () => close(false));
+            overlay.querySelector('[data-confirm-ok]').addEventListener('click', () => close(true));
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+            document.addEventListener('keydown', onKey);
+
+            document.body.appendChild(overlay);
+            overlay.querySelector('[data-confirm-ok]').focus();
+        });
+    }
+
     // --- TAB TOGGLING ---
     const updateTabs = (mode) => {
         currentMode = mode;
@@ -81,7 +124,7 @@ window.initBrandAssets = function() {
         if (files.length > 0) {
             const file = files[0];
             if (file.size > 10 * 1024 * 1024) {
-                alert("File is too large. Maximum size is 10MB.");
+                window.showToast?.('File is too large. Maximum size is 10MB.', { icon: '⚠️' });
                 inputFile.value = '';
                 return;
             }
@@ -254,7 +297,7 @@ window.initBrandAssets = function() {
                     if (!res.ok) throw new Error();
                     const { downloadUrl } = await res.json();
                     window.open(downloadUrl, '_blank', 'noopener');
-                } catch { alert('Could not generate a download link.'); }
+                } catch { window.showToast?.('Could not generate a download link.', { icon: '⚠️' }); }
             });
         });
 
@@ -262,13 +305,18 @@ window.initBrandAssets = function() {
             btn.addEventListener('click', async () => {
                 const id = btn.getAttribute('data-remove');
                 const name = btn.getAttribute('data-name') || 'this asset';
-                if (!confirm(`Remove "${name}" from your library? This can't be undone.`)) return;
+                const ok = await confirmDialog({
+                    title: 'Remove asset',
+                    message: `Remove "${name}" from your library? This can't be undone.`,
+                    confirmLabel: 'Remove',
+                });
+                if (!ok) return;
                 btn.disabled = true;
                 try {
                     const res = await fetch(`/.netlify/functions/delete-workspace-asset?assetId=${id}`, { method: 'DELETE' });
                     if (!res.ok) throw new Error();
                     await loadAssets();
-                } catch { btn.disabled = false; alert('Could not remove this asset. Please try again.'); }
+                } catch { btn.disabled = false; window.showToast?.('Could not remove this asset. Please try again.', { icon: '⚠️' }); }
             });
         });
     }
