@@ -592,18 +592,14 @@ window._calOpenPost = async function (postId) {
 
     // ── Platform post preview — US-SMM-2.1.1 ─────────────────────
     const previewContainer = document.getElementById('panel-platform-preview');
+    let approveCharGated = false; // any platform over its character limit?
     if (previewContainer && window.PlatformPostPreview) {
         const previewResult = window.PlatformPostPreview.render(previewContainer, {
             post,
             assets,
             platforms: post.crossPostPlatforms?.length ? post.crossPostPlatforms : undefined,
         });
-        // Gate Approve button if any platform is over its character limit
-        const approveGated = previewResult.approveBlocked;
-        if (approveGated) {
-            const btn = document.getElementById('btn-panel-approve');
-            if (btn) { btn.disabled = true; btn.title = 'Fix character limit issues before approving.'; btn.classList.add('opacity-50'); }
-        }
+        approveCharGated = !!previewResult.approveBlocked;
     }
 
     // ── Footer actions ────────────────────────────────────────────
@@ -631,11 +627,23 @@ window._calOpenPost = async function (postId) {
         if (saveBtn) saveBtn.classList.add('hidden');
     }
 
-    // Update Approve button label contextually
+    // Update Approve button label contextually. A post that's already been
+    // approved is either parked at 'approved' or (SMM flow) auto-scheduled into
+    // an optimal slot → 'scheduled'. Both mean "no longer awaiting approval", so
+    // the button must read as done and be disabled; the user's remaining actions
+    // (edit copy / reject) stay available via the other footer buttons.
     const approveBtn = document.getElementById('btn-panel-approve');
     if (approveBtn) {
-        if (post.status === 'approved') { approveBtn.textContent = '✓ Approved'; approveBtn.disabled = true; approveBtn.classList.add('opacity-50'); }
-        else { approveBtn.textContent = '✓ Approve'; approveBtn.disabled = false; approveBtn.classList.remove('opacity-50'); }
+        if (post.status === 'scheduled') { approveBtn.textContent = '✓ Scheduled'; approveBtn.disabled = true; approveBtn.classList.add('opacity-50'); approveBtn.title = ''; }
+        else if (post.status === 'approved') { approveBtn.textContent = '✓ Approved'; approveBtn.disabled = true; approveBtn.classList.add('opacity-50'); approveBtn.title = ''; }
+        else { approveBtn.textContent = '✓ Approve'; approveBtn.disabled = false; approveBtn.classList.remove('opacity-50'); approveBtn.title = ''; }
+        // Char-limit gate has the final say for still-approvable posts: an
+        // over-limit post must stay blocked even though it's in_review/draft.
+        if (approveCharGated && !approveBtn.disabled) {
+            approveBtn.disabled = true;
+            approveBtn.title = 'Fix character limit issues before approving.';
+            approveBtn.classList.add('opacity-50');
+        }
     }
 
     // ── Next Post navigator (Pending Review only) ─────────────────
