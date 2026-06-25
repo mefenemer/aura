@@ -42,6 +42,8 @@ export const handler: Handler = async (event) => {
                 ctaText: scheduledPosts.ctaText,
                 linkUrl: scheduledPosts.linkUrl,
                 postFormat: scheduledPosts.postFormat,
+                publishedAt: scheduledPosts.publishedAt,
+                platformPostUrl: scheduledPosts.platformPostUrl,
                 assistantName: aiAssistants.name,
                 // When this draft was generated from a user-suggested idea, surface the original
                 // idea text on the card so the reviewer can see what it was built from (closes the

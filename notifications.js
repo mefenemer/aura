@@ -95,6 +95,10 @@ window.initNotifications = async function() {
         post_publish_failed:           { label: 'View content',        run: go('my-content') },
         post_missed:                   { label: 'View content',        run: go('my-content') },
         post_generation_failed:        { label: 'View content',        run: go('my-content') },
+        // AI media generation complete (image/video added to My Content). State-change /
+        // celebratory info item, but still carries a "View content" deep link so the user
+        // can jump straight to the asset (notifications.js renders the CTA on info rows too).
+        media_ready:                   { label: 'View content',        run: go('my-content') },
     };
 
     const getNotificationAction = (notif) => {
@@ -102,6 +106,10 @@ window.initNotifications = async function() {
         // US2 AC2.3: a workspace owner invites the person who hit a connection collision.
         if (notif.type === 'workspace_access_request') {
             return { label: 'Invite User', run: () => window._inviteFromAccessRequest?.(meta.requestingEmail, notif.id) };
+        }
+        // AI media ready — deep-link straight to the generated asset in My Content.
+        if (notif.type === 'media_ready') {
+            return { label: 'View content', run: () => window.loadView?.('my-content', meta.assetId ? { assetId: meta.assetId } : null) };
         }
         if (meta.action === 'view_invoices') return ACTIONS_BY_TYPE.invoice_ready;
         if (meta.action === 'view_ticket')   return ACTIONS_BY_TYPE.ticket_created;

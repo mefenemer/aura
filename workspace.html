@@ -1324,7 +1324,7 @@ function formatCurrency(amount, currency) {
 
 
         if (routeKey === 'my-content' && typeof window.initMyContent === 'function') {
-          await window.initMyContent();
+          await window.initMyContent(param);
         }
 
         if (routeKey === 'calendar' && typeof window.initCalendar === 'function') {
@@ -3560,121 +3560,104 @@ async function refreshPendingBadge() {
     } catch { /* non-blocking */ }
 }
 
-// ── Review Queue (shared by the review-queue.html page) ──────────────────────
-// State shared by rqSetTab / rqLoadItems. The old drawer (openReviewQueue) was
-// removed; the full review-queue.html page now drives these functions.
-let _rqCurrentTab = 'pending';
-let _rqCurrentTabType = 'hitl';
+// ── Review Queue ─────────────────────────────────────────────────────────────
+// Simple lifecycle: top columns (Review → Approved → Scheduled → Posted → Archived),
+// each showing collapsible content groups. For the Social Media Manager the groups are
+// "Ideas" and "Posts"; other assistant types can define their own groups later.
 
-function rqSetTab(status, btn, tabType) {
-    _rqCurrentTab = status;
-    _rqCurrentTabType = tabType || 'hitl';
-    document.querySelectorAll('.rq-tab').forEach(t => {
+// Column = a lifecycle stage. postStatus filters scheduled_posts; ideaFilter selects which
+// post-ideas belong in this stage (ideas only make sense in Review and Archived).
+const RQ_COLUMNS = {
+    review:    { label: 'Review',    postStatus: 'pending_approval', ideaFilter: i => i.status === 'pending' || i.status === 'in_review' },
+    approved:  { label: 'Approved',  postStatus: 'approved',         ideaFilter: () => false },
+    scheduled: { label: 'Scheduled', postStatus: 'scheduled',        ideaFilter: () => false },
+    posted:    { label: 'Posted',    postStatus: 'published',        ideaFilter: () => false },
+    archived:  { label: 'Archived',  postStatus: 'rejected',         ideaFilter: i => i.status === 'discarded' },
+};
+
+// Content groups for this assistant type. Each: how to fetch its items for a column + how to render.
+const RQ_GROUPS = [
+    { key: 'ideas', label: 'Ideas', empty: 'No ideas here.',  emptyReview: 'No ideas yet — use Create Post → Suggest an idea.' },
+    { key: 'posts', label: 'Posts', empty: 'No posts here.',  emptyReview: 'No posts awaiting review.' },
+];
+
+let _rqCurrentStatus = 'review';
+const _rqGroupOpen = { ideas: true, posts: true };
+
+// Back-compat shim: several callers (gen-post success, modal refresh) still call rqLoadItems()/rqSetTab().
+function rqLoadItems() { rqRenderGroups(_rqCurrentStatus); }
+function rqSetTab() { rqRenderGroups(_rqCurrentStatus); }
+
+function rqOpenStatus(statusKey, btn) {
+    if (!RQ_COLUMNS[statusKey]) return;
+    _rqCurrentStatus = statusKey;
+    document.querySelectorAll('.rq-col').forEach(t => {
         t.classList.remove('border-b-2', 'border-emerald-600', 'text-emerald-700');
         t.classList.add('text-gray-500');
     });
-    btn.classList.add('border-b-2', 'border-emerald-600', 'text-emerald-700');
-    btn.classList.remove('text-gray-500');
-    rqLoadItems(status, _rqCurrentTabType);
+    const active = btn || document.querySelector(`.rq-col[data-status="${statusKey}"]`);
+    if (active) { active.classList.add('border-b-2', 'border-emerald-600', 'text-emerald-700'); active.classList.remove('text-gray-500'); }
+    rqRenderGroups(statusKey);
 }
 
-async function rqLoadItems(status, tabType) {
-    const list = document.getElementById('rq-list');
-    if (!list) return;
-    list.innerHTML = '<p class="text-sm text-gray-400 py-8 text-center">Loading…</p>';
+async function rqRenderGroups(statusKey) {
+    const col = RQ_COLUMNS[statusKey] || RQ_COLUMNS.review;
+    const container = document.getElementById('rq-groups');
+    if (!container) return;
+    container.innerHTML = '<p class="text-sm text-gray-400 py-10 text-center">Loading…</p>';
+
+    let posts = [], ideas = [];
     try {
-        if ((tabType || _rqCurrentTabType) === 'ai') {
-            const params = new URLSearchParams();
-            if (_rqAiPlatform) params.set('platform', _rqAiPlatform);
-            if (_rqAiType) params.set('type', _rqAiType);
-            const res = await fetch(`/.netlify/functions/get-ai-approvals?${params.toString()}`);
-            if (!res.ok) throw new Error();
-            const { drafts, count, digestFrequency } = await res.json();
-            const aiCount = document.getElementById('rq-ai-tab-count');
-            if (aiCount) { aiCount.textContent = count || ''; aiCount.classList.toggle('hidden', !count); }
-            const df = digestFrequency || 'off';
-            const filterBar = `
-              <div class="flex items-center flex-wrap gap-2 py-3 sticky top-0 bg-white z-10">
-                <select onchange="_rqAiPlatform=this.value; rqLoadItems('pending_approval','ai')" class="text-xs border border-gray-300 rounded-lg px-2 py-1.5">
-                  <option value=""${!_rqAiPlatform?' selected':''}>All platforms</option>
-                  <option value="instagram"${_rqAiPlatform==='instagram'?' selected':''}>Instagram</option>
-                  <option value="facebook"${_rqAiPlatform==='facebook'?' selected':''}>Facebook</option>
-                  <option value="linkedin"${_rqAiPlatform==='linkedin'?' selected':''}>LinkedIn</option>
-                  <option value="x"${_rqAiPlatform==='x'?' selected':''}>X</option>
-                </select>
-                <select onchange="_rqAiType=this.value; rqLoadItems('pending_approval','ai')" class="text-xs border border-gray-300 rounded-lg px-2 py-1.5">
-                  <option value=""${!_rqAiType?' selected':''}>All media</option>
-                  <option value="image"${_rqAiType==='image'?' selected':''}>Image</option>
-                  <option value="video"${_rqAiType==='video'?' selected':''}>Video</option>
-                </select>
-                <label class="text-xs text-gray-400 ml-auto flex items-center gap-1">Email digest:
-                  <select onchange="aiSetDigest(this.value)" class="text-xs border border-gray-300 rounded-lg px-2 py-1.5">
-                    <option value="off"${df==='off'?' selected':''}>Off</option>
-                    <option value="daily"${df==='daily'?' selected':''}>Daily</option>
-                    <option value="weekly"${df==='weekly'?' selected':''}>Weekly</option>
-                  </select>
-                </label>
-              </div>`;
-            if (!drafts.length) {
-                list.innerHTML = filterBar + '<p class="text-sm text-gray-400 py-12 text-center">No AI-drafted posts awaiting review.</p>';
-                return;
-            }
-            list.innerHTML = filterBar + drafts.map(d => rqRenderAiCard(d)).join('');
-        } else if ((tabType || _rqCurrentTabType) === 'ideas') {
-            const res = await fetch('/.netlify/functions/get-post-ideas');
-            if (!res.ok) throw new Error();
-            const { ideas } = await res.json();
-            // Badge counts the ideas still in flight (pending or awaiting review).
-            const openCount = (ideas || []).filter(i => i.status === 'pending' || i.status === 'in_review').length;
-            const ideasCount = document.getElementById('rq-ideas-tab-count');
-            if (ideasCount) {
-                ideasCount.textContent = openCount || '';
-                ideasCount.classList.toggle('hidden', !openCount);
-            }
-            if (!ideas.length) {
-                list.innerHTML = '<div class="py-12 text-center"><p class="text-sm text-gray-400">No ideas suggested yet.</p><p class="text-xs text-gray-400 mt-1">Use <span class="font-semibold">Create Post → Suggest an idea</span> to add one — you can track its progress here.</p></div>';
-                return;
-            }
-            list.innerHTML = ideas.map(i => rqRenderIdeaCard(i)).join('');
-        } else if ((tabType || _rqCurrentTabType) === 'social') {
-            const res = await fetch(`/.netlify/functions/get-social-drafts?status=${status}`);
-            if (!res.ok) throw new Error();
-            const { drafts } = await res.json();
-            // The badge belongs to the "Posts to review" tab — don't let the Archive (rejected) load clobber it.
-            const socialCount = document.getElementById('rq-social-tab-count');
-            if (socialCount && status === 'pending_approval') {
-                socialCount.textContent = drafts.length || '';
-                socialCount.classList.toggle('hidden', !drafts.length);
-            }
-            if (!drafts.length) {
-                list.innerHTML = status === 'rejected'
-                    ? '<div class="py-12 text-center"><p class="text-sm text-gray-400">Nothing in the archive.</p><p class="text-xs text-gray-400 mt-1">Rejected posts are kept here for 30 days, then deleted.</p></div>'
-                    : '<p class="text-sm text-gray-400 py-12 text-center">No posts awaiting review.</p>';
-                return;
-            }
-            list.innerHTML = drafts.map(d => rqRenderSocialCard(d)).join('');
-        } else {
-            const res = await fetch(`/.netlify/functions/get-pending-actions?status=${status}`);
-            if (!res.ok) throw new Error();
-            const { items, totalPending } = await res.json();
-            const tabCount = document.getElementById('rq-pending-tab-count');
-            if (tabCount) tabCount.textContent = totalPending ? `(${totalPending})` : '';
-            document.querySelectorAll('.pending-badge').forEach(el => {
-                el.textContent = totalPending || '';
-                el.classList.toggle('hidden', !totalPending);
-            });
-            if (!items.length) {
-                const socialHint = status === 'pending'
-                    ? `<p class="text-sm text-gray-400 mt-2">Check <button onclick="document.querySelector('.rq-tab[data-tab-type=\\'social\\']').click()" class="underline text-emerald-600 hover:text-emerald-700 cursor-pointer">Social Drafts</button> for post drafts awaiting review.</p>`
-                    : '';
-                list.innerHTML = `<div class="py-12 text-center"><p class="text-sm text-gray-400">No AI tasks awaiting approval.</p>${socialHint}</div>`;
-                return;
-            }
-            list.innerHTML = items.map(item => rqRenderCard(item)).join('');
-        }
+        const [pRes, iRes] = await Promise.all([
+            fetch(`/.netlify/functions/get-social-drafts?status=${col.postStatus}`),
+            fetch('/.netlify/functions/get-post-ideas'),
+        ]);
+        if (pRes.ok) posts = (await pRes.json()).drafts || [];
+        if (iRes.ok) ideas = ((await iRes.json()).ideas || []).filter(col.ideaFilter);
     } catch {
-        list.innerHTML = '<p class="text-sm text-red-500 py-8 text-center">Failed to load items.</p>';
+        container.innerHTML = '<p class="text-sm text-red-500 py-10 text-center">Failed to load.</p>';
+        return;
     }
+
+    // Keep the Review column badge in sync with the number of posts awaiting review.
+    if (statusKey === 'review') {
+        const badge = document.getElementById('rq-col-count-review');
+        if (badge) { badge.textContent = posts.length || ''; badge.classList.toggle('hidden', !posts.length); }
+        document.querySelectorAll('.pending-badge').forEach(el => {
+            el.textContent = posts.length || '';
+            el.classList.toggle('hidden', !posts.length);
+        });
+    }
+
+    const itemsByGroup = { ideas, posts };
+    const renderByGroup = { ideas: rqRenderIdeaCard, posts: rqRenderSocialCard };
+    container.innerHTML = RQ_GROUPS.map(g => rqGroupSection(g, itemsByGroup[g.key] || [], renderByGroup[g.key], statusKey)).join('');
+}
+
+function rqGroupSection(g, items, render, statusKey) {
+    const open = _rqGroupOpen[g.key] !== false;
+    const emptyMsg = statusKey === 'review' ? g.emptyReview : g.empty;
+    const body = items.length
+        ? `<div class="divide-y divide-gray-100">${items.map(render).join('')}</div>`
+        : `<p class="text-sm text-gray-400 py-6 text-center">${emptyMsg}</p>`;
+    return `<section class="border-b border-gray-100 last:border-0">
+      <button onclick="rqToggleGroup('${g.key}')" class="w-full flex items-center gap-2 py-3 text-left cursor-pointer group">
+        <svg class="rq-group-chevron-${g.key} w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700">${g.label}</span>
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">${items.length}</span>
+      </button>
+      <div class="rq-group-body-${g.key} ${open ? '' : 'hidden'} pb-1">${body}</div>
+    </section>`;
+}
+
+// Collapse/expand a group in place (no refetch). State persists across column switches.
+function rqToggleGroup(key) {
+    const wasOpen = _rqGroupOpen[key] !== false;
+    _rqGroupOpen[key] = !wasOpen;
+    const body = document.querySelector('.rq-group-body-' + key);
+    const chev = document.querySelector('.rq-group-chevron-' + key);
+    if (body) body.classList.toggle('hidden', wasOpen);
+    if (chev) chev.classList.toggle('rotate-90', !wasOpen);
 }
 
 // A clean, clickable summary row. The full per-platform mock-up + approve/amend/request-changes/reject
@@ -3692,9 +3675,17 @@ function rqRenderSocialCard(draft) {
             ? `<video src="${draft.thumbnailUrl}" muted class="w-16 h-16 rounded-lg object-cover bg-black shrink-0"></video>`
             : `<img src="${draft.thumbnailUrl}" alt="" class="w-16 h-16 rounded-lg object-cover shrink-0">`)
         : `<div class="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 text-[10px] shrink-0">no media</div>`;
-    const statusChip = isArchived
-        ? `<span class="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-500">Archived${draft.daysRemaining != null ? ` · ${draft.daysRemaining}d left` : ''}</span>`
-        : `<span class="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">Needs review</span>`;
+    const chipMap = {
+        pending_approval: { cls: 'bg-amber-50 border-amber-200 text-amber-700',       label: 'Needs review' },
+        draft:            { cls: 'bg-amber-50 border-amber-200 text-amber-700',       label: 'Needs review' },
+        in_review:        { cls: 'bg-amber-50 border-amber-200 text-amber-700',       label: 'Needs review' },
+        approved:         { cls: 'bg-emerald-50 border-emerald-200 text-emerald-700', label: 'Approved' },
+        scheduled:        { cls: 'bg-blue-50 border-blue-200 text-blue-700',          label: 'Scheduled' },
+        published:        { cls: 'bg-emerald-50 border-emerald-200 text-emerald-700', label: 'Posted' },
+        rejected:         { cls: 'bg-gray-100 border-gray-200 text-gray-500',         label: `Archived${draft.daysRemaining != null ? ` · ${draft.daysRemaining}d left` : ''}` },
+    };
+    const chip = chipMap[draft.status] || { cls: 'bg-gray-100 border-gray-200 text-gray-500', label: draft.status || '' };
+    const statusChip = `<span class="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full border ${chip.cls}">${_rqEsc(chip.label)}</span>`;
     return `<div onclick="openPostReview(${draft.id})" class="py-3.5 flex items-center gap-3 cursor-pointer hover:bg-gray-50 -mx-4 px-4 transition" data-post-id="${draft.id}">
       ${thumb}
       <div class="flex-1 min-w-0">
@@ -3732,7 +3723,7 @@ function rqRenderIdeaCard(idea) {
     } else if (idea.status === 'in_review') {
         const cap = idea.postCaption ? `<p class="text-xs text-gray-600 mt-1 line-clamp-2 italic">"${_rqEsc(idea.postCaption)}"</p>` : '';
         progress = `<p class="text-xs text-gray-500">Built into a post — now awaiting your review.${cap ? '' : ''}</p>${cap}
-          <button onclick="document.querySelector('.rq-tab[data-tab-type=\\'social\\']').click()" class="mt-1.5 text-xs font-semibold text-violet-700 hover:text-violet-800 underline cursor-pointer">View in Social Drafts →</button>`;
+          <button onclick="rqOpenStatus('review')" class="mt-1.5 text-xs font-semibold text-violet-700 hover:text-violet-800 underline cursor-pointer">View in Review →</button>`;
     } else if (idea.status === 'delivered') {
         const when = idea.postPublishDate ? new Date(idea.postPublishDate).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : null;
         const postState = idea.postStatus === 'published' ? 'Published' : (idea.postStatus === 'scheduled' ? 'Scheduled' : 'Approved');
@@ -3763,7 +3754,7 @@ async function sdApprove(postId, action) {
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) { alert(d.error || 'Failed to approve post.'); return; }
-        rqLoadItems(_rqCurrentTab, 'social');
+        rqLoadItems();
     } catch { alert('Network error — please try again.'); }
 }
 
@@ -3787,7 +3778,7 @@ async function sdSubmitReject(postId) {
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) { alert(d.error || 'Failed to reject post.'); return; }
-        rqLoadItems(_rqCurrentTab, 'social');
+        rqLoadItems();
     } catch { alert('Network error — please try again.'); }
 }
 
@@ -4028,16 +4019,29 @@ function openPostReview(postId) {
     const reviewable = ['pending_approval', 'draft', 'in_review'].includes(post.status);
     document.getElementById('post-review-actions').classList.toggle('hidden', !reviewable);
 
-    const archiveEl = document.getElementById('post-review-archive');
+    // Status note for non-reviewable states: archived (with countdown), scheduled/approved (when),
+    // posted (with a live link if we have one).
+    const noteEl = document.getElementById('post-review-archive');
     if (post.status === 'rejected') {
         const days = post.daysRemaining;
-        archiveEl.className = 'mt-4 text-xs rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-gray-600';
-        archiveEl.innerHTML = `<p class="font-semibold text-gray-700">Archived</p>
+        noteEl.className = 'mt-4 text-xs rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-gray-600';
+        noteEl.innerHTML = `<p class="font-semibold text-gray-700">Archived</p>
           ${post.rejectionReason ? `<p class="mt-0.5">Reason: <span class="italic">"${_rqEsc(post.rejectionReason)}"</span></p>` : ''}
           <p class="mt-0.5 text-gray-400">${days != null ? `Deletes in ${days} day${days === 1 ? '' : 's'}.` : 'Scheduled for deletion.'}</p>`;
-        archiveEl.classList.remove('hidden');
+        noteEl.classList.remove('hidden');
+    } else if (post.status === 'scheduled' || post.status === 'approved') {
+        noteEl.className = 'mt-4 text-xs rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-blue-700';
+        noteEl.innerHTML = `<p class="font-semibold">${post.status === 'scheduled' ? 'Scheduled' : 'Approved'}</p>
+          <p class="mt-0.5">${when ? `Goes out ${_rqEsc(when)}.` : 'Awaiting a slot from your assistant.'}</p>`;
+        noteEl.classList.remove('hidden');
+    } else if (post.status === 'published') {
+        noteEl.className = 'mt-4 text-xs rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-emerald-700';
+        noteEl.innerHTML = `<p class="font-semibold">Posted</p>
+          <p class="mt-0.5">${when ? `Published ${_rqEsc(when)}.` : 'Published.'}</p>
+          ${post.platformPostUrl ? `<a href="${_rqEsc(post.platformPostUrl)}" target="_blank" rel="noopener" class="mt-1 inline-block font-semibold underline">View live post →</a>` : ''}`;
+        noteEl.classList.remove('hidden');
     } else {
-        archiveEl.classList.add('hidden');
+        noteEl.classList.add('hidden');
     }
 
     // Pre-fill amend fields and reset to the default button row.
@@ -4073,7 +4077,7 @@ function rqReviewToggle(which) {
 
 function _rqReviewRefresh() {
     closePostReview();
-    rqLoadItems(_rqCurrentTab, _rqCurrentTabType);
+    rqRenderGroups(_rqCurrentStatus);
     if (typeof refreshPendingBadge === 'function') { try { refreshPendingBadge(); } catch { /* ignore */ } }
 }
 
@@ -4216,7 +4220,7 @@ async function rqDecide(id, decision, rejectionReason) {
             alert(d.error || 'Failed to process action.');
             return;
         }
-        rqLoadItems(_rqCurrentTab);
+        rqLoadItems();
         refreshPendingBadge();
     } catch {
         alert('Network error — please try again.');

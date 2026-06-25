@@ -282,3 +282,31 @@
     </div>
   </div>
 </div>
+
+<!-- ── Asset viewer (lightbox) ──────────────────────────────────────
+     Opened from an asset row's "View" button. Plays videos and shows
+     images full-size. Populated by window._mcViewAsset(). -->
+<div id="modal-view-asset" class="fixed inset-0 bg-gray-900/80 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+     onclick="if(event.target===this)window._mcCloseViewer()">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <p id="view-asset-name" class="text-sm font-bold text-gray-900 truncate pr-4">Preview</p>
+      <button onclick="window._mcCloseViewer()" type="button"
+        class="p-1.5 text-gray-400 hover:text-gray-700 transition cursor-pointer rounded-lg hover:bg-gray-100 shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-auto bg-gray-50 flex items-center justify-center p-4 min-h-[200px]">
+      <video id="view-asset-video" controls playsinline class="hidden max-w-full max-h-[70vh] rounded-xl border border-gray-200 bg-black"></video>
+      <img id="view-asset-image" alt="" class="hidden max-w-full max-h-[70vh] rounded-xl object-contain">
+      <p id="view-asset-empty" class="hidden text-sm text-gray-500">This asset has no previewable media.</p>
+    </div>
+    <div class="px-5 py-3 border-t border-gray-100 flex justify-end">
+      <a id="view-asset-download" href="#" target="_blank" rel="noopener" download
+        class="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition inline-flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Download
+      </a>
+    </div>
+  </div>
+</div>

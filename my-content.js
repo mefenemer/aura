@@ -51,12 +51,16 @@ let _assetToDetach = null;
 let _orgId = null;
 let _pollTimer = null;         // auto-refresh timer for pending-asset transitions
 let _scanningAssetId = null;   // ID of asset currently being scanned (shown with indicator)
+let _deepLinkAssetId = null;   // one-shot: asset to scroll-to/highlight/open after first render
 
 // ── Init ──────────────────────────────────────────────────────────
-window.initMyContent = async function () {
+window.initMyContent = async function (param) {
     document.getElementById('btn-open-upload')?.addEventListener('click', _openUploadModal);
     document.getElementById('btn-confirm-delete')?.addEventListener('click', _doDelete);
     document.getElementById('btn-confirm-detach')?.addEventListener('click', _doDetach);
+    // Deep-link target (e.g. from a "Your AI video is ready" notification carrying
+    // metadata.assetId). Accepts { assetId } or a raw id. Focused after the first render.
+    _deepLinkAssetId = param && typeof param === 'object' ? param.assetId : param;
     await _loadAssets();
     _startPollingIfNeeded();
     _mcRefreshHeaderCredits();
@@ -121,6 +125,40 @@ function _renderSections() {
     const container = document.getElementById('content-sections');
     if (!container) return;
     container.innerHTML = SECTIONS.map(sec => _sectionHTML(sec)).join('');
+    // One-shot deep-link focus (consumed so subsequent poll re-renders don't re-trigger).
+    if (_deepLinkAssetId != null) {
+        const target = _deepLinkAssetId;
+        _deepLinkAssetId = null;
+        _focusDeepLinkAsset(target);
+    }
+}
+
+// Scroll to, highlight, and (for visual assets) open the deep-linked asset. Expands
+// the asset's collapsed section first so the row is actually visible.
+function _focusDeepLinkAsset(assetId) {
+    const id = Number(assetId);
+    // Which section holds it? Expand that section if collapsed.
+    const sectionKey = Object.keys(_assets).find(k => (_assets[k] || []).some(a => a.id === id));
+    const asset = sectionKey ? _assets[sectionKey].find(a => a.id === id) : null;
+    if (!asset) return;
+
+    const body = document.getElementById(`section-body-${sectionKey}`);
+    if (body && body.classList.contains('hidden')) window._mcToggleSection(sectionKey);
+
+    // Defer to next frame so layout reflects the expanded section before scrolling.
+    requestAnimationFrame(() => {
+        const row = document.querySelector(`[data-asset-id="${id}"]`);
+        if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.style.transition = 'background-color 0.6s ease';
+            row.style.backgroundColor = 'rgba(16,185,129,0.14)'; // emerald tint
+            setTimeout(() => { row.style.backgroundColor = ''; }, 2600);
+        }
+        // For a video/image, open the viewer straight away — that's the whole point of the link.
+        if (asset.assetType === 'video' || asset.assetType === 'image') {
+            window._mcViewAsset(id);
+        }
+    });
 }
 
 function _sectionHTML(sec) {
@@ -197,15 +235,41 @@ function _assetRow(asset, sec) {
         ? `<span class="text-[10px] text-blue-600 font-bold bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">Post #${asset.scheduledPostId}</span>`
         : '';
 
-    const previewThumb = (asset.assetType === 'image' && asset.storageUrl && !asset.purgedAt)
-        ? `<img src="${asset.storageUrl}" alt="" class="w-full h-full object-cover rounded-lg">`
-        : `<div class="w-full h-full flex items-center justify-center text-gray-400">${icon}</div>`;
+    // A visual asset (image/video) with a resolved URL can be opened in the viewer
+    // lightbox. The backend (content-assets.ts GET) presigns storageUrl for both images
+    // and videos, or falls back to externalUrl — so AI-generated videos are viewable here.
+    const viewUrl = (asset.assetType === 'image' || asset.assetType === 'video') && !asset.purgedAt
+        ? (asset.storageUrl || asset.externalUrl || '')
+        : '';
+    const canView = !!viewUrl;
+
+    // Play-triangle overlay so video tiles read as playable.
+    const playOverlay = asset.assetType === 'video'
+        ? `<span class="absolute inset-0 flex items-center justify-center pointer-events-none">
+             <span class="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center">
+               <svg class="w-3 h-3 text-white" style="margin-left:2px" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 4.5v11l9-5.5-9-5.5z"/></svg>
+             </span>
+           </span>`
+        : '';
+    const thumbInner = (asset.assetType === 'image' && asset.storageUrl)
+        ? `<img src="${asset.storageUrl}" alt="" class="w-full h-full object-cover rounded-lg">${playOverlay}`
+        : `<div class="w-full h-full flex items-center justify-center text-gray-400">${icon}</div>${playOverlay}`;
+    const tile = canView
+        ? `<button type="button" onclick="window._mcViewAsset(${asset.id})" title="View"
+             class="relative w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200 cursor-pointer hover:ring-2 hover:ring-emerald-400 transition">${thumbInner}</button>`
+        : `<div class="relative w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">${thumbInner}</div>`;
+
+    // A "View" action for visual assets, shown alongside the status-specific actions.
+    const viewBtn = canView
+        ? `<button type="button" onclick="window._mcViewAsset(${asset.id})" title="View"
+             class="p-1.5 text-gray-400 hover:text-emerald-600 transition cursor-pointer rounded-lg hover:bg-emerald-50">
+             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+           </button>`
+        : '';
 
     return `
     <div class="flex items-center gap-4 px-5 py-4 group hover:bg-gray-50 transition" data-asset-id="${asset.id}">
-      <div class="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
-        ${previewThumb}
-      </div>
+      ${tile}
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
           <p class="text-sm font-bold text-gray-900 truncate">${_escHtml(asset.name)}</p>
@@ -214,9 +278,49 @@ function _assetRow(asset, sec) {
         <p class="text-xs text-gray-400 mt-0.5">${_typeLabel(asset.assetType)}${fileSize ? ' · ' + fileSize : ''} · ${date}</p>
         ${rejectionBadge}
       </div>
-      <div class="shrink-0 flex items-center gap-2">${actions}</div>
+      <div class="shrink-0 flex items-center gap-2">${viewBtn}${actions}</div>
     </div>`;
 }
+
+// ── Asset viewer (lightbox) ───────────────────────────────────────
+// Opens an image/video asset in the #modal-view-asset lightbox. Looks the asset up
+// across all status groups so it works from any section.
+window._mcViewAsset = function (id) {
+    const asset = Object.values(_assets).flat().find(a => a.id === id);
+    if (!asset) return;
+    const url = asset.storageUrl || asset.externalUrl || '';
+    const modal = document.getElementById('modal-view-asset');
+    const vid = document.getElementById('view-asset-video');
+    const img = document.getElementById('view-asset-image');
+    const empty = document.getElementById('view-asset-empty');
+    const dl = document.getElementById('view-asset-download');
+    const nameEl = document.getElementById('view-asset-name');
+    if (!modal) return;
+
+    nameEl.textContent = asset.name || 'Preview';
+    vid.classList.add('hidden'); img.classList.add('hidden'); empty.classList.add('hidden');
+    vid.pause?.(); vid.removeAttribute('src'); img.removeAttribute('src');
+
+    if (url && asset.assetType === 'video') {
+        vid.src = url; vid.classList.remove('hidden');
+    } else if (url && asset.assetType === 'image') {
+        img.src = url; img.classList.remove('hidden');
+    } else {
+        empty.classList.remove('hidden');
+    }
+
+    if (url) { dl.href = url; dl.classList.remove('hidden'); }
+    else { dl.classList.add('hidden'); }
+
+    modal.classList.remove('hidden');
+};
+
+window._mcCloseViewer = function () {
+    const modal = document.getElementById('modal-view-asset');
+    const vid = document.getElementById('view-asset-video');
+    if (vid) { vid.pause?.(); vid.removeAttribute('src'); }
+    modal?.classList.add('hidden');
+};
 
 // ── Section toggle ────────────────────────────────────────────────
 window._mcToggleSection = function (key) {
