@@ -60,6 +60,24 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
         `UPDATE content_generation_jobs SET status = 'processing', attempt = attempt + 1, updated_at = now() WHERE id = ${job.id}`
     );
 
+    // "Create Post" → Suggest an idea: when a scheduled/conversion job carries no context of its
+    // own, fold in the oldest pending user idea for this assistant (FIFO, consumed once). Best-effort
+    // — a lookup failure must never fail the generation job. We mutate job.context_prompt so every
+    // downstream prompt reference picks it up, and remember the row to mark 'used' after the insert.
+    let consumedIdeaId: number | null = null;
+    if (!job.context_prompt && (job.trigger_type === 'scheduled' || job.trigger_type === 'conversion')) {
+        try {
+            const [idea] = await db.execute<{ id: number; idea: string }>(
+                `SELECT id, idea FROM post_idea_suggestions
+                 WHERE assistant_id = ${job.assistant_id} AND status = 'pending'
+                 ORDER BY created_at ASC LIMIT 1`
+            );
+            if (idea) { job.context_prompt = idea.idea; consumedIdeaId = idea.id; }
+        } catch (e) {
+            console.warn(`[process-content-jobs] idea lookup skipped for job ${job.job_id}:`, e instanceof Error ? e.message : e);
+        }
+    }
+
     try {
         const [bp] = await db
             .select({ sections: aiBlueprints.sections })
@@ -222,6 +240,14 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             generatedAt: now,
             triggerType: job.trigger_type ?? 'scheduled',
         }).returning({ id: scheduledPosts.id });
+
+        // Mark the consumed user idea 'used' and link it to the draft it produced (best-effort).
+        if (consumedIdeaId) {
+            await db.execute(
+                `UPDATE post_idea_suggestions SET status = 'used', used_post_id = ${post.id}, used_at = now()
+                 WHERE id = ${consumedIdeaId} AND status = 'pending'`
+            ).catch(() => {});
+        }
 
         // Best-effort: source a unique Pexels image and attach it (US1/US2/US3).
         // Wrapped so any failure — including a Pexels 429 — never fails the generation job.

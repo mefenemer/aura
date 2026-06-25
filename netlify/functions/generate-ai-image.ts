@@ -26,7 +26,7 @@ import {
 import { holdCredits, settleHold, getBalance, IMAGE_CREDIT_COST } from '../../src/utils/ai-credits';
 
 const PROMPT_MAX = 1000;
-const IMAGE_MODEL = process.env.FAL_IMAGE_MODEL ?? 'fal-ai/flux-2';
+const IMAGE_MODEL = process.env.FAL_IMAGE_MODEL ?? 'fal-ai/flux-pro/v1.1';
 
 const R2_ENDPOINT = process.env.R2_ENDPOINT;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;

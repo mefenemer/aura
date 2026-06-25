@@ -21,7 +21,7 @@ import { FalContentPolicyError } from '../../src/lib/fal-gateway';
 
 const PLATFORM = 'instagram';        // only Instagram has a live publisher today
 const ASPECT = '4:5' as const;       // Instagram feed-friendly
-const IMAGE_MODEL = process.env.FAL_IMAGE_MODEL ?? 'fal-ai/flux-2';
+const IMAGE_MODEL = process.env.FAL_IMAGE_MODEL ?? 'fal-ai/flux-pro/v1.1';
 
 interface DraftCopy { caption: string; hashtags: string; imagePrompt: string; }
 

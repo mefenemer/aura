@@ -1311,6 +1311,27 @@ export const scheduledPostAssets = pgTable("scheduled_post_assets", {
   unique("scheduled_post_assets_pk").on(t.scheduledPostId, t.contentAssetId),
 ]);
 
+// "Create Post" → Suggest an idea mode. A user-submitted post idea that the assistant should fold
+// into a FUTURE scheduled/conversion draft (it is NOT drafted immediately). Consumed once, FIFO:
+// process-content-jobs.ts picks the oldest 'pending' idea for an assistant when a scheduled job
+// carries no context_prompt, uses it as the generation context, then marks the row 'used' with the
+// resulting post id. Canonical column definitions; apply db/post-idea-suggestions.sql by hand.
+export const postIdeaSuggestions = pgTable("post_idea_suggestions", {
+  id: serial("id").primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  assistantId: integer("assistant_id").notNull().references(() => aiAssistants.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  idea: text("idea").notNull(),
+  platform: text("platform"),                       // optional hint: facebook|instagram|linkedin|x
+  status: text("status").notNull().default("pending"), // 'pending' | 'used' | 'discarded'
+  usedPostId: integer("used_post_id").references(() => scheduledPosts.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  usedAt: timestamp("used_at"),
+}, (t) => [
+  index("post_idea_suggestions_assistant_status_idx").on(t.assistantId, t.status),
+  check("post_idea_suggestions_status_check", sql`${t.status} IN ('pending', 'used', 'discarded')`),
+]);
+
 // ── DPA Requests — US-AUD-4.1.1 SC3 ──────────────────────────────────────────
 // Stores Data Processing Agreement request submissions from the /trust.html page.
 // On insert: (a) email sent to platform legal contact, (b) auto-acknowledgement sent to requester.

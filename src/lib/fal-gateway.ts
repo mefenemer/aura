@@ -10,13 +10,21 @@
 //   runSync() submit + poll until COMPLETED (bounded)        — for fast jobs (images)
 //
 // Config:
-//   FAL_KEY           — API key (required; gateway is mock/disabled without it)
-//   FAL_IMAGE_MODEL   — defaults to 'fal-ai/flux-2'              (Flux 2, 1 credit)
-//   FAL_VIDEO_MODEL   — defaults to 'fal-ai/minimax/hailuo-2.3'  (Hailuo 2.3, 5 credits)
+//   FAL_KEY               — API key (required; gateway is mock/disabled without it)
+//   FAL_IMAGE_MODEL       — defaults to 'fal-ai/flux-pro/v1.1'      (FLUX 1.1 Pro, 1 credit)
+//   FAL_VIDEO_MODEL       — defaults to 'fal-ai/minimax/hailuo-2.3' (Hailuo 2.3, 5 credits)
+//   FAL_SAFETY_TOLERANCE  — FLUX safety level 1 (strictest) … 6 (most permissive); default 2
+//   FAL_OUTPUT_FORMAT     — 'png' (default, lossless — best for crisp text overlays) or 'jpeg'
 
 const FAL_KEY     = process.env.FAL_KEY;
-const IMAGE_MODEL = process.env.FAL_IMAGE_MODEL ?? 'fal-ai/flux-2';
+const IMAGE_MODEL = process.env.FAL_IMAGE_MODEL ?? 'fal-ai/flux-pro/v1.1';
 const VIDEO_MODEL = process.env.FAL_VIDEO_MODEL ?? 'fal-ai/minimax/hailuo-2.3';
+
+// FLUX 1.1 Pro safety_tolerance: 1 (strictest) … 6 (most permissive). We run our own prompt
+// moderation upstream, so the model-level gate is a backstop — keep Fal's default of 2.
+const SAFETY_TOLERANCE = process.env.FAL_SAFETY_TOLERANCE ?? '2';
+// 'png' keeps text overlays crisp (lossless); 'jpeg' is smaller. Default to png.
+const OUTPUT_FORMAT    = process.env.FAL_OUTPUT_FORMAT ?? 'png';
 
 const QUEUE_BASE = 'https://queue.fal.run';
 
@@ -81,8 +89,9 @@ export function falConfigured(): boolean {
 
 // ── Aspect-ratio mapping ───────────────────────────────────────────────────────
 
-// Flux 2 accepts a named `image_size` preset. Map our UI aspect ratios onto the
-// closest preset; 4:5 has no exact preset so we pass explicit dimensions.
+// FLUX 1.1 Pro accepts a named `image_size` preset (e.g. 'landscape_4_3', 'square_hd',
+// 'portrait_16_9'). Map our UI aspect ratios onto the closest preset; 4:5 has no exact
+// preset so we pass explicit dimensions.
 function imageSizeForAspect(aspect: AspectRatio): string | { width: number; height: number } {
     switch (aspect) {
         case '1:1':  return 'square_hd';          // 1024×1024
@@ -180,17 +189,22 @@ async function runSync(model: string, input: Record<string, unknown>, opts?: { t
 
 // ── Public generation helpers ─────────────────────────────────────────────────
 
-/** Generate up to `numImages` image variations with Flux 2. Resolves to ephemeral Fal URLs. */
+/** Generate up to `numImages` image variations with FLUX 1.1 Pro. Resolves to ephemeral Fal URLs. */
 export async function generateImages(opts: {
     prompt: string;
     aspectRatio: AspectRatio;
     numImages?: number;
     timeoutMs?: number;
 }): Promise<GeneratedImage[]> {
+    // FLUX 1.1 Pro auto-routes inference internally — we deliberately DON'T pass legacy SDXL
+    // knobs (scheduler / num_inference_steps / guidance_scale); forcing them degrades the model's
+    // text rendering. Only prompt, size, count, safety and output format are supplied.
     const input: Record<string, unknown> = {
         prompt: opts.prompt,
         image_size: imageSizeForAspect(opts.aspectRatio),
         num_images: Math.min(Math.max(opts.numImages ?? 4, 1), 4),
+        safety_tolerance: SAFETY_TOLERANCE,
+        output_format: OUTPUT_FORMAT,
     };
     // Default poll budget must stay UNDER the synchronous Netlify function timeout (26s — see
     // netlify.toml [functions.generate-ai-image]) so an overrun throws a clean FalError('timed

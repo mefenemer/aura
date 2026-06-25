@@ -221,7 +221,7 @@ async function submitTosAcceptance(btn) {
       <div class="flex items-center gap-2">
         <button onclick="openGeneratePostSheet()" class="px-3 py-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition cursor-pointer flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Generate Post
+          Create Post
         </button>
         <button onclick="closeReviewQueue()" class="text-gray-400 hover:text-gray-600 transition cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -247,18 +247,131 @@ async function submitTosAcceptance(btn) {
 <div id="gen-post-backdrop" class="hidden fixed inset-0 z-[70] bg-gray-900/60 backdrop-blur-sm" onclick="closeGeneratePostSheet()"></div>
 <div id="gen-post-sheet" class="hidden fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-2xl shadow-2xl max-h-[90vh] flex flex-col md:bottom-auto md:top-1/2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:max-w-lg md:w-full" role="dialog" aria-modal="true" aria-labelledby="gen-post-title">
   <div class="flex items-center justify-between px-5 pt-5 pb-3">
-    <h2 id="gen-post-title" class="text-base font-extrabold text-gray-900">Generate Post Now</h2>
+    <h2 id="gen-post-title" class="text-base font-extrabold text-gray-900">Create Post</h2>
     <button onclick="closeGeneratePostSheet()" class="text-gray-400 hover:text-gray-600 cursor-pointer">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
   </div>
   <div class="px-5 pb-6 overflow-y-auto flex-1">
+    <!-- Mode chooser (first screen) — three ways to get a post into the Review Queue. -->
+    <div id="gp-chooser" class="space-y-2.5">
+      <p class="text-xs text-gray-500 mb-1">How would you like to create this post?</p>
+      <button type="button" onclick="gpChooseMode('write')" class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition cursor-pointer flex items-start gap-3">
+        <span class="mt-0.5 shrink-0 w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        </span>
+        <span>
+          <span class="block text-sm font-bold text-gray-900">Write it yourself</span>
+          <span class="block text-xs text-gray-500 mt-0.5">Add your own text, pick platforms, and attach media from My Content. No AI.</span>
+        </span>
+      </button>
+      <button type="button" onclick="gpChooseMode('idea')" class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition cursor-pointer flex items-start gap-3">
+        <span class="mt-0.5 shrink-0 w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m0 16v.01M5.6 5.6l.7.7m12.1-.7l-.7.7M3 12h1m16 0h1M12 7a5 5 0 00-3 9h6a5 5 0 00-3-9z"/></svg>
+        </span>
+        <span>
+          <span class="block text-sm font-bold text-gray-900">Suggest an idea</span>
+          <span class="block text-xs text-gray-500 mt-0.5">Share a topic and let your assistant work it into a future draft.</span>
+        </span>
+      </button>
+      <button type="button" onclick="gpChooseMode('ai')" class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition cursor-pointer flex items-start gap-3">
+        <span class="mt-0.5 shrink-0 w-8 h-8 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+        </span>
+        <span>
+          <span class="block text-sm font-bold text-gray-900">Work with AI</span>
+          <span class="block text-xs text-gray-500 mt-0.5">Generate post copy and media ideas together, then review before it's queued.</span>
+        </span>
+      </button>
+    </div>
+
+    <!-- Mode panels (shown after a mode is picked) -->
+    <div id="gp-modes" class="hidden">
+      <button type="button" onclick="gpBackToChooser()" class="mb-3 text-xs font-semibold text-gray-500 hover:text-gray-700 transition cursor-pointer flex items-center gap-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Back
+      </button>
+
     <!-- Assistant selector — shown only when the sheet is opened without an assistant in context
          (e.g. from the global Review Queue drawer rather than an assistant detail page). -->
     <div id="gen-post-assistant-wrap" class="mb-4 hidden">
       <label class="block text-xs font-semibold text-gray-700 mb-1.5">Assistant</label>
       <select id="gen-post-assistant" onchange="gpOnAssistantChange()" class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"></select>
     </div>
+
+    <!-- ── Mode: Write it yourself (no AI) ─────────────────────────────────── -->
+    <div id="gp-mode-write" class="hidden">
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-gray-700 mb-1.5">Platforms</label>
+        <div id="gpw-platforms" class="flex flex-wrap gap-2">
+          <button type="button" class="gpw-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="instagram" onclick="gpwTogglePlatform(this)">Instagram</button>
+          <button type="button" class="gpw-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="facebook" onclick="gpwTogglePlatform(this)">Facebook</button>
+          <button type="button" class="gpw-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="linkedin" onclick="gpwTogglePlatform(this)">LinkedIn</button>
+          <button type="button" class="gpw-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="x" onclick="gpwTogglePlatform(this)">X</button>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">Pick one or more — a separate draft is created for each.</p>
+      </div>
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-gray-700 mb-1.5">Post text</label>
+        <div class="relative">
+          <textarea id="gpw-caption" maxlength="5000" rows="4" placeholder="Write your post…" class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2.5 pr-10 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400"></textarea>
+          <button type="button" id="gpw-mic-btn" onclick="gpStartVoice('gpw-caption')" title="Dictate post text" class="absolute bottom-2 right-2 text-gray-400 hover:text-emerald-600 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4M12 3a4 4 0 014 4v4a4 4 0 01-8 0V7a4 4 0 014-4z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-gray-700 mb-1.5">Hashtags <span class="font-normal text-gray-400">(optional)</span></label>
+        <input id="gpw-hashtags" type="text" maxlength="500" placeholder="#example #brand" class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-400">
+      </div>
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block text-xs font-semibold text-gray-700">Media from My Content <span class="font-normal text-gray-400">(optional)</span></label>
+          <button type="button" id="gpw-media-toggle" onclick="gpwToggleMediaPicker()" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition cursor-pointer">Add media</button>
+        </div>
+        <div id="gpw-media-picker" class="hidden border border-gray-200 rounded-xl p-2 max-h-48 overflow-y-auto">
+          <div id="gpw-media-grid" class="grid grid-cols-3 gap-2"></div>
+          <p id="gpw-media-empty" class="hidden text-xs text-gray-400 text-center py-4">No media in My Content yet.</p>
+        </div>
+      </div>
+      <div id="gpw-status" class="hidden mb-4 text-sm rounded-xl p-3 bg-emerald-50 text-emerald-800 border border-emerald-200"></div>
+      <div class="flex gap-2">
+        <button id="gpw-submit-btn" onclick="gpwSubmit()" class="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded-xl transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Add to Review Queue</button>
+        <button onclick="closeGeneratePostSheet()" class="px-5 py-2.5 border border-gray-300 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 transition cursor-pointer">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ── Mode: Suggest an idea ───────────────────────────────────────────── -->
+    <div id="gp-mode-idea" class="hidden">
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-gray-700 mb-1.5">Your post idea</label>
+        <div class="relative">
+          <textarea id="gpi-idea" maxlength="500" rows="3" placeholder="e.g. A behind-the-scenes look at how we pack orders" class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2.5 pr-16 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400"></textarea>
+          <span class="absolute bottom-2 right-8 text-xs text-gray-400"><span id="gpi-idea-count">0</span>/500</span>
+          <button type="button" id="gpi-mic-btn" onclick="gpStartVoice('gpi-idea')" title="Dictate idea" class="absolute bottom-2 right-2 text-gray-400 hover:text-emerald-600 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4M12 3a4 4 0 014 4v4a4 4 0 01-8 0V7a4 4 0 014-4z"/></svg>
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">Your assistant will weave this into an upcoming scheduled draft — it won't be posted automatically.</p>
+      </div>
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-gray-700 mb-1.5">Suggested platform <span class="font-normal text-gray-400">(optional)</span></label>
+        <div id="gpi-platforms" class="flex flex-wrap gap-2">
+          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="instagram" onclick="gpiSelectPlatform(this)">Instagram</button>
+          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="facebook" onclick="gpiSelectPlatform(this)">Facebook</button>
+          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="linkedin" onclick="gpiSelectPlatform(this)">LinkedIn</button>
+          <button type="button" class="gpi-platform-btn px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-700 transition cursor-pointer" data-platform="x" onclick="gpiSelectPlatform(this)">X</button>
+        </div>
+      </div>
+      <div id="gpi-status" class="hidden mb-4 text-sm rounded-xl p-3 bg-emerald-50 text-emerald-800 border border-emerald-200"></div>
+      <div class="flex gap-2">
+        <button id="gpi-submit-btn" onclick="gpiSubmit()" class="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded-xl transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Submit Idea</button>
+        <button onclick="closeGeneratePostSheet()" class="px-5 py-2.5 border border-gray-300 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 transition cursor-pointer">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ── Mode: Work with AI (existing generate flow) ─────────────────────── -->
+    <div id="gp-mode-ai" class="hidden">
     <!-- Platform selector -->
     <div class="mb-4">
       <label class="block text-xs font-semibold text-gray-700 mb-1.5">Platform</label>
@@ -292,6 +405,30 @@ async function submitTosAcceptance(btn) {
       <p id="gen-post-preview-hashtags" class="text-violet-700 text-xs"></p>
       <p id="gen-post-preview-media" class="text-gray-500 text-xs mt-1 italic"></p>
     </div>
+    <!-- Media for the AI draft: your assistant attaches a stock photo automatically; the user can
+         swap it for an AI-generated image or pick a different Pexels photo. Shown after generation. -->
+    <div id="gp-ai-media" class="hidden mb-4">
+      <div class="flex items-center justify-between mb-1.5">
+        <p class="text-xs font-semibold text-gray-700">Post image <span class="font-normal text-gray-400">(optional)</span></p>
+        <div id="gp-ai-media-actions" class="flex gap-1.5">
+          <button type="button" onclick="gpAiGenerateImage()" class="px-2.5 py-1 text-xs font-semibold border border-violet-300 text-violet-700 hover:bg-violet-50 rounded-lg transition cursor-pointer flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+            Generate with AI
+          </button>
+          <button type="button" onclick="gpAiFindPexels()" class="px-2.5 py-1 text-xs font-semibold border border-sky-300 text-sky-700 hover:bg-sky-50 rounded-lg transition cursor-pointer flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            Find a photo
+          </button>
+        </div>
+      </div>
+      <p id="gp-ai-media-status" class="hidden text-xs"></p>
+      <!-- Pexels candidate grid (shown after "Find a photo") -->
+      <div id="gp-ai-pexels" class="hidden mt-2 grid grid-cols-3 gap-2"></div>
+      <!-- Currently-attached image -->
+      <div id="gp-ai-media-thumb" class="hidden mt-2">
+        <img id="gp-ai-media-thumb-img" src="" alt="Attached post image" class="w-full max-h-48 object-contain rounded-lg border border-gray-200 bg-gray-50">
+      </div>
+    </div>
     <!-- Actions -->
     <div id="gen-post-actions" class="flex gap-2">
       <button id="gen-post-submit-btn" onclick="gpSubmit()" class="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded-xl transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Generate</button>
@@ -315,6 +452,8 @@ async function submitTosAcceptance(btn) {
       <input id="gen-post-reject-reason" type="text" maxlength="300" placeholder="Rejection reason (required)" class="w-full text-sm border border-gray-300 rounded-xl px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-red-300">
       <button onclick="gpSubmitReject()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition cursor-pointer">Confirm Rejection</button>
     </div>
+    </div><!-- /gp-mode-ai -->
+    </div><!-- /gp-modes -->
   </div>
 </div>
 
@@ -3860,6 +3999,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctxCount = document.getElementById('gen-post-ctx-count');
     if (ctx && ctxCount) ctx.addEventListener('input', () => { ctxCount.textContent = ctx.value.length; });
 
+    // Suggest-an-idea counter
+    const ideaEl = document.getElementById('gpi-idea');
+    const ideaCount = document.getElementById('gpi-idea-count');
+    if (ideaEl && ideaCount) ideaEl.addEventListener('input', () => { ideaCount.textContent = ideaEl.value.length; });
+
     // Start badge polling
     refreshPendingBadge();
     _rqPollInterval = setInterval(refreshPendingBadge, 60_000);
@@ -3885,30 +4029,42 @@ let _gpPollInterval = null;
 let _gpCurrentJobId = null;
 let _gpCurrentPostId = null;
 let _gpSelectedPlatform = 'instagram';
+let _gpCap = null;                 // cached capacity (connected platforms + AI task limit)
+let _gpwSelectedPlatforms = [];    // write-your-own: multi-select
+let _gpwSelectedAssets = [];       // write-your-own: chosen My Content asset ids
+let _gpiSelectedPlatform = null;   // suggest-an-idea: optional single platform
 
+// Opens the sheet on the mode chooser. The AI task-limit gate is enforced only when the user
+// actually picks the "Work with AI" mode (gpChooseMode) — writing your own post or suggesting an
+// idea doesn't consume AI generations.
 async function openGeneratePostSheet() {
-    // Check monthly task limit first
-    const cap = await window.checkCapacity();
-    if (cap && cap.taskLimit != null && cap.taskCount >= cap.taskLimit) {
-        const resetDate = cap.trialExpiresAt
-            ? new Date(cap.trialExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-            : 'the start of your next billing cycle';
-        window.openUpgradeModal(
-            'Monthly generation limit reached',
-            `You've used all ${cap.taskLimit} generations this month.`,
-            `Your limit resets on ${resetDate}. Upgrade your plan to generate more posts now.`,
-            { nextPlan: cap.nextPlan }
-        );
-        return;
-    }
-
-    // Pick up current assistant context if available
     _gpCurrentAssistantId = window._currentAssistantId || null;
     _gpCurrentJobId = null;
     _gpCurrentPostId = null;
     clearInterval(_gpPollInterval);
 
-    // Reset UI
+    // Reset every mode back to its chooser state.
+    gpBackToChooser();
+
+    // Cache capacity (connected-platform dots + AI limit) so mode panels can use it without refetch.
+    _gpCap = await window.checkCapacity().catch(() => null);
+
+    document.getElementById('gen-post-backdrop')?.classList.remove('hidden');
+    document.getElementById('gen-post-sheet')?.classList.remove('hidden');
+
+    // Resolve an assistant up front (shared by all three modes).
+    gpPopulateAssistants();
+}
+
+// Return to the three-card chooser and clear any in-progress mode state.
+function gpBackToChooser() {
+    clearInterval(_gpPollInterval);
+    document.getElementById('gp-chooser')?.classList.remove('hidden');
+    document.getElementById('gp-modes')?.classList.add('hidden');
+    ['gp-mode-write', 'gp-mode-idea', 'gp-mode-ai'].forEach(id =>
+        document.getElementById(id)?.classList.add('hidden'));
+
+    // Reset AI mode controls.
     const ctx = document.getElementById('gen-post-context');
     if (ctx) ctx.value = '';
     const ctxCount = document.getElementById('gen-post-ctx-count');
@@ -3920,19 +4076,64 @@ async function openGeneratePostSheet() {
     document.getElementById('gen-post-schedule-picker')?.classList.add('hidden');
     document.getElementById('gen-post-reject-form')?.classList.add('hidden');
     document.getElementById('gen-post-actions')?.classList.remove('hidden');
-    const submitBtn = document.getElementById('gen-post-submit-btn');
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Generate'; }
+    const aiBtn = document.getElementById('gen-post-submit-btn');
+    if (aiBtn) { aiBtn.disabled = false; aiBtn.textContent = 'Generate'; }
+    // Reset the AI media controls.
+    _gpAiMediaPrompt = '';
+    document.getElementById('gp-ai-media')?.classList.add('hidden');
+    document.getElementById('gp-ai-pexels')?.classList.add('hidden');
+    document.getElementById('gp-ai-media-thumb')?.classList.add('hidden');
+    gpAiMediaStatus('');
 
-    // Mark connected platforms using cached capacity data
-    gpUpdateConnectedPlatforms(cap?.connectedPlatforms || []);
-    gpSelectPlatformByValue('instagram');
+    // Reset write-your-own.
+    _gpwSelectedPlatforms = [];
+    _gpwSelectedAssets = [];
+    document.querySelectorAll('.gpw-platform-btn').forEach(b => gpwSetChipState(b, false));
+    const cap = document.getElementById('gpw-caption'); if (cap) cap.value = '';
+    const tags = document.getElementById('gpw-hashtags'); if (tags) tags.value = '';
+    document.getElementById('gpw-media-picker')?.classList.add('hidden');
+    gpSetPanelStatus('gpw-status', '');
+    const wBtn = document.getElementById('gpw-submit-btn');
+    if (wBtn) { wBtn.disabled = false; wBtn.textContent = 'Add to Review Queue'; }
 
-    document.getElementById('gen-post-backdrop')?.classList.remove('hidden');
-    document.getElementById('gen-post-sheet')?.classList.remove('hidden');
+    // Reset suggest-an-idea.
+    _gpiSelectedPlatform = null;
+    const idea = document.getElementById('gpi-idea'); if (idea) idea.value = '';
+    const ideaCount = document.getElementById('gpi-idea-count'); if (ideaCount) ideaCount.textContent = '0';
+    document.querySelectorAll('.gpi-platform-btn').forEach(b => gpwSetChipState(b, false));
+    gpSetPanelStatus('gpi-status', '');
+    const iBtn = document.getElementById('gpi-submit-btn');
+    if (iBtn) { iBtn.disabled = false; iBtn.textContent = 'Submit Idea'; }
+}
 
-    // When opened without an assistant in context (e.g. from the global Review Queue),
-    // resolve one via the picker so "Generate" doesn't dead-end on "No assistant selected".
-    gpPopulateAssistants();
+// Reveal a mode's panel. 'ai' enforces the monthly AI generation limit first.
+function gpChooseMode(mode) {
+    if (mode === 'ai') {
+        const cap = _gpCap;
+        if (cap && cap.taskLimit != null && cap.taskCount >= cap.taskLimit) {
+            const resetDate = cap.trialExpiresAt
+                ? new Date(cap.trialExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+                : 'the start of your next billing cycle';
+            window.openUpgradeModal(
+                'Monthly generation limit reached',
+                `You've used all ${cap.taskLimit} generations this month.`,
+                `Your limit resets on ${resetDate}. Upgrade your plan to generate more posts now.`,
+                { nextPlan: cap.nextPlan }
+            );
+            return;
+        }
+    }
+
+    document.getElementById('gp-chooser')?.classList.add('hidden');
+    document.getElementById('gp-modes')?.classList.remove('hidden');
+    document.getElementById('gp-mode-write')?.classList.toggle('hidden', mode !== 'write');
+    document.getElementById('gp-mode-idea')?.classList.toggle('hidden', mode !== 'idea');
+    document.getElementById('gp-mode-ai')?.classList.toggle('hidden', mode !== 'ai');
+
+    if (mode === 'ai') {
+        gpUpdateConnectedPlatforms(_gpCap?.connectedPlatforms || []);
+        gpSelectPlatformByValue('instagram');
+    }
 }
 
 // Populate the assistant picker when no assistant is pre-selected. Auto-selects the org's
@@ -4095,6 +4296,18 @@ async function gpLoadPreview(postId) {
         document.getElementById('gen-post-preview-media').textContent = draft.suggestedMediaDescription ? `Media suggestion: ${draft.suggestedMediaDescription}` : '';
         document.getElementById('gen-post-preview')?.classList.remove('hidden');
         document.getElementById('gen-post-approve-actions')?.classList.remove('hidden');
+
+        // Media controls: prompt for "Generate with AI" comes from the media description (else caption).
+        // Show whatever image the assistant already attached, and let the user swap it.
+        _gpAiMediaPrompt = draft.suggestedMediaDescription || draft.caption || '';
+        document.getElementById('gp-ai-media-actions')?.classList.remove('hidden');
+        gpAiMediaStatus('');
+        gpAiMediaBusy(false);
+        document.getElementById('gp-ai-pexels')?.classList.add('hidden');
+        document.getElementById('gp-ai-media-thumb')?.classList.add('hidden');
+        gpAiShowThumb(draft.thumbnailUrl);   // reveals the thumb only if a URL is present
+        document.getElementById('gp-ai-media')?.classList.remove('hidden');
+
         // Show conflict notice if LLM detected a context prompt vs strict rule conflict
         if (draft.conflictNotice) {
             const el = document.getElementById('gen-post-conflict');
@@ -4151,27 +4364,319 @@ function gpRejectPost() {
     document.getElementById('gen-post-approve-actions')?.classList.add('hidden');
 }
 
-function gpStartVoice() {
+// Voice dictation into one of the Create Post text fields. Each field declares its own mic button
+// and (optionally) a live character counter so all three modes can share this one recognizer.
+const GP_VOICE_FIELDS = {
+    'gen-post-context': { mic: 'gen-post-mic-btn', count: 'gen-post-ctx-count' },
+    'gpw-caption':      { mic: 'gpw-mic-btn' },
+    'gpi-idea':         { mic: 'gpi-mic-btn', count: 'gpi-idea-count' },
+};
+function gpStartVoice(targetId = 'gen-post-context') {
+    const cfg = GP_VOICE_FIELDS[targetId] || { mic: 'gen-post-mic-btn' };
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert('Voice input is not supported in this browser. Try Chrome or Safari.'); return; }
     const rec = new SR();
     rec.lang = 'en-GB';
     rec.interimResults = false;
     rec.maxAlternatives = 1;
-    const micBtn = document.getElementById('gen-post-mic-btn');
+    const micBtn = document.getElementById(cfg.mic);
     if (micBtn) micBtn.classList.add('text-red-500');
     rec.onresult = (e) => {
         const transcript = e.results[0][0].transcript;
-        const ctx = document.getElementById('gen-post-context');
-        if (ctx) {
-            ctx.value = (ctx.value ? ctx.value + ' ' : '') + transcript;
-            ctx.value = ctx.value.slice(0, 500);
-            document.getElementById('gen-post-ctx-count').textContent = ctx.value.length;
+        const field = document.getElementById(targetId);
+        if (field) {
+            const max = Number(field.getAttribute('maxlength')) || 5000;
+            field.value = ((field.value ? field.value + ' ' : '') + transcript).slice(0, max);
+            const counter = cfg.count && document.getElementById(cfg.count);
+            if (counter) counter.textContent = field.value.length;
         }
     };
     rec.onend = () => { if (micBtn) micBtn.classList.remove('text-red-500'); };
     rec.onerror = () => { if (micBtn) micBtn.classList.remove('text-red-500'); };
     rec.start();
+}
+
+// ── Shared chip styling for the write-your-own / suggest-idea platform buttons ──────────────────
+function gpwSetChipState(btn, on) {
+    if (!btn) return;
+    if (on) {
+        btn.classList.add('border-emerald-600', 'text-emerald-700', 'font-semibold', 'bg-emerald-50');
+        btn.classList.remove('border-gray-300', 'text-gray-700');
+    } else {
+        btn.classList.remove('border-emerald-600', 'text-emerald-700', 'font-semibold', 'bg-emerald-50');
+        btn.classList.add('border-gray-300', 'text-gray-700');
+    }
+}
+
+// Per-panel status line (write / idea panels have their own status elements).
+function gpSetPanelStatus(id, msg, type) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+    el.classList.remove('hidden');
+    el.className = `mb-4 text-sm rounded-xl p-3 border ${type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`;
+    el.textContent = msg;
+}
+
+// ── Mode 1: Write it yourself (no AI) ───────────────────────────────────────────────────────────
+function gpwTogglePlatform(btn) {
+    const p = btn.dataset.platform;
+    const i = _gpwSelectedPlatforms.indexOf(p);
+    if (i >= 0) { _gpwSelectedPlatforms.splice(i, 1); gpwSetChipState(btn, false); }
+    else { _gpwSelectedPlatforms.push(p); gpwSetChipState(btn, true); }
+}
+
+async function gpwToggleMediaPicker() {
+    const picker = document.getElementById('gpw-media-picker');
+    if (!picker) return;
+    const willShow = picker.classList.contains('hidden');
+    picker.classList.toggle('hidden');
+    const toggle = document.getElementById('gpw-media-toggle');
+    if (toggle) toggle.textContent = willShow ? 'Hide media' : 'Add media';
+    if (willShow && !picker.dataset.loaded) await gpwLoadMedia();
+}
+
+async function gpwLoadMedia() {
+    const grid = document.getElementById('gpw-media-grid');
+    const empty = document.getElementById('gpw-media-empty');
+    const picker = document.getElementById('gpw-media-picker');
+    if (!grid) return;
+    grid.innerHTML = '<p class="col-span-3 text-xs text-gray-400 text-center py-4">Loading your media…</p>';
+    try {
+        const res = await fetch('/.netlify/functions/content-assets');
+        const data = res.ok ? await res.json() : { assets: {} };
+        // content-assets groups by status — flatten and keep usable visual assets.
+        const all = Object.values(data.assets || {}).flat();
+        const visual = all.filter(a => (a.assetType === 'image' || a.assetType === 'video') && !a.purgedAt);
+        grid.innerHTML = '';
+        if (!visual.length) { empty?.classList.remove('hidden'); if (picker) picker.dataset.loaded = '1'; return; }
+        empty?.classList.add('hidden');
+        visual.forEach(a => {
+            const thumb = a.storageUrl || a.externalUrl || '';
+            const cell = document.createElement('button');
+            cell.type = 'button';
+            cell.className = 'gpw-media-cell relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-400 transition cursor-pointer bg-gray-100';
+            cell.dataset.assetId = String(a.id);
+            cell.onclick = () => gpwToggleAsset(cell, a.id);
+            cell.innerHTML = (a.assetType === 'video')
+                ? `<div class="w-full h-full flex items-center justify-center text-gray-400"><svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V6a2 2 0 00-2-2H4zm12.553 1.106A1 1 0 0016 6v8a1 1 0 001.447.894l2-1A1 1 0 0020 13V7a1 1 0 00-.553-.894l-2-1z"/></svg></div>`
+                : `<img src="${thumb}" alt="${(a.name || '').replace(/"/g, '&quot;')}" class="w-full h-full object-cover" loading="lazy">`;
+            grid.appendChild(cell);
+        });
+        if (picker) picker.dataset.loaded = '1';
+    } catch {
+        grid.innerHTML = '<p class="col-span-3 text-xs text-red-500 text-center py-4">Could not load your media.</p>';
+    }
+}
+
+function gpwToggleAsset(cell, id) {
+    const i = _gpwSelectedAssets.indexOf(id);
+    if (i >= 0) {
+        _gpwSelectedAssets.splice(i, 1);
+        cell.classList.remove('border-emerald-500');
+        cell.querySelector('.gpw-check')?.remove();
+    } else {
+        _gpwSelectedAssets.push(id);
+        cell.classList.add('border-emerald-500');
+        const check = document.createElement('span');
+        check.className = 'gpw-check absolute top-1 right-1 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs shadow';
+        check.textContent = '✓';
+        cell.appendChild(check);
+    }
+}
+
+async function gpwSubmit() {
+    if (!_gpCurrentAssistantId) { gpSetPanelStatus('gpw-status', 'No assistant selected. Open an assistant first.', 'error'); return; }
+    const caption = document.getElementById('gpw-caption')?.value?.trim() || '';
+    const hashtags = document.getElementById('gpw-hashtags')?.value?.trim() || '';
+    if (!_gpwSelectedPlatforms.length) { gpSetPanelStatus('gpw-status', 'Pick at least one platform.', 'error'); return; }
+    if (!caption) { gpSetPanelStatus('gpw-status', 'Write your post text first.', 'error'); return; }
+
+    const btn = document.getElementById('gpw-submit-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+    gpSetPanelStatus('gpw-status', 'Adding to your Review Queue…');
+    try {
+        const res = await fetch('/.netlify/functions/create-manual-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                assistantId: _gpCurrentAssistantId,
+                platforms: _gpwSelectedPlatforms,
+                caption,
+                hashtags: hashtags || undefined,
+                contentAssetIds: _gpwSelectedAssets,
+            }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            gpSetPanelStatus('gpw-status', d.error || 'Could not create the post.', 'error');
+            if (btn) { btn.disabled = false; btn.textContent = 'Add to Review Queue'; }
+            return;
+        }
+        const n = (d.created || []).length;
+        gpSetPanelStatus('gpw-status', `Added ${n} draft${n === 1 ? '' : 's'} to your Review Queue.`);
+        if (typeof refreshPendingBadge === 'function') refreshPendingBadge();
+        // Refresh the Review Queue's Social tab if it's currently mounted.
+        if (typeof rqLoadItems === 'function') { try { rqLoadItems('pending_approval', 'social'); } catch { /* ignore */ } }
+        setTimeout(closeGeneratePostSheet, 1500);
+    } catch {
+        gpSetPanelStatus('gpw-status', 'Network error — please try again.', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Add to Review Queue'; }
+    }
+}
+
+// ── Mode 2: Suggest an idea ─────────────────────────────────────────────────────────────────────
+function gpiSelectPlatform(btn) {
+    const p = btn.dataset.platform;
+    if (_gpiSelectedPlatform === p) { _gpiSelectedPlatform = null; gpwSetChipState(btn, false); return; }
+    document.querySelectorAll('.gpi-platform-btn').forEach(b => gpwSetChipState(b, false));
+    _gpiSelectedPlatform = p;
+    gpwSetChipState(btn, true);
+}
+
+async function gpiSubmit() {
+    if (!_gpCurrentAssistantId) { gpSetPanelStatus('gpi-status', 'No assistant selected. Open an assistant first.', 'error'); return; }
+    const idea = document.getElementById('gpi-idea')?.value?.trim() || '';
+    if (!idea) { gpSetPanelStatus('gpi-status', 'Describe your idea first.', 'error'); return; }
+
+    const btn = document.getElementById('gpi-submit-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+    try {
+        const res = await fetch('/.netlify/functions/suggest-post-idea', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                assistantId: _gpCurrentAssistantId,
+                idea,
+                platform: _gpiSelectedPlatform || undefined,
+            }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            gpSetPanelStatus('gpi-status', d.error || 'Could not submit your idea.', 'error');
+            if (btn) { btn.disabled = false; btn.textContent = 'Submit Idea'; }
+            return;
+        }
+        gpSetPanelStatus('gpi-status', 'Thanks! Your assistant will weave this into an upcoming draft.');
+        setTimeout(closeGeneratePostSheet, 1800);
+    } catch {
+        gpSetPanelStatus('gpi-status', 'Network error — please try again.', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Submit Idea'; }
+    }
+}
+
+// ── Mode 3 media: replace the AI draft's image with a fresh AI render or a Pexels photo ──────────
+let _gpAiMediaPrompt = '';
+
+function gpAiMediaStatus(msg, type) {
+    const el = document.getElementById('gp-ai-media-status');
+    if (!el) return;
+    if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+    el.classList.remove('hidden');
+    el.className = `text-xs mt-2 ${type === 'error' ? 'text-red-600' : 'text-gray-500'}`;
+    el.textContent = msg;
+}
+
+function gpAiMediaBusy(busy) {
+    document.querySelectorAll('#gp-ai-media-actions button').forEach(btn => {
+        btn.disabled = busy;
+        btn.classList.toggle('opacity-50', busy);
+        btn.classList.toggle('cursor-not-allowed', busy);
+    });
+}
+
+function gpAiShowThumb(url) {
+    const wrap = document.getElementById('gp-ai-media-thumb');
+    const img = document.getElementById('gp-ai-media-thumb-img');
+    if (url && img) img.src = url;
+    if (url) wrap?.classList.remove('hidden');
+    document.getElementById('gp-ai-pexels')?.classList.add('hidden');
+    gpAiMediaBusy(false);
+}
+
+async function gpAiGenerateImage() {
+    if (!_gpCurrentPostId) return;
+    gpAiMediaBusy(true);
+    gpAiMediaStatus('Generating an image… this usually takes ~20 seconds.');
+    try {
+        const res = await fetch('/.netlify/functions/regenerate-post-media', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: _gpCurrentPostId, prompt: _gpAiMediaPrompt || undefined }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (res.status === 402) { gpAiMediaStatus("You're out of image credits — upgrade to generate more.", 'error'); gpAiMediaBusy(false); return; }
+        if (res.status === 422) { gpAiMediaStatus(d.error || 'That description was flagged. Try different wording.', 'error'); gpAiMediaBusy(false); return; }
+        if (!res.ok) { gpAiMediaStatus(d.error || 'Could not generate an image.', 'error'); gpAiMediaBusy(false); return; }
+        gpAiShowThumb(d.thumbnailUrl);
+        gpAiMediaStatus('New AI image attached to this post.');
+    } catch {
+        gpAiMediaStatus('Network error — please try again.', 'error');
+        gpAiMediaBusy(false);
+    }
+}
+
+async function gpAiFindPexels() {
+    if (!_gpCurrentPostId) return;
+    gpAiMediaBusy(true);
+    gpAiMediaStatus('Searching for a photo…');
+    try {
+        const res = await fetch('/.netlify/functions/pexels-search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: _gpCurrentPostId }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (res.status === 429) { gpAiMediaStatus(d.error || 'Image search is resting — try again shortly.', 'error'); gpAiMediaBusy(false); return; }
+        if (!res.ok) { gpAiMediaStatus(d.error || 'Could not search for a photo.', 'error'); gpAiMediaBusy(false); return; }
+        const candidates = d.candidates || [];
+        if (!candidates.length) { gpAiMediaStatus('No fresh photos found for this topic — try generating one instead.', 'error'); gpAiMediaBusy(false); return; }
+        gpAiRenderPexels(candidates);
+        gpAiMediaStatus('Pick a photo to attach it to your post.');
+        gpAiMediaBusy(false);
+    } catch {
+        gpAiMediaStatus('Network error — please try again.', 'error');
+        gpAiMediaBusy(false);
+    }
+}
+
+function gpAiRenderPexels(candidates) {
+    const grid = document.getElementById('gp-ai-pexels');
+    if (!grid) return;
+    grid.innerHTML = '';
+    candidates.forEach(c => {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-sky-400 transition cursor-pointer bg-gray-100';
+        cell.title = c.photographer ? `Photo by ${c.photographer} on Pexels` : 'Pexels photo';
+        cell.onclick = () => gpAiSelectPexels(c);
+        cell.innerHTML = `<img src="${c.url}" alt="${(c.title || '').replace(/"/g, '&quot;')}" class="w-full h-full object-cover" loading="lazy">`;
+        grid.appendChild(cell);
+    });
+    grid.classList.remove('hidden');
+}
+
+async function gpAiSelectPexels(candidate) {
+    if (!_gpCurrentPostId) return;
+    gpAiMediaStatus('Attaching photo…');
+    try {
+        const res = await fetch('/.netlify/functions/pexels-search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'select', postId: _gpCurrentPostId, candidate }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { gpAiMediaStatus(d.error || 'Could not attach the photo.', 'error'); return; }
+        gpAiShowThumb(candidate.url);
+        // pexels-search appends the credit line server-side when the org opts in — mirror it in the preview.
+        if (d.attributionAppended && candidate.photographer) {
+            const cap = document.getElementById('gen-post-preview-caption');
+            if (cap) cap.textContent = `${cap.textContent || ''}\n\nPhoto by ${candidate.photographer} on Pexels`;
+        }
+        gpAiMediaStatus(d.attributionAppended ? 'Photo attached — a credit line was added to your caption.' : 'Photo attached to this post.');
+    } catch {
+        gpAiMediaStatus('Network error — please try again.', 'error');
+    }
 }
 
 async function gpSubmitReject() {

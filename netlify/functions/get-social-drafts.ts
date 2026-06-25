@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { scheduledPosts, aiAssistants, userOrganisations } from '../../db/schema';
+import { resolvePostImage } from '../../src/utils/social-publish';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -38,6 +39,7 @@ export const handler: Handler = async (event) => {
                 caption: scheduledPosts.caption,
                 hashtags: scheduledPosts.hashtags,
                 suggestedMediaDescription: scheduledPosts.suggestedMediaDescription,
+                contentAssetIds: scheduledPosts.contentAssetIds,
                 conflictNotice: scheduledPosts.conflictNotice,
                 status: scheduledPosts.status,
                 triggerType: scheduledPosts.triggerType,
@@ -57,10 +59,18 @@ export const handler: Handler = async (event) => {
             .orderBy(desc(scheduledPosts.generatedAt))
             .limit(50);
 
+        // Resolve a preview thumbnail for the first attached image (presigned R2 or external URL).
+        // Best-effort per draft — a resolution failure must never blank out the list.
+        const withThumbs = await Promise.all(drafts.map(async ({ contentAssetIds, ...d }) => {
+            let thumbnailUrl: string | null = null;
+            try { thumbnailUrl = (await resolvePostImage(db, contentAssetIds))?.url ?? null; } catch { /* ignore */ }
+            return { ...d, thumbnailUrl };
+        }));
+
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ drafts }),
+            body: JSON.stringify({ drafts: withThumbs }),
         };
     } catch (err) {
         console.error('[get-social-drafts]', err);
