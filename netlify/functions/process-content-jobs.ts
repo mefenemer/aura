@@ -243,10 +243,12 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             triggerType: job.trigger_type ?? 'scheduled',
         }).returning({ id: scheduledPosts.id });
 
-        // Mark the consumed user idea 'used' and link it to the draft it produced (best-effort).
+        // Mark the consumed user idea 'in_review' and link it to the draft it produced (best-effort).
+        // The idea now rides with this draft through the Review Queue; approve-post.ts flips it to
+        // 'delivered' once the draft is approved, closing the loop back to the user who suggested it.
         if (consumedIdeaId) {
             await db.execute(
-                `UPDATE post_idea_suggestions SET status = 'used', used_post_id = ${post.id}, used_at = now()
+                `UPDATE post_idea_suggestions SET status = 'in_review', used_post_id = ${post.id}, used_at = now()
                  WHERE id = ${consumedIdeaId} AND status = 'pending'`
             ).catch(() => {});
         }

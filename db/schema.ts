@@ -1342,13 +1342,18 @@ export const postIdeaSuggestions = pgTable("post_idea_suggestions", {
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   idea: text("idea").notNull(),
   platform: text("platform"),                       // target platforms, comma-separated (facebook|instagram|linkedin|x); null === all
-  status: text("status").notNull().default("pending"), // 'pending' | 'used' | 'discarded'
+  // Idea lifecycle: 'pending' (awaiting use) → 'in_review' (woven into a draft now awaiting human
+  // review) → 'delivered' (that draft was approved). 'discarded' = dropped by the user. 'used' is a
+  // legacy synonym for 'in_review' kept for older rows.
+  status: text("status").notNull().default("pending"),
   usedPostId: integer("used_post_id").references(() => scheduledPosts.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   usedAt: timestamp("used_at"),
+  deliveredAt: timestamp("delivered_at"),           // set when usedPostId was approved
 }, (t) => [
   index("post_idea_suggestions_assistant_status_idx").on(t.assistantId, t.status),
-  check("post_idea_suggestions_status_check", sql`${t.status} IN ('pending', 'used', 'discarded')`),
+  index("post_idea_suggestions_used_post_idx").on(t.usedPostId),
+  check("post_idea_suggestions_status_check", sql`${t.status} IN ('pending', 'in_review', 'delivered', 'used', 'discarded')`),
 ]);
 
 // ── DPA Requests — US-AUD-4.1.1 SC3 ──────────────────────────────────────────

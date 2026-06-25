@@ -5,7 +5,7 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { scheduledPosts, aiAssistants, userOrganisations } from '../../db/schema';
+import { scheduledPosts, aiAssistants, userOrganisations, postIdeaSuggestions } from '../../db/schema';
 import { resolvePostImage } from '../../src/utils/social-publish';
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -49,9 +49,14 @@ export const handler: Handler = async (event) => {
                 jobId: scheduledPosts.jobId,
                 rejectionReason: scheduledPosts.rejectionReason,
                 assistantName: aiAssistants.name,
+                // When this draft was generated from a user-suggested idea, surface the original
+                // idea text on the card so the reviewer can see what it was built from (closes the
+                // loop between "Suggest an idea" and the draft now awaiting review).
+                originIdea: postIdeaSuggestions.idea,
             })
             .from(scheduledPosts)
             .leftJoin(aiAssistants, eq(aiAssistants.id, scheduledPosts.assistantId))
+            .leftJoin(postIdeaSuggestions, eq(postIdeaSuggestions.usedPostId, scheduledPosts.id))
             .where(and(
                 eq(scheduledPosts.organisationId, organisationId),
                 eq(scheduledPosts.status, statusFilter),

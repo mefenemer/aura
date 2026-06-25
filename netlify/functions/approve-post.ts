@@ -10,10 +10,10 @@
 //   409 { pastSchedule: true, scheduledFor, platform } — scheduled time in past, awaiting user action
 
 import { Handler } from '@netlify/functions';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
-import { aiAssistants, auditLogs, scheduledPosts } from '../../db/schema';
+import { aiAssistants, auditLogs, postIdeaSuggestions, scheduledPosts } from '../../db/schema';
 import { recordPostedAssets } from '../../src/utils/pexels';
 import { resolvePostImage } from '../../src/utils/social-publish';
 
@@ -64,6 +64,12 @@ export const handler: Handler = async (event) => {
             .where(and(eq(scheduledPosts.id, postId), eq(scheduledPosts.userId, userId)))
             .returning();
         if (!rejected) return { statusCode: 404, body: JSON.stringify({ error: 'Post not found.' }) };
+        // If this draft was built from a user-suggested idea, the idea has NOT been delivered —
+        // return it to the pool so it can be woven into a fresh draft (best-effort, never blocks).
+        await db.update(postIdeaSuggestions)
+            .set({ status: 'pending', usedPostId: null, usedAt: null })
+            .where(and(eq(postIdeaSuggestions.usedPostId, postId), eq(postIdeaSuggestions.status, 'in_review')))
+            .catch(() => {});
         await db.insert(auditLogs).values({
             userId,
             actionType: 'POST_REJECTED',
@@ -161,6 +167,14 @@ export const handler: Handler = async (event) => {
         await recordPostedAssets(db, { orgId: post.organisationId, userId, scheduledPostId: postId })
             .catch(err => console.warn(`[approve-post] recordPostedAssets failed for post ${postId}:`, err?.message || err));
     }
+
+    // Close the loop on a user-suggested idea: approving the draft it produced marks the idea
+    // 'delivered' (with delivered_at), keeping the link to the post. Surfaced in the Review Queue
+    // Ideas tab so the suggester sees their idea went live. Best-effort — never blocks approval.
+    await db.update(postIdeaSuggestions)
+        .set({ status: 'delivered', deliveredAt: now })
+        .where(and(eq(postIdeaSuggestions.usedPostId, postId), sql`status IN ('in_review','used')`))
+        .catch(() => {});
 
     // ── Audit log: userId, postId, approvedAt, scheduledFor ───────────────────
     await db.insert(auditLogs).values({
