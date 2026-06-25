@@ -35,6 +35,7 @@ export const handler: Handler = async (event) => {
             lifecycleStatus: aiAssistants.lifecycleStatus,
             onboardingContext: aiAssistants.onboardingContext,
             configuration: aiAssistants.configuration,
+            draftHorizonDays: aiAssistants.draftHorizonDays,
             masterAssistantId: aiAssistants.masterAssistantId,
             disclosureText: aiAssistants.disclosureText,
             organisationId: aiAssistants.organisationId,
@@ -73,6 +74,7 @@ export const handler: Handler = async (event) => {
         return { statusCode: 200, body: JSON.stringify({
                 context: row.onboardingContext ?? {},
                 configuration: row.configuration,
+                draftHorizonDays: row.draftHorizonDays ?? 7,
                 name: row.name,
                 role: row.role || 'Digital Assistant',
                 status: row.status || 'pending',

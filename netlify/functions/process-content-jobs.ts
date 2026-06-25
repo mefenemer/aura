@@ -31,10 +31,10 @@ export const handler: Handler = async () => {
         id: number; job_id: string; blueprint_id: number; assistant_id: number;
         organisation_id: number; user_id: number; attempt: number; max_attempts: number;
         context_prompt: string | null; trigger_type: string | null; platform: string | null;
-        admin_id: number | null;
+        admin_id: number | null; target_publish_date: string | null;
     }>(
         `SELECT id, job_id, blueprint_id, assistant_id, organisation_id, user_id, attempt, max_attempts,
-                context_prompt, trigger_type, platform, admin_id
+                context_prompt, trigger_type, platform, admin_id, target_publish_date
          FROM content_generation_jobs
          WHERE status = 'queued'
            AND (next_retry_at IS NULL OR next_retry_at <= now())
@@ -54,7 +54,7 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
     id: number; job_id: string; blueprint_id: number; assistant_id: number;
     organisation_id: number; user_id: number; attempt: number; max_attempts: number;
     context_prompt: string | null; trigger_type: string | null; platform: string | null;
-    admin_id: number | null;
+    admin_id: number | null; target_publish_date: string | null;
 }, now: Date) {
     await db.execute(
         `UPDATE content_generation_jobs SET status = 'processing', attempt = attempt + 1, updated_at = now() WHERE id = ${job.id}`
@@ -231,7 +231,9 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             platform,
             postFormat: format,
             pillar: resolvedPillar,
-            publishDate: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+            // Scheduled jobs carry the exact slot to publish at (from the posting schedule); other
+            // jobs (on-demand, conversion, admin-test) keep the legacy "tomorrow" default.
+            publishDate: job.target_publish_date ? new Date(job.target_publish_date) : new Date(now.getTime() + 24 * 60 * 60 * 1000),
             caption: generated.caption ?? null,
             hashtags: generated.hashtags ?? null,
             suggestedMediaDescription: reelBrief || null,

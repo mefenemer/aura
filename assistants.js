@@ -147,6 +147,62 @@ function _setFrequencySelect(val) {
     sel.value = value;
 }
 
+// ── Posting Schedule (frequency + days + times + timezone) ──────────────────────────────
+// Stored on onboarding_context: posting_frequency, posting_days[], posting_times[], posting_timezone.
+const _POSTING_DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const _POSTING_DEFAULT_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
+const _POSTING_DEFAULT_TIMES = ['09:00'];
+const _POSTING_DEFAULT_TZ = 'Europe/London';
+const _POSTING_DEFAULT_FREQ = '3 times a week';
+
+function _normaliseTime(v) {
+    const m = String(v ?? '').trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    const h = Number(m[1]), min = Number(m[2]);
+    if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+    return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+// Build one removable time-input row. Inputs/removal notify the autosave via the global hook.
+function _addPostingTimeRow(value) {
+    const list = document.getElementById('posting-times-list');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:0.5rem';
+    row.innerHTML = `
+        <input type="time" value="${_normaliseTime(value) || '09:00'}" class="posting-time-input border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition shadow-sm">
+        <button type="button" class="posting-time-remove text-gray-400 hover:text-red-500 transition cursor-pointer" title="Remove time" aria-label="Remove time">✕</button>`;
+    row.querySelector('.posting-time-input').addEventListener('input', () => window._postingScheduleChanged && window._postingScheduleChanged());
+    row.querySelector('.posting-time-remove').addEventListener('click', () => {
+        row.remove();
+        window._postingScheduleChanged && window._postingScheduleChanged();
+    });
+    list.appendChild(row);
+}
+
+function _renderPostingTimes(times) {
+    const list = document.getElementById('posting-times-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const clean = (Array.isArray(times) ? times : []).map(_normaliseTime).filter(Boolean);
+    (clean.length ? clean : _POSTING_DEFAULT_TIMES).forEach(t => _addPostingTimeRow(t));
+}
+
+function _collectPostingTimes() {
+    const inputs = Array.from(document.querySelectorAll('#posting-times-list .posting-time-input'));
+    const seen = new Set();
+    const out = [];
+    inputs.forEach(el => {
+        const t = _normaliseTime(el.value);
+        if (t && !seen.has(t)) { seen.add(t); out.push(t); }
+    });
+    return out.sort();
+}
+
+function _collectPostingDays() {
+    return _POSTING_DAY_KEYS.filter(d => document.getElementById('edit_day_' + d)?.checked);
+}
+
 // Content Pillars are stored as a discrete array. Parse the comma/semicolon/newline-separated
 // entry field into a deduped, trimmed list of up to 5 themes.
 function _parsePillars(raw) {
@@ -291,7 +347,30 @@ function _detailHydrate(data) {
     const inputs = cfg.inputs || {};
 
     _detailSetVal('edit_problem', ctx.problem_statement || inputs.problem || '');
-    _setFrequencySelect(ctx.posting_frequency || '');
+    _setFrequencySelect(ctx.posting_frequency || _POSTING_DEFAULT_FREQ);
+
+    // ── Posting Schedule: days / times / timezone / draft horizon ──
+    const _days = (Array.isArray(ctx.posting_days) && ctx.posting_days.length)
+        ? ctx.posting_days.map(d => String(d).toLowerCase().slice(0, 3))
+        : _POSTING_DEFAULT_DAYS;
+    _POSTING_DAY_KEYS.forEach(d => {
+        const el = document.getElementById('edit_day_' + d);
+        if (el) el.checked = _days.includes(d);
+    });
+    _renderPostingTimes(ctx.posting_times);
+    // Inject a stored timezone that isn't in the curated list so it round-trips.
+    const tzSel = document.getElementById('edit_timezone');
+    const tzVal = ctx.posting_timezone || _POSTING_DEFAULT_TZ;
+    if (tzSel) {
+        if (!Array.from(tzSel.options).some(o => o.value === tzVal)) {
+            const opt = document.createElement('option');
+            opt.value = tzVal; opt.textContent = tzVal;
+            tzSel.appendChild(opt);
+        }
+        tzSel.value = tzVal;
+    }
+    const horizonEl = document.getElementById('posting-horizon-input');
+    if (horizonEl) horizonEl.value = data.draftHorizonDays ?? 7;
 
     // Objective
     const objectiveVal = ctx.primary_objective || inputs.primary_objective || '';
@@ -472,6 +551,9 @@ function _detailCollect(currentData) {
         cta: document.getElementById('edit_cta')?.value || '',
         incentive: document.getElementById('edit_incentive')?.value || '',
         posting_frequency: document.getElementById('edit_frequency')?.value || '',
+        posting_days: _collectPostingDays(),
+        posting_times: _collectPostingTimes(),
+        posting_timezone: document.getElementById('edit_timezone')?.value || _POSTING_DEFAULT_TZ,
         target_audience: document.getElementById('edit_audience')?.value || '',
         tone_of_voice: document.getElementById('edit_tone')?.value || '',
         content_pillars: _parsePillars(document.getElementById('edit_pillars')?.value),
@@ -628,6 +710,52 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         });
     }
 
+    // ── Posting Schedule wiring ───────────────────────────────────
+    // Day checkboxes / timezone autosave via the generic [id^="edit_"] handler above. The dynamic
+    // time rows + "Add a time" button notify through this global hook; the draft horizon has its
+    // own endpoint (set-draft-horizon) with gap-fill / archive side-effects, so it saves separately.
+    function _wirePostingSchedule() {
+        window._postingScheduleChanged = triggerAutoSave;
+
+        const addBtn = document.getElementById('btn-add-posting-time');
+        if (addBtn) addBtn.addEventListener('click', () => {
+            _addPostingTimeRow('09:00');
+            triggerAutoSave();
+        });
+
+        const horizonEl = document.getElementById('posting-horizon-input');
+        const statusEl  = document.getElementById('posting-horizon-status');
+        if (horizonEl) {
+            let horizonTimer = null;
+            const setStatus = (msg, cls) => { if (statusEl) { statusEl.textContent = msg; statusEl.className = `text-sm font-semibold ${cls || ''}`; } };
+            const saveHorizon = async () => {
+                let days = parseInt(horizonEl.value, 10);
+                if (!Number.isInteger(days)) return;
+                days = Math.max(1, Math.min(30, days));
+                horizonEl.value = days;
+                setStatus('Saving…', 'text-gray-400');
+                try {
+                    const res = await fetch('/.netlify/functions/set-draft-horizon', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ assistantId: parseInt(assistantId), draftHorizonDays: days }),
+                    });
+                    if (res.ok) {
+                        const out = await res.json().catch(() => ({}));
+                        currentData.draftHorizonDays = days;
+                        setStatus(out.gapFillEnqueued ? `✓ Saved — drafting ${out.gapFillEnqueued} new post${out.gapFillEnqueued === 1 ? '' : 's'}` : '✓ Saved', 'text-emerald-600');
+                        setTimeout(() => setStatus(''), 4000);
+                    } else {
+                        setStatus('Save failed', 'text-red-500');
+                    }
+                } catch {
+                    setStatus('Save failed', 'text-red-500');
+                }
+            };
+            horizonEl.addEventListener('change', () => { clearTimeout(horizonTimer); horizonTimer = setTimeout(saveHorizon, 600); });
+        }
+    }
+
     // ── Load & hydrate ────────────────────────────────────────────
     try {
         const res = await fetch(`/.netlify/functions/get-assistant-context?id=${assistantId}`);
@@ -726,6 +854,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         _renderOnboardingSummary(currentData);
         _hydrateAutonomousToggle(currentData);
         attachAutoSave();
+        _wirePostingSchedule();
         _renderKickOff(assistantId);
     } catch (e) {
         console.error('Failed to load assistant detail:', e);
@@ -1560,6 +1689,15 @@ let _autonomousGoalSeeking = false;
 let _autonomousMediaEnabled = false;   // Epic 2 US5
 let _autonomousMediaCap = 20;
 
+// Media Source Selection — ordered list of enabled sources (priority = order). Default matrix.
+let _mediaSources = ['manual', 'stock', 'ai'];
+const _MEDIA_SOURCE_META = {
+    manual: { label: 'Manual Upload', desc: 'Pick from your uploaded content library.' },
+    stock:  { label: 'AI Stock Search', desc: 'Search Pexels for a relevant photo or video.' },
+    ai:     { label: 'AI Generation', desc: 'Generate a fresh image on demand.' },
+};
+const _ALL_MEDIA_SOURCES = ['manual', 'stock', 'ai'];
+
 const _GOAL_STATUS_META = {
     pending:            { label: 'Pending',        dot: 'bg-gray-300',    text: 'text-gray-500'   },
     on_track:           { label: 'On Track',       dot: 'bg-emerald-500', text: 'text-emerald-600' },
@@ -1589,6 +1727,7 @@ async function _fetchAndRenderGoals(assistantId) {
             _autonomousGoalSeeking = !!data.autonomousGoalSeeking;
             _autonomousMediaEnabled = !!data.autonomousMediaEnabled;
             _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? 20;
+            _mediaSources = _normalizeMediaSources(data.mediaSources);
         }
     } catch (e) {
         console.warn('Could not load goals:', e);
@@ -1600,6 +1739,7 @@ async function _fetchAndRenderGoals(assistantId) {
     _syncReviewButton();
     _applyGoalEntitlementsUi();
     _applyAutonomousMediaUi();
+    _applyMediaSourcesUi();
 
     if (!goals.length) {
         list.innerHTML = `<div class="py-8 text-center text-sm text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
@@ -1979,6 +2119,93 @@ window._saveAutonomousMediaCap = async function () {
         _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? cap;
         _applyAutonomousMediaUi();
     } catch (e) { alert('Could not update the cap: ' + e.message); input.value = _autonomousMediaCap; }
+};
+
+// ── Media Source Selection ──────────────────────────────────────────
+// Coerce the stored value into a clean ordered list of valid sources (mirrors the server helper).
+function _normalizeMediaSources(raw) {
+    const valid = new Set(_ALL_MEDIA_SOURCES);
+    const out = [];
+    if (Array.isArray(raw)) {
+        for (const v of raw) {
+            const s = String(v || '').toLowerCase();
+            if (valid.has(s) && !out.includes(s)) out.push(s);
+        }
+    }
+    return out.length ? out : [..._ALL_MEDIA_SOURCES];
+}
+
+// Render the enabled sources (in priority order, with reorder arrows) followed by disabled ones.
+function _applyMediaSourcesUi() {
+    const list = document.getElementById('media-sources-list');
+    if (!list) return;
+    const enabled = _mediaSources;
+    const disabled = _ALL_MEDIA_SOURCES.filter(s => !enabled.includes(s));
+
+    const row = (src, on, idx) => {
+        const meta = _MEDIA_SOURCE_META[src];
+        const arrows = on ? `
+            <div class="flex flex-col">
+              <button type="button" aria-label="Move up" onclick="window._reorderMediaSource('${src}',-1)"
+                class="px-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-400 cursor-pointer leading-none" ${idx === 0 ? 'disabled' : ''}>&#9650;</button>
+              <button type="button" aria-label="Move down" onclick="window._reorderMediaSource('${src}',1)"
+                class="px-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-400 cursor-pointer leading-none" ${idx === enabled.length - 1 ? 'disabled' : ''}>&#9660;</button>
+            </div>` : '<div class="w-[18px]"></div>';
+        const badge = on ? `<span class="text-xs font-bold text-gray-400 w-5 text-center">${idx + 1}</span>` : '<span class="w-5"></span>';
+        return `
+        <div class="flex items-center gap-3 border ${on ? 'border-gray-200 bg-white' : 'border-dashed border-gray-200 bg-gray-50'} rounded-xl px-4 py-3">
+          ${badge}
+          ${arrows}
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-bold ${on ? 'text-gray-900' : 'text-gray-500'}">${meta.label}</p>
+            <p class="text-xs text-gray-400">${meta.desc}</p>
+          </div>
+          <button type="button" role="switch" aria-checked="${on}" aria-label="${on ? 'Disable' : 'Enable'} ${meta.label}"
+            onclick="window._toggleMediaSource('${src}')"
+            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${on ? 'bg-emerald-600' : 'bg-gray-300'}">
+            <span class="${on ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+          </button>
+        </div>`;
+    };
+
+    list.innerHTML = enabled.map((s, i) => row(s, true, i)).join('') + disabled.map(s => row(s, false, -1)).join('');
+    const warn = document.getElementById('media-sources-empty-warning');
+    if (warn) warn.classList.toggle('hidden', enabled.length > 0);
+}
+
+async function _persistMediaSources(prev) {
+    try {
+        const data = await _setAutonomousMedia({ mediaSources: _mediaSources });
+        _mediaSources = _normalizeMediaSources(data.mediaSources);
+    } catch (e) {
+        _mediaSources = prev;   // revert on failure
+        alert('Could not update media sources: ' + e.message);
+    }
+    _applyMediaSourcesUi();
+}
+
+window._toggleMediaSource = function (src) {
+    if (!_ALL_MEDIA_SOURCES.includes(src)) return;
+    const prev = [..._mediaSources];
+    if (_mediaSources.includes(src)) {
+        _mediaSources = _mediaSources.filter(s => s !== src);   // disable
+    } else {
+        _mediaSources = [..._mediaSources, src];                // enable (lowest priority)
+    }
+    _applyMediaSourcesUi();   // optimistic
+    _persistMediaSources(prev);
+};
+
+window._reorderMediaSource = function (src, delta) {
+    const i = _mediaSources.indexOf(src);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= _mediaSources.length) return;
+    const prev = [..._mediaSources];
+    const next = [..._mediaSources];
+    [next[i], next[j]] = [next[j], next[i]];
+    _mediaSources = next;
+    _applyMediaSourcesUi();   // optimistic
+    _persistMediaSources(prev);
 };
 
 // AC3.1 — premium AI recommendations for an off-track goal.

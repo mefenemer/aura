@@ -10,7 +10,7 @@
 
 import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { contentAssets, postedAssets, scheduledPosts, scheduledPostAssets } from '../../db/schema';
+import { contentAssets, postedAssets, scheduledPosts, scheduledPostAssets, pexelsSearchCache } from '../../db/schema';
 import { gatewayGenerate } from '../lib/ai-gateway';
 
 type Db = ReturnType<typeof getDb>;
@@ -36,7 +36,23 @@ export interface PexelsCandidate {
     height: number;
 }
 
+// Video stock search (Pexels for both images and videos). providerAssetId is prefixed 'v' so a
+// video id can never collide with a photo id in the shared 'pexels' dedup namespace (posted_assets).
+export interface PexelsVideoCandidate {
+    providerAssetId: string;   // 'v' + Pexels video id
+    url: string;               // direct .mp4 file URL (hotlinked, never permanently hosted)
+    title: string;
+    photographer: string;      // Pexels videographer (user.name)
+    photographerUrl: string;   // user.url
+    width: number;
+    height: number;
+}
+
 const PEXELS_SEARCH_URL = 'https://api.pexels.com/v1/search';
+const PEXELS_VIDEO_SEARCH_URL = 'https://api.pexels.com/videos/search';
+
+// Search-term cache TTL (technical note: minimize redundant API calls). 24h.
+const PEXELS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // US1 AC1.2: turn a post's topic / suggestedMediaDescription into a short, specific query.
 export async function generateImageKeywords(context: string): Promise<string> {
@@ -92,9 +108,77 @@ export async function pexelsSearch(query: string, page = 1, perPage = 15): Promi
     })).filter(c => c.url && c.providerAssetId);
 }
 
+// US1 AC1.3/1.4: GET the Pexels video search endpoint with safe_search forced on. Picks the most
+// usable progressive .mp4 file per result (prefers an HD-ish rendition, falls back to the largest).
+export async function pexelsVideoSearch(query: string, page = 1, perPage = 15): Promise<PexelsVideoCandidate[]> {
+    const apiKey = process.env.PEXELS_API_KEY;
+    if (!apiKey) throw new Error('PEXELS_API_KEY is not configured.');
+    if (!query.trim()) return [];
+
+    const params = new URLSearchParams({
+        query,
+        per_page: String(perPage),
+        page: String(page),
+        safe_search: 'true',   // US1 AC1.4 — never pull explicit content
+    });
+
+    const res = await fetch(`${PEXELS_VIDEO_SEARCH_URL}?${params}`, {
+        headers: { Authorization: apiKey },
+    });
+
+    if (res.status === 429) throw new PexelsRateLimitError();   // US3 AC3.4
+    if (!res.ok) throw new Error(`Pexels API error (${res.status})`);
+
+    const data: any = await res.json().catch(() => ({}));
+    const videos: any[] = Array.isArray(data?.videos) ? data.videos : [];
+    return videos.map(v => {
+        const files: any[] = Array.isArray(v?.video_files) ? v.video_files : [];
+        const mp4s = files.filter(f => (f?.file_type === 'video/mp4' || /\.mp4/i.test(f?.link || '')) && f?.link);
+        // Prefer an HD rendition ≤1080p, else the largest available.
+        const sized = mp4s.map(f => ({ link: f.link as string, h: Number(f?.height) || 0, w: Number(f?.width) || 0 }));
+        const hd = sized.filter(f => f.h && f.h <= 1080).sort((a, b) => b.h - a.h)[0];
+        const best = hd || sized.sort((a, b) => b.h - a.h)[0];
+        return {
+            providerAssetId: `v${v?.id}`,
+            url: best?.link || '',
+            title: (v?.url ? `Pexels video ${v.id}` : `Pexels video ${v?.id}`),
+            photographer: v?.user?.name || 'Unknown',
+            photographerUrl: v?.user?.url || '',
+            width: best?.w || Number(v?.width) || 0,
+            height: best?.h || Number(v?.height) || 0,
+        };
+    }).filter(c => c.url && c.providerAssetId && c.providerAssetId !== 'vundefined');
+}
+
+// Cache wrapper (technical note): look up a normalized "kind|query|page" key, return fresh-enough
+// rows, else fetch + upsert. Dedup (filterUnique) runs on the RESULT, so the cache never violates
+// the never-reuse rule. All cache errors are swallowed — the live API is always the source of truth.
+async function cachedSearch<T>(db: Db, kind: 'photo' | 'video', query: string, page: number): Promise<T[]> {
+    const key = `${kind}|${query.toLowerCase().trim()}|${page}`;
+    try {
+        const [row] = await db.select().from(pexelsSearchCache)
+            .where(eq(pexelsSearchCache.queryKey, key)).limit(1);
+        if (row && Date.now() - new Date(row.createdAt).getTime() < PEXELS_CACHE_TTL_MS) {
+            return (row.candidates as T[]) || [];
+        }
+    } catch { /* cache table may be unmigrated — fall through to a live fetch */ }
+
+    const fresh = (kind === 'video'
+        ? await pexelsVideoSearch(query, page)
+        : await pexelsSearch(query, page)) as unknown as T[];
+
+    try {
+        await db.insert(pexelsSearchCache)
+            .values({ queryKey: key, candidates: fresh as unknown as object, createdAt: new Date() })
+            .onConflictDoUpdate({ target: pexelsSearchCache.queryKey, set: { candidates: fresh as unknown as object, createdAt: new Date() } });
+    } catch { /* ignore cache write failures */ }
+
+    return fresh;
+}
+
 // US2 AC2.2/2.3 (HARD rule): strip any candidate whose Pexels ID is already in posted_assets
 // for this organisation, BEFORE it is presented to the LLM or user.
-export async function filterUnique(db: Db, orgId: number, candidates: PexelsCandidate[]): Promise<PexelsCandidate[]> {
+export async function filterUnique<T extends { providerAssetId: string }>(db: Db, orgId: number, candidates: T[]): Promise<T[]> {
     if (!candidates.length) return [];
     const ids = candidates.map(c => c.providerAssetId);
     const used = await db
@@ -110,8 +194,10 @@ export async function filterUnique(db: Db, orgId: number, candidates: PexelsCand
 }
 
 export interface SearchResult { keywords: string; candidates: PexelsCandidate[]; }
+export interface VideoSearchResult { keywords: string; candidates: PexelsVideoCandidate[]; }
 
 // US1 AC1.5 + US2 AC2.4: keywords → search page 1 → strip dupes → if none remain, pull page 2.
+// Searches run through the cache (cachedSearch) to minimise redundant API calls.
 export async function searchUniqueImages(
     db: Db,
     orgId: number,
@@ -121,10 +207,27 @@ export async function searchUniqueImages(
     const keywords = await generateImageKeywords(context);
     if (!keywords) return { keywords, candidates: [] };
 
-    let unique = await filterUnique(db, orgId, await pexelsSearch(keywords, 1));
+    let unique = await filterUnique(db, orgId, await cachedSearch<PexelsCandidate>(db, 'photo', keywords, 1));
     if (unique.length === 0) {
         // US2 AC2.4: first page was all duplicates — automatically request page 2.
-        unique = await filterUnique(db, orgId, await pexelsSearch(keywords, 2));
+        unique = await filterUnique(db, orgId, await cachedSearch<PexelsCandidate>(db, 'photo', keywords, 2));
+    }
+    return { keywords, candidates: unique.slice(0, limit) };
+}
+
+// Video equivalent — same keyword extraction + cache + per-org dedup, against the Pexels video API.
+export async function searchUniqueVideos(
+    db: Db,
+    orgId: number,
+    context: string,
+    { limit = 5 }: { limit?: number } = {},
+): Promise<VideoSearchResult> {
+    const keywords = await generateImageKeywords(context);
+    if (!keywords) return { keywords, candidates: [] };
+
+    let unique = await filterUnique(db, orgId, await cachedSearch<PexelsVideoCandidate>(db, 'video', keywords, 1));
+    if (unique.length === 0) {
+        unique = await filterUnique(db, orgId, await cachedSearch<PexelsVideoCandidate>(db, 'video', keywords, 2));
     }
     return { keywords, candidates: unique.slice(0, limit) };
 }
@@ -134,21 +237,23 @@ export function creditLine(photographer: string): string {
     return `\n\nPhoto by ${photographer} on Pexels`;
 }
 
-// Create a contentAssets row for a Pexels candidate (externalUrl = CDN URL → hotlinked),
-// attach it to the post via the scheduledPostAssets junction, and keep the deprecated
-// contentAssetIds array in sync during the migration window. Returns the new asset id.
-export async function attachPexelsImageToPost(
+// Create a contentAssets row for a Pexels candidate (externalUrl = CDN URL → hotlinked), WITHOUT
+// attaching it to any post. Used by the media resolver, which wires the asset to a post itself.
+// Returns the new asset id. Handles both photos ('image') and videos ('video').
+export async function createPexelsAsset(
     db: Db,
-    args: { postId: number; userId: number; orgId: number | null; candidate: PexelsCandidate },
+    args: { userId: number; orgId: number | null; candidate: PexelsCandidate | PexelsVideoCandidate; assetType?: 'image' | 'video' },
 ): Promise<number> {
-    const { postId, userId, orgId, candidate } = args;
+    const { userId, orgId, candidate } = args;
+    const assetType = args.assetType ?? 'image';
+    const mimeType = assetType === 'video' ? 'video/mp4' : 'image/jpeg';
 
     const [asset] = await db.insert(contentAssets).values({
         userId,
         organisationId: orgId ?? null,
         name: candidate.title,
-        assetType: 'image',
-        mimeType: 'image/jpeg',
+        assetType,
+        mimeType,
         externalUrl: candidate.url,         // US3 AC3.1 — hotlink, never permanently hosted
         provider: 'pexels',
         providerAssetId: candidate.providerAssetId,
@@ -156,6 +261,20 @@ export async function attachPexelsImageToPost(
         attributionUrl: candidate.photographerUrl, // US3 AC3.2
         status: 'pending',
     }).returning({ id: contentAssets.id });
+
+    return asset.id;
+}
+
+// Create a contentAssets row for a Pexels candidate, attach it to the post via the
+// scheduledPostAssets junction, and keep the deprecated contentAssetIds array in sync during the
+// migration window. Returns the new asset id. Handles both photos and videos.
+export async function attachPexelsImageToPost(
+    db: Db,
+    args: { postId: number; userId: number; orgId: number | null; candidate: PexelsCandidate | PexelsVideoCandidate; assetType?: 'image' | 'video' },
+): Promise<number> {
+    const { postId, userId, orgId, candidate } = args;
+    const assetId = await createPexelsAsset(db, { userId, orgId, candidate, assetType: args.assetType });
+    const asset = { id: assetId };
 
     await db.insert(scheduledPostAssets)
         .values({ scheduledPostId: postId, contentAssetId: asset.id, position: 0 })

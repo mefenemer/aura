@@ -9,6 +9,7 @@ import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
+import { normalizeMediaSources } from '../../src/utils/media-sources';
 
 const MAX_CAP = 100000;
 
@@ -19,7 +20,7 @@ export const handler: Handler = async (event) => {
     const ctx = await requireTenant(event, db);
     if ('error' in ctx) return ctx.error;
 
-    let body: { assistantId?: number; enabled?: boolean; monthlyCap?: number };
+    let body: { assistantId?: number; enabled?: boolean; monthlyCap?: number; mediaSources?: unknown };
     try { body = JSON.parse(event.body || '{}'); }
     catch { return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON.' }) }; }
 
@@ -43,14 +44,26 @@ export const handler: Handler = async (event) => {
         }
         patch.autonomousMediaMonthlyCap = cap;
     }
+    // Media Source Selection — store the normalized ordered list (position=priority, member=enabled).
+    if (body.mediaSources !== undefined) {
+        patch.mediaSources = normalizeMediaSources(body.mediaSources);
+    }
     if (Object.keys(patch).length === 1) return { statusCode: 400, body: JSON.stringify({ error: 'Nothing to update.' }) };
 
     const [updated] = await db.update(aiAssistants).set(patch).where(eq(aiAssistants.id, assistantId))
-        .returning({ enabled: aiAssistants.autonomousMediaEnabled, cap: aiAssistants.autonomousMediaMonthlyCap });
+        .returning({
+            enabled: aiAssistants.autonomousMediaEnabled,
+            cap: aiAssistants.autonomousMediaMonthlyCap,
+            mediaSources: aiAssistants.mediaSources,
+        });
 
     return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ autonomousMediaEnabled: updated.enabled, autonomousMediaMonthlyCap: updated.cap }),
+        body: JSON.stringify({
+            autonomousMediaEnabled: updated.enabled,
+            autonomousMediaMonthlyCap: updated.cap,
+            mediaSources: normalizeMediaSources(updated.mediaSources),
+        }),
     };
 };

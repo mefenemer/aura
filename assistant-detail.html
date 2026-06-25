@@ -279,18 +279,80 @@
             </label>
           </div>
         </div>
-        <div>
-          <label for="edit_frequency" class="block text-sm font-bold text-gray-700 mb-1">Posting Frequency</label>
-          <select id="edit_frequency" class="w-full border border-gray-300 rounded-lg p-3 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition shadow-sm">
-            <option value="">Select a cadence…</option>
-            <option value="Daily">Daily</option>
-            <option value="5 times a week">5 times a week</option>
-            <option value="3 times a week">3 times a week</option>
-            <option value="2 times a week">2 times a week</option>
-            <option value="Weekly">Weekly</option>
-            <option value="On demand">On demand</option>
-          </select>
-          <p class="text-xs text-gray-400 mt-1">How often this assistant should publish. Used to schedule posts automatically.</p>
+        <!-- ── Posting Schedule ───────────────────────────────────── -->
+        <div class="pt-2 border-t border-gray-100">
+          <h4 class="text-sm font-bold text-gray-900 mb-1">Posting Schedule</h4>
+          <p class="text-xs text-gray-500 mb-4">Set how often, on which days and at what times this assistant publishes — and how far ahead it should keep your Review Queue stocked with drafts.</p>
+
+          <div class="space-y-5">
+            <!-- Frequency -->
+            <div>
+              <label for="edit_frequency" class="block text-sm font-bold text-gray-700 mb-1">Posting Frequency</label>
+              <select id="edit_frequency" class="w-full border border-gray-300 rounded-lg p-3 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition shadow-sm">
+                <option value="Daily">Daily</option>
+                <option value="5 times a week">5 times a week</option>
+                <option value="3 times a week">3 times a week</option>
+                <option value="2 times a week">2 times a week</option>
+                <option value="Weekly">Weekly</option>
+                <option value="On demand">On demand (no automatic scheduling)</option>
+              </select>
+              <p class="text-xs text-gray-400 mt-1">How many posts per week this assistant drafts automatically.</p>
+            </div>
+
+            <!-- Preferred days -->
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-2">Preferred Days</label>
+              <div id="posting-days" style="display:flex;flex-wrap:wrap;gap:0.75rem">
+                <label style="display:inline-flex;align-items:center;gap:.4rem" class="text-sm text-gray-700"><input type="checkbox" id="edit_day_mon" class="rounded text-emerald-700 focus:ring-emerald-700"> Mon</label>
+                <label style="display:inline-flex;align-items:center;gap:.4rem" class="text-sm text-gray-700"><input type="checkbox" id="edit_day_tue" class="rounded text-emerald-700 focus:ring-emerald-700"> Tue</label>
+                <label style="display:inline-flex;align-items:center;gap:.4rem" class="text-sm text-gray-700"><input type="checkbox" id="edit_day_wed" class="rounded text-emerald-700 focus:ring-emerald-700"> Wed</label>
+                <label style="display:inline-flex;align-items:center;gap:.4rem" class="text-sm text-gray-700"><input type="checkbox" id="edit_day_thu" class="rounded text-emerald-700 focus:ring-emerald-700"> Thu</label>
+                <label style="display:inline-flex;align-items:center;gap:.4rem" class="text-sm text-gray-700"><input type="checkbox" id="edit_day_fri" class="rounded text-emerald-700 focus:ring-emerald-700"> Fri</label>
+                <label style="display:inline-flex;align-items:center;gap:.4rem" class="text-sm text-gray-700"><input type="checkbox" id="edit_day_sat" class="rounded text-emerald-700 focus:ring-emerald-700"> Sat</label>
+                <label style="display:inline-flex;align-items:center;gap:.4rem" class="text-sm text-gray-700"><input type="checkbox" id="edit_day_sun" class="rounded text-emerald-700 focus:ring-emerald-700"> Sun</label>
+              </div>
+              <p class="text-xs text-gray-400 mt-1">Posts are only scheduled on the days you select.</p>
+            </div>
+
+            <!-- Preferred times -->
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-2">Preferred Times</label>
+              <div id="posting-times-list" class="space-y-2"></div>
+              <button type="button" id="btn-add-posting-time" class="mt-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition cursor-pointer">+ Add a time</button>
+              <p class="text-xs text-gray-400 mt-1">Times of day (your timezone) at which posts go out. When a day has more slots than posts, times are spread evenly.</p>
+            </div>
+
+            <!-- Timezone -->
+            <div>
+              <label for="edit_timezone" class="block text-sm font-bold text-gray-700 mb-1">Timezone</label>
+              <select id="edit_timezone" class="w-full border border-gray-300 rounded-lg p-3 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition shadow-sm">
+                <option value="Europe/London">London (GMT/BST)</option>
+                <option value="Europe/Dublin">Dublin</option>
+                <option value="Europe/Paris">Paris</option>
+                <option value="Europe/Berlin">Berlin</option>
+                <option value="Europe/Madrid">Madrid</option>
+                <option value="America/New_York">New York (Eastern)</option>
+                <option value="America/Chicago">Chicago (Central)</option>
+                <option value="America/Denver">Denver (Mountain)</option>
+                <option value="America/Los_Angeles">Los Angeles (Pacific)</option>
+                <option value="Asia/Dubai">Dubai</option>
+                <option value="Asia/Singapore">Singapore</option>
+                <option value="Australia/Sydney">Sydney</option>
+              </select>
+              <p class="text-xs text-gray-400 mt-1">Preferred times are interpreted in this timezone.</p>
+            </div>
+
+            <!-- Draft horizon -->
+            <div>
+              <label for="posting-horizon-input" class="block text-sm font-bold text-gray-700 mb-1">Generate posts ahead</label>
+              <div style="display:flex;align-items:center;gap:0.6rem">
+                <input type="number" id="posting-horizon-input" min="1" max="30" step="1" class="w-24 border border-gray-300 rounded-lg p-3 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition shadow-sm">
+                <span class="text-sm text-gray-600">days into the future</span>
+                <span id="posting-horizon-status" class="text-sm font-semibold"></span>
+              </div>
+              <p class="text-xs text-gray-400 mt-1">The assistant keeps your Review Queue filled this many days ahead, so you always have content to approve. Increasing this drafts the new days now; decreasing it archives unreviewed drafts beyond the window.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -660,6 +722,18 @@
           class="w-24 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
         <span class="text-xs text-gray-400">Max AI credits this assistant may spend on auto-suggestions per month.</span>
       </div>
+    </div>
+
+    <!-- Media Sources (Media Source Selection) -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div>
+        <h3 class="text-lg font-bold text-gray-900">Media Sources</h3>
+        <p class="text-sm text-gray-500 mt-1">Choose where this assistant gets images and videos when it creates a post. Enabled sources are tried <strong>top to bottom</strong> — if one has nothing suitable, the next is tried automatically. Use the arrows to set the order.</p>
+      </div>
+      <div id="media-sources-list" class="mt-5 space-y-2.5">
+        <!-- Rows injected by _applyMediaSourcesUi() in assistants.js -->
+      </div>
+      <p id="media-sources-empty-warning" class="hidden mt-3 text-xs font-semibold text-amber-600">Enable at least one source so this assistant can attach media.</p>
     </div>
   </div>
 

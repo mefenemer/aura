@@ -15,6 +15,7 @@ import { getDb } from '../../db/client';
 import { goals, aiAssistants, systemConnections } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 import { getActiveTierKeyByOrg } from '../../src/utils/plan-features';
+import { normalizeMediaSources } from '../../src/utils/media-sources';
 import {
     assessGoalRealism,
     availableMetricsForConnections,
@@ -73,6 +74,7 @@ export const handler: Handler = async (event) => {
                 autonomousGoalSeeking: aiAssistants.autonomousGoalSeeking,
                 autonomousMediaEnabled: aiAssistants.autonomousMediaEnabled,
                 autonomousMediaMonthlyCap: aiAssistants.autonomousMediaMonthlyCap,
+                mediaSources: aiAssistants.mediaSources,
             })
             .from(aiAssistants)
             .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
@@ -94,6 +96,7 @@ export const handler: Handler = async (event) => {
             autonomousGoalSeeking: assistant.autonomousGoalSeeking,
             autonomousMediaEnabled: assistant.autonomousMediaEnabled,
             autonomousMediaMonthlyCap: assistant.autonomousMediaMonthlyCap,
+            mediaSources: normalizeMediaSources(assistant.mediaSources),
             // Feature 3 premium gates (AC3.1.1) — the client shows padlocks / upgrade prompts off these.
             entitlements: {
                 aiRecommendations: tierAllows('recommendations', tierKey),

@@ -18,6 +18,8 @@ import { gatewayGenerate } from '../../src/lib/ai-gateway';
 import { generateAndPersistImage } from '../../src/lib/media-persist';
 import { holdAutonomousCredits, settleHold, IMAGE_CREDIT_COST } from '../../src/utils/ai-credits';
 import { FalContentPolicyError } from '../../src/lib/fal-gateway';
+import { resolveMediaForPost } from '../../src/utils/media-resolver';
+import { recordPostedAssets } from '../../src/utils/pexels';
 
 const PLATFORM = 'instagram';        // only Instagram has a live publisher today
 const ASPECT = '4:5' as const;       // Instagram feed-friendly
@@ -70,6 +72,7 @@ export const handler: Handler = async (event) => {
             name: aiAssistants.name,
             horizonDays: aiAssistants.draftHorizonDays,
             cap: aiAssistants.autonomousMediaMonthlyCap,
+            mediaSources: aiAssistants.mediaSources,
             orgName: organisations.name,
         })
         .from(aiAssistants)
@@ -81,8 +84,9 @@ export const handler: Handler = async (event) => {
             eq(masterAssistants.roleKey, 'social_media_manager'),
         ));
 
-    let drafted = 0, skippedNoGap = 0, skippedCap = 0, failed = 0;
-    const draftedByUser = new Map<number, number>();   // US8: aggregate for one summary notification per user
+    let drafted = 0, skippedNoGap = 0, failed = 0, exhausted = 0;
+    const draftedByUser = new Map<number, number>();     // US8: aggregate for one summary notification per user
+    const exhaustedByUser = new Map<number, number>();   // AC2.3: assistants that couldn't source any media
 
     for (const a of assistants) {
         const horizonDays = a.horizonDays ?? 7;
@@ -103,55 +107,87 @@ export const handler: Handler = async (event) => {
         const gapDay = firstGapDay(covered, horizonDays, now);
         if (!gapDay) { skippedNoGap++; continue; }
 
-        // Reserve one image credit against the autonomous cap.
-        const hold = await holdAutonomousCredits(db, { orgId: a.organisationId, amount: IMAGE_CREDIT_COST, monthlyCap: a.cap ?? 20 });
-        if (!hold.ok) { skippedCap++; continue; }
+        const copy = await draftCopy(a.orgName || 'our brand', a.name);
 
-        // Record the generation job (for the ledger + audit trail).
-        const [job] = await db.insert(mediaGenerationJobs).values({
-            organisationId: a.organisationId, userId: a.userId, assistantId: a.id,
-            mediaType: 'image', prompt: '(autonomous)', aspectRatio: ASPECT,
-            model: IMAGE_MODEL, creditCost: IMAGE_CREDIT_COST, isAutonomous: true, status: 'processing',
-        }).returning({ id: mediaGenerationJobs.id });
+        // AI generation source — encapsulates the autonomous credit hold/settle + the generation-job
+        // ledger, so the resolver only pays for AI when it actually reaches that source. A reached cap
+        // throws → the resolver treats AI as unavailable and falls through (or reports exhausted).
+        const generateAi = async (): Promise<number> => {
+            const hold = await holdAutonomousCredits(db, { orgId: a.organisationId, amount: IMAGE_CREDIT_COST, monthlyCap: a.cap ?? 20 });
+            if (!hold.ok) throw new Error('autonomous_cap_reached');
 
+            const [job] = await db.insert(mediaGenerationJobs).values({
+                organisationId: a.organisationId, userId: a.userId, assistantId: a.id,
+                mediaType: 'image', prompt: copy.imagePrompt, aspectRatio: ASPECT,
+                model: IMAGE_MODEL, creditCost: IMAGE_CREDIT_COST, isAutonomous: true, status: 'processing',
+            }).returning({ id: mediaGenerationJobs.id });
+
+            try {
+                const assetId = await generateAndPersistImage(db, {
+                    orgId: a.organisationId, userId: a.userId,
+                    prompt: copy.imagePrompt, aspectRatio: ASPECT, generationJobId: job.id,
+                });
+                await settleHold(db, { orgId: a.organisationId, amount: IMAGE_CREDIT_COST, success: true, mediaType: 'image', userId: a.userId, jobId: job.id, isAutonomous: true });
+                await db.update(mediaGenerationJobs).set({ status: 'completed', resultAssetIds: [assetId], updatedAt: new Date() }).where(eq(mediaGenerationJobs.id, job.id));
+                return assetId;
+            } catch (err) {
+                await settleHold(db, { orgId: a.organisationId, amount: IMAGE_CREDIT_COST, success: false, mediaType: 'image', userId: a.userId, isAutonomous: true });
+                const flagged = err instanceof FalContentPolicyError;
+                await db.update(mediaGenerationJobs)
+                    .set({ status: flagged ? 'flagged' : 'failed', errorMessage: err instanceof Error ? err.message : 'generation failed', updatedAt: new Date() })
+                    .where(eq(mediaGenerationJobs.id, job.id));
+                throw err;
+            }
+        };
+
+        // Walk the assistant's media-source priority matrix (manual → stock → ai) with fallback.
+        let resolved;
         try {
-            const copy = await draftCopy(a.orgName || 'our brand', a.name);
-            await db.update(mediaGenerationJobs).set({ prompt: copy.imagePrompt, updatedAt: new Date() }).where(eq(mediaGenerationJobs.id, job.id));
-
-            const assetId = await generateAndPersistImage(db, {
+            resolved = await resolveMediaForPost(db, {
+                assistant: { mediaSources: a.mediaSources },
                 orgId: a.organisationId, userId: a.userId,
-                prompt: copy.imagePrompt, aspectRatio: ASPECT, generationJobId: job.id,
+                context: copy.imagePrompt || copy.caption,
+                mediaType: 'image',
+                generateAi,
             });
-
-            // Success: debit against the autonomous cap and complete the job.
-            await settleHold(db, { orgId: a.organisationId, amount: IMAGE_CREDIT_COST, success: true, mediaType: 'image', userId: a.userId, jobId: job.id, isAutonomous: true });
-            await db.update(mediaGenerationJobs).set({ status: 'completed', resultAssetIds: [assetId], updatedAt: new Date() }).where(eq(mediaGenerationJobs.id, job.id));
-
-            const dateLabel = gapDay.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
-            const [post] = await db.insert(scheduledPosts).values({
-                userId: a.userId, organisationId: a.organisationId, assistantId: a.id,
-                platform: PLATFORM, postFormat: 'image', publishDate: gapDay,
-                caption: copy.caption, hashtags: copy.hashtags || null,
-                contentAssetIds: [assetId],
-                status: 'pending_approval', isAutonomous: true, triggerType: 'scheduled',
-                ownerLabel: `AI: ${a.name}`,
-                generationReason: `Drafted to fill an empty ${PLATFORM} slot on ${dateLabel}.`,
-                generatedAt: new Date(),
-            }).returning({ id: scheduledPosts.id });
-
-            await db.insert(scheduledPostAssets).values({ scheduledPostId: post.id, contentAssetId: assetId, position: 0 }).onConflictDoNothing();
-
-            draftedByUser.set(a.userId, (draftedByUser.get(a.userId) || 0) + 1);
-            drafted++;
         } catch (err) {
-            // Failure / policy flag → refund the hold, mark the job, move on.
-            await settleHold(db, { orgId: a.organisationId, amount: IMAGE_CREDIT_COST, success: false, mediaType: 'image', userId: a.userId, isAutonomous: true });
-            const flagged = err instanceof FalContentPolicyError;
-            await db.update(mediaGenerationJobs)
-                .set({ status: flagged ? 'flagged' : 'failed', errorMessage: err instanceof Error ? err.message : 'generation failed', updatedAt: new Date() })
-                .where(eq(mediaGenerationJobs.id, job.id));
+            console.error('[autonomous-media] resolver error:', err);
             failed++;
+            continue;
         }
+
+        if (!resolved.ok) {
+            // AC2.3: every enabled source came back empty — notify the user instead of drafting.
+            exhaustedByUser.set(a.userId, (exhaustedByUser.get(a.userId) || 0) + 1);
+            exhausted++;
+            continue;
+        }
+
+        const assetId = resolved.assetId;
+        const dateLabel = gapDay.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+        const sourceLabel = resolved.source === 'manual' ? 'your content library'
+            : resolved.source === 'stock' ? 'a Pexels stock photo' : 'an AI-generated image';
+
+        const [post] = await db.insert(scheduledPosts).values({
+            userId: a.userId, organisationId: a.organisationId, assistantId: a.id,
+            platform: PLATFORM, postFormat: 'image', publishDate: gapDay,
+            caption: copy.caption, hashtags: copy.hashtags || null,
+            contentAssetIds: [assetId],
+            status: 'pending_approval', isAutonomous: true, triggerType: 'scheduled',
+            ownerLabel: `AI: ${a.name}`,
+            generationReason: `Drafted to fill an empty ${PLATFORM} slot on ${dateLabel} (media from ${sourceLabel}).`,
+            generatedAt: new Date(),
+        }).returning({ id: scheduledPosts.id });
+
+        await db.insert(scheduledPostAssets).values({ scheduledPostId: post.id, contentAssetId: assetId, position: 0 }).onConflictDoNothing();
+
+        // Reserve a stock pick in the dedup ledger so the same Pexels asset can't be drafted twice.
+        if (resolved.source === 'stock') {
+            await recordPostedAssets(db, { orgId: a.organisationId, userId: a.userId, scheduledPostId: post.id }).catch(() => {});
+        }
+
+        draftedByUser.set(a.userId, (draftedByUser.get(a.userId) || 0) + 1);
+        drafted++;
     }
 
     // US8 in-app alert: one summary notification per user ("drafted N new posts for your review").
@@ -164,9 +200,19 @@ export const handler: Handler = async (event) => {
         }).catch(() => {});
     }
 
+    // AC2.3 in-app alert: assistants whose enabled media sources all came back empty.
+    for (const [uid, n] of exhaustedByUser) {
+        await db.insert(notifications).values({
+            userId: uid, type: 'ai_review',
+            title: 'Media needed for auto-drafts',
+            message: `Your AI assistant couldn't source media for ${n} planned post${n === 1 ? '' : 's'}. Check the assistant's Media Sources settings or add to your content library.`,
+            metadata: { count: n, reason: 'media_exhausted' },
+        }).catch(() => {});
+    }
+
     return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ran: true, assistantsChecked: assistants.length, drafted, skippedNoGap, skippedCap, failed }),
+        body: JSON.stringify({ ran: true, assistantsChecked: assistants.length, drafted, skippedNoGap, failed, exhausted }),
     };
 };

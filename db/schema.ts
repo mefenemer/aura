@@ -307,6 +307,13 @@ export const aiAssistants = pgTable("ai_assistants", {
   // autonomous credit spend. db/autonomous-media.sql.
   autonomousMediaEnabled: boolean("autonomous_media_enabled").notNull().default(false),
   autonomousMediaMonthlyCap: integer("autonomous_media_monthly_cap").notNull().default(20),
+
+  // Media Source Selection — an ORDERED array of the media sources this assistant may use,
+  // where position encodes priority and membership encodes enabled. Values: 'manual' | 'stock' | 'ai'
+  // (see src/utils/media-sources.ts). null/empty ⇒ default matrix ['manual','stock','ai']
+  // (Manual Library → AI Stock Search (Pexels) → AI Generation). The resolver (media-resolver.ts)
+  // walks this list with fallback. db/media-source-preferences.sql.
+  mediaSources: jsonb("media_sources"),
 }, (t) => [
   // US-DB-1.3.1: assistants are org-owned & member-shared — names are unique per organisation.
   // (userId is retained as creator/attribution only.)
@@ -1127,6 +1134,17 @@ export const postedAssets = pgTable("posted_assets", {
   index("posted_assets_org_idx").on(t.organisationId),
 ]);
 
+// Transient cache of raw Pexels search responses, keyed by normalized "query|type|page".
+// Caching runs BEFORE per-org dedup (filterUnique), so it never breaks the never-reuse rule.
+// Short TTL (PEXELS_CACHE_TTL_MS in src/utils/pexels.ts). db/pexels-search-cache.sql.
+export const pexelsSearchCache = pgTable("pexels_search_cache", {
+  queryKey: text("query_key").primaryKey(),
+  candidates: jsonb("candidates").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("pexels_search_cache_created_idx").on(t.createdAt),
+]);
+
 // Invoices table — one row per generated invoice, created on every successful payment
 export const invoices = pgTable("invoices", {
   id: serial().primaryKey(),
@@ -1190,7 +1208,8 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   utmParams: text("utm_params"),
 
   // Workflow & governance
-  // Status: draft | in_review | approved | scheduled | published | rejected | cancelled | missed
+  // Status: draft | pending_approval | in_review | approved | scheduled | publishing | published | paused | failed | rejected | cancelled | missed | admin_test
+  // (see scheduled_posts_status_check below / db/scheduled-posts-status-check.sql)
   status: text("status").notNull().default("draft"),
   ownerId: integer("owner_id")
       .references(() => users.id, { onDelete: "set null" }),
@@ -1251,7 +1270,7 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   index("scheduled_posts_user_idx").on(t.userId),
   // US-SMM-3.3.1: Partial index for publish queue polling
   index("scheduled_posts_publish_queue_idx").on(t.publishDate).where(sql`status = 'scheduled' AND platform = 'instagram'`),
-  check("scheduled_posts_status_check", sql`${t.status} IN ('draft', 'in_review', 'approved', 'scheduled', 'published', 'rejected', 'cancelled', 'missed')`),
+  check("scheduled_posts_status_check", sql`${t.status} IN ('draft', 'pending_approval', 'in_review', 'approved', 'scheduled', 'publishing', 'published', 'paused', 'failed', 'rejected', 'cancelled', 'missed', 'admin_test')`),
 ]);
 
 // US-SMM-PERF: Per-post social performance snapshot.
@@ -2003,6 +2022,10 @@ export const contentGenerationJobs = pgTable("content_generation_jobs", {
   contextPrompt: text("context_prompt"),                   // optional user-supplied context (≤500 chars)
   triggerType: text("trigger_type").default("scheduled"),  // 'on_demand' | 'scheduled' | 'admin_test'
   platform: text("platform"),                              // overrides blueprint default platform
+  // Posting Schedule: the exact calendar slot this job should fill. When set, process-content-jobs
+  // stamps the resulting scheduled_post with this publish_date; null ⇒ legacy "now + 24h".
+  // Populated by the draft-horizon scheduler from the assistant's frequency/days/times. db/posting-schedule.sql.
+  targetPublishDate: timestamp("target_publish_date"),
   // US-ADM-4.3.3: Admin test generation fields
   adminId: integer("admin_id").references(() => users.id, { onDelete: "set null" }),
   tokensInput: integer("tokens_input"),                    // Anthropic input token count
