@@ -246,6 +246,10 @@ function _openUploadModal() {
     document.getElementById('ai-loading')?.classList.add('hidden');
     document.getElementById('ai-error')?.classList.add('hidden');
     document.getElementById('ai-insufficient')?.classList.add('hidden');
+    document.getElementById('ai-no-assistant')?.classList.add('hidden');
+    document.getElementById('vid-no-assistant')?.classList.add('hidden');
+    // Re-check on each open so hiring an assistant lifts the gate without a reload.
+    _mcActiveAssistant = null;
     // Reset the Generate AI Video panel
     if (typeof _mcVidStopPolling === 'function') _mcVidStopPolling();
     _mcVidJobId = null;
@@ -283,9 +287,37 @@ window._mcSwitchTab = function (tab) {
 
     // The AI/video panels have their own buttons, so hide the standard footer there.
     document.getElementById('upload-footer')?.classList.toggle('hidden', tab === 'ai' || tab === 'video');
-    if (tab === 'ai') _mcRefreshAiBalance();
+    if (tab === 'ai') _mcAiOnOpen();
     if (tab === 'video') _mcVidOnOpen();
 };
+
+// ── Active-assistant gate ─────────────────────────────────────────
+// Like the Review Queue, AI media can't be generated without an active assistant to
+// action the result. Cached per modal-open so switching AI/Video tabs only fetches once.
+let _mcActiveAssistant = null; // null = not yet checked
+
+async function _mcHasActiveAssistant() {
+    if (_mcActiveAssistant !== null) return _mcActiveAssistant;
+    try {
+        const res = await fetch('/.netlify/functions/get-assistants');
+        const data = res.ok ? await res.json() : { assistants: [] };
+        _mcActiveAssistant = (data.assistants || []).some(a =>
+            a.status !== 'pending' && a.status !== 'failed' && a.lifecycleStatus !== 'archived');
+    } catch {
+        // On failure, don't hard-block — the server-side gate is the source of truth.
+        _mcActiveAssistant = true;
+    }
+    return _mcActiveAssistant;
+}
+
+function _mcDisableBtn(id, disabled) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = disabled;
+    // disabled: variants aren't in the prebuilt CSS — toggle present utilities directly.
+    btn.classList.toggle('opacity-50', disabled);
+    btn.classList.toggle('cursor-not-allowed', disabled);
+}
 
 // ── Generate AI Image ─────────────────────────────────────────────
 let _mcAiJobId = null;
@@ -295,6 +327,18 @@ window._mcAiPromptInput = function () {
     const counter = document.getElementById('ai-prompt-count');
     if (el && counter) counter.textContent = `${el.value.length} / 1000`;
 };
+
+// Opening the AI Image tab: gate on an active assistant first, then on credit balance.
+async function _mcAiOnOpen() {
+    const hasAssistant = await _mcHasActiveAssistant();
+    document.getElementById('ai-no-assistant')?.classList.toggle('hidden', hasAssistant);
+    if (!hasAssistant) {
+        document.getElementById('ai-insufficient')?.classList.add('hidden');
+        _mcDisableBtn('ai-generate-btn', true);
+        return;
+    }
+    _mcRefreshAiBalance();
+}
 
 async function _mcRefreshAiBalance() {
     const el = document.getElementById('ai-balance');
@@ -347,6 +391,11 @@ window._mcGenerateAI = async function () {
             body: JSON.stringify({ prompt, aspectRatio: aspectEl.value }),
         });
 
+        if (res.status === 403) {
+            // No active assistant — surface the gate notice (button stays gated on next open).
+            document.getElementById('ai-no-assistant')?.classList.remove('hidden');
+            return;
+        }
         if (res.status === 402) {
             const { balance } = await res.json().catch(() => ({ balance: 0 }));
             document.getElementById('ai-balance').textContent = `${balance} credit${balance === 1 ? '' : 's'}`;
@@ -444,12 +493,17 @@ async function _mcVidOnOpen() {
         locked.classList.toggle('hidden', !!canVideo);
         form.classList.toggle('hidden', !canVideo);
         if (canVideo) {
-            const btn = document.getElementById('vid-generate-btn');
+            // Gate on an active assistant before credit balance (mirrors the Review Queue).
+            const hasAssistant = await _mcHasActiveAssistant();
+            document.getElementById('vid-no-assistant')?.classList.toggle('hidden', hasAssistant);
+            if (!hasAssistant) {
+                document.getElementById('vid-insufficient')?.classList.add('hidden');
+                _mcDisableBtn('vid-generate-btn', true);
+                return;
+            }
             const warn = document.getElementById('vid-insufficient');
             const canAfford = balance >= 5;
-            btn.disabled = !canAfford;
-            btn.classList.toggle('opacity-50', !canAfford);
-            btn.classList.toggle('cursor-not-allowed', !canAfford);
+            _mcDisableBtn('vid-generate-btn', !canAfford);
             warn.classList.toggle('hidden', canAfford);
         }
     } catch { /* leave default */ }
@@ -474,8 +528,14 @@ window._mcGenerateVideo = async function () {
         });
 
         if (res.status === 403) {
+            const { code } = await res.json().catch(() => ({}));
             document.getElementById('vid-generating').classList.add('hidden');
-            document.getElementById('vid-locked').classList.remove('hidden');
+            if (code === 'no_active_assistant') {
+                document.getElementById('vid-form').classList.remove('hidden');
+                document.getElementById('vid-no-assistant').classList.remove('hidden');
+            } else {
+                document.getElementById('vid-locked').classList.remove('hidden');
+            }
             return;
         }
         if (res.status === 402) {

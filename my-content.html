@@ -160,6 +160,12 @@
           <a href="/billing.html" class="font-bold text-emerald-700 underline">Upgrade your plan →</a>
         </div>
 
+        <!-- No active assistant: nothing to action the image once generated -->
+        <div id="ai-no-assistant" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          You need an active assistant to generate AI images.
+          <a href="/assistant-catalogue.html" class="font-bold text-emerald-700 underline">Hire one from the catalogue →</a>
+        </div>
+
         <!-- Loading state -->
         <div id="ai-loading" class="hidden flex flex-col items-center justify-center py-10 text-gray-500">
           <svg class="w-7 h-7 animate-spin mb-3 text-emerald-500" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/></svg>
@@ -231,6 +237,11 @@
           <div id="vid-insufficient" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             You don't have enough credits to generate a video.
             <a href="/billing.html" class="font-bold text-emerald-700 underline">Upgrade your plan →</a>
+          </div>
+
+          <div id="vid-no-assistant" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            You need an active assistant to generate AI videos.
+            <a href="/assistant-catalogue.html" class="font-bold text-emerald-700 underline">Hire one from the catalogue →</a>
           </div>
         </div>
 

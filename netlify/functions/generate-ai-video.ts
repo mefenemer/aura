@@ -13,6 +13,7 @@ import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { mediaGenerationJobs, contentAssets } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
+import { hasActiveAssistant, NO_ACTIVE_ASSISTANT_RESPONSE } from '../../src/utils/active-assistant';
 import { enforcePromptModeration } from '../../src/utils/moderation';
 import { resolveBaseUrl } from '../../src/utils/base-url';
 import { presignR2Get } from '../../src/utils/social-publish';
@@ -93,6 +94,10 @@ export const handler: Handler = async (event) => {
     if (prompt.length > PROMPT_MAX) return { statusCode: 400, body: JSON.stringify({ error: `Prompt must be ${PROMPT_MAX} characters or fewer.` }) };
     if (!ASPECT_RATIOS.includes(aspectRatio)) return { statusCode: 400, body: JSON.stringify({ error: `aspectRatio must be one of: ${ASPECT_RATIOS.join(', ')}` }) };
     if (!VALID_DURATIONS.includes(durationSeconds)) return { statusCode: 400, body: JSON.stringify({ error: `durationSeconds must be one of: ${VALID_DURATIONS.join(', ')}` }) };
+
+    // Gate: an assistant must exist to action the generated media (mirrors the Review Queue's
+    // "you need an active assistant to generate posts" rule). Checked before spending anything.
+    if (!await hasActiveAssistant(orgId)) return NO_ACTIVE_ASSISTANT_RESPONSE;
 
     // Prompt safety before spending anything.
     const blocked = await enforcePromptModeration({ text: prompt, userId, organisationId: orgId, source: 'generate-ai-video' });
