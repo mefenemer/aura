@@ -119,6 +119,12 @@ node_bundler = "esbuild"
   schedule = "* * * * *"
   timeout = 26
 
+# Epic 1, US1: synchronous AI image generation submits to Fal and polls until the images
+# are ready. Raise the timeout to Netlify's synchronous max so a slow Flux-2 run completes
+# instead of being killed mid-poll (raw 502). The poll budget in fal-gateway stays under this.
+[functions.generate-ai-image]
+  timeout = 26
+
 # US-SMM-3.2.2: Nightly Meta/Instagram token refresh — 02:00 UTC every day
 [functions.refresh-meta-tokens]
   schedule = "0 2 * * *"

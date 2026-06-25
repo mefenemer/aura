@@ -20,7 +20,7 @@ import { requireTenant } from '../../src/utils/tenant';
 import { enforcePromptModeration } from '../../src/utils/moderation';
 import {
     generateImages, falConfigured, ASPECT_RATIOS,
-    FalContentPolicyError, FalError, type AspectRatio, type GeneratedImage,
+    FalContentPolicyError, FalServiceError, FalError, type AspectRatio, type GeneratedImage,
 } from '../../src/lib/fal-gateway';
 import { holdCredits, settleHold, getBalance, IMAGE_CREDIT_COST } from '../../src/utils/ai-credits';
 
@@ -135,11 +135,26 @@ export const handler: Handler = async (event) => {
         }
 
         const message = err instanceof FalError ? err.message : 'Image generation failed. Please try again.';
-        console.error('[generate-ai-image] generation error:', message);
         await db.insert(mediaGenerationJobs).values({
             organisationId: orgId, userId, mediaType: 'image', prompt, aspectRatio,
             model: IMAGE_MODEL, creditCost: IMAGE_CREDIT_COST, status: 'failed', errorMessage: message,
         });
+
+        // Provider account/billing failure (exhausted balance, locked account, throttled): NOT the
+        // user's fault and NOT retryable by them — alert loudly and surface an honest message so it
+        // isn't mistaken for a transient glitch. Credit is already refunded above.
+        if (err instanceof FalServiceError) {
+            console.error('[generate-ai-image] FAL SERVICE UNAVAILABLE (operator action needed):', message);
+            return {
+                statusCode: 503,
+                body: JSON.stringify({
+                    error: 'AI image generation is temporarily unavailable. Please try again later.',
+                    code: 'SERVICE_UNAVAILABLE',
+                }),
+            };
+        }
+
+        console.error('[generate-ai-image] generation error:', message);
         return { statusCode: 502, body: JSON.stringify({ error: 'Image generation failed. Please try again.' }) };
     }
 };

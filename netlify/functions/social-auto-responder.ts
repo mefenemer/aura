@@ -5,36 +5,27 @@
 
 import { Handler } from '@netlify/functions';
 import Anthropic from '@anthropic-ai/sdk';
-import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants, systemConnections, organisations, userOrganisations } from '../../db/schema';
 import { getSecret } from '../../src/utils/vault';
 import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
+import { requireTenant } from '../../src/utils/tenant';
 
-const jwtSecret  = process.env.JWT_SECRET!;
 const anthropic  = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL      = 'claude-haiku-4-5-20251001';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
-    const cookieHeader = event.headers.cookie || '';
-    const sessionToken = cookieHeader.match(/aura_session=([^;]+)/)?.[1];
-    if (!sessionToken) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
-
-    let userId: number;
-    let organisationId: number;
-    try {
-        const p = jwt.verify(sessionToken, jwtSecret) as { userId: number; organisationId: number };
-        userId = p.userId;
-        organisationId = p.organisationId;
-    } catch { return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session' }) }; }
+    const db = getDb();
+    // Session carries `activeOrganisationId`, not `organisationId` — resolve via requireTenant.
+    const tenant = await requireTenant(event, db);
+    if ('error' in tenant) return tenant.error;
+    const { organisationId } = tenant;
 
     const body = JSON.parse(event.body || '{}');
     const { assistantId } = body as { assistantId?: number };
-
-    const db = getDb();
 
     // Load assistant blueprint / onboarding context
     const [assistant] = await db.select({ id: aiAssistants.id, name: aiAssistants.name, onboardingContext: aiAssistants.onboardingContext, systemPrompt: aiAssistants.systemPrompt, configuration: aiAssistants.configuration })

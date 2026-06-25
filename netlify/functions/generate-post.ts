@@ -3,29 +3,21 @@
 // GET ?jobId=<uuid> polls status for on-demand generation.
 
 import { Handler } from '@netlify/functions';
-import jwt from 'jsonwebtoken';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../db/client';
 import { aiBlueprints, aiAssistants, contentGenerationJobs, notifications } from '../../db/schema';
 import { enforcePromptModeration } from '../../src/utils/moderation';
-
-const jwtSecret = process.env.JWT_SECRET;
-
-function getSession(event: any): { userId: number; organisationId: number } | null {
-    try {
-        const cookie = event.headers.cookie || '';
-        const token = cookie.match(/aura_session=([^;]+)/)?.[1];
-        if (!token || !jwtSecret) return null;
-        return jwt.verify(token, jwtSecret) as { userId: number; organisationId: number };
-    } catch { return null; }
-}
+import { requireTenant } from '../../src/utils/tenant';
 
 export const handler: Handler = async (event) => {
-    const session = getSession(event);
-    if (!session) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
-    const { userId, organisationId } = session;
     const db = getDb();
+    // Resolve the active org from the session. NOTE: the JWT carries `activeOrganisationId`,
+    // not `organisationId` — reading the latter directly yields undefined and crashes the
+    // downstream SQL (502). requireTenant() resolves it correctly (matches the rest of the app).
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+    const { userId, organisationId } = ctx;
 
     // ── GET: poll job status ────────────────────────────────────────────────────
     if (event.httpMethod === 'GET') {

@@ -4,7 +4,6 @@
 // GET ?action=callback — exchanges code, validates, stores token in vault, upserts system_connections
 
 import { Handler } from '@netlify/functions';
-import jwt from 'jsonwebtoken';
 import { eq, and } from 'drizzle-orm';
 import { createHmac, randomBytes } from 'crypto';
 import { getDb } from '../../db/client';
@@ -15,6 +14,7 @@ import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
 import { resolveAssistantRole } from '../../src/utils/assistant-role';
 import { resolveActionNotifications, CONNECTION_RESTORED_TYPES } from '../../src/utils/notification-actions';
 import { findTenantCollision, recordCollisionAttempt } from '../../src/utils/connection-collision';
+import { requireTenant } from '../../src/utils/tenant';
 
 const jwtSecret   = process.env.JWT_SECRET!;
 const metaAppId   = process.env.META_APP_ID!;
@@ -49,17 +49,11 @@ export const handler: Handler = async (event) => {
 
     // ── START: redirect to Meta OAuth ─────────────────────────────────────────
     if (action === 'start') {
-        const cookieHeader = event.headers.cookie || '';
-        const sessionToken = cookieHeader.match(/aura_session=([^;]+)/)?.[1];
-        if (!sessionToken) return { statusCode: 401, body: 'Unauthorized' };
-
-        let organisationId: number;
-        let userId: number;
-        try {
-            const p = jwt.verify(sessionToken, jwtSecret) as { userId: number; organisationId: number };
-            userId = p.userId;
-            organisationId = p.organisationId;
-        } catch { return { statusCode: 401, body: 'Invalid session' }; }
+        // Session carries `activeOrganisationId`, not `organisationId` — resolve via requireTenant
+        // (re-verifies current membership) rather than reading the JWT claim directly.
+        const ctx = await requireTenant(event, getDb());
+        if ('error' in ctx) return ctx.error;
+        const { organisationId } = ctx;
 
         const assistantId = event.queryStringParameters?.assistantId;
         const csrf = csrfToken();

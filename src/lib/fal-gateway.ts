@@ -61,6 +61,19 @@ export class FalError extends Error {
     }
 }
 
+/**
+ * Thrown when Fal itself is unavailable to us for account/billing reasons — an exhausted
+ * balance, a locked account, or rate-limit throttling. Distinct from FalError because
+ * RETRYING WON'T HELP: it needs an operator to top up / unlock the Fal account. Subclasses
+ * FalError so existing `instanceof FalError` handlers still catch it, but lets callers show a
+ * "temporarily unavailable" message and alert loudly instead of a generic "try again". */
+export class FalServiceError extends FalError {
+    constructor(message: string, status?: number) {
+        super(message, status);
+        this.name = 'FalServiceError';
+    }
+}
+
 /** True when FAL_KEY is absent — callers can short-circuit to mock behaviour in dev. */
 export function falConfigured(): boolean {
     return !!FAL_KEY;
@@ -94,23 +107,35 @@ function isPolicyRejection(status: number, bodyText: string): boolean {
     return /nsfw|safety|content[_ ]?polic|moderation|flagged|prohibited/i.test(bodyText);
 }
 
+// Account/billing failures that an operator must resolve (top up / unlock) — not retryable.
+// 402 Payment Required, or a 403/429 whose body names a balance/lock/quota condition.
+function isServiceUnavailable(status: number, bodyText: string): boolean {
+    if (status === 402) return true;
+    if (status !== 403 && status !== 429) return false;
+    return /balance|exhausted|locked|top[_ ]?up|billing|quota|rate[_ ]?limit/i.test(bodyText);
+}
+
+/** Map a non-OK Fal HTTP response to the most specific error type. Always throws. */
+function throwForResponse(kind: 'request' | 'poll', status: number, text: string): never {
+    if (isPolicyRejection(status, text)) throw new FalContentPolicyError();
+    const detail = `${text.slice(0, 300)}`;
+    if (isServiceUnavailable(status, text)) {
+        throw new FalServiceError(`Fal ${kind} unavailable (${status}): ${detail}`, status);
+    }
+    throw new FalError(`Fal ${kind} failed (${status}): ${detail}`, status);
+}
+
 async function postJson(url: string, payload: unknown): Promise<any> {
     const res = await fetch(url, { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
     const text = await res.text();
-    if (!res.ok) {
-        if (isPolicyRejection(res.status, text)) throw new FalContentPolicyError();
-        throw new FalError(`Fal request failed (${res.status}): ${text.slice(0, 300)}`, res.status);
-    }
+    if (!res.ok) throwForResponse('request', res.status, text);
     return text ? JSON.parse(text) : {};
 }
 
 async function getJson(url: string): Promise<any> {
     const res = await fetch(url, { headers: { Authorization: `Key ${FAL_KEY}` } });
     const text = await res.text();
-    if (!res.ok) {
-        if (isPolicyRejection(res.status, text)) throw new FalContentPolicyError();
-        throw new FalError(`Fal poll failed (${res.status}): ${text.slice(0, 300)}`, res.status);
-    }
+    if (!res.ok) throwForResponse('poll', res.status, text);
     return text ? JSON.parse(text) : {};
 }
 
@@ -167,7 +192,10 @@ export async function generateImages(opts: {
         image_size: imageSizeForAspect(opts.aspectRatio),
         num_images: Math.min(Math.max(opts.numImages ?? 4, 1), 4),
     };
-    const out = await runSync(IMAGE_MODEL, input, { timeoutMs: opts.timeoutMs ?? 90_000 });
+    // Default poll budget must stay UNDER the synchronous Netlify function timeout (26s — see
+    // netlify.toml [functions.generate-ai-image]) so an overrun throws a clean FalError('timed
+    // out') we can refund, rather than the platform killing the function and returning a raw 502.
+    const out = await runSync(IMAGE_MODEL, input, { timeoutMs: opts.timeoutMs ?? 22_000 });
     const images: any[] = out?.images ?? [];
     if (!images.length) throw new FalError('Fal returned no images.');
     return images.map(img => ({
