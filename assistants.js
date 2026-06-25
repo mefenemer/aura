@@ -265,6 +265,28 @@ function _resizeBriefAutoGrow() {
     _AUTOGROW_FIELDS.forEach(id => _autoGrowField(document.getElementById(id)));
 }
 
+// ── Assistant-detail tab switching (event delegation) ─────────────────────────
+// Bound ONCE at module load on the document, not per-button inside initAssistantDetail.
+// The detail view is re-injected via innerHTML on every navigation, so per-button
+// addEventListener handlers attached during init are brittle: they break if init
+// throws before reaching them, if the buttons are re-rendered after binding, or if a
+// stale set of nodes is matched. Delegation resolves the target at click time, so it
+// works regardless of when/whether init ran and survives any view re-injection.
+if (!window._detailTabsDelegated) {
+    window._detailTabsDelegated = true;
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.detail-tab-btn');
+        if (!btn) return;
+        document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active-tab'));
+        document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.add('hidden'));
+        btn.classList.add('active-tab');
+        const panel = document.getElementById('tab-' + btn.dataset.tab);
+        if (panel) panel.classList.remove('hidden');
+        // Recompute auto-grow heights now the panel is visible (scrollHeight was 0 while hidden).
+        _resizeBriefAutoGrow();
+    });
+}
+
 
 // Read-only "Your Onboarding Answers" summary — guarantees every answer the user gave
 // during onboarding is visible on the detail page, regardless of which editable fields are
@@ -617,17 +639,8 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     })();
 
     // ── Tab switching ─────────────────────────────────────────────
-    document.querySelectorAll('.detail-tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active-tab'));
-            document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.add('hidden'));
-            btn.classList.add('active-tab');
-            const panel = document.getElementById('tab-' + btn.dataset.tab);
-            if (panel) panel.classList.remove('hidden');
-            // Recompute auto-grow heights now the panel is visible (scrollHeight was 0 while hidden).
-            _resizeBriefAutoGrow();
-        });
-    });
+    // Handled by a module-level delegated click listener (see top of file) so it
+    // survives this view being re-injected on every navigation.
 
     // Deep-link to a specific tab (e.g. post-OAuth returns to the Connections tab). Goals is no
     // longer a tab — it's a section under Recent Activity — so for 'goals' we scroll to it instead.
