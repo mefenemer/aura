@@ -38,6 +38,10 @@ export const handler: Handler = async (event) => {
                 assistantId: scheduledPosts.assistantId,
                 jobId: scheduledPosts.jobId,
                 rejectionReason: scheduledPosts.rejectionReason,
+                rejectedAt: scheduledPosts.rejectedAt,
+                ctaText: scheduledPosts.ctaText,
+                linkUrl: scheduledPosts.linkUrl,
+                postFormat: scheduledPosts.postFormat,
                 assistantName: aiAssistants.name,
                 // When this draft was generated from a user-suggested idea, surface the original
                 // idea text on the card so the reviewer can see what it was built from (closes the
@@ -56,10 +60,20 @@ export const handler: Handler = async (event) => {
 
         // Resolve a preview thumbnail for the first attached image (presigned R2 or external URL).
         // Best-effort per draft — a resolution failure must never blank out the list.
+        const ARCHIVE_RETENTION_DAYS = 30;
+        const now = Date.now();
         const withThumbs = await Promise.all(drafts.map(async ({ contentAssetIds, ...d }) => {
             let thumbnailUrl: string | null = null;
             try { thumbnailUrl = (await resolvePostImage(db, contentAssetIds))?.url ?? null; } catch { /* ignore */ }
-            return { ...d, thumbnailUrl };
+            // Archive countdown: rejected posts are kept 30 days from rejectedAt, then auto-deleted.
+            let archiveDeletesAt: string | null = null;
+            let daysRemaining: number | null = null;
+            if (d.status === 'rejected' && d.rejectedAt) {
+                const deletesAt = new Date(d.rejectedAt).getTime() + ARCHIVE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+                archiveDeletesAt = new Date(deletesAt).toISOString();
+                daysRemaining = Math.max(0, Math.ceil((deletesAt - now) / (24 * 60 * 60 * 1000)));
+            }
+            return { ...d, thumbnailUrl, archiveDeletesAt, daysRemaining };
         }));
 
         return {
