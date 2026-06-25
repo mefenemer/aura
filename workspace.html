@@ -2738,10 +2738,15 @@ function formatCurrency(amount, currency) {
     const roleLabel = isDraft ? meta.label : (item.role || 'Assistant');
     const name      = (isDraft ? item.displayName : item.name) || `Unnamed ${roleLabel}`;
     const failed    = !isDraft && item.provisioningStatus === 'failed';
+    // A compliance gate parked the assistant — needs a user action (accept ToS/DPA, add disclosure…).
+    const blocked   = !isDraft && item.provisioningStatus === 'blocked' ? (item.blocked || null) : null;
     const badge = failed
       ? `<div class="flex items-center gap-2 bg-red-50 text-red-700 px-3 py-1 rounded-full text-xs font-bold border border-red-200"><span class="w-2 h-2 rounded-full bg-red-500"></span>Setup Failed</div>`
+      : blocked
+      ? `<div class="flex items-center gap-2 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-200"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Action Required</div>`
       : `<div class="flex items-center gap-2 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-200"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>Setup in Progress</div>`;
     const sub = failed   ? 'Something went wrong during setup. Click to review.'
+              : blocked  ? (blocked.message || 'Action needed before setup can finish. Click to resolve.')
               : isDraft  ? 'Setup in progress — click to continue your checklist.'
               :            "We're prepping your assistant. Click to view progress.";
     // US3 AC3.1: drafts get a destructive "Cancel Setup" action right on the card.
@@ -2771,6 +2776,28 @@ function formatCurrency(amount, currency) {
   window.openSetupChecklist = function(key) {
     const item = (window._inProgressItems || {})[key];
     if (item) window.loadView('assistant-setup', item);
+  };
+
+  // Retry a gate-blocked assistant: re-fires provisioning (which re-evaluates every gate, then
+  // advances to ready_for_work or re-blocks with whatever is still missing).
+  window.retryProvisioning = async function(assistantId, btn) {
+    if (!assistantId) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Retrying…'; }
+    try {
+      const res = await fetch(`/.netlify/functions/retry-provision-assistant?id=${assistantId}`, { method: 'POST' });
+      if (res.ok || res.status === 202) {
+        window.showToast?.("Retrying setup — we'll let you know if anything else is needed.", { icon: '🔄' });
+        // Give the background fn a moment to re-evaluate, then refresh the dashboard view.
+        setTimeout(() => window.loadView?.('dashboard'), 1500);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        window.showToast?.(data.error || 'Could not retry setup. Please try again.');
+        if (btn) { btn.disabled = false; btn.textContent = 'Retry'; }
+      }
+    } catch {
+      window.showToast?.('Could not retry setup. Please try again.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Retry'; }
+    }
   };
 
   // ── US3: destructive confirm modal + draft cancellation ──────────────
@@ -2890,7 +2917,7 @@ function formatCurrency(amount, currency) {
       // US6 AC5.3: archived assistants are removed from the active dashboard (history is kept
       // server-side). Provisioning/failed render as in-progress cards above.
       const activeAssistants = allAssistants.filter(a =>
-        a.status !== 'pending' && a.status !== 'failed' &&
+        a.status !== 'pending' && a.status !== 'failed' && a.status !== 'blocked' &&
         a.lifecycleStatus !== 'archived' && a.status !== 'cancelled');
       activeAssistants.forEach(assistant => {
         container.insertAdjacentHTML('beforeend', window.generateAssistantCardHTML(assistant));
@@ -3010,6 +3037,8 @@ function formatCurrency(amount, currency) {
     const name      = (isDraft ? item.displayName : item.name) || `Unnamed ${roleLabel}`;
     const cs        = isDraft ? (item.currentStep || 1) : 99;
     const failed    = !isDraft && item.provisioningStatus === 'failed';
+    // A compliance gate parked provisioning — surface the actionable reason + a Retry action.
+    const blocked   = !isDraft && item.provisioningStatus === 'blocked' ? (item.blocked || {}) : null;
 
     // AC2.1: four sequential buckets. `step` = the wizard step a deep-link jumps to.
     const STEPS = [
@@ -3027,13 +3056,14 @@ function formatCurrency(amount, currency) {
       if (state === 'completed') return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></span>`;
       if (state === 'processing') return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100"><svg class="animate-spin w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>`;
       if (state === 'failed')    return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-600 font-bold">!</span>`;
+      if (state === 'blocked')   return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 text-amber-600 font-bold">!</span>`;
       if (state === 'action')    return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-white text-sm font-bold animate-pulse">→</span>`;
       return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400 text-sm font-bold">○</span>`; // pending
     };
 
     const rows = STEPS.map((s, i) => {
       let state;
-      if (s.ai)              state = failed ? 'failed' : (!isDraft ? 'processing' : 'pending');
+      if (s.ai)              state = failed ? 'failed' : blocked ? 'blocked' : (!isDraft ? 'processing' : 'pending');
       else if (s.done)       state = 'completed';
       else if (i === actionIdx) state = 'action';
       else                   state = 'pending';
@@ -3055,6 +3085,17 @@ function formatCurrency(amount, currency) {
           <p class="text-xs text-gray-500 mt-2 leading-relaxed">We are prepping your assistant. You can leave this page—we'll notify you when they are ready to work.</p></div>`;
       }
       else if (state === 'failed') detail = `<p class="text-xs text-red-600 mt-0.5">Setup failed — our team has been notified.</p>`;
+      else if (state === 'blocked') {
+        const title = (blocked && blocked.title) || 'Action required';
+        const msg   = (blocked && blocked.message) || 'An action is needed before setup can finish.';
+        const cta   = (blocked && blocked.cta) || 'Resolve';
+        detail = `<p class="text-xs text-amber-700 font-semibold mt-0.5">${title}</p>
+          <p class="text-xs text-gray-600 mt-1 leading-relaxed">${msg}</p>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <button onclick="window.retryProvisioning(${item.assistantId}, this)" class="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-700 text-white text-xs font-semibold rounded-lg hover:bg-emerald-800 transition cursor-pointer">${cta} &amp; retry</button>
+            <span class="text-xs text-gray-400">Once resolved, retry to finish setup.</span>
+          </div>`;
+      }
       else detail = `<p class="text-xs text-gray-400 mt-0.5">Pending</p>`;
 
       return `
@@ -3907,7 +3948,7 @@ async function gpPopulateAssistants() {
         const res  = await fetch('/.netlify/functions/get-assistants');
         const data = res.ok ? await res.json() : { assistants: [] };
         const active = (data.assistants || []).filter(a =>
-            a.status !== 'pending' && a.status !== 'failed' &&
+            a.status !== 'pending' && a.status !== 'failed' && a.status !== 'blocked' &&
             a.lifecycleStatus !== 'archived');
         // Prefer Social Media Managers, but fall back to all active assistants so orgs whose
         // assistants predate the roleKey field aren't locked out of generating a post.

@@ -18,11 +18,28 @@ import { isGlobalAiDisabled } from '../../src/utils/platform-config';
 import { requireTosAcceptance, checkProhibitedUsePatterns } from '../../src/utils/tos-gate';
 import { CURRENT_DPA_VERSION } from './accept-dpa';
 import { isEuCountry } from '../../src/config/compliance';
+import type { ProvisioningBlockReason } from '../../src/utils/assistant-lifecycle';
 import Stripe from 'stripe';
 
 const stripe = process.env.STRIPE_SECRET_KEY
     ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' })
     : null;
+
+// A compliance/readiness gate stopped provisioning. Park the assistant in a distinguishable,
+// user-actionable state instead of silently leaving it 'pending' (where it derives lifecycle
+// 'provisioning' and looks identical to "still being built" forever). The dashboard, the Kick-Off
+// 409 and the readiness panel read provisioning_blocked_reason to tell the user exactly what to
+// fix; retry-provision-assistant / retryBlockedAssistants re-fire this function once it's fixed.
+async function blockProvisioning(
+    db: ReturnType<typeof getDb>,
+    assistantId: number,
+    reason: ProvisioningBlockReason,
+): Promise<void> {
+    await db.update(aiAssistants)
+        .set(withUpdatedAt({ provisioningStatus: 'blocked', provisioningBlockedReason: reason }))
+        .where(eq(aiAssistants.id, assistantId))
+        .catch((e) => console.error(`[provision-assistant-background] Failed to persist blocked state (${reason}) for assistant ${assistantId}:`, e));
+}
 
 // EU jurisdiction list lives in src/config/compliance.ts (AC4.1 modular compliance layer).
 async function isEuOrg(stripeCustomerId: string | null | undefined): Promise<boolean> {
@@ -57,6 +74,7 @@ export const handler: Handler = async (event) => {
 
         if (!preCheck?.disclosureText?.trim()) {
             console.warn(`[provision-assistant-background] Blocked activation for assistant ${assistantId}: disclosureText missing (EU AI Act Art. 52)`);
+            await blockProvisioning(db, assistantId, 'disclosure_missing');
             return { statusCode: 422, body: JSON.stringify({ error: 'AI disclosure text is required before this assistant can be activated (EU AI Act Art. 52).' }) };
         }
 
@@ -65,6 +83,7 @@ export const handler: Handler = async (event) => {
             const tosBlock = await requireTosAcceptance(preCheck.userId);
             if (tosBlock) {
                 console.warn(`[provision-assistant-background] Blocked activation for assistant ${assistantId}: ToS not accepted (userId=${preCheck.userId})`);
+                await blockProvisioning(db, assistantId, 'tos_required');
                 return tosBlock;
             }
         }
@@ -82,6 +101,7 @@ export const handler: Handler = async (event) => {
                 // If the deployer has not acknowledged prohibited-use categories, block activation
                 if (!assistantFull.prohibitedUseAcknowledged) {
                     console.warn(`[provision-assistant-background] Blocked activation for assistant ${assistantId}: prohibited-use patterns detected (${puCheck.categories.join(', ')}) without acknowledgment`);
+                    await blockProvisioning(db, assistantId, 'prohibited_use_ack');
                     return {
                         statusCode: 422,
                         headers: { 'Content-Type': 'application/json' },
@@ -124,6 +144,7 @@ export const handler: Handler = async (event) => {
 
             if (!dpa) {
                 console.warn(`[provision-assistant-background] Blocked activation for assistant ${assistantId}: DPA not accepted for org ${preCheck.organisationId}`);
+                await blockProvisioning(db, assistantId, 'dpa_required');
                 return { statusCode: 403, body: JSON.stringify({ error: 'Your organisation must accept the Data Processing Agreement before activating an assistant.', code: 'DPA_REQUIRED' }) };
             }
         }
@@ -160,6 +181,7 @@ export const handler: Handler = async (event) => {
 
                     if (!assessment) {
                         console.warn(`[provision-assistant-background] Blocked EU activation for assistant ${assistantId}: high_risk classification requires approved conformity assessment`);
+                        await blockProvisioning(db, assistantId, 'high_risk_eu');
                         return { statusCode: 403, body: JSON.stringify({
                             error: 'This assistant is classified as High Risk under the EU AI Act. A completed conformity assessment must be approved before EU-market deployment.',
                             code: 'HIGH_RISK_EU_BLOCKED',
@@ -179,7 +201,7 @@ export const handler: Handler = async (event) => {
         // explicitly so the DB sync trigger keeps this forward-only state (it isn't derivable
         // from the legacy complete+inactive pair, which would otherwise read as 'paused').
         const [updated] = await db.update(aiAssistants)
-            .set(withUpdatedAt({ provisioningStatus: 'complete', isActive: false, lifecycleStatus: 'ready_for_work' }))
+            .set(withUpdatedAt({ provisioningStatus: 'complete', provisioningBlockedReason: null, isActive: false, lifecycleStatus: 'ready_for_work' }))
             .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.provisioningStatus, 'pending')))
             .returning();
 

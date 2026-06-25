@@ -32,7 +32,8 @@ export async function getOrgEnabledFeatures(db: Db, orgId: number): Promise<Set<
         .where(and(
             eq(aiAssistants.organisationId, orgId),
             ne(aiAssistants.lifecycleStatus, 'archived'),
-            sql`(${aiAssistants.provisioningStatus} IS NULL OR ${aiAssistants.provisioningStatus} NOT IN ('pending', 'failed'))`,
+            // 'blocked' = gate-blocked provisioning (not yet provisioned) — exclude like pending/failed.
+            sql`(${aiAssistants.provisioningStatus} IS NULL OR ${aiAssistants.provisioningStatus} NOT IN ('pending', 'failed', 'blocked'))`,
         )));
 
     if (active.length === 0) return new Set();

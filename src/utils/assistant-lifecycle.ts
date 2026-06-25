@@ -37,6 +37,60 @@ export function isLegalTransition(from: AssistantLifecycleStatus, to: AssistantL
     return from === to || LEGAL_TRANSITIONS[from]?.includes(to) === true;
 }
 
+// ── Blocked provisioning (gate-blocked assistants) ──────────────────────────────────────────
+// When a compliance/readiness gate stops provision-assistant-background, the assistant is parked
+// at provisioning_status='blocked' with one of these machine reason codes in
+// provisioning_blocked_reason. The assistant still reads as lifecycle 'provisioning', but these
+// give the dashboard, kickoff-assistant and the readiness panel an actionable "here's what to fix".
+export const PROVISIONING_BLOCK_REASONS = [
+    'disclosure_missing',
+    'tos_required',
+    'prohibited_use_ack',
+    'dpa_required',
+    'high_risk_eu',
+] as const;
+
+export type ProvisioningBlockReason = (typeof PROVISIONING_BLOCK_REASONS)[number];
+
+// User-facing copy per reason. `cta` is a short label the dashboard can put on the fix button;
+// the actual fix flow differs per reason (Guardrails tab, ToS modal, DPA modal, support).
+export const PROVISIONING_BLOCK_INFO: Record<ProvisioningBlockReason, { title: string; message: string; cta: string }> = {
+    disclosure_missing: {
+        title: 'AI disclosure required',
+        message: 'Add the AI disclosure text (required by EU AI Act Art. 52) before this assistant can be activated.',
+        cta: 'Add disclosure',
+    },
+    tos_required: {
+        title: 'Accept the Terms of Service',
+        message: 'You must accept the current Terms of Service before this assistant can be activated.',
+        cta: 'Review Terms',
+    },
+    prohibited_use_ack: {
+        title: 'Acknowledgement required',
+        message: "This assistant's instructions touch on prohibited-use categories. Review the Terms (clauses 10.3 and 11.4) and acknowledge compliance before activating.",
+        cta: 'Review & acknowledge',
+    },
+    dpa_required: {
+        title: 'Accept the Data Processing Agreement',
+        message: 'Your organisation must accept the Data Processing Agreement before activating an assistant.',
+        cta: 'Review DPA',
+    },
+    high_risk_eu: {
+        title: 'Conformity assessment required',
+        message: 'This assistant is classified High Risk under the EU AI Act. A completed conformity assessment must be approved before EU-market deployment.',
+        cta: 'Contact support',
+    },
+};
+
+// Resolve a (possibly stale/unknown) reason code to display copy, with a safe generic fallback.
+export function provisioningBlockInfo(reason: string | null | undefined) {
+    return (reason && PROVISIONING_BLOCK_INFO[reason as ProvisioningBlockReason]) || {
+        title: 'Action required',
+        message: 'This assistant needs an action from you before setup can finish.',
+        cta: 'Review',
+    };
+}
+
 export type TransitionResult =
     | { ok: true; from: AssistantLifecycleStatus; to: AssistantLifecycleStatus; noop: boolean }
     | { ok: false; error: string; from?: AssistantLifecycleStatus };

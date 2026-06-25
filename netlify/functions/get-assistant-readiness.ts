@@ -9,6 +9,7 @@ import { eq, and, inArray } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
 import { aiAssistants, systemConnections, contentRules } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
+import { provisioningBlockInfo } from '../../src/utils/assistant-lifecycle';
 
 const json = (statusCode: number, body: unknown) => ({
     statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -37,6 +38,7 @@ export const handler: Handler = async (event) => {
                 role: aiAssistants.aiAssistantJobRole,
                 isActive: aiAssistants.isActive,
                 provisioningStatus: aiAssistants.provisioningStatus,
+                provisioningBlockedReason: aiAssistants.provisioningBlockedReason,
                 lifecycleStatus: aiAssistants.lifecycleStatus,
                 configuration: aiAssistants.configuration,
                 onboardingContext: aiAssistants.onboardingContext,
@@ -118,11 +120,18 @@ export const handler: Handler = async (event) => {
 
         const allRequiredDone = items.filter(i => i.required).every(i => i.done);
 
+        // A gate blocked provisioning — surface the specific, actionable reason so the client can
+        // render a "fix this" panel + Retry instead of a perpetual "setting up" spinner.
+        const blocked = assistant.provisioningStatus === 'blocked'
+            ? { reason: assistant.provisioningBlockedReason, ...provisioningBlockInfo(assistant.provisioningBlockedReason) }
+            : null;
+
         return json(200, {
             assistantId,
             status: assistant.provisioningStatus,
             isActive: assistant.isActive,
             lifecycleStatus: assistant.lifecycleStatus,
+            blocked,
             // "working" once the assistant is provisioned and active.
             working: assistant.isActive && assistant.provisioningStatus === 'complete',
             workingSince: assistant.updatedAt,

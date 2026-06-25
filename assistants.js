@@ -12,9 +12,12 @@ window.generateAssistantCardHTML = function(assistant) {
     const role = assistant.role || 'Custom Assistant';
 
     // Lifecycle state machine (assistant-lifecycle-epic). Fall back to legacy fields.
-    const lifecycle = assistant.lifecycleStatus
-      || (assistant.status === 'pending' ? 'provisioning' : (assistant.isActive === false ? 'paused' : 'working'));
+    // A gate-blocked assistant reads as lifecycle 'provisioning' but needs user action, so it gets
+    // its own "Action Required" badge instead of the passive "Setup in Progress" spinner.
+    const lifecycle = assistant.status === 'blocked' ? 'blocked' : (assistant.lifecycleStatus
+      || (assistant.status === 'pending' ? 'provisioning' : (assistant.isActive === false ? 'paused' : 'working')));
     const DIR_BADGE = {
+        blocked:        { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500',                 label: 'Action Required' },
         provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Setup in Progress' },
         ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work' },
         working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Active' },
@@ -661,9 +664,11 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         const toggleBtn = document.getElementById('btn-toggle-status');
         if (statusEl) {
             // Lifecycle state machine (assistant-lifecycle-epic). Fall back to legacy fields.
-            const lifecycle = currentData.lifecycleStatus
-              || (currentData.status === 'pending' ? 'provisioning' : (currentData.isActive === false ? 'paused' : 'working'));
+            // Gate-blocked assistants read as lifecycle 'provisioning' but need action → own pill.
+            const lifecycle = currentData.status === 'blocked' ? 'blocked' : (currentData.lifecycleStatus
+              || (currentData.status === 'pending' ? 'provisioning' : (currentData.isActive === false ? 'paused' : 'working')));
             const PILL = {
+                blocked:        { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500',                 label: 'Action Required',    toggle: 'Initiate Kick-Off' },
                 provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Setup in Progress',  toggle: 'Pause Assistant' },
                 ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work',     toggle: 'Initiate Kick-Off' },
                 working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Active',             toggle: 'Pause Assistant' },
@@ -965,6 +970,28 @@ async function _renderKickOff(assistantId) {
                 if (ctaKind === 'billing') window.loadView?.('billing');
                 else document.querySelector('.detail-tab-btn[data-tab="platforms"]')?.click();
             };
+        }
+        btn.classList.add('hidden');
+        hintEl.textContent = '';
+        return;
+    }
+
+    // A compliance gate blocked provisioning → amber "Action Required" panel + Retry, replacing the
+    // normal kick-off flow (kickoff-assistant also 409s with PROVISIONING_BLOCKED). Once the user
+    // satisfies the precondition, retry re-fires provisioning and the assistant advances.
+    if (data.blocked) {
+        const b = data.blocked;
+        subEl.textContent = 'Action required before this assistant can start.';
+        listEl.innerHTML = '';
+        const panel = document.getElementById('kickoff-summary');
+        if (panel) {
+            panel.className = 'mb-5 p-4 rounded-xl bg-amber-50 border border-amber-200';
+            panel.innerHTML = `
+                <p class="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">⚠ ${b.title || 'Action required'}</p>
+                <p class="text-sm font-semibold text-amber-800 mb-3">${b.message || 'An action is needed before setup can finish.'}</p>
+                <button type="button" id="btn-retry-prov" class="px-4 py-2 text-sm font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg shadow-sm transition cursor-pointer">${b.cta || 'Retry'} &amp; retry</button>`;
+            const r = document.getElementById('btn-retry-prov');
+            if (r) r.onclick = () => window.retryProvisioning?.(assistantId, r);
         }
         btn.classList.add('hidden');
         hintEl.textContent = '';

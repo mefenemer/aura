@@ -283,8 +283,15 @@ export const aiAssistants = pgTable("ai_assistants", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  // provisioningStatus: 'pending' | 'complete' | 'failed' | 'cancelled' | 'paused_limit' | 'paused_payment'
+  // provisioningStatus: 'pending' | 'complete' | 'failed' | 'cancelled' | 'paused_limit' | 'paused_payment' | 'blocked'
+  // 'blocked' = a compliance/readiness gate stopped provisioning (see provisioningBlockedReason).
+  // It still derives lifecycle_status='provisioning', but is distinguishable + user-actionable +
+  // re-triggerable (retry-provision-assistant / retryBlockedAssistants). db/assistant-provisioning-blocked.sql.
   provisioningStatus: text("provisioning_status").default("pending"),
+  // When provisioningStatus='blocked', the machine reason code (ProvisioningBlockReason in
+  // src/utils/assistant-lifecycle.ts): disclosure_missing | tos_required | prohibited_use_ack
+  // | dpa_required | high_risk_eu. Cleared (null) once provisioning succeeds or is retried.
+  provisioningBlockedReason: text("provisioning_blocked_reason"),
   // Canonical lifecycle state machine (assistant-lifecycle-epic):
   //   provisioning | ready_for_work | working | paused | system_paused | archived
   // Kept in sync with the legacy (provisioningStatus, isActive) pair by a DB trigger; the

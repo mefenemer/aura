@@ -11,6 +11,7 @@ import { and, desc, eq, inArray, or } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
 import { aiAssistants, onboardingDrafts } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
+import { provisioningBlockInfo } from '../../src/utils/assistant-lifecycle';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method Not Allowed' };
@@ -33,17 +34,18 @@ export const handler: Handler = async (event) => {
             .where(or(eq(onboardingDrafts.organisationId, orgId), eq(onboardingDrafts.userId, userId)))
             .orderBy(desc(onboardingDrafts.updatedAt));
 
-        // Validation: assistants still being provisioned (or that failed) for this org.
-        // RLS-enforced via withTenant, matching get-assistants.ts.
+        // Validation: assistants still being provisioned, that failed, or that a compliance gate
+        // blocked (needs user action). RLS-enforced via withTenant, matching get-assistants.ts.
         const validating = await withTenant(orgId, (tx) => tx.select({
             id: aiAssistants.id,
             name: aiAssistants.name,
             role: aiAssistants.aiAssistantJobRole,
             provisioningStatus: aiAssistants.provisioningStatus,
+            provisioningBlockedReason: aiAssistants.provisioningBlockedReason,
         }).from(aiAssistants)
             .where(and(
                 eq(aiAssistants.organisationId, orgId),
-                inArray(aiAssistants.provisioningStatus, ['pending', 'failed']),
+                inArray(aiAssistants.provisioningStatus, ['pending', 'failed', 'blocked']),
             )));
 
         const items = [
@@ -62,6 +64,11 @@ export const handler: Handler = async (event) => {
                 name: a.name,
                 role: a.role,
                 provisioningStatus: a.provisioningStatus,
+                // Only set for blocked rows — { reason, title, message, cta } drives the
+                // "Action required" card + CTA on the dashboard.
+                blocked: a.provisioningStatus === 'blocked'
+                    ? { reason: a.provisioningBlockedReason, ...provisioningBlockInfo(a.provisioningBlockedReason) }
+                    : null,
             })),
         ];
 

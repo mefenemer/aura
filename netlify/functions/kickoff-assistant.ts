@@ -12,7 +12,7 @@ import { eq, and, inArray } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
 import { aiAssistants, systemConnections } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
-import { transitionAssistantStatus } from '../../src/utils/assistant-lifecycle';
+import { transitionAssistantStatus, provisioningBlockInfo } from '../../src/utils/assistant-lifecycle';
 
 const json = (statusCode: number, body: unknown) => ({
     statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -36,6 +36,7 @@ export const handler: Handler = async (event) => {
             id: aiAssistants.id,
             lifecycleStatus: aiAssistants.lifecycleStatus,
             provisioningStatus: aiAssistants.provisioningStatus,
+            provisioningBlockedReason: aiAssistants.provisioningBlockedReason,
             disclosureText: aiAssistants.disclosureText,
         }).from(aiAssistants)
           .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
@@ -61,6 +62,13 @@ export const handler: Handler = async (event) => {
     // ── State guards ──────────────────────────────────────────────────────────
     if (state === 'working') return json(200, { ok: true, alreadyWorking: true, lifecycleStatus: 'working' });
     if (state === 'provisioning') {
+        // A gate blocked provisioning (missing disclosure / ToS / DPA / ack / conformity). Tell the
+        // user exactly what to fix instead of the misleading "still being set up" — and once they
+        // fix it the auto-retry hooks / retry-provision-assistant re-fire provisioning.
+        if (a.provisioningStatus === 'blocked') {
+            const info = provisioningBlockInfo(a.provisioningBlockedReason);
+            return json(409, { error: info.message, code: 'PROVISIONING_BLOCKED', reason: a.provisioningBlockedReason });
+        }
         return json(409, { error: "This assistant is still being set up. Please wait for setup to finish.", code: 'PROVISIONING' });
     }
     if (state === 'archived') {
