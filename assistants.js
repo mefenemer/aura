@@ -1207,7 +1207,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // await _fetchAndRenderRelationshipChecklist(assistantId);
 
     // ── Impact & ROI metrics card ─────────────────────────────────
-    _fetchAndRenderAssistantMetrics(assistantId);
+    await _fetchAndRenderAssistantMetrics(assistantId);
 
     // ── Review Queue tab — prefetch pending count so the badge shows without opening the tab ──
     _prefetchDetailRqBadge(assistantId);

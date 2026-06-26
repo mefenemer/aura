@@ -1495,7 +1495,41 @@
             <h2 class="text-lg font-extrabold text-gray-900">Issue Reports</h2>
             <p class="text-sm text-gray-500 mt-0.5">User-submitted issues from the testing phase. Update the status to notify the reporter.</p>
           </div>
-          <button onclick="loadIssueReports()" class="px-3 py-2 text-sm font-semibold border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">↻ Refresh</button>
+          <div class="flex items-center gap-2">
+            <button onclick="openRunnerModal()" id="ir-runner-btn" class="px-3 py-2 text-sm font-semibold border border-violet-300 text-violet-700 bg-violet-50 rounded-lg hover:bg-violet-100 transition flex items-center gap-1.5">🤖 <span id="ir-runner-btn-label">Runner</span></button>
+            <button onclick="loadIssueReports()" class="px-3 py-2 text-sm font-semibold border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- Runner modal -->
+        <div id="ir-runner-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-base font-extrabold text-gray-900">AI Auto-Fix Runner</h3>
+                <p class="text-xs text-gray-500 mt-0.5">The runner is a local process on your developer machine.</p>
+              </div>
+              <button onclick="closeRunnerModal()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+            </div>
+
+            <div id="ir-runner-queue-status" class="rounded-xl border p-3 text-sm"></div>
+
+            <div class="space-y-2">
+              <p class="text-xs font-bold uppercase text-gray-400">Start the runner — paste in your terminal</p>
+              <div class="relative">
+                <pre id="ir-runner-cmd" class="bg-gray-900 text-emerald-300 text-xs rounded-xl p-4 pr-20 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed"></pre>
+                <button onclick="copyRunnerCmd()" id="ir-runner-copy-btn" class="absolute top-2 right-2 px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-lg transition">Copy</button>
+              </div>
+            </div>
+
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 space-y-1">
+              <p class="font-bold">Required env vars (set in <code class="bg-amber-100 px-1 rounded">scripts/.env</code> or your shell)</p>
+              <p><code class="font-mono">AURA_BASE_URL</code> — staging URL, e.g. <code class="font-mono">https://staging--bemoreswan.netlify.app</code></p>
+              <p><code class="font-mono">DEV_HANDOFF_TOKEN</code> — must match the Netlify env var of the same name</p>
+            </div>
+
+            <button onclick="closeRunnerModal()" class="w-full py-2.5 text-sm font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition">Close</button>
+          </div>
         </div>
 
         <!-- Status filter chips -->
@@ -3301,6 +3335,7 @@ async function loadIssueReports() {
     if (filters) filters.innerHTML = chip('', 'All', total) + IR_STATUSES.map(s => chip(s, IR_STATUS_LABEL[s], counts[s] || 0)).join('');
 
     const issues = d.issues || [];
+    _updateRunnerBtnBadge(issues);
     if (tbody) tbody.innerHTML = issues.map(i => `
       <tr class="border-t border-gray-50 hover:bg-gray-50 transition">
         <td class="px-5 py-3 font-mono text-xs text-gray-500">#${i.id}</td>
@@ -3435,6 +3470,81 @@ function _irHandoffCard(i) {
       <span class="text-xs font-bold uppercase text-violet-600">AI Auto-Fix</span>
       ${inner}
     </div>`;
+}
+
+// ── Runner modal ─────────────────────────────────────────────────────────────
+function openRunnerModal() {
+  const modal = document.getElementById('ir-runner-modal');
+  modal.classList.remove('hidden');
+
+  // Build the command
+  const origin = window.location.origin;
+  const baseUrl = origin.includes('localhost') ? origin : 'https://staging--bemoreswan.netlify.app';
+  const cmd = `AURA_BASE_URL="${baseUrl}" \\\nDEV_HANDOFF_TOKEN="<your-token>" \\\nnpm run dev:issue-fixer`;
+  document.getElementById('ir-runner-cmd').textContent = cmd;
+
+  // Queue status from already-loaded issue data (count queued devHandoffStatus)
+  _updateRunnerQueueStatus();
+}
+
+function closeRunnerModal() {
+  document.getElementById('ir-runner-modal').classList.add('hidden');
+}
+
+function _updateRunnerQueueStatus() {
+  const el = document.getElementById('ir-runner-queue-status');
+  if (!el) return;
+  // Count rows in table with the violet "queued" badge
+  const rows = document.querySelectorAll('#ir-tbody tr');
+  // Re-fetch a fresh count from the API
+  fetch(IR_API)
+    .then(r => r.json())
+    .then(d => {
+      const issues = d.issues || [];
+      const queued = issues.filter(i => i.devHandoffStatus === 'queued').length;
+      const inProg = issues.filter(i => i.devHandoffStatus === 'in_progress').length;
+      if (queued > 0) {
+        el.className = 'rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800';
+        el.innerHTML = `<span class="font-bold">⚠️ ${queued} issue${queued > 1 ? 's' : ''} queued</span> — waiting for the runner to pick ${queued > 1 ? 'them' : 'it'} up. Start the runner below to process ${queued > 1 ? 'them' : 'it'}.`;
+      } else if (inProg > 0) {
+        el.className = 'rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-800';
+        el.innerHTML = `<span class="animate-pulse font-bold">●</span> <span class="font-bold">${inProg} issue${inProg > 1 ? 's' : ''} in progress</span> — the runner has claimed ${inProg > 1 ? 'them' : 'it'} and is working on a fix.`;
+      } else {
+        el.className = 'rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800';
+        el.innerHTML = `<span class="font-bold">✓ No issues queued</span> — nothing waiting for the runner right now.`;
+      }
+    })
+    .catch(() => {
+      el.className = 'rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500';
+      el.innerHTML = 'Could not load queue status.';
+    });
+}
+
+async function copyRunnerCmd() {
+  const cmd = document.getElementById('ir-runner-cmd').textContent;
+  try {
+    await navigator.clipboard.writeText(cmd);
+    const btn = document.getElementById('ir-runner-copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+  } catch { alert('Copy failed — select the text manually.'); }
+}
+
+// Update the Runner button label with a live queued count when the issue list loads
+function _updateRunnerBtnBadge(issues) {
+  const queued = (issues || []).filter(i => i.devHandoffStatus === 'queued').length;
+  const lbl = document.getElementById('ir-runner-btn-label');
+  const btn = document.getElementById('ir-runner-btn');
+  if (!lbl || !btn) return;
+  if (queued > 0) {
+    lbl.textContent = `Runner (${queued} queued)`;
+    btn.classList.add('border-amber-400', 'bg-amber-50', 'text-amber-800');
+    btn.classList.remove('border-violet-300', 'bg-violet-50', 'text-violet-700');
+  } else {
+    lbl.textContent = 'Runner';
+    btn.classList.remove('border-amber-400', 'bg-amber-50', 'text-amber-800');
+    btn.classList.add('border-violet-300', 'bg-violet-50', 'text-violet-700');
+  }
 }
 
 async function passToDeveloper(id) {
