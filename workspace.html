@@ -256,6 +256,20 @@ async function submitTosAcceptance(btn) {
       </button>
     </div>
 
+    <!-- Connect-first gate — shown instead of the chooser when no social account is connected.
+         Generating, scheduling and posting only make sense once at least one account is linked. -->
+    <div id="gp-connect-gate" class="hidden text-center py-4">
+      <div class="mx-auto w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5m9.656.656a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5"/></svg>
+      </div>
+      <h3 class="text-sm font-extrabold text-gray-900">Connect a social account first</h3>
+      <p class="text-xs text-gray-500 mt-1.5 max-w-sm mx-auto">Your assistant can't generate, schedule or publish posts until at least one social media account is connected. Link an account to get started.</p>
+      <div class="flex flex-col gap-2 mt-4">
+        <button type="button" onclick="gpGoConnect()" class="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded-xl transition cursor-pointer">Connect an account</button>
+        <button type="button" onclick="closeGeneratePostSheet()" class="w-full py-2.5 border border-gray-300 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 transition cursor-pointer">Maybe later</button>
+      </div>
+    </div>
+
     <!-- Mode panels (shown after a mode is picked) -->
     <div id="gp-modes" class="hidden">
       <button type="button" onclick="gpBackToChooser()" class="mb-3 text-xs font-semibold text-gray-500 hover:text-gray-700 transition cursor-pointer flex items-center gap-1">
@@ -4416,12 +4430,71 @@ async function openGeneratePostSheet() {
     document.getElementById('gen-post-sheet')?.classList.remove('hidden');
 
     // Resolve an assistant up front (shared by all three modes).
-    gpPopulateAssistants();
+    await gpPopulateAssistants();
+
+    // Generating, scheduling and posting only apply to connected accounts. With nothing connected,
+    // show the connect-first gate instead of the chooser so we never imply a post can progress.
+    if (gpConnectedPlatforms().length === 0) {
+        gpShowConnectGate();
+        return;
+    }
+    gpHideConnectGate();
+    // Limit every mode's platform picker to the accounts that are actually connected.
+    gpApplyConnectionConstraints();
+}
+
+// Lowercase service names of the org's active social connections (e.g. ['instagram','x']).
+function gpConnectedPlatforms() {
+    return (_gpCap?.connectedPlatforms || []).map(s => String(s).toLowerCase());
+}
+
+function gpIsPlatformConnected(p) {
+    return gpConnectedPlatforms().some(s => s.includes(p));
+}
+
+function gpShowConnectGate() {
+    document.getElementById('gp-chooser')?.classList.add('hidden');
+    document.getElementById('gp-modes')?.classList.add('hidden');
+    document.getElementById('gp-connect-gate')?.classList.remove('hidden');
+}
+
+function gpHideConnectGate() {
+    document.getElementById('gp-connect-gate')?.classList.add('hidden');
+}
+
+// Close the sheet and take the user to the assistant's Connections tab to link an account.
+function gpGoConnect() {
+    const assistantId = _gpCurrentAssistantId || window._currentAssistantId || null;
+    closeGeneratePostSheet();
+    if (assistantId && typeof window.routeToAssistantDetail === 'function') {
+        window._assistantDetailInitialTab = 'platforms';
+        window.routeToAssistantDetail(assistantId);
+    } else if (typeof window.loadView === 'function') {
+        // No assistant in context — send them to the team list to open one and connect from there.
+        window.loadView('assistants');
+    }
+}
+
+// Disable the platform chips for accounts that aren't connected across all three mode panels, so a
+// user can't queue a draft for a platform that will never publish. The "All platforms" idea chip is
+// left enabled (it means "all connected"). Returns the connected chips' platform values for the AI mode.
+function gpApplyConnectionConstraints() {
+    document.querySelectorAll('.gpw-platform-btn, .gpi-platform-btn, .gen-platform-btn').forEach(btn => {
+        const p = btn.dataset.platform;
+        if (p === 'all') return;
+        const connected = gpIsPlatformConnected(p);
+        btn.disabled = !connected;
+        btn.classList.toggle('opacity-40', !connected);
+        btn.classList.toggle('cursor-not-allowed', !connected);
+        btn.classList.toggle('pointer-events-none', !connected);
+        btn.title = connected ? '' : 'Connect this account first';
+    });
 }
 
 // Return to the three-card chooser and clear any in-progress mode state.
 function gpBackToChooser() {
     clearInterval(_gpPollInterval);
+    document.getElementById('gp-connect-gate')?.classList.add('hidden');
     document.getElementById('gp-chooser')?.classList.remove('hidden');
     document.getElementById('gp-modes')?.classList.add('hidden');
     ['gp-mode-write', 'gp-mode-idea', 'gp-mode-ai'].forEach(id =>
@@ -4497,7 +4570,11 @@ function gpChooseMode(mode) {
 
     if (mode === 'ai') {
         gpUpdateConnectedPlatforms(_gpCap?.connectedPlatforms || []);
-        gpSelectPlatformByValue('instagram');
+        // Default to the first connected platform (falling back to Instagram) so we never preselect
+        // a chip the user can't actually publish to.
+        const connected = gpConnectedPlatforms();
+        const preferred = ['instagram', 'facebook', 'linkedin', 'x'].find(p => connected.some(s => s.includes(p)));
+        gpSelectPlatformByValue(preferred || 'instagram');
     }
 }
 
@@ -4974,7 +5051,7 @@ async function gpiSubmit() {
             if (btn) { btn.disabled = false; btn.textContent = 'Submit Idea'; }
             return;
         }
-        gpSetPanelStatus('gpi-status', 'Thanks! Your assistant will weave this into an upcoming draft.');
+        gpSetPanelStatus('gpi-status', 'Thanks! Your assistant is drafting a post from your idea now — it will appear in the Review Queue shortly.');
         setTimeout(closeGeneratePostSheet, 1800);
     } catch {
         gpSetPanelStatus('gpi-status', 'Network error — please try again.', 'error');

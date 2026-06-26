@@ -149,6 +149,10 @@ node_bundler = "esbuild"
 [functions.publish-social-posts]
   schedule = "* * * * *"
 
+# Publish due Facebook Page posts — every minute (piggybacks on the Meta connection)
+[functions.publish-facebook]
+  schedule = "* * * * *"
+
 # Drain inbound webhook events (intake → sandbox → connector handlers) — every minute
 [functions.process-webhook-events]
   schedule = "* * * * *"

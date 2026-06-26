@@ -20,7 +20,7 @@ window.generateAssistantCardHTML = function(assistant) {
         blocked:        { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500',                 label: 'Action Required' },
         provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Setup in Progress' },
         ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work' },
-        working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Active' },
+        working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Working' },
         paused:         { cls: 'bg-gray-100 text-gray-600 border-gray-200',         dot: 'bg-gray-400',                  label: 'Paused' },
         system_paused:  { cls: 'bg-red-50 text-red-700 border-red-200',             dot: 'bg-red-500 animate-pulse',     label: 'Attention Required' },
         archived:       { cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-300',                  label: 'Archived' },
@@ -826,7 +826,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
                 blocked:        { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500',                 label: 'Action Required',    toggle: 'Initiate Kick-Off' },
                 provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Setup in Progress',  toggle: 'Pause Assistant' },
                 ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work',     toggle: 'Initiate Kick-Off' },
-                working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Active',             toggle: 'Pause Assistant' },
+                working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Working',            toggle: 'Pause Assistant' },
                 paused:         { cls: 'bg-gray-100 text-gray-600 border-gray-200',         dot: 'bg-gray-400',                  label: 'Paused',             toggle: 'Resume Assistant' },
                 system_paused:  { cls: 'bg-red-50 text-red-700 border-red-200',             dot: 'bg-red-500 animate-pulse',     label: 'Attention Required', toggle: 'Resume Assistant' },
                 archived:       { cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-300',                  label: 'Archived',           toggle: 'Resume Assistant' },
@@ -1085,6 +1085,24 @@ async function _renderKickOff(assistantId) {
 
     card.classList.remove('hidden');
 
+    // Collapsible body — wire the chevron toggle once; the default open/closed state is
+    // set per branch below (working assistants start collapsed to keep the page tidy).
+    const bodyEl   = document.getElementById('kickoff-body');
+    const toggleEl = document.getElementById('kickoff-toggle');
+    const chevron  = document.getElementById('kickoff-chevron');
+    const setCollapsed = (collapsed) => {
+        if (!bodyEl) return;
+        bodyEl.classList.toggle('hidden', collapsed);
+        if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+        if (toggleEl) toggleEl.setAttribute('aria-expanded', String(!collapsed));
+    };
+    if (toggleEl && !toggleEl.dataset.wired) {
+        toggleEl.dataset.wired = '1';
+        toggleEl.addEventListener('click', () => setCollapsed(!bodyEl.classList.contains('hidden')));
+    }
+    // Default expanded; the working branch below overrides to collapsed.
+    setCollapsed(false);
+
     let data;
     try {
         const res = await fetch(`/.netlify/functions/get-assistant-readiness?id=${assistantId}`);
@@ -1225,6 +1243,8 @@ async function _renderKickOff(assistantId) {
                 if (toggleBtn) toggleBtn.textContent = 'Resume Assistant';
             } catch { alert('Network error — please try again.'); pauseBtn.disabled = false; }
         };
+        // Active/working → start collapsed (the user can expand to review the checklist).
+        setCollapsed(true);
         return;
     }
 
@@ -1269,7 +1289,7 @@ async function _renderKickOff(assistantId) {
             const statusEl = document.getElementById('detail-status');
             if (statusEl) {
                 statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
-                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Active';
+                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Working';
             }
             const toggleBtn = document.getElementById('btn-toggle-status');
             if (toggleBtn) toggleBtn.textContent = 'Pause Assistant';

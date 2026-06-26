@@ -22,6 +22,8 @@ const BACKOFF_MINS = [2, 8, 30];
 const MAX_ATTEMPTS = 3;
 const LABEL: Record<string, string> = { linkedin: 'LinkedIn', x: 'X (Twitter)' };
 const X_MAX = 280;
+// A row left in 'publishing' longer than this was orphaned by a timed-out tick — reclaim it.
+const STALE_PUBLISHING_MINS = 10;
 
 type FailureReason = { httpStatus: number | null; errorMessage: string; isRetryable: boolean };
 type PostRow = {
@@ -39,6 +41,14 @@ export const handler: Handler = async () => {
     const tickStart = Date.now();
     const now = new Date();
     let processed = 0, succeeded = 0, failed = 0;
+
+    // Self-heal: reclaim posts stranded in 'publishing' by an earlier timed-out tick so they
+    // are retried instead of sitting un-published forever (nothing else re-selects 'publishing').
+    await db.execute(
+        `UPDATE scheduled_posts SET status = 'scheduled', retry_at = NULL, updated_at = now()
+         WHERE status = 'publishing' AND platform IN ('linkedin','x')
+           AND updated_at < now() - interval '${STALE_PUBLISHING_MINS} minutes'`
+    );
 
     const posts = await db.execute<PostRow>(
         `SELECT id, user_id, organisation_id, caption, hashtags, connection_id,

@@ -11,14 +11,28 @@ const PLATFORM_META = {
 };
 
 const STATUS_META = {
-    draft:      { label: 'Draft',       badge: 'bg-gray-100 text-gray-600 border-gray-300',   chipBorder: 'border-gray-400',    dot: 'bg-gray-400' },
-    in_review:  { label: 'In Review',   badge: 'bg-amber-100 text-amber-700 border-amber-300', chipBorder: 'border-amber-400',   dot: 'bg-amber-400' },
-    approved:   { label: 'Approved',    badge: 'bg-blue-100 text-blue-700 border-blue-300',   chipBorder: 'border-blue-500',    dot: 'bg-blue-500' },
-    scheduled:  { label: 'Scheduled',   badge: 'bg-yellow-100 text-yellow-700 border-yellow-300', chipBorder: 'border-yellow-500', dot: 'bg-yellow-500' },
-    published:  { label: 'Published',   badge: 'bg-emerald-100 text-emerald-700 border-emerald-300', chipBorder: 'border-emerald-500', dot: 'bg-emerald-500' },
-    rejected:   { label: 'Rejected',    badge: 'bg-red-100 text-red-700 border-red-300',      chipBorder: 'border-red-500',     dot: 'bg-red-500' },
-    cancelled:  { label: 'Cancelled',   badge: 'bg-gray-100 text-gray-400 border-gray-200',   chipBorder: 'border-gray-300',    dot: 'bg-gray-300' },
+    draft:           { label: 'Draft',       badge: 'bg-gray-100 text-gray-600 border-gray-300',   chipBorder: 'border-gray-400',    dot: 'bg-gray-400' },
+    pending_approval:{ label: 'Pending',     badge: 'bg-amber-100 text-amber-700 border-amber-300', chipBorder: 'border-amber-400',   dot: 'bg-amber-400' },
+    in_review:       { label: 'In Review',   badge: 'bg-amber-100 text-amber-700 border-amber-300', chipBorder: 'border-amber-400',   dot: 'bg-amber-400' },
+    approved:        { label: 'Approved',    badge: 'bg-blue-100 text-blue-700 border-blue-300',   chipBorder: 'border-blue-500',    dot: 'bg-blue-500' },
+    scheduled:       { label: 'Scheduled',   badge: 'bg-yellow-100 text-yellow-700 border-yellow-300', chipBorder: 'border-yellow-500', dot: 'bg-yellow-500' },
+    publishing:      { label: 'Publishing',  badge: 'bg-blue-100 text-blue-700 border-blue-300',   chipBorder: 'border-blue-500',    dot: 'bg-blue-500' },
+    published:       { label: 'Published',   badge: 'bg-emerald-100 text-emerald-700 border-emerald-300', chipBorder: 'border-emerald-500', dot: 'bg-emerald-500' },
+    paused:          { label: 'Paused',      badge: 'bg-gray-100 text-gray-500 border-gray-300',   chipBorder: 'border-gray-400',    dot: 'bg-gray-400' },
+    failed:          { label: 'Failed',      badge: 'bg-red-100 text-red-700 border-red-300',      chipBorder: 'border-red-500',     dot: 'bg-red-500' },
+    missed:          { label: 'Missed',      badge: 'bg-orange-100 text-orange-700 border-orange-300', chipBorder: 'border-orange-300', dot: 'bg-amber-500' },
+    rejected:        { label: 'Rejected',    badge: 'bg-red-100 text-red-700 border-red-300',      chipBorder: 'border-red-500',     dot: 'bg-red-500' },
+    cancelled:       { label: 'Cancelled',   badge: 'bg-gray-100 text-gray-400 border-gray-200',   chipBorder: 'border-gray-300',    dot: 'bg-gray-300' },
 };
+
+// A post is "overdue" when its scheduled time has passed but the publisher hasn't
+// confirmed it live yet. This is the case the calendar must make visible — otherwise
+// it looks identical to a normal scheduled post sitting on a past date.
+function _isOverdue(post) {
+    if (!post?.publishDate) return false;
+    if (post.status !== 'scheduled') return false;
+    return new Date(post.publishDate) < new Date();
+}
 
 const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -335,28 +349,58 @@ window._calSetListFilter = function (key) {
 function _postChip(post, viewType) {
     const plat = PLATFORM_META[post.platform] || { emoji: '📣', bg: 'bg-gray-500', text: 'text-white' };
     const sm = STATUS_META[post.status] || STATUS_META.draft;
-    const time = new Date(post.publishDate).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const posted = post.status === 'published';
+    const publishing = post.status === 'publishing';
+    const overdue = _isOverdue(post);
+    // Posted posts show when they actually went live (publishedAt); everything else
+    // shows the scheduled time.
+    const stamp = posted && post.publishedAt ? new Date(post.publishedAt) : new Date(post.publishDate);
+    const time = stamp.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     const isDraggable = ['draft', 'in_review', 'approved', 'scheduled'].includes(post.status);
 
     const revisedBadge = post.isRevised ? `<span class="text-[9px] font-bold text-violet-600 bg-violet-50 border border-violet-200 px-1 rounded shrink-0">Revised</span>` : '';
-    // #4: left border = assistant colour; status stays glanceable via the right-hand dot.
+    // #4: left border = assistant colour; status stays glanceable via the right-hand marker.
     const asstColor = _assistantColor(post.assistantId);
     const asstName = _assistantName(post.assistantId);
+
+    // Right-hand status marker + chip tint give instant confirmation of *actual* state:
+    //  • posted     → emerald tint + ✓  ("this really went out")
+    //  • publishing → pulsing blue dot   ("going out right now")
+    //  • overdue    → amber tint + pulsing amber dot ("should have posted, hasn't")
+    //  • otherwise  → the normal status dot.
+    let chipBg = 'bg-white hover:bg-gray-50', timeColor = 'text-gray-700', marker, titleSuffix = '';
+    if (posted) {
+        chipBg = 'bg-emerald-50 hover:bg-emerald-100';
+        timeColor = 'text-emerald-700';
+        marker = `<span class="text-emerald-600 text-xs font-extrabold shrink-0" title="Posted ${time}">✓</span>`;
+        titleSuffix = ` · ✓ Posted ${time}`;
+    } else if (publishing) {
+        timeColor = 'text-blue-700';
+        marker = `<span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" title="Publishing now…"></span>`;
+        titleSuffix = ' · Publishing now…';
+    } else if (overdue) {
+        chipBg = 'bg-amber-50 hover:bg-amber-100';
+        timeColor = 'text-amber-700';
+        marker = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" title="Overdue — not yet posted"></span>`;
+        titleSuffix = ' · ⚠ Overdue — not yet posted';
+    } else {
+        marker = `<span class="w-1.5 h-1.5 rounded-full ${sm.dot} shrink-0" title="${sm.label}"></span>`;
+    }
 
     return `<div
         onclick="window._calOpenPost(${post.id})"
         ${isDraggable ? `draggable="true" ondragstart="window._calDragStart(event, ${post.id})"` : ''}
         data-post-id="${post.id}"
-        class="group flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white hover:bg-gray-50 shadow-sm cursor-pointer transition select-none text-left w-full"
+        class="group flex items-center gap-1.5 px-2 py-1 rounded-lg ${chipBg} shadow-sm cursor-pointer transition select-none text-left w-full"
         style="border-left:3px solid ${asstColor}"
-        title="${_escHtml(asstName)} · ${_escHtml(post.caption || post.platform)}">
+        title="${_escHtml(asstName)} · ${_escHtml(post.caption || post.platform)}${titleSuffix}">
         <span class="text-xs">${plat.emoji}</span>
         <div class="flex-1 min-w-0">
-            <p class="text-[11px] font-bold text-gray-700 truncate">${time}</p>
+            <p class="text-[11px] font-bold ${timeColor} truncate">${overdue ? '⚠ ' : ''}${time}</p>
             ${viewType === 'week' ? `<p class="text-[11px] text-gray-500 truncate leading-tight">${_escHtml((post.caption || '').substring(0, 40))}</p>` : ''}
         </div>
         ${revisedBadge}
-        <span class="w-1.5 h-1.5 rounded-full ${sm.dot} shrink-0" title="${sm.label}"></span>
+        ${marker}
     </div>`;
 }
 
@@ -381,8 +425,26 @@ function _activityChip(act, viewType) {
 function _listRow(post) {
     const plat = PLATFORM_META[post.platform] || { emoji: '📣', label: post.platform, bg: 'bg-gray-500', text: 'text-white' };
     const sm = STATUS_META[post.status] || STATUS_META.draft;
+    const posted = post.status === 'published';
+    const overdue = _isOverdue(post);
     const dt = new Date(post.publishDate);
     const time = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    // The scheduled time is the headline; for posted/overdue we add a second line
+    // confirming what actually happened.
+    const postedAt = posted && post.publishedAt ? new Date(post.publishedAt) : null;
+    const statusLine = posted
+        ? `<p class="text-xs font-bold text-emerald-600 mt-1">✓ Posted${postedAt ? ' ' + postedAt.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>`
+        : overdue
+        ? `<p class="text-xs font-bold text-amber-700 mt-1">⚠ Overdue — scheduled time passed, not yet posted</p>`
+        : '';
+
+    // The right-hand badge: posted gets a check, overdue is recoloured so a past
+    // date never reads as a calm "Scheduled".
+    const badge = posted
+        ? `<span class="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-300 shrink-0 mt-1">✓ Posted</span>`
+        : overdue
+        ? `<span class="text-xs font-bold px-2.5 py-1 rounded-full border bg-amber-100 text-amber-700 border-amber-300 shrink-0 mt-1">Overdue</span>`
+        : `<span class="text-xs font-bold px-2.5 py-1 rounded-full border ${sm.badge} shrink-0 mt-1">${sm.label}</span>`;
 
     return `<div onclick="window._calOpenPost(${post.id})"
         class="flex items-start gap-4 bg-white border border-gray-200 rounded-xl px-5 py-4 hover:border-emerald-300 hover:shadow-sm cursor-pointer transition">
@@ -395,8 +457,9 @@ function _listRow(post) {
             </div>
             <p class="text-sm text-gray-600 truncate">${_escHtml((post.caption || '').substring(0, 120) || '(No caption)')}</p>
             ${post.hashtags ? `<p class="text-xs text-blue-500 mt-1 truncate">${_escHtml(post.hashtags.substring(0, 80))}</p>` : ''}
+            ${statusLine}
         </div>
-        <span class="text-xs font-bold px-2.5 py-1 rounded-full border ${sm.badge} shrink-0 mt-1">${sm.label}</span>
+        ${badge}
     </div>`;
 }
 
@@ -434,10 +497,27 @@ window._calOpenPost = async function (postId) {
     iconEl.className = `w-9 h-9 rounded-xl flex items-center justify-center text-base font-bold shadow-sm shrink-0 ${plat.bg} ${plat.text}`;
     iconEl.textContent = plat.emoji;
     document.getElementById('panel-platform-name').textContent = plat.label;
-    document.getElementById('panel-publish-date').textContent = dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    const overdue = _isOverdue(post);
+    const subEl = document.getElementById('panel-publish-date');
+    if (post.status === 'published' && post.publishedAt) {
+        // Strongest possible confirmation: show when it actually went live, not when it was scheduled.
+        subEl.textContent = `✓ Posted ${new Date(post.publishedAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+        subEl.className = 'text-xs font-bold text-emerald-600 mt-0.5';
+    } else if (overdue) {
+        subEl.textContent = `⚠ Overdue — was due ${dt.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+        subEl.className = 'text-xs font-bold text-amber-700 mt-0.5';
+    } else {
+        subEl.textContent = dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        subEl.className = 'text-xs text-gray-500 mt-0.5';
+    }
     const badgeEl = document.getElementById('panel-status-badge');
-    badgeEl.textContent = sm.label;
-    badgeEl.className = `text-xs font-bold px-2.5 py-1 rounded-full border ${sm.badge}`;
+    if (overdue) {
+        badgeEl.textContent = 'Overdue';
+        badgeEl.className = 'text-xs font-bold px-2.5 py-1 rounded-full border bg-amber-100 text-amber-700 border-amber-300';
+    } else {
+        badgeEl.textContent = post.status === 'published' ? '✓ Published' : sm.label;
+        badgeEl.className = `text-xs font-bold px-2.5 py-1 rounded-full border ${sm.badge}`;
+    }
 
     // ── Section 1: Logistics ──────────────────────────────────────
     document.getElementById('panel-logistics-platform').textContent = plat.label;

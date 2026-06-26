@@ -20,6 +20,9 @@ const MAX_ATTEMPTS = 3;
 // Overrun threshold
 const OVERRUN_MS = 55_000;
 const GRAPH_VERSION = 'v19.0';
+// A row left in 'publishing' longer than this was orphaned by a timed-out tick — reclaim it.
+// Comfortably beyond the 120s video-processing poll so we never reclaim a live in-progress post.
+const STALE_PUBLISHING_MINS = 10;
 
 type FailureReason = { errorCode: number | null; errorMessage: string; errorSubcode?: number; isRetryable: boolean };
 
@@ -45,6 +48,14 @@ export const handler: Handler = async () => {
     const tickStart = Date.now();
     const now = new Date();
     let processed = 0, succeeded = 0, failed = 0;
+
+    // Self-heal: reclaim posts stranded in 'publishing' by an earlier timed-out tick (e.g. a
+    // slow video poll) so they are retried instead of sitting un-published forever.
+    await db.execute(
+        `UPDATE scheduled_posts SET status = 'scheduled', retry_at = NULL, updated_at = now()
+         WHERE status = 'publishing' AND platform = 'instagram'
+           AND updated_at < now() - interval '${STALE_PUBLISHING_MINS} minutes'`
+    );
 
     // Claim due posts — SKIP LOCKED prevents concurrent tick double-processing
     const posts = await db.execute<{

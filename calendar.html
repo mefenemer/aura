@@ -47,6 +47,19 @@
   <!-- #4: per-assistant colour legend -->
   <div id="cal-legend" class="hidden bg-white border-b border-gray-100 px-4 sm:px-6 py-2 flex items-center gap-4 flex-wrap"></div>
 
+  <!-- Status legend: makes the posted / scheduled / overdue markers self-explanatory -->
+  <div class="bg-white border-b border-gray-100 px-4 sm:px-6 py-2 flex items-center gap-4 flex-wrap">
+    <span class="inline-flex items-center gap-1.5 text-xs text-gray-500">
+      <span class="text-emerald-600 font-extrabold">✓</span> Posted (live)
+    </span>
+    <span class="inline-flex items-center gap-1.5 text-xs text-gray-500">
+      <span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span> Scheduled
+    </span>
+    <span class="inline-flex items-center gap-1.5 text-xs text-gray-500">
+      <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span> Overdue (not yet posted)
+    </span>
+  </div>
+
   <!-- ── Calendar body ────────────────────────────────────────────── -->
   <div class="flex flex-1 overflow-hidden relative">
 
