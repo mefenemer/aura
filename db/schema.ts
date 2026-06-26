@@ -1038,11 +1038,19 @@ export const issueReports = pgTable("issue_reports", {
   devSqlStatus: text("dev_sql_status"),      // null | 'pending' | 'applied' | 'failed'
   devSqlResult: text("dev_sql_result"),      // DB feedback from the run
   devSqlRanAt: timestamp("dev_sql_ran_at"),
+
+  // Merge of the fix PR to staging — requested from the ticket (super-admin) and performed
+  // by the local watcher (gh pr merge). The issue only reaches 'fixed_ready_to_test' once
+  // merged (and any migration applied). null | 'ready' | 'queued' | 'merging' | 'merged' | 'failed'
+  devMergeStatus: text("dev_merge_status"),
+  devMergedAt: timestamp("dev_merged_at"),
+  devMergeResult: text("dev_merge_result"),  // gh output / error from the merge attempt
 }, (t) => [
   index("issue_reports_user_idx").on(t.userId, t.createdAt),
   index("issue_reports_org_idx").on(t.organisationId),
   index("issue_reports_status_idx").on(t.status, t.createdAt),
   index("issue_reports_handoff_idx").on(t.devHandoffStatus, t.devHandoffAt),
+  index("issue_reports_merge_idx").on(t.devMergeStatus, t.devHandoffAt),
 ]);
 
 // Issue Report Messages Table — threaded admin status updates + user replies.

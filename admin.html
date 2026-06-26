@@ -3265,9 +3265,18 @@ const IR_HANDOFF_BADGE = {
   failed:      { cls: 'bg-amber-100 text-amber-800',   text: '🤖 Failed' },
 };
 function _irHandoffBadge(i) {
-  // A pending DB migration is the most actionable state — surface it over "PR ready".
+  // Most-actionable state wins: a pending DB migration first, then the merge gate.
   if (i.devSqlStatus === 'pending') {
     return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">🗄️ SQL to run</span>`;
+  }
+  if (i.devMergeStatus === 'ready') {
+    return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">🔀 To merge</span>`;
+  }
+  if (i.devMergeStatus === 'queued' || i.devMergeStatus === 'merging') {
+    return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🔀 Merging…</span>`;
+  }
+  if (i.devMergeStatus === 'merged') {
+    return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">🔀 Merged</span>`;
   }
   const b = IR_HANDOFF_BADGE[i.devHandoffStatus];
   if (!b) return '';
@@ -3346,10 +3355,13 @@ async function openIssuePanel(id) {
       <!-- Database migration the fix needs -->
       ${_irSqlCard(i)}
 
+      <!-- Merge the fix PR to staging -->
+      ${_irMergeCard(i)}
+
       <!-- Status control -->
       <div class="border border-gray-200 rounded-xl p-4 space-y-3">
-        <div class="flex items-center gap-3">
-          <span class="text-xs font-bold uppercase text-gray-400">Current</span>${_irBadge(i.status)}
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="text-xs font-bold uppercase text-gray-400">Current</span>${_irBadge(i.status)}${i.devMergeStatus === 'merged' ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🔀 Merged to staging</span>' : ''}
         </div>
         <label class="block text-xs font-bold uppercase text-gray-400">Update status</label>
         <select id="ir-new-status" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
@@ -3481,6 +3493,66 @@ async function runIssueSql(id) {
     await openIssuePanel(id);
     if (!document.getElementById('view-issue-reports').classList.contains('hidden')) loadIssueReports();
     if (!res.ok) alert('The SQL did not run cleanly — see the staging database response in the ticket.');
+  } catch (e) {
+    if (btn) { btn.disabled = false; }
+    alert(e.message);
+  }
+}
+
+// ── Merge the fix PR to staging, from inside the ticket (super-admin only) ─────
+// Shown once the AI fix has produced a PR (dev_merge_status set). The merge is queued
+// here and performed by the local watcher; the issue only reaches "Fixed & Ready to
+// Test" once the merge (and any DB migration) is done.
+function _irMergeCard(i) {
+  const ms = i.devMergeStatus;
+  if (!ms || !i.devPrUrl) return '';
+  const prLink = `<a href="${_esc(i.devPrUrl)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-sm font-bold text-indigo-700 hover:underline">View pull request →</a>`;
+  const resultBlock = i.devMergeResult
+    ? `<div class="rounded-lg p-3 text-xs font-mono whitespace-pre-wrap max-h-48 overflow-auto bg-white border border-gray-200 text-gray-700">${_esc(i.devMergeResult)}</div>` : '';
+  const isSuper = (typeof _adminRole !== 'undefined') && _adminRole === 'super_admin';
+  const sqlPending = i.devSqlStatus === 'pending';
+  const mergeBtn = isSuper
+    ? `<button onclick="requestMerge(${i.id})" ${sqlPending ? 'disabled' : ''} class="w-full px-4 py-2.5 ${sqlPending ? 'bg-gray-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'} text-white text-sm font-bold rounded-lg transition flex items-center justify-center gap-2"><span>🔀</span> Merge to staging</button>`
+    : `<p class="text-xs text-amber-700 font-semibold">Only a super-admin can merge to staging.</p>`;
+
+  let chip, inner;
+  if (ms === 'ready' || ms === 'failed') {
+    const failed = ms === 'failed';
+    chip = failed ? ['bg-red-100 text-red-700', 'Last merge failed'] : ['bg-amber-100 text-amber-800', 'Ready to merge'];
+    inner = `<p class="text-xs text-gray-500">${failed
+        ? 'The merge attempt failed — see the runner output below, resolve it, and try again.'
+        : 'The fix is on a branch with an open pull request. Merge it to <b>staging</b> to make it live and move the issue to “Fixed &amp; Ready to Test”.'}${sqlPending ? ' <b class="text-amber-700">Run the database migration above first.</b>' : ''}</p>
+      ${prLink}${failed ? resultBlock : ''}${mergeBtn}`;
+  } else if (ms === 'queued') {
+    chip = ['bg-indigo-100 text-indigo-700', 'Queued'];
+    inner = `<div class="flex items-center gap-2 text-sm font-semibold text-indigo-700"><span class="animate-pulse">●</span> Merge requested — the developer runner will merge this within ~15s…</div>${prLink}`;
+  } else if (ms === 'merging') {
+    chip = ['bg-indigo-100 text-indigo-700', 'Merging…'];
+    inner = `<div class="flex items-center gap-2 text-sm font-semibold text-indigo-700"><span class="animate-pulse">●</span> Merging to staging…</div>${prLink}`;
+  } else if (ms === 'merged') {
+    chip = ['bg-emerald-100 text-emerald-700', 'Merged ✓'];
+    inner = `<div class="flex items-center gap-2 text-sm font-semibold text-emerald-700">✅ Merged to staging${i.devMergedAt ? ` · ${_irFmt(i.devMergedAt)}` : ''}.</div>${prLink}${resultBlock}`;
+  } else { return ''; }
+
+  return `<div class="border border-indigo-200 bg-indigo-50 rounded-xl p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase text-indigo-600">Merge to Staging</span>
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${chip[0]}">${chip[1]}</span>
+      </div>
+      ${inner}
+    </div>`;
+}
+
+async function requestMerge(id) {
+  if (!confirm('Merge this fix to the staging branch now? The developer runner will merge the pull request and the issue will move to “Fixed & Ready to Test”.')) return;
+  const btn = event?.target?.closest('button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Requesting…'; }
+  try {
+    await api(`${IR_API}?id=${id}&action=request-merge`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    await openIssuePanel(id);
+    if (!document.getElementById('view-issue-reports').classList.contains('hidden')) loadIssueReports();
   } catch (e) {
     if (btn) { btn.disabled = false; }
     alert(e.message);

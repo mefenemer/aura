@@ -111,9 +111,29 @@ ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_sql_status TEXT;
 ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_sql_result TEXT;       -- DB feedback from the run
 ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_sql_ran_at TIMESTAMP;
 
+-- ── Merge the fix PR to staging ──────────────────────────────────────────────
+-- After the AI produces a fix the issue no longer jumps straight to "Fixed & Ready
+-- to Test". It parks at 'fix_in_progress' with dev_merge_status='ready' and a super-admin
+-- presses "Merge to staging" in the ticket. That queues a merge the local watcher claims
+-- and performs with `gh pr merge`; only once merged (and any migration applied) does the
+-- issue advance to 'fixed_ready_to_test' and the reporter get notified.
+--   dev_merge_status: null    → no PR / not applicable
+--                     ready   → PR open, awaiting a super-admin to merge
+--                     queued  → merge requested; awaiting the watcher
+--                     merging → the watcher has claimed it and is merging
+--                     merged  → merged to staging
+--                     failed  → the merge attempt failed (see dev_merge_result); retriable
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_merge_status TEXT;
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_merged_at    TIMESTAMP;
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_merge_result TEXT;     -- gh output / error
+
 -- Lets a runner cheaply claim the oldest queued issue.
 CREATE INDEX IF NOT EXISTS issue_reports_handoff_idx
   ON issue_reports (dev_handoff_status, dev_handoff_at);
+
+-- Lets the watcher cheaply claim the oldest queued merge.
+CREATE INDEX IF NOT EXISTS issue_reports_merge_idx
+  ON issue_reports (dev_merge_status, dev_handoff_at);
 
 DO $$
 BEGIN
@@ -136,5 +156,17 @@ BEGIN
       ADD CONSTRAINT issue_reports_dev_sql_status_check
       CHECK (dev_sql_status IS NULL
              OR dev_sql_status IN ('pending', 'applied', 'failed'));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'issue_reports_dev_merge_status_check'
+  ) THEN
+    ALTER TABLE issue_reports
+      ADD CONSTRAINT issue_reports_dev_merge_status_check
+      CHECK (dev_merge_status IS NULL
+             OR dev_merge_status IN ('ready', 'queued', 'merging', 'merged', 'failed'));
   END IF;
 END $$;

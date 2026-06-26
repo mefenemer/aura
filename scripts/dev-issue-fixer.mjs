@@ -11,7 +11,12 @@
 //        • create an isolated git worktree on a new branch off $BASE_BRANCH
 //        • run Claude Code headless (`claude -p … --permission-mode acceptEdits`) to fix it
 //        • commit, push, and open a PR with `gh`
-//   3. POST the result back so the issue flips to "Fixed & Ready to Test".
+//   3. POST the result back; the issue parks at "Fix In Progress" with a PR ready to merge.
+//
+// It ALSO drains the merge queue: when a super-admin presses "Merge to staging" in the
+// admin ticket, this watcher claims that request (?action=claim-merge), runs `gh pr merge`,
+// and reports back (?action=merge-result) — which is what finally flips the issue to
+// "Fixed & Ready to Test".
 //
 // Nothing here touches your current working tree — all edits happen in a throwaway
 // worktree under the OS temp dir, which is removed when the issue is done.
@@ -80,6 +85,25 @@ async function report(id, payload) {
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`report failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+async function claimMerge() {
+  const res = await fetch(`${ENDPOINT}?action=claim-merge`, {
+    headers: { 'x-handoff-token': TOKEN },
+  });
+  if (!res.ok) throw new Error(`claim-merge failed: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return data.issue || null;
+}
+
+async function reportMerge(id, payload) {
+  const res = await fetch(`${ENDPOINT}?id=${id}&action=merge-result`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-handoff-token': TOKEN },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`merge-result failed: ${res.status} ${await res.text()}`);
   return res.json();
 }
 
@@ -192,6 +216,34 @@ async function processIssue(issue) {
   }
 }
 
+// Merge an already-produced fix PR into staging with `gh pr merge`, then report back.
+// Runs against the remote PR — no worktree/checkout needed. Branch cleanup is best-effort
+// and never fails the merge.
+async function processMerge(job) {
+  const id = job.id;
+  const target = job.prUrl || job.branch;
+  try {
+    if (!target) throw new Error('No pull request URL or branch to merge.');
+    log(`#${id} merging ${target} into ${BASE_BRANCH}…`);
+    git(['fetch', 'origin', '--quiet']);
+
+    const m = run('gh', ['pr', 'merge', target, '--merge'], { cwd: REPO });
+    const outcome = (m.stdout || m.stderr || '').trim();
+    if (!m.ok) throw new Error(outcome || 'gh pr merge failed');
+
+    // Best-effort: delete the merged branch on the remote. Ignore failures.
+    if (job.branch) git(['push', 'origin', '--delete', job.branch]);
+
+    log(`#${id} ✓ merged to ${BASE_BRANCH}`);
+    await reportMerge(id, { ok: true, outcome: outcome || `Merged ${target} into ${BASE_BRANCH}.` });
+    log(`#${id} ✓ merge reported`);
+  } catch (e) {
+    log(`#${id} ✖ merge failed: ${e.message}`);
+    await reportMerge(id, { ok: false, outcome: e.message })
+      .catch((re) => log(`#${id} ✖ could not report merge failure: ${re.message}`));
+  }
+}
+
 async function main() {
   log(`dev-issue-fixer watching ${ENDPOINT}`);
   log(`repo=${REPO} base=${BASE_BRANCH} poll=${POLL_MS}ms${ONCE ? ' once' : ''}`);
@@ -199,15 +251,26 @@ async function main() {
   process.on('SIGINT', () => { log('shutting down…'); stop = true; });
 
   while (!stop) {
+    // 1) A fix to produce takes priority.
     let issue = null;
     try { issue = await claimNext(); }
     catch (e) { log(`poll error: ${e.message}`); }
-
     if (issue) {
       await processIssue(issue);
       if (ONCE) break;
       continue; // immediately check for more
     }
+
+    // 2) Otherwise, a fix that's been approved for merge to staging.
+    let merge = null;
+    try { merge = await claimMerge(); }
+    catch (e) { log(`merge poll error: ${e.message}`); }
+    if (merge) {
+      await processMerge(merge);
+      if (ONCE) break;
+      continue;
+    }
+
     if (ONCE) { log('nothing queued; exiting (ONCE).'); break; }
     await sleep(POLL_MS);
   }

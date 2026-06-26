@@ -3,7 +3,7 @@
 
 import { eq, or } from 'drizzle-orm';
 import type { getDb } from '../../db/client';
-import { users, notifications } from '../../db/schema';
+import { users, notifications, issueReports, issueReportMessages } from '../../db/schema';
 import { sendEmail } from './email';
 import { resolveBaseUrl } from './base-url';
 
@@ -143,4 +143,40 @@ export async function notifyIssueUser(
 
     await sendEmail({ to: u.email, subject: title, html })
         .catch((e) => console.error('[issue-reports] email failed:', e?.message || e));
+}
+
+/**
+ * Advance an AI-handed-off issue to "Fixed & Ready to Test" — but only once BOTH gates
+ * are satisfied: the fix PR is merged to staging (dev_merge_status='merged') AND any
+ * proposed migration has been applied (dev_sql_status is not 'pending'). When it advances,
+ * it threads a note and notifies the reporter. No-op (returns false) if a gate is unmet or
+ * the issue is already past testing. Shared by the merge-result and run-SQL endpoints so
+ * whichever finishes last triggers the single advance + reporter notification.
+ */
+export async function maybeAdvanceToReadyToTest(
+    db: Db,
+    issueId: number,
+    headers?: Record<string, string | undefined>,
+): Promise<boolean> {
+    const [row] = await db.select().from(issueReports).where(eq(issueReports.id, issueId)).limit(1);
+    if (!row) return false;
+    if (row.status === 'fixed_ready_to_test' || row.status === 'closed') return false;
+    if (row.devMergeStatus !== 'merged') return false;     // not merged to staging yet
+    if (row.devSqlStatus === 'pending') return false;       // migration still outstanding
+
+    await db.update(issueReports)
+        .set({ status: 'fixed_ready_to_test', updatedAt: new Date() })
+        .where(eq(issueReports.id, issueId));
+
+    await db.insert(issueReportMessages).values({
+        issueId,
+        authorType: 'admin',
+        authorId: null,
+        body: '✅ Merged to staging — the fix is live on staging and ready to test.',
+        status: 'fixed_ready_to_test',
+    });
+
+    await notifyIssueUser(db, { userId: row.userId, issueId, status: 'fixed_ready_to_test', headers })
+        .catch((e) => console.error('[issue-reports] ready-to-test notify failed:', e?.message || e));
+    return true;
 }

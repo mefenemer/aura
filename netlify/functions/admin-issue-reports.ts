@@ -17,7 +17,7 @@ import { and, eq, desc, asc, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { issueReports, issueReportMessages, users } from '../../db/schema';
 import { isAdminRole, hasPermission } from '../../src/utils/rbac';
-import { ISSUE_STATUS_LABEL, isIssueStatus, notifyIssueUser, type IssueStatus } from '../../src/utils/issue-reports';
+import { ISSUE_STATUS_LABEL, isIssueStatus, notifyIssueUser, maybeAdvanceToReadyToTest, type IssueStatus } from '../../src/utils/issue-reports';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -100,15 +100,13 @@ export const handler: Handler = async (event) => {
 
         const exec = await runMigrationSql(sqlText);
 
-        const setObj: Record<string, unknown> = {
+        await db.update(issueReports).set({
             devSql: sqlText,
             devSqlStatus: exec.ok ? 'applied' : 'failed',
             devSqlResult: exec.outcome,
             devSqlRanAt: new Date(),
             updatedAt: new Date(),
-        };
-        if (exec.ok) setObj.status = 'fixed_ready_to_test';
-        await db.update(issueReports).set(setObj).where(eq(issueReports.id, id));
+        }).where(eq(issueReports.id, id));
 
         await db.insert(issueReportMessages).values({
             issueId: id,
@@ -117,15 +115,51 @@ export const handler: Handler = async (event) => {
             body: exec.ok
                 ? `🗄️ Migration SQL ran successfully against staging.\n\n${exec.outcome}`
                 : `🗄️ Migration SQL FAILED on staging — issue left as-is.\n\n${exec.outcome}`,
-            status: exec.ok ? 'fixed_ready_to_test' : null,
+            status: null,
         });
 
-        if (exec.ok) {
-            await notifyIssueUser(db, { userId: issue.userId, issueId: id, status: 'fixed_ready_to_test', headers: event.headers })
-                .catch((e) => console.error('[admin-issue-reports] run-sql notify failed:', e?.message || e));
+        // Applying the SQL is only one of the two gates — the issue advances to
+        // "Fixed & Ready to Test" only once it's also merged to staging.
+        const advanced = exec.ok ? await maybeAdvanceToReadyToTest(db, id, event.headers) : false;
+
+        return json(200, { ok: exec.ok, outcome: exec.outcome, status: advanced ? 'fixed_ready_to_test' : issue.status });
+    }
+
+    // ── POST ?action=request-merge: queue a merge of the fix PR to staging ────────
+    // Super-admin only. The local watcher claims the queued merge and runs `gh pr merge`;
+    // a successful merge (plus any applied migration) is what advances the issue.
+    if (event.httpMethod === 'POST' && action === 'request-merge' && id) {
+        if (admin.role !== 'super_admin') {
+            return json(403, { error: 'Merging to staging requires super-admin privilege.' });
+        }
+        const [issue] = await db.select().from(issueReports).where(eq(issueReports.id, id)).limit(1);
+        if (!issue) return json(404, { error: 'Issue not found.' });
+        if (!issue.devPrUrl) return json(400, { error: 'This issue has no pull request to merge.' });
+        if (issue.devSqlStatus === 'pending') {
+            return json(400, { error: 'Run the database migration for this fix before merging to staging.' });
+        }
+        if (issue.devMergeStatus === 'queued' || issue.devMergeStatus === 'merging') {
+            return json(409, { error: 'A merge is already in progress for this issue.' });
+        }
+        if (issue.devMergeStatus === 'merged') {
+            return json(409, { error: 'This pull request has already been merged.' });
         }
 
-        return json(200, { ok: exec.ok, outcome: exec.outcome, status: exec.ok ? 'fixed_ready_to_test' : issue.status });
+        await db.update(issueReports).set({
+            devMergeStatus: 'queued',
+            devMergeResult: null,
+            updatedAt: new Date(),
+        }).where(eq(issueReports.id, id));
+
+        await db.insert(issueReportMessages).values({
+            issueId: id,
+            authorType: 'admin',
+            authorId: admin.id,
+            body: '🔀 Merge to staging requested — the developer runner will merge the pull request shortly.',
+            status: null,
+        });
+
+        return json(200, { ok: true, devMergeStatus: 'queued' });
     }
 
     // ── GET single issue (with thread + screenshot) ──────────────────────────────
@@ -166,6 +200,7 @@ export const handler: Handler = async (event) => {
                 devHandoffStatus: issueReports.devHandoffStatus,
                 devPrUrl: issueReports.devPrUrl,
                 devSqlStatus: issueReports.devSqlStatus,
+                devMergeStatus: issueReports.devMergeStatus,
                 reporterEmail: users.email,
                 reporterFirst: users.firstName,
                 reporterLast: users.lastName,
@@ -195,6 +230,7 @@ export const handler: Handler = async (event) => {
                 devHandoffStatus: r.devHandoffStatus,
                 devPrUrl: r.devPrUrl,
                 devSqlStatus: r.devSqlStatus,
+                devMergeStatus: r.devMergeStatus,
                 reporterName: [r.reporterFirst, r.reporterLast].filter(Boolean).join(' ') || r.reporterEmail || `User #${r.userId}`,
                 reporterEmail: r.reporterEmail,
             })),

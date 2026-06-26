@@ -23,7 +23,7 @@ import { Handler } from '@netlify/functions';
 import { and, eq, asc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { issueReports, issueReportMessages, users } from '../../db/schema';
-import { ISSUE_STATUS_LABEL, notifyIssueUser } from '../../src/utils/issue-reports';
+import { ISSUE_STATUS_LABEL, maybeAdvanceToReadyToTest } from '../../src/utils/issue-reports';
 
 const json = (statusCode: number, body: unknown) => ({
     statusCode,
@@ -90,6 +90,78 @@ export const handler: Handler = async (event) => {
         });
     }
 
+    // ── Claim the next queued MERGE ──────────────────────────────────────────────
+    // A super-admin pressed "Merge to staging" (dev_merge_status='queued'); the runner
+    // claims it (queued → merging), merges the PR, then POSTs ?action=merge-result.
+    if (event.httpMethod === 'GET' && action === 'claim-merge') {
+        const [next] = await db
+            .select({ id: issueReports.id })
+            .from(issueReports)
+            .where(eq(issueReports.devMergeStatus, 'queued'))
+            .orderBy(asc(issueReports.devHandoffAt))
+            .limit(1);
+        if (!next) return json(200, { issue: null });
+
+        const claimed = await db.update(issueReports)
+            .set({ devMergeStatus: 'merging', updatedAt: new Date() })
+            .where(and(eq(issueReports.id, next.id), eq(issueReports.devMergeStatus, 'queued')))
+            .returning({ id: issueReports.id });
+        if (claimed.length === 0) return json(200, { issue: null }); // lost the race
+
+        const [issue] = await db.select().from(issueReports).where(eq(issueReports.id, next.id)).limit(1);
+        return json(200, { issue: { id: issue.id, prUrl: issue.devPrUrl, branch: issue.devBranch } });
+    }
+
+    // ── Report the outcome of a merge attempt ────────────────────────────────────
+    if (event.httpMethod === 'POST' && action === 'merge-result' && id) {
+        let body: any;
+        try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON.' }); }
+
+        const [issue] = await db.select().from(issueReports).where(eq(issueReports.id, id)).limit(1);
+        if (!issue) return json(404, { error: 'Issue not found.' });
+
+        const ok = body.ok !== false;
+        const outcome = (typeof body.outcome === 'string' ? body.outcome : '').trim();
+
+        if (ok) {
+            await db.update(issueReports).set({
+                devMergeStatus: 'merged',
+                devMergedAt: new Date(),
+                devMergeResult: outcome || 'Merged to staging.',
+                updatedAt: new Date(),
+            }).where(eq(issueReports.id, id));
+
+            await db.insert(issueReportMessages).values({
+                issueId: id,
+                authorType: 'admin',
+                authorId: null,
+                body: `🔀 Pull request merged to staging.${outcome ? `\n\n${outcome}` : ''}`,
+                status: null,
+            });
+
+            // Advances to "Fixed & Ready to Test" (and notifies the reporter) iff no
+            // migration is still pending; otherwise the run-SQL step will trigger it.
+            const advanced = await maybeAdvanceToReadyToTest(db, id, event.headers);
+            return json(200, { ok: true, devMergeStatus: 'merged', advanced });
+        }
+
+        await db.update(issueReports).set({
+            devMergeStatus: 'failed',
+            devMergeResult: outcome || 'The merge could not be completed.',
+            updatedAt: new Date(),
+        }).where(eq(issueReports.id, id));
+
+        await db.insert(issueReportMessages).values({
+            issueId: id,
+            authorType: 'admin',
+            authorId: null,
+            body: `⚠️ Merge to staging failed — the pull request was NOT merged.${outcome ? `\n\n${outcome}` : ''}\n\nResolve the problem and request the merge again.`,
+            status: null,
+        });
+
+        return json(200, { ok: true, devMergeStatus: 'failed' });
+    }
+
     // ── Report the outcome of a fix attempt ──────────────────────────────────────
     if (event.httpMethod === 'POST' && id) {
         let body: any;
@@ -105,8 +177,10 @@ export const handler: Handler = async (event) => {
         const migrationSql = (typeof body.sql === 'string' ? body.sql : '').trim() || null;
 
         if (ok) {
-            // If the fix needs a DB migration, DON'T advance to "Fixed & Ready to Test" yet:
-            // a super-admin must review and run the SQL against staging from the ticket first.
+            // A fix no longer jumps straight to "Fixed & Ready to Test". The PR has to be
+            // merged to staging first (and any DB migration applied). So we park the issue
+            // at 'fix_in_progress' with dev_merge_status='ready' — a super-admin then merges
+            // it from the ticket, which is what finally advances + notifies the reporter.
             const needsSql = !!migrationSql;
 
             await db.update(issueReports).set({
@@ -118,41 +192,32 @@ export const handler: Handler = async (event) => {
                 devSqlStatus: needsSql ? 'pending' : null,
                 devSqlResult: null,
                 devSqlRanAt: null,
-                status: needsSql ? 'fix_in_progress' : 'fixed_ready_to_test',
+                devMergeStatus: 'ready',
+                devMergedAt: null,
+                devMergeResult: null,
+                status: 'fix_in_progress',
                 updatedAt: new Date(),
             }).where(eq(issueReports.id, id));
 
+            const prLine = (prUrl ? `\n\nPull request: ${prUrl}` : '') + (branch ? `\nBranch: ${branch}` : '');
             const threadBody = needsSql
-                ? `✅ AI auto-fix complete — but it needs a DATABASE MIGRATION.\n\n${summary || 'A fix has been produced.'}` +
-                  (prUrl ? `\n\nPull request: ${prUrl}` : '') +
-                  (branch ? `\nBranch: ${branch}` : '') +
-                  `\n\n⚠️ Review and run the SQL in this ticket against staging before marking it ready to test.`
-                : `✅ AI auto-fix complete.\n\n${summary || 'A fix has been produced.'}` +
-                  (prUrl ? `\n\nPull request: ${prUrl}` : '') +
-                  (branch ? `\nBranch: ${branch}` : '');
+                ? `✅ AI auto-fix complete — but it needs a DATABASE MIGRATION and a merge to staging.\n\n${summary || 'A fix has been produced.'}` +
+                  prLine +
+                  `\n\n⚠️ Review and run the SQL in this ticket, then merge the pull request to staging.`
+                : `✅ AI auto-fix complete — review the pull request and merge it to staging when ready.\n\n${summary || 'A fix has been produced.'}` +
+                  prLine;
 
             await db.insert(issueReportMessages).values({
                 issueId: id,
                 authorType: 'admin',
                 authorId: null,
                 body: threadBody,
-                status: needsSql ? 'fix_in_progress' : 'fixed_ready_to_test',
+                status: 'fix_in_progress',
             });
 
-            // Only notify the reporter once it's genuinely ready to re-test. While a
-            // migration is pending the issue stays "Fix In Progress" with no reporter ping.
-            if (!needsSql) {
-                const shortSummary = summary ? summary.split('\n')[0].slice(0, 280) : '';
-                await notifyIssueUser(db, {
-                    userId: issue.userId,
-                    issueId: id,
-                    status: 'fixed_ready_to_test',
-                    adminMessage: shortSummary,
-                    headers: event.headers,
-                }).catch((e) => console.error('[admin-issue-handoff] reporter notify failed:', e?.message || e));
-            }
-
-            return json(200, { ok: true, status: needsSql ? 'fix_in_progress' : 'fixed_ready_to_test', needsSql });
+            // The reporter is NOT pinged here — only once the fix is merged to staging
+            // (and any migration applied) and the issue is genuinely ready to re-test.
+            return json(200, { ok: true, status: 'fix_in_progress', needsSql, devMergeStatus: 'ready' });
         }
 
         // Failure — surface it to the admin without bothering the reporter (status unchanged).
