@@ -229,7 +229,10 @@ export const handler: Handler = async (event) => {
             if (appConnectionLimit !== null) {
                 maxAppConnectionCount = connRows.reduce((m, r) => Math.max(m, r.cnt), 0);
             }
-            connectedPlatforms = [...new Set(connRows.map(r => r.serviceName.toLowerCase()))];
+            const SOCIAL_PLATFORMS = new Set(['instagram', 'facebook', 'x', 'twitter', 'linkedin', 'tiktok', 'youtube', 'pinterest']);
+            connectedPlatforms = [...new Set(
+                connRows.map(r => r.serviceName.toLowerCase()).filter(s => SOCIAL_PLATFORMS.has(s))
+            )];
         }
 
         // ── 4. Compute percentages ──────────────────────────────────

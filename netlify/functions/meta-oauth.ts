@@ -45,7 +45,7 @@ export const handler: Handler = async (event) => {
 
     const baseUrl = resolveBaseUrl(event.headers);
     if (!baseUrl) return { statusCode: 500, body: JSON.stringify({ error: 'Server misconfigured.' }) };
-    const REDIRECT_URI = `${baseUrl}/.netlify/functions/meta-oauth?action=callback`;
+    const REDIRECT_URI = process.env.META_REDIRECT_URI ?? `${baseUrl}/.netlify/functions/meta-oauth?action=callback`;
 
     // ── START: redirect to Meta OAuth ─────────────────────────────────────────
     if (action === 'start') {
