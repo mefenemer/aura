@@ -266,17 +266,39 @@ function _resizeBriefAutoGrow() {
 }
 
 // ── Assistant-detail tab switching (event delegation) ─────────────────────────
-// Bound ONCE at module load on the document, not per-button inside initAssistantDetail.
+// Two levels of tabs on the detail page:
+//   • Main tabs (.main-tab-btn → #maintab-*): Overview / Goals / Automation / Configuration.
+//   • Child tabs (.detail-tab-btn → #tab-*): the Configuration sub-sections, nested inside
+//     the Configuration main tab.
+// Both are bound ONCE at module load on the document, not per-button inside initAssistantDetail.
 // The detail view is re-injected via innerHTML on every navigation, so per-button
 // addEventListener handlers attached during init are brittle: they break if init
 // throws before reaching them, if the buttons are re-rendered after binding, or if a
 // stale set of nodes is matched. Delegation resolves the target at click time, so it
 // works regardless of when/whether init ran and survives any view re-injection.
+
+// Activate a main tab by name ('overview' | 'goals' | 'automation' | 'config'). Exposed so other code
+// (deep-links, attention CTAs, child-tab clicks) can surface the right section.
+window._activateMainTab = function(name) {
+    document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.toggle('active-tab', b.dataset.maintab === name));
+    document.querySelectorAll('.main-tab-content').forEach(c => c.classList.toggle('hidden', c.id !== 'maintab-' + name));
+    // Recompute auto-grow heights now panels are visible (scrollHeight was 0 while hidden).
+    _resizeBriefAutoGrow();
+};
+
 if (!window._detailTabsDelegated) {
     window._detailTabsDelegated = true;
     document.addEventListener('click', (e) => {
+        // Main-level tabs
+        const mainBtn = e.target.closest('.main-tab-btn');
+        if (mainBtn) { window._activateMainTab(mainBtn.dataset.maintab); return; }
+
+        // Child-level (Configuration) tabs
         const btn = e.target.closest('.detail-tab-btn');
         if (!btn) return;
+        // The child tabs live inside the Configuration main tab — make sure it's visible
+        // so programmatic child-tab clicks (attention CTAs, deep-links) always land somewhere shown.
+        window._activateMainTab('config');
         document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active-tab'));
         document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.add('hidden'));
         btn.classList.add('active-tab');
@@ -627,28 +649,20 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         newBtn.addEventListener('click', () => loadViewCb('assistants'));
     }
 
-    // ── Goals section — relocated out of the tab bar to sit directly under Recent Activity.
-    // The markup still lives in #tab-goals (further down the page); move it into place on load.
-    (function relocateGoalsSection() {
-        const goals = document.getElementById('tab-goals');
-        const activityCard = document.getElementById('recent-activity-list')?.closest('.bg-white');
-        if (goals && activityCard && activityCard.parentNode) {
-            activityCard.parentNode.insertBefore(goals, activityCard.nextSibling);
-            goals.classList.remove('hidden');
-        }
-    })();
-
     // ── Tab switching ─────────────────────────────────────────────
-    // Handled by a module-level delegated click listener (see top of file) so it
-    // survives this view being re-injected on every navigation.
+    // Both main tabs (Overview / Goals & Automation / Configuration) and the nested
+    // Configuration child tabs are handled by module-level delegated click listeners
+    // (see top of file) so they survive this view being re-injected on every navigation.
 
-    // Deep-link to a specific tab (e.g. post-OAuth returns to the Connections tab). Goals is no
-    // longer a tab — it's a section under Recent Activity — so for 'goals' we scroll to it instead.
+    // Deep-link to a specific section (e.g. post-OAuth returns to the Connections tab).
+    // 'goals' is now its own main tab; the Configuration child tabs (problem/operation/
+    // strategy/platforms/guardrails) are surfaced by clicking the child button, which also
+    // reveals the Configuration main tab.
     if (window._assistantDetailInitialTab) {
         const wanted = window._assistantDetailInitialTab;
         window._assistantDetailInitialTab = null;
         if (wanted === 'goals') {
-            document.getElementById('tab-goals')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            window._activateMainTab?.('goals');
         } else {
             const target = document.querySelector(`.detail-tab-btn[data-tab="${wanted}"]`);
             if (target) target.click();
