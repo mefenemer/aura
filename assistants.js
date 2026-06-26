@@ -1702,10 +1702,20 @@ function _renderMeetingsBrief(data) {
         }
         const stars = (n) => '⭐'.repeat(Number(n));
         const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return iso; } };
+        const STATUS_BADGE = {
+            on_track:  { cls: 'bg-emerald-100 text-emerald-700', label: 'On Track' },
+            at_risk:   { cls: 'bg-amber-100 text-amber-700',   label: 'At Risk' },
+            off_track: { cls: 'bg-red-100 text-red-700',       label: 'Off Track' },
+            achieved:  { cls: 'bg-blue-100 text-blue-700',     label: 'Achieved' },
+        };
         host.innerHTML = list.slice().reverse().map((r, i) => {
             const idx = list.length - 1 - i;
+            const goalChips = (r.goalStatuses || []).map(gs => {
+                const b = STATUS_BADGE[gs.status] || { cls: 'bg-gray-100 text-gray-600', label: gs.status };
+                return `<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${b.cls}">${_escapeHtml(gs.label)}: ${b.label}</span>`;
+            }).join('');
             return `
-            <div class="border border-gray-100 rounded-xl p-4 space-y-2">
+            <div class="border border-gray-100 rounded-xl p-4 space-y-2.5">
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <p class="text-sm font-bold text-gray-900">${fmtDate(r.date)}</p>
@@ -1713,8 +1723,10 @@ function _renderMeetingsBrief(data) {
                 </div>
                 <button onclick="window._deleteReviewMeeting(${idx})" class="text-xs text-gray-400 hover:text-red-500 transition cursor-pointer shrink-0">Remove</button>
               </div>
-              ${r.notes ? `<p class="text-sm text-gray-700 whitespace-pre-wrap">${r.notes}</p>` : ''}
-              ${r.nextDate ? `<p class="text-xs text-gray-400">Next review: <span class="font-semibold text-gray-600">${fmtDate(r.nextDate)}</span></p>` : ''}
+              ${goalChips ? `<div class="flex flex-wrap gap-1.5">${goalChips}</div>` : ''}
+              ${r.notes ? `<div><p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Discussion</p><p class="text-sm text-gray-700 whitespace-pre-wrap">${_escapeHtml(r.notes)}</p></div>` : ''}
+              ${r.outcomes ? `<div><p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Outcomes &amp; Actions</p><p class="text-sm text-gray-700 whitespace-pre-wrap">${_escapeHtml(r.outcomes)}</p></div>` : ''}
+              ${r.nextDate ? `<p class="text-xs text-gray-400 pt-1 border-t border-gray-50">Next review: <span class="font-semibold text-gray-600">${fmtDate(r.nextDate)}</span></p>` : ''}
             </div>`;
         }).join('');
     }
@@ -1730,15 +1742,18 @@ function _renderMeetingsBrief(data) {
     window._openReviewForm = function () {
         const form = document.getElementById('review-form');
         if (!form) return;
-        // Reset date to today each time
         const dateEl = document.getElementById('review-date');
         if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
         const notesEl = document.getElementById('review-notes');
         if (notesEl) notesEl.value = '';
+        const outcomesEl = document.getElementById('review-outcomes');
+        if (outcomesEl) outcomesEl.value = '';
         const nextEl = document.getElementById('review-next');
         if (nextEl) nextEl.value = '';
         const ratingEl = document.getElementById('review-rating');
         if (ratingEl) ratingEl.value = '3';
+        // Reset goal status selects
+        document.querySelectorAll('#review-goals-checks select').forEach(s => { s.value = ''; });
         form.classList.remove('hidden');
         form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     };
@@ -1748,13 +1763,26 @@ function _renderMeetingsBrief(data) {
     };
 
     window._saveReviewMeeting = function () {
-        const date   = document.getElementById('review-date')?.value;
-        const rating = document.getElementById('review-rating')?.value || '3';
-        const notes  = document.getElementById('review-notes')?.value?.trim() || '';
-        const next   = document.getElementById('review-next')?.value || '';
+        const date     = document.getElementById('review-date')?.value;
+        const rating   = document.getElementById('review-rating')?.value || '3';
+        const notes    = document.getElementById('review-notes')?.value?.trim() || '';
+        const outcomes = document.getElementById('review-outcomes')?.value?.trim() || '';
+        const next     = document.getElementById('review-next')?.value || '';
         if (!date) { window.showToast?.('Please select a meeting date.'); return; }
+        // Capture goal statuses (only those explicitly set)
+        const goalStatuses = [];
+        document.querySelectorAll('#review-goals-checks select').forEach(s => {
+            if (s.value) {
+                const goalId = s.name.replace('goal_status_', '');
+                const goal = (window._goalsCache || []).find(g => String(g.id) === goalId);
+                if (goal) {
+                    const { label } = window._goalMetricLabel?.(goal.metricKey) || { label: goal.metricKey };
+                    goalStatuses.push({ goalId, label, status: s.value });
+                }
+            }
+        });
         const list = _loadReviews();
-        list.push({ date, rating: Number(rating), notes, nextDate: next, savedAt: new Date().toISOString() });
+        list.push({ date, rating: Number(rating), notes, outcomes, goalStatuses, nextDate: next, savedAt: new Date().toISOString() });
         _saveReviews(list);
         window._closeReviewForm();
         _renderHistory();
@@ -2225,6 +2253,7 @@ function _goalMetricLabel(key) {
     const m = _goalMetrics.find(x => x.key === key);
     return m ? { label: m.label, unit: m.unit } : { label: key, unit: '' };
 }
+window._goalMetricLabel = _goalMetricLabel;
 
 async function _fetchAndRenderGoals(assistantId) {
     _goalsAssistantId = parseInt(assistantId);
@@ -2249,6 +2278,7 @@ async function _fetchAndRenderGoals(assistantId) {
     }
 
     _goalsCache = goals;
+    window._goalsCache = goals; // keep window reference in sync for IIFE closures
     _populateGoalMetricDropdown();
     _renderPrimaryGoalHeader();
     _syncReviewButton();
@@ -2297,9 +2327,35 @@ function _renderPrimaryGoalHeader() {
 }
 
 function _syncReviewButton() {
-    const btn = document.getElementById('btn-review-progress');
-    if (btn) btn.classList.toggle('hidden', _goalsCache.length === 0);
+    // Always visible — Review Meeting is not gated on goals existing.
 }
+
+window._openReviewMeeting = function () {
+    window._activateMainTab('meetings');
+    setTimeout(() => {
+        const section = document.getElementById('review-goals-section');
+        const checks = document.getElementById('review-goals-checks');
+        if (section && checks && _goalsCache.length) {
+            checks.innerHTML = _goalsCache.map(g => {
+                const { label } = _goalMetricLabel(g.metricKey);
+                return `<label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <select name="goal_status_${g.id}" class="border border-gray-300 rounded-md px-2 py-1 text-xs bg-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                        <option value="">Not discussed</option>
+                        <option value="on_track">On Track</option>
+                        <option value="at_risk">At Risk</option>
+                        <option value="off_track">Off Track</option>
+                        <option value="achieved">Achieved</option>
+                    </select>
+                    <span class="truncate">${_escapeHtml(label)}${g.isPrimary ? ' <span class="text-gray-400 text-xs">(Primary)</span>' : ''}</span>
+                </label>`;
+            }).join('');
+            section.classList.remove('hidden');
+        } else if (section) {
+            section.classList.add('hidden');
+        }
+        window._openReviewForm();
+    }, 80);
+};
 
 // US-01 AC1.1/AC1.2 — the Objective dropdown drives which metrics appear; AC1.1.3 still gates the
 // metrics by which apps are actually connected. Selecting an objective instantly (re)populates the
