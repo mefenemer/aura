@@ -475,6 +475,12 @@ window._closeBriefDrawer = function() {
     document.body.style.overflow = '';
 };
 
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('brief-drawer-open')) {
+        window._closeBriefDrawer();
+    }
+});
+
 if (!window._detailTabsDelegated) {
     window._detailTabsDelegated = true;
     document.addEventListener('click', (e) => {
@@ -1067,10 +1073,12 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
 
         _detailHydrate(currentData);
         _renderOnboardingSummary(currentData);
+        _renderMeetingsBrief(currentData);
         _hydrateAutonomousToggle(currentData);
         attachAutoSave();
         _wirePostingSchedule();
         _renderKickOff(assistantId);
+        window._initReviewMeetings?.(assistantId);
     } catch (e) {
         console.error('Failed to load assistant detail:', e);
     }
@@ -1536,8 +1544,14 @@ async function _renderKickOff(assistantId) {
             <div class="flex flex-wrap gap-1.5">${connPills}</div>`;
     }
 
+    // Overview kick-off CTA and tab badge — visible only until the assistant is working.
+    const overviewCta  = document.getElementById('meetings-kickoff-cta');
+    const meetingsBadge = document.getElementById('meetings-kickoff-badge');
+
     // Already working → confirmation state + a Pause control (US4 AC4.1: pause in settings).
     if (data.working) {
+        if (overviewCta)   overviewCta.classList.add('hidden');
+        if (meetingsBadge) meetingsBadge.classList.add('hidden');
         const since = data.workingSince ? new Date(data.workingSince).toLocaleDateString('en-GB') : null;
         subEl.textContent = since ? `Your assistant is working (since ${since}).` : 'Your assistant is working.';
         btn.classList.add('hidden');
@@ -1569,6 +1583,10 @@ async function _renderKickOff(assistantId) {
         setCollapsed(true);
         return;
     }
+
+    // Not yet working — show the Overview CTA and badge so users notice the Meetings tab.
+    if (overviewCta)   overviewCta.classList.remove('hidden');
+    if (meetingsBadge) meetingsBadge.classList.remove('hidden');
 
     btn.classList.remove('hidden');
     const outstanding = items.filter(i => i.required && !i.done);
@@ -1622,6 +1640,134 @@ async function _renderKickOff(assistantId) {
         }
     };
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Meetings tab — Foundational Brief read-only snapshot
+// ─────────────────────────────────────────────────────────────────
+function _renderMeetingsBrief(data) {
+    const card    = document.getElementById('meetings-brief-summary');
+    const content = document.getElementById('meetings-brief-content');
+    if (!card || !content) return;
+
+    const ctx  = data.context      || {};
+    const conf = data.configuration || {};
+    const CONN_LABELS = { x: 'X (Twitter)', instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn' };
+
+    const rows = [];
+    if (ctx.directive || ctx.problem)
+        rows.push({ label: 'Primary Directive', value: ctx.directive || ctx.problem });
+    if (data.role)
+        rows.push({ label: 'Role', value: data.role });
+    if (ctx.targetAudience)
+        rows.push({ label: 'Target Audience', value: ctx.targetAudience });
+    if (ctx.brandVoice)
+        rows.push({ label: 'Brand Voice', value: ctx.brandVoice });
+    const platforms = conf.platforms || [];
+    if (platforms.length)
+        rows.push({ label: 'Active Connections', value: platforms.map(p => CONN_LABELS[p] || p).join(', ') });
+
+    if (!rows.length) { card.classList.add('hidden'); return; }
+
+    content.innerHTML = rows.map(r => `
+        <div class="border-t border-gray-100 pt-4 first:border-t-0 first:pt-0">
+          <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">${r.label}</p>
+          <p class="text-sm text-gray-800">${r.value}</p>
+        </div>`).join('');
+    card.classList.remove('hidden');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Meetings tab — Review Meetings (localStorage-backed log per assistant)
+// ─────────────────────────────────────────────────────────────────
+(function () {
+    let _reviewAssistantId = null;
+
+    function _reviewKey() { return `review_meetings_${_reviewAssistantId}`; }
+
+    function _loadReviews() {
+        try { return JSON.parse(localStorage.getItem(_reviewKey()) || '[]'); } catch { return []; }
+    }
+
+    function _saveReviews(list) {
+        localStorage.setItem(_reviewKey(), JSON.stringify(list));
+    }
+
+    function _renderHistory() {
+        const host = document.getElementById('review-history');
+        if (!host) return;
+        const list = _loadReviews();
+        if (!list.length) {
+            host.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No review meetings logged yet.<br>Log your first review to track your assistant\'s progress over time.</p>';
+            return;
+        }
+        const stars = (n) => '⭐'.repeat(Number(n));
+        const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return iso; } };
+        host.innerHTML = list.slice().reverse().map((r, i) => {
+            const idx = list.length - 1 - i;
+            return `
+            <div class="border border-gray-100 rounded-xl p-4 space-y-2">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm font-bold text-gray-900">${fmtDate(r.date)}</p>
+                  <p class="text-xs text-gray-500 mt-0.5">${stars(r.rating)} ${['','Poor','Needs improvement','Satisfactory','Good','Excellent'][r.rating] || ''}</p>
+                </div>
+                <button onclick="window._deleteReviewMeeting(${idx})" class="text-xs text-gray-400 hover:text-red-500 transition cursor-pointer shrink-0">Remove</button>
+              </div>
+              ${r.notes ? `<p class="text-sm text-gray-700 whitespace-pre-wrap">${r.notes}</p>` : ''}
+              ${r.nextDate ? `<p class="text-xs text-gray-400">Next review: <span class="font-semibold text-gray-600">${fmtDate(r.nextDate)}</span></p>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    window._initReviewMeetings = function (assistantId) {
+        _reviewAssistantId = assistantId;
+        // Default date to today
+        const dateEl = document.getElementById('review-date');
+        if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
+        _renderHistory();
+    };
+
+    window._openReviewForm = function () {
+        const form = document.getElementById('review-form');
+        if (!form) return;
+        // Reset date to today each time
+        const dateEl = document.getElementById('review-date');
+        if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
+        const notesEl = document.getElementById('review-notes');
+        if (notesEl) notesEl.value = '';
+        const nextEl = document.getElementById('review-next');
+        if (nextEl) nextEl.value = '';
+        const ratingEl = document.getElementById('review-rating');
+        if (ratingEl) ratingEl.value = '3';
+        form.classList.remove('hidden');
+        form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    window._closeReviewForm = function () {
+        document.getElementById('review-form')?.classList.add('hidden');
+    };
+
+    window._saveReviewMeeting = function () {
+        const date   = document.getElementById('review-date')?.value;
+        const rating = document.getElementById('review-rating')?.value || '3';
+        const notes  = document.getElementById('review-notes')?.value?.trim() || '';
+        const next   = document.getElementById('review-next')?.value || '';
+        if (!date) { window.showToast?.('Please select a meeting date.'); return; }
+        const list = _loadReviews();
+        list.push({ date, rating: Number(rating), notes, nextDate: next, savedAt: new Date().toISOString() });
+        _saveReviews(list);
+        window._closeReviewForm();
+        _renderHistory();
+        window.showToast?.('Review meeting saved.');
+    };
+
+    window._deleteReviewMeeting = function (idx) {
+        const list = _loadReviews();
+        list.splice(idx, 1);
+        _saveReviews(list);
+        _renderHistory();
+    };
+})();
 
 // ─────────────────────────────────────────────────────────────────
 // Performance Metrics — fetches get-assistant-metrics and populates the
