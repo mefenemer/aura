@@ -528,6 +528,9 @@ function _detailHydrate(data) {
     _detailSetVal('edit_ai_disclosure', data.disclosureText || '');
     _renderDisclosureHelp(data);
 
+    // Reflect guardrails state in the Brand Protected header badge
+    if (typeof window._updateGuardrailsBadge === 'function') window._updateGuardrailsBadge();
+
     // Size the auto-growing brief fields to their loaded content (visible tab only — the rest
     // are resized when their tab is first shown, see the tab-switching handler).
     _initBriefAutoGrow();

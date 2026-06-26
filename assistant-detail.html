@@ -34,41 +34,54 @@
     </button>
   </nav>
 
-  <!-- Hero header -->
-  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 mb-6 relative overflow-hidden">
-    <div class="absolute -top-10 -right-10 w-32 h-32 bg-emerald-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 z-10 relative">
-      <div class="flex items-center gap-5">
-        <div id="detail-avatar" class="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shadow-sm shrink-0">A</div>
+  <!-- Hero header — condensed for maximum content real estate -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 mb-6 relative overflow-hidden">
+    <div class="absolute -top-8 -right-8 w-24 h-24 bg-emerald-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-10 relative">
+      <!-- Identity strip -->
+      <div class="flex items-center gap-4">
+        <div id="detail-avatar" class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-base shadow-sm shrink-0">A</div>
         <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
             <input id="detail-name-input" type="text" value="Loading…"
-              class="text-2xl font-extrabold text-gray-900 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-emerald-500 focus:outline-none focus:ring-0 transition-colors min-w-0 w-auto"
-              style="width: 100%; max-width: 320px;"
+              class="text-lg font-extrabold text-gray-900 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-emerald-500 focus:outline-none focus:ring-0 transition-colors min-w-0 w-auto"
+              style="width: 100%; max-width: 280px;"
               placeholder="Assistant Name">
-            <button id="btn-generate-name" title="Generate a name" class="p-1.5 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer" type="button">
+            <button id="btn-generate-name" title="Generate a name" class="p-1 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer" type="button">
               <img src="/images/BeMoreSwan_SwanAI.png" alt="Generate a name with Be More Swan AI" class="ai-wand-img">
             </button>
-            <span id="detail-status" class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">…</span>
+            <span id="detail-status" class="inline-flex items-center gap-1.5 py-0.5 px-2 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">…</span>
+            <!-- Brand Safety badge — shown when guardrails are configured -->
+            <span id="guardrails-protected-badge" class="hidden inline-flex items-center gap-1 py-0.5 px-2 rounded-md text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              Brand Protected
+            </span>
           </div>
-          <p id="detail-role" class="text-gray-500 font-medium mt-1 text-sm">Reviewing tasks…</p>
-          <!-- AC2.1.2 — primary goal progress bar (populated by _fetchAndRenderGoals) -->
-          <div id="detail-primary-goal" class="hidden mt-3 max-w-md"></div>
+          <div class="flex items-center gap-3 mt-0.5">
+            <p id="detail-role" class="text-gray-500 font-medium text-xs">Reviewing tasks…</p>
+            <!-- AC2.1.2 — primary goal progress bar (populated by _fetchAndRenderGoals) -->
+            <div id="detail-primary-goal" class="hidden max-w-xs"></div>
+          </div>
         </div>
       </div>
-      <div class="flex items-center gap-3 w-full sm:w-auto shrink-0">
-        <span id="detail-save-status" class="text-sm font-semibold text-emerald-600 transition-all mr-2"></span>
-        <!-- AC2.2.1 — Review Progress (shown when this assistant has goals) -->
+      <!-- CTA group — Review Pending Drafts is the hero action -->
+      <div class="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
+        <span id="detail-save-status" class="text-sm font-semibold text-emerald-600 transition-all mr-1"></span>
+        <!-- AC2.2.1 — Primary CTA: Review Pending Drafts (shown when this assistant has goals) -->
         <button id="btn-review-progress" onclick="window._openReviewProgress()" type="button"
-          class="hidden flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm cursor-pointer">
-          Review Progress
+          class="hidden relative flex-1 sm:flex-none px-5 py-2.5 text-sm font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-md cursor-pointer">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            Review Pending Drafts
+            <span id="btn-review-pending-badge" class="hidden min-w-[1.25rem] h-5 px-1 bg-white text-emerald-700 text-xs font-black rounded-full flex items-center justify-center"></span>
+          </span>
         </button>
-        <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm cursor-pointer" type="button">
+        <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl transition-colors shadow-sm cursor-pointer" type="button">
           Pause Assistant
         </button>
         <!-- US6 AC5.1: Safe Archiving — permanent end-of-life action -->
-        <button id="btn-archive-assistant" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-colors shadow-sm cursor-pointer" type="button">
-          Archive Assistant
+        <button id="btn-archive-assistant" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-xl transition-colors shadow-sm cursor-pointer" type="button">
+          Archive
         </button>
       </div>
     </div>
@@ -113,38 +126,46 @@
       <button type="button" data-maintab="overview"   class="main-tab-btn active-tab">Overview</button>
       <button type="button" data-maintab="goals"      class="main-tab-btn">Goals</button>
       <button type="button" data-maintab="automation" class="main-tab-btn">Automation</button>
-      <button type="button" data-maintab="config"     class="main-tab-btn">Configuration</button>
+      <button type="button" data-maintab="config"     class="main-tab-btn">Employee Brief</button>
     </nav>
   </div>
 
   <!-- ── MAIN TAB: Overview ─────────────────────────────────────────── -->
   <div id="maintab-overview" class="main-tab-content">
 
-  <!-- Recent Activity strip -->
-  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Recent Activity</h3>
-      <div id="activity-timeframe-btns" class="flex gap-1">
-        <button data-tf="7d"  class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">7d</button>
-        <button data-tf="30d" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-indigo-500 bg-indigo-50 text-indigo-700 font-semibold">30d</button>
-        <button data-tf="90d" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">90d</button>
-        <button data-tf="all" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">All</button>
+  <!-- Action Required strip — drafts awaiting approval -->
+  <div id="action-required-strip" class="hidden bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-6 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      </div>
+      <div>
+        <p class="text-sm font-bold text-amber-900">Awaiting Your Approval</p>
+        <p id="action-required-desc" class="text-xs text-amber-700 mt-0.5">Your assistant has drafts ready for review before they publish.</p>
       </div>
     </div>
-    <div id="recent-activity-list" class="space-y-3">
-      <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading activity…</div>
-    </div>
+    <a href="/review-queue.html" class="shrink-0 px-4 py-2 text-sm font-extrabold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition shadow-sm cursor-pointer">Review Now</a>
   </div>
 
-  <!-- Goals section is relocated here (directly under Recent Activity) by initAssistantDetail;
-       its markup lives in #tab-goals further down and is moved into this slot on load. -->
-
-  <!-- ROI / Impact metrics card — loaded by initAssistantDetail -->
-  <div id="assistant-metrics-card" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8 hidden">
+  <!-- Impact & ROI — elevated to top of Overview (most important executive metric) -->
+  <div id="assistant-metrics-card" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6 hidden">
     <div class="flex items-center justify-between mb-5">
       <div>
         <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Impact &amp; ROI</h3>
         <p class="text-xs text-gray-400 mt-1">All-time posts created by this assistant and the value delivered</p>
+      </div>
+    </div>
+    <!-- ROI hero row — Time Saved & Financial Saving first -->
+    <div class="grid grid-cols-2 gap-4 mb-5 pb-5 border-b border-gray-100">
+      <div class="flex flex-col gap-1 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+        <p class="text-xs font-bold text-emerald-600 uppercase tracking-wide">Time Saved</p>
+        <p class="text-3xl font-black text-emerald-700" id="metrics-hours-saved">—</p>
+        <p class="text-xs text-emerald-500" id="metrics-hours-note">Based on ~30 min per post</p>
+      </div>
+      <div class="flex flex-col gap-1 p-4 rounded-xl bg-emerald-50 border border-emerald-100" id="metrics-roi-col">
+        <p class="text-xs font-bold text-emerald-600 uppercase tracking-wide">Approx. Financial Saving</p>
+        <p class="text-3xl font-black text-emerald-700" id="metrics-gbp-saved">—</p>
+        <p class="text-xs text-emerald-500" id="metrics-roi-note"></p>
       </div>
     </div>
     <!-- Totals row -->
@@ -163,21 +184,27 @@
       </div>
     </div>
     <!-- Per-platform breakdown -->
-    <div id="metrics-by-platform" class="mb-5 space-y-2"></div>
-    <!-- Time & money saved -->
-    <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
-      <div class="flex flex-col gap-1">
-        <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">Time Saved</p>
-        <p class="text-xl font-black text-emerald-700" id="metrics-hours-saved">—</p>
-        <p class="text-xs text-gray-400" id="metrics-hours-note">Based on ~30 min per post</p>
-      </div>
-      <div class="flex flex-col gap-1" id="metrics-roi-col">
-        <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">Approx. Financial Saving</p>
-        <p class="text-xl font-black text-emerald-700" id="metrics-gbp-saved">—</p>
-        <p class="text-xs text-gray-400" id="metrics-roi-note"></p>
+    <div id="metrics-by-platform" class="space-y-2"></div>
+  </div>
+
+  <!-- Completed Tasks strip (was "Recent Activity") -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Completed Tasks</h3>
+      <div id="activity-timeframe-btns" class="flex gap-1">
+        <button data-tf="7d"  class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">7d</button>
+        <button data-tf="30d" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-indigo-500 bg-indigo-50 text-indigo-700 font-semibold">30d</button>
+        <button data-tf="90d" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">90d</button>
+        <button data-tf="all" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">All</button>
       </div>
     </div>
+    <div id="recent-activity-list" class="space-y-3">
+      <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading activity…</div>
+    </div>
   </div>
+
+  <!-- Goals section is relocated here (directly under Recent Activity) by initAssistantDetail;
+       its markup lives in #tab-goals further down and is moved into this slot on load. -->
 
   <!-- AC6: Daily Relationship-Building Checklist — hidden until loaded; only shown for social assistants. -->
   <div id="relationship-checklist-card" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8 hidden">
@@ -196,31 +223,36 @@
 
   </div><!-- /maintab-overview -->
 
-  <!-- ── MAIN TAB: Configuration (nests the existing child tab control) ── -->
+  <!-- ── MAIN TAB: Employee Brief (nests the existing child tab control) ── -->
   <div id="maintab-config" class="main-tab-content hidden">
 
-  <!-- Configuration -->
-  <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">Assistant Configuration</h3>
-
   <!-- Read-only summary of every answer captured during onboarding (populated by assistants.js) -->
-  <div id="onboarding-summary" class="mb-8"></div>
+  <div id="onboarding-summary" class="mb-6"></div>
 
-  <!-- Tab bar -->
-  <div class="mb-8 border-b border-gray-200 overflow-x-auto">
-    <nav class="-mb-px flex gap-x-6" aria-label="Assistant configuration tabs">
-      <button type="button" data-tab="problem"    class="detail-tab-btn active-tab">The Problem</button>
-      <button type="button" data-tab="operation"  class="detail-tab-btn">How it Works</button>
-      <button type="button" data-tab="strategy"   class="detail-tab-btn">Creative Strategy</button>
-      <button type="button" data-tab="platforms"  class="detail-tab-btn">Connections</button>
-      <button type="button" data-tab="guardrails" class="detail-tab-btn">Guardrails</button>
+  <!-- Split-pane: sidebar nav + content panel -->
+  <div style="display:flex;gap:1.5rem;align-items:flex-start">
+
+    <!-- Sidebar -->
+    <nav aria-label="Assistant configuration tabs"
+         style="width:13rem;flex-shrink:0;position:sticky;top:1.5rem"
+         class="bg-white rounded-2xl border border-gray-200 shadow-sm p-2 space-y-0.5">
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest px-3 pt-2 pb-1">Operating File</p>
+      <button type="button" data-tab="problem"    class="detail-tab-btn w-full text-left active-tab">Mandate</button>
+      <button type="button" data-tab="operation"  class="detail-tab-btn w-full text-left">Operational Setup</button>
+      <button type="button" data-tab="strategy"   class="detail-tab-btn w-full text-left">Creative Brief</button>
+      <button type="button" data-tab="platforms"  class="detail-tab-btn w-full text-left">Connections</button>
+      <div class="border-t border-gray-100 my-1"></div>
+      <button type="button" data-tab="guardrails" class="detail-tab-btn w-full text-left">Brand Safety &amp; Legal</button>
     </nav>
-  </div>
 
-  <!-- ── TAB: The Problem ───────────────────────────────────────── -->
+    <!-- Content panel -->
+    <div style="flex:1;min-width:0">
+
+  <!-- ── TAB: Mandate (was "The Problem") ──────────────────────── -->
   <div id="tab-problem" class="detail-tab-content space-y-6">
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="mb-6">
-        <h3 class="text-lg font-bold text-gray-900">Step 2 — The Problem</h3>
+        <h3 class="text-lg font-bold text-gray-900">Mandate</h3>
         <p class="text-sm text-gray-500 mt-1">What bottleneck or time-drain were you trying to solve? This shapes everything your assistant prioritises.</p>
       </div>
       <div>
@@ -242,7 +274,7 @@
   <div id="tab-operation" class="detail-tab-content hidden space-y-6">
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="mb-6">
-        <h3 class="text-lg font-bold text-gray-900">Step 3 — How it Works</h3>
+        <h3 class="text-lg font-bold text-gray-900">Operational Setup</h3>
         <p class="text-sm text-gray-500 mt-1">When does your assistant run, and where does it get its content from?</p>
       </div>
       <div class="space-y-6">
@@ -540,8 +572,8 @@
     <!-- Assistant-specific strict rules -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="mb-6">
-        <h3 class="text-lg font-bold text-gray-900">Guardrails &amp; Rules</h3>
-        <p class="text-sm text-gray-500 mt-1">Hard constraints specific to this assistant. These override any AI-generated suggestions.</p>
+        <h3 class="text-lg font-bold text-gray-900">Brand Safety &amp; Legal</h3>
+        <p class="text-sm text-gray-500 mt-1">Hard constraints specific to this assistant. These override any AI-generated suggestions and protect your brand from compliance risk.</p>
       </div>
       <div class="space-y-5">
         <div>
@@ -623,6 +655,9 @@
     </div>
 
   </div>
+
+    </div><!-- /config content panel -->
+  </div><!-- /config split-pane -->
 
   </div><!-- /maintab-config -->
 
@@ -1177,6 +1212,17 @@ document.getElementById('btn-confirm-revoke-all')?.addEventListener('click', asy
   }
 });
 
+// Show "Brand Protected" badge when strict_rules or knowledge is populated
+window._updateGuardrailsBadge = function () {
+  const rules = (document.getElementById('edit_strict_rules')?.value || '').trim();
+  const knowledge = (document.getElementById('edit_knowledge')?.value || '').trim();
+  const badge = document.getElementById('guardrails-protected-badge');
+  if (badge) badge.classList.toggle('hidden', !rules && !knowledge);
+};
+['edit_strict_rules', 'edit_knowledge'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', window._updateGuardrailsBadge);
+});
+
 // SC5: Single-connection revocation — called from the platform card's "Disconnect" button
 window._revokeConnection = async function (connectionId, onSuccess) {
   try {
@@ -1196,7 +1242,6 @@ window._revokeConnection = async function (connectionId, onSuccess) {
   /* Tab spacing — `gap-x-6` is not in the prebuilt style.css, so it no-ops.
      Set the gap explicitly here (1.5rem === Tailwind gap-x-6) so the tabs don't
      collapse together. See: Tailwind prebuilt-CSS gotcha. */
-  nav[aria-label="Assistant configuration tabs"] { gap: 1.5rem; }
   /* Main (top-level) tabs — `gap-x-8` isn't in the prebuilt style.css, so set it explicitly. */
   nav[aria-label="Assistant sections"] { gap: 2rem; }
   .main-tab-btn {
@@ -1212,17 +1257,30 @@ window._revokeConnection = async function (connectionId, onSuccess) {
   }
   .main-tab-btn:hover { color: #111827; border-bottom-color: #d1d5db; }
   .main-tab-btn.active-tab { color: #059669; border-bottom-color: #10b981; }
-  .detail-tab-btn {
-    padding: 0.75rem 0.25rem;
-    border-bottom: 2px solid transparent;
+
+  /* Sidebar pill-style nav for Employee Brief */
+  nav[aria-label="Assistant configuration tabs"] .detail-tab-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-bottom: none;
+    border-radius: 0.625rem;
     font-size: 0.875rem;
     font-weight: 600;
     color: #6b7280;
     white-space: nowrap;
     cursor: pointer;
     background: none;
-    transition: color .15s ease, border-color .15s ease;
+    transition: background .12s ease, color .12s ease;
   }
-  .detail-tab-btn:hover { color: #374151; border-bottom-color: #d1d5db; }
-  .detail-tab-btn.active-tab { color: #059669; border-bottom-color: #10b981; }
+  nav[aria-label="Assistant configuration tabs"] .detail-tab-btn:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+  nav[aria-label="Assistant configuration tabs"] .detail-tab-btn.active-tab {
+    background: #ecfdf5;
+    color: #059669;
+    font-weight: 700;
+  }
 </style>
