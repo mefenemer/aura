@@ -997,6 +997,55 @@ export const ticketReplies = pgTable("ticket_replies", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Issue Reports Table — testing-phase "Report an Issue" submissions (db/issue-reports.sql).
+// Captures the user's description, WHERE they were when they reported (sourceLocation/
+// sourceUrl) and an optional screenshot stored inline as a base64 data URL. Stored against
+// the user so they can track progress; the admin owner is emailed on every new report.
+export const issueReports = pgTable("issue_reports", {
+  id: serial("id").primaryKey(),
+  organisationId: integer("organisation_id")
+      .references(() => organisations.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+  description: text("description").notNull(),
+  sourceLocation: text("source_location"),   // in-app view/route the user came from
+  sourceUrl: text("source_url"),             // full URL at time of report
+  userAgent: text("user_agent"),
+
+  // Optional screenshot — data URL (data:image/png;base64,…), no object-storage dependency.
+  imageData: text("image_data"),
+  imageMime: text("image_mime"),
+
+  // 'reported' | 'fix_in_progress' | 'fixed_ready_to_test' | 'more_info_required' | 'closed'
+  status: text("status").notNull().default("reported"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),      // set when the user confirms the fix (status=closed)
+}, (t) => [
+  index("issue_reports_user_idx").on(t.userId, t.createdAt),
+  index("issue_reports_org_idx").on(t.organisationId),
+  index("issue_reports_status_idx").on(t.status, t.createdAt),
+]);
+
+// Issue Report Messages Table — threaded admin status updates + user replies.
+export const issueReportMessages = pgTable("issue_report_messages", {
+  id: serial("id").primaryKey(),
+  issueId: integer("issue_id")
+      .notNull()
+      .references(() => issueReports.id, { onDelete: "cascade" }),
+  authorType: text("author_type").notNull(),   // 'admin' | 'user'
+  authorId: integer("author_id").references(() => users.id, { onDelete: "set null" }),
+  body: text("body").notNull(),
+  // The status the issue was moved to alongside this message (null = plain message/reply).
+  status: text("status"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("issue_report_messages_issue_idx").on(t.issueId, t.createdAt),
+]);
+
 // AI Model Config Table — runtime routing rules; admin-editable without deploys (US13)
 export const aiModelConfig = pgTable("ai_model_config", {
   id: serial("id").primaryKey(),

@@ -78,6 +78,12 @@
         <span class="text-xl">📋</span>
         <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">Comply</span>
       </button>
+      <button data-cat="testing" onclick="adminCatNav('testing')"
+        class="admin-cat-btn group relative flex flex-col items-center justify-center py-3 px-1 transition-colors cursor-pointer"
+        aria-label="Testing" title="Testing">
+        <span class="text-xl">🐞</span>
+        <span class="text-[10px] font-bold mt-0.5 hidden lg:block truncate text-gray-400 group-hover:text-white transition-colors">Testing</span>
+      </button>
     </nav>
     <div class="pb-4 flex flex-col items-center gap-1">
       <a href="/workspace.html" title="Back to Workspace"
@@ -1482,6 +1488,51 @@
         </div>
       </section>
 
+      <!-- ── Issue Reports (Testing) ─────────────────────────────────────── -->
+      <section id="view-issue-reports" class="admin-view hidden overflow-y-auto" style="max-height:calc(100vh - 130px)">
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
+          <div>
+            <h2 class="text-lg font-extrabold text-gray-900">Issue Reports</h2>
+            <p class="text-sm text-gray-500 mt-0.5">User-submitted issues from the testing phase. Update the status to notify the reporter.</p>
+          </div>
+          <button onclick="loadIssueReports()" class="px-3 py-2 text-sm font-semibold border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">↻ Refresh</button>
+        </div>
+
+        <!-- Status filter chips -->
+        <div id="ir-filters" class="flex flex-wrap gap-2 mb-5 text-xs"></div>
+
+        <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
+              <tr>
+                <th class="px-5 py-3 text-left">#</th>
+                <th class="px-5 py-3 text-left">Description</th>
+                <th class="px-5 py-3 text-left">Reporter</th>
+                <th class="px-5 py-3 text-left">Location</th>
+                <th class="px-5 py-3 text-left">Status</th>
+                <th class="px-5 py-3 text-left">Reported</th>
+                <th class="px-5 py-3 text-left"></th>
+              </tr>
+            </thead>
+            <tbody id="ir-tbody">
+              <tr><td colspan="7" class="px-5 py-8 text-center text-gray-400">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Issue detail slide-over -->
+        <div id="ir-detail-panel" class="hidden fixed inset-0 z-40">
+          <div class="absolute inset-0 bg-black/40" onclick="closeIssuePanel()"></div>
+          <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white shadow-2xl overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+              <h2 id="ir-panel-title" class="font-bold text-gray-900">Issue</h2>
+              <button onclick="closeIssuePanel()" class="text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="ir-detail-body" class="p-6 space-y-5"></div>
+          </div>
+        </div>
+      </section>
+
     </div><!-- /p-8 -->
   </main>
 </div>
@@ -1798,6 +1849,7 @@ const VIEW_LABELS = {
   workspaces: 'Workspaces', 'workspace-detail': 'Workspace Detail',
   'blueprint-inspector': 'Blueprint Inspector', sandbox: 'Sandbox Environment',
   'email-templates': 'Manage Emails', systems: 'Systems & Connections',
+  'issue-reports': 'Issue Reports',
 };
 
 // Category → child items mapping
@@ -1844,6 +1896,9 @@ const ADMIN_CATS = {
   compliance: { label: 'Compliance', roles: ['admin','super_admin'], children: [
     { view: 'breach-response', icon: '🚨', label: 'Breach Response' },
     { view: 'logs',            icon: '📋', label: 'System Logs' },
+  ]},
+  testing: { label: 'Testing', roles: ['admin','super_admin','support_agent'], children: [
+    { view: 'issue-reports', icon: '🐞', label: 'Issue Reports' },
   ]},
   workspaces: { label: 'Workspaces', roles: ['admin','super_admin'], children: [
     { view: 'workspaces', icon: '🏢', label: 'All Workspaces' },
@@ -2055,6 +2110,7 @@ function adminNav(view) {
   if (view === 'sandbox')             loadSandboxPanel();
   if (view === 'systems')             loadSystemStatus();
   if (view === 'email-templates')     loadEmailTemplates();
+  if (view === 'issue-reports')       loadIssueReports();
 }
 
 // ── US-COMMS-1: Manage Emails (template editor) ──────────────────────────────
@@ -3185,6 +3241,119 @@ async function api(url, opts) {
   const r = await fetch(url, opts);
   if (!r.ok) { const d = await r.json().catch(()=>({})); throw new Error(d.error || r.statusText); }
   return r.json();
+}
+
+// ── Issue Reports (Testing) ──────────────────────────────────────────────────
+const IR_API = '/.netlify/functions/admin-issue-reports';
+const IR_STATUSES = ['reported','fix_in_progress','fixed_ready_to_test','more_info_required','closed'];
+const IR_STATUS_LABEL = {
+  reported: 'Reported', fix_in_progress: 'Fix In Progress',
+  fixed_ready_to_test: 'Fixed & Ready to Test', more_info_required: 'More Info Required', closed: 'Closed',
+};
+const IR_STATUS_CLS = {
+  reported: 'bg-gray-100 text-gray-700', fix_in_progress: 'bg-blue-100 text-blue-700',
+  fixed_ready_to_test: 'bg-emerald-100 text-emerald-700', more_info_required: 'bg-amber-100 text-amber-800',
+  closed: 'bg-gray-200 text-gray-500',
+};
+let _irFilter = '';
+function _irBadge(s) { return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${IR_STATUS_CLS[s] || 'bg-gray-100 text-gray-700'}">${IR_STATUS_LABEL[s] || s}</span>`; }
+function _irFmt(d) { return d ? new Date(d).toLocaleString() : ''; }
+
+async function loadIssueReports() {
+  const tbody = document.getElementById('ir-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="px-5 py-8 text-center text-gray-400 animate-pulse">Loading…</td></tr>';
+  try {
+    const d = await api(IR_API + (_irFilter ? '?status=' + encodeURIComponent(_irFilter) : ''));
+    // Filter chips
+    const counts = d.counts || {};
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const chip = (val, label, n) =>
+      `<button onclick="irSetFilter('${val}')" class="px-3 py-1.5 rounded-full font-semibold border ${_irFilter === val ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}">${label}${n != null ? ` (${n})` : ''}</button>`;
+    const filters = document.getElementById('ir-filters');
+    if (filters) filters.innerHTML = chip('', 'All', total) + IR_STATUSES.map(s => chip(s, IR_STATUS_LABEL[s], counts[s] || 0)).join('');
+
+    const issues = d.issues || [];
+    if (tbody) tbody.innerHTML = issues.map(i => `
+      <tr class="border-t border-gray-50 hover:bg-gray-50 transition">
+        <td class="px-5 py-3 font-mono text-xs text-gray-500">#${i.id}</td>
+        <td class="px-5 py-3 max-w-xs truncate" title="${(i.description||'').replace(/"/g,'&quot;')}">${i.description || ''}${i.hasImage ? ' 📎' : ''}</td>
+        <td class="px-5 py-3 text-xs text-gray-500">${i.reporterEmail || i.reporterName || ''}</td>
+        <td class="px-5 py-3 text-xs text-gray-500">${i.sourceLocation || '—'}</td>
+        <td class="px-5 py-3">${_irBadge(i.status)}</td>
+        <td class="px-5 py-3 text-xs text-gray-400">${_irFmt(i.createdAt)}</td>
+        <td class="px-5 py-3"><button onclick="openIssuePanel(${i.id})" class="text-xs text-emerald-600 font-semibold hover:underline">Manage →</button></td>
+      </tr>`).join('') || '<tr><td colspan="7" class="px-5 py-8 text-center text-gray-400">No issues found.</td></tr>';
+  } catch (e) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="px-5 py-5 text-red-500 text-sm">${e.message}</td></tr>`;
+  }
+}
+
+function irSetFilter(v) { _irFilter = v; loadIssueReports(); }
+
+async function openIssuePanel(id) {
+  document.getElementById('ir-detail-panel').classList.remove('hidden');
+  const body = document.getElementById('ir-detail-body');
+  body.innerHTML = '<div class="text-gray-400 animate-pulse">Loading…</div>';
+  try {
+    const d = await api(`${IR_API}?id=${id}`);
+    const i = d.issue;
+    document.getElementById('ir-panel-title').textContent = `Issue #${i.id}`;
+    const messages = (d.messages || []).map(m => `
+      <div class="rounded-xl p-3 text-sm ${m.authorType === 'admin' ? 'bg-blue-50 border border-blue-100' : 'bg-gray-50 border border-gray-100'}">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-bold ${m.authorType === 'admin' ? 'text-blue-700' : 'text-gray-600'}">${m.authorType === 'admin' ? 'Admin' : 'Reporter'}${m.status ? ` · set to ${IR_STATUS_LABEL[m.status] || m.status}` : ''}</span>
+          <span class="text-xs text-gray-400">${_irFmt(m.createdAt)}</span>
+        </div>
+        <p class="text-gray-800 whitespace-pre-wrap">${m.body}</p>
+      </div>`).join('') || '<p class="text-xs text-gray-400">No messages yet.</p>';
+
+    body.innerHTML = `
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div><span class="text-gray-400 text-xs font-bold uppercase">Reporter</span><br><span class="font-medium">${i.reporterName || ''}</span><br><span class="text-xs text-gray-500">${i.reporterEmail || ''}</span></div>
+        <div><span class="text-gray-400 text-xs font-bold uppercase">Reported</span><br><span class="text-xs">${_irFmt(i.createdAt)}</span></div>
+        <div class="col-span-2"><span class="text-gray-400 text-xs font-bold uppercase">Location</span><br>
+          <span class="font-medium">${i.sourceLocation || '—'}</span>${i.sourceUrl ? `<br><a href="${i.sourceUrl}" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline break-all">${i.sourceUrl}</a>` : ''}
+        </div>
+        ${i.userAgent ? `<div class="col-span-2"><span class="text-gray-400 text-xs font-bold uppercase">User agent</span><br><span class="text-xs text-gray-500 break-all">${i.userAgent}</span></div>` : ''}
+      </div>
+
+      <div class="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${i.description || ''}</div>
+
+      ${i.imageData ? `<div><span class="text-gray-400 text-xs font-bold uppercase">Screenshot</span><br><a href="${i.imageData}" target="_blank" rel="noopener"><img src="${i.imageData}" alt="Screenshot" class="mt-2 max-h-72 rounded-lg border border-gray-200"></a></div>` : ''}
+
+      <!-- Status control -->
+      <div class="border border-gray-200 rounded-xl p-4 space-y-3">
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-bold uppercase text-gray-400">Current</span>${_irBadge(i.status)}
+        </div>
+        <label class="block text-xs font-bold uppercase text-gray-400">Update status</label>
+        <select id="ir-new-status" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+          ${IR_STATUSES.map(s => `<option value="${s}" ${i.status === s ? 'selected' : ''}>${IR_STATUS_LABEL[s]}</option>`).join('')}
+        </select>
+        <label class="block text-xs font-bold uppercase text-gray-400">Message to reporter <span class="text-gray-300 font-normal">(optional)</span></label>
+        <textarea id="ir-admin-message" rows="3" placeholder="Supporting message — sent to the reporter with the status update…" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+        <button onclick="submitIssueUpdate(${i.id})" class="w-full px-4 py-2 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-black transition">Save & notify reporter</button>
+      </div>
+
+      <div><span class="text-gray-400 text-xs font-bold uppercase">Conversation</span><div class="space-y-3 mt-2">${messages}</div></div>`;
+  } catch (e) {
+    body.innerHTML = `<p class="text-red-500">${e.message}</p>`;
+  }
+}
+
+function closeIssuePanel() { document.getElementById('ir-detail-panel').classList.add('hidden'); }
+
+async function submitIssueUpdate(id) {
+  const status = document.getElementById('ir-new-status')?.value;
+  const message = document.getElementById('ir-admin-message')?.value?.trim() || '';
+  try {
+    await api(`${IR_API}?id=${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, message }),
+    });
+    await openIssuePanel(id);
+    if (!document.getElementById('view-issue-reports').classList.contains('hidden')) loadIssueReports();
+  } catch (e) { alert(e.message); }
 }
 
 // ── Epic: Superadmin Environment Management — US4/US5: Sandbox panel ──────────
