@@ -253,7 +253,9 @@ function _assetRow(asset, sec) {
         : '';
     const thumbInner = (asset.assetType === 'image' && asset.storageUrl)
         ? `<img src="${asset.storageUrl}" alt="" class="w-full h-full object-cover rounded-lg">${playOverlay}`
-        : `<div class="w-full h-full flex items-center justify-center text-gray-400">${icon}</div>${playOverlay}`;
+        : (asset.assetType === 'video' && asset.storageUrl)
+            ? `<video src="${asset.storageUrl}" class="w-full h-full object-cover rounded-lg" preload="metadata" muted playsinline></video>${playOverlay}`
+            : `<div class="w-full h-full flex items-center justify-center text-gray-400">${icon}</div>${playOverlay}`;
     const tile = canView
         ? `<button type="button" onclick="window._mcViewAsset(${asset.id})" title="View"
              class="relative w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200 cursor-pointer hover:ring-2 hover:ring-emerald-400 transition">${thumbInner}</button>`

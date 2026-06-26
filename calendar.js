@@ -381,7 +381,7 @@ function _postChip(post, viewType) {
     } else if (overdue) {
         chipBg = 'bg-amber-50 hover:bg-amber-100';
         timeColor = 'text-amber-700';
-        marker = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" title="Overdue — not yet posted"></span>`;
+        marker = `<span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" title="Overdue — not yet posted"></span>`;
         titleSuffix = ' · ⚠ Overdue — not yet posted';
     } else {
         marker = `<span class="w-1.5 h-1.5 rounded-full ${sm.dot} shrink-0" title="${sm.label}"></span>`;

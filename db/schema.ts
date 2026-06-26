@@ -1255,6 +1255,9 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   // US-SMM-3.2.1: Instagram connection
   connectionId: integer("connection_id").references(() => systemConnections.id, { onDelete: "set null" }),
 
+  // US-CAL-5.1: AI content quality review result (cached)
+  qualityReview: jsonb("quality_review"),
+
   // US-SMM-3.3.1/3.3.2: Publishing pipeline
   // Status extensions: 'publishing' | 'paused' | 'failed' in addition to existing statuses
   containerId: text("container_id"),                       // Instagram step-1 media container ID
