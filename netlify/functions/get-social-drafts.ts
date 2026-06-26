@@ -21,6 +21,9 @@ export const handler: Handler = async (event) => {
         const organisationId = ctx.organisationId;
 
         const statusFilter = event.queryStringParameters?.status || 'pending_approval';
+        const assistantIdFilter = event.queryStringParameters?.assistantId
+            ? Number(event.queryStringParameters.assistantId)
+            : null;
 
         const drafts = await db
             .select({
@@ -56,6 +59,7 @@ export const handler: Handler = async (event) => {
             .where(and(
                 eq(scheduledPosts.organisationId, organisationId),
                 eq(scheduledPosts.status, statusFilter),
+                ...(assistantIdFilter ? [eq(scheduledPosts.assistantId, assistantIdFilter)] : []),
             ))
             .orderBy(desc(scheduledPosts.generatedAt))
             .limit(50);

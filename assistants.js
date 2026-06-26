@@ -345,6 +345,134 @@ window._activateMainTab = function(name) {
     document.querySelectorAll('.main-tab-content').forEach(c => c.classList.toggle('hidden', c.id !== 'maintab-' + name));
     // Recompute auto-grow heights now panels are visible (scrollHeight was 0 while hidden).
     _resizeBriefAutoGrow();
+    // Load the assistant-scoped review queue when the tab is first opened.
+    if (name === 'review-queue') detailRqOpenStatus('review');
+};
+
+// ── Assistant-detail scoped Review Queue ─────────────────────────────────────
+// Mirrors the global rqOpenStatus/rqRenderGroups in workspace.html but scopes all
+// fetches to window._currentAssistantId so only this assistant's content shows.
+
+const _DETAIL_RQ_COLUMNS = {
+    review:    { postStatus: 'pending_approval', ideaFilter: i => i.status === 'pending' || i.status === 'in_review' },
+    approved:  { postStatus: 'approved',         ideaFilter: () => false },
+    scheduled: { postStatus: 'scheduled',        ideaFilter: () => false },
+    posted:    { postStatus: 'published',        ideaFilter: () => false },
+    archived:  { postStatus: 'rejected',         ideaFilter: i => i.status === 'discarded' },
+};
+
+let _detailRqCurrentStatus = 'review';
+const _detailRqGroupOpen = { ideas: true, posts: true };
+
+window.detailRqOpenStatus = function(statusKey, btn) {
+    if (!_DETAIL_RQ_COLUMNS[statusKey]) return;
+    _detailRqCurrentStatus = statusKey;
+    document.querySelectorAll('.detail-rq-col').forEach(t => {
+        t.classList.remove('border-b-2', 'border-emerald-600', 'text-emerald-700');
+        t.classList.add('text-gray-500');
+    });
+    const active = btn || document.querySelector(`.detail-rq-col[data-status="${statusKey}"]`);
+    if (active) { active.classList.add('border-b-2', 'border-emerald-600', 'text-emerald-700'); active.classList.remove('text-gray-500'); }
+    _detailRqRenderGroups(statusKey);
+};
+
+async function _detailRqRenderGroups(statusKey) {
+    const col = _DETAIL_RQ_COLUMNS[statusKey] || _DETAIL_RQ_COLUMNS.review;
+    const container = document.getElementById('detail-rq-groups');
+    if (!container) return;
+    container.innerHTML = '<p class="text-sm text-gray-400 py-10 text-center">Loading…</p>';
+
+    const aid = window._currentAssistantId;
+    if (!aid) { container.innerHTML = '<p class="text-sm text-red-500 py-10 text-center">No assistant selected.</p>'; return; }
+
+    let posts = [], ideas = [];
+    try {
+        const [pRes, iRes] = await Promise.all([
+            fetch(`/.netlify/functions/get-social-drafts?status=${col.postStatus}&assistantId=${aid}`),
+            fetch(`/.netlify/functions/get-post-ideas?assistantId=${aid}`),
+        ]);
+        if (pRes.ok) posts = (await pRes.json()).drafts || [];
+        if (iRes.ok) ideas = ((await iRes.json()).ideas || []).filter(col.ideaFilter);
+    } catch {
+        container.innerHTML = '<p class="text-sm text-red-500 py-10 text-center">Failed to load.</p>';
+        return;
+    }
+
+    // Keep the Review column badge and the tab badge in sync.
+    if (statusKey === 'review') {
+        const colBadge = document.getElementById('detail-rq-col-count-review');
+        if (colBadge) { colBadge.textContent = posts.length || ''; colBadge.classList.toggle('hidden', !posts.length); }
+        const tabBadge = document.getElementById('detail-rq-pending-badge');
+        if (tabBadge) { tabBadge.textContent = posts.length || ''; tabBadge.classList.toggle('hidden', !posts.length); }
+    }
+
+    // Reuse the global render helpers from workspace.html (rqRenderSocialCard, rqRenderIdeaCard, etc.)
+    const renderByGroup = { ideas: typeof rqRenderIdeaCard === 'function' ? rqRenderIdeaCard : () => '', posts: typeof rqRenderSocialCard === 'function' ? rqRenderSocialCard : () => '' };
+    const RQ_GROUPS = [
+        { key: 'ideas', label: 'Ideas', empty: 'No ideas here.', emptyReview: 'No ideas yet — use Create Post → Suggest an idea.' },
+        { key: 'posts', label: 'Posts', empty: 'No posts here.', emptyReview: 'No posts awaiting review.' },
+    ];
+    const itemsByGroup = { ideas, posts };
+    container.innerHTML = RQ_GROUPS.map(g => _detailRqGroupSection(g, itemsByGroup[g.key] || [], renderByGroup[g.key], statusKey)).join('');
+}
+
+function _detailRqGroupSection(g, items, render, statusKey) {
+    const open = _detailRqGroupOpen[g.key] !== false;
+    const emptyMsg = statusKey === 'review' ? g.emptyReview : g.empty;
+    const body = items.length
+        ? `<div class="divide-y divide-gray-100">${items.map(render).join('')}</div>`
+        : `<p class="text-sm text-gray-400 py-6 text-center">${emptyMsg}</p>`;
+    return `<section class="border-b border-gray-100 last:border-0">
+      <button onclick="_detailRqToggleGroup('${g.key}')" class="w-full flex items-center gap-2 py-3 text-left cursor-pointer group">
+        <svg class="detail-rq-group-chevron-${g.key} w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700">${g.label}</span>
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">${items.length}</span>
+      </button>
+      <div class="detail-rq-group-body-${g.key} ${open ? '' : 'hidden'} pb-1">${body}</div>
+    </section>`;
+}
+
+window._detailRqToggleGroup = function(key) {
+    const wasOpen = _detailRqGroupOpen[key] !== false;
+    _detailRqGroupOpen[key] = !wasOpen;
+    const body = document.querySelector('.detail-rq-group-body-' + key);
+    const chev = document.querySelector('.detail-rq-group-chevron-' + key);
+    if (body) body.classList.toggle('hidden', wasOpen);
+    if (chev) chev.classList.toggle('rotate-90', !wasOpen);
+};
+
+// Open the right-hand brief drawer for a given tab key
+window._openBriefDrawer = function(tabKey) {
+    const drawer = document.getElementById('brief-drawer');
+    const backdrop = document.getElementById('brief-drawer-backdrop');
+    if (!drawer) return;
+
+    // Show the correct panel inside the drawer
+    document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.remove('active-drawer-tab'));
+    const panel = document.getElementById('tab-' + tabKey);
+    if (panel) panel.classList.add('active-drawer-tab');
+
+    // Set drawer title
+    const titles = { problem: 'Mandate', operation: 'Operational Setup', strategy: 'Creative Brief', platforms: 'Connections', guardrails: 'Brand Safety & Legal' };
+    const titleEl = document.getElementById('brief-drawer-title');
+    if (titleEl) titleEl.textContent = titles[tabKey] || tabKey;
+
+    // Open
+    document.body.classList.add('brief-drawer-open');
+    if (backdrop) { backdrop.style.display = 'block'; setTimeout(() => backdrop.style.opacity = '1', 10); }
+    drawer.style.transform = 'translateX(0)';
+    document.body.style.overflow = 'hidden';
+
+    _resizeBriefAutoGrow();
+};
+
+window._closeBriefDrawer = function() {
+    const drawer = document.getElementById('brief-drawer');
+    const backdrop = document.getElementById('brief-drawer-backdrop');
+    if (drawer) drawer.style.transform = 'translateX(100%)';
+    if (backdrop) { backdrop.style.opacity = '0'; setTimeout(() => { backdrop.style.display = 'none'; }, 250); }
+    document.body.classList.remove('brief-drawer-open');
+    document.body.style.overflow = '';
 };
 
 if (!window._detailTabsDelegated) {
@@ -354,19 +482,11 @@ if (!window._detailTabsDelegated) {
         const mainBtn = e.target.closest('.main-tab-btn');
         if (mainBtn) { window._activateMainTab(mainBtn.dataset.maintab); return; }
 
-        // Child-level (Configuration) tabs
+        // Child-level (Operating File) tabs — open the slide-in drawer
         const btn = e.target.closest('.detail-tab-btn');
         if (!btn) return;
-        // The child tabs live inside the Configuration main tab — make sure it's visible
-        // so programmatic child-tab clicks (attention CTAs, deep-links) always land somewhere shown.
         window._activateMainTab('config');
-        document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active-tab'));
-        document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.add('hidden'));
-        btn.classList.add('active-tab');
-        const panel = document.getElementById('tab-' + btn.dataset.tab);
-        if (panel) panel.classList.remove('hidden');
-        // Recompute auto-grow heights now the panel is visible (scrollHeight was 0 while hidden).
-        _resizeBriefAutoGrow();
+        window._openBriefDrawer(btn.dataset.tab);
     });
 }
 
@@ -873,6 +993,10 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         const nameInput = document.getElementById('detail-name-input');
         if (nameInput) nameInput.value = currentData.name || 'Your Assistant';
 
+        // Brief tab label — "[Name]'s Brief"
+        const briefLabel = document.getElementById('brief-tab-label');
+        if (briefLabel) briefLabel.textContent = (currentData.name || ‘Your Assistant’) + "’s Brief";
+
         const avatarEl = document.getElementById('detail-avatar');
         if (avatarEl) avatarEl.textContent = (currentData.name || 'A').charAt(0).toUpperCase();
 
@@ -1076,7 +1200,24 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
 
     // ── Impact & ROI metrics card ─────────────────────────────────
     _fetchAndRenderAssistantMetrics(assistantId);
+
+    // ── Review Queue tab — prefetch pending count so the badge shows without opening the tab ──
+    _prefetchDetailRqBadge(assistantId);
 };
+
+async function _prefetchDetailRqBadge(assistantId) {
+    try {
+        const res = await fetch(`/.netlify/functions/get-social-drafts?status=pending_approval&assistantId=${assistantId}`);
+        if (!res.ok) return;
+        const { drafts } = await res.json();
+        const count = (drafts || []).length;
+        const tabBadge = document.getElementById('detail-rq-pending-badge');
+        if (tabBadge) { tabBadge.textContent = count || ''; tabBadge.classList.toggle('hidden', !count); }
+        // Also update the action-required strip on the Overview tab.
+        const strip = document.getElementById('action-required-strip');
+        if (strip) strip.classList.toggle('hidden', !count);
+    } catch { /* non-critical */ }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Impact & ROI metrics — per-assistant post counts + time/money saved.
