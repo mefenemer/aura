@@ -1001,7 +1001,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
 
         // Brief tab label — "[Name]'s Brief"
         const briefLabel = document.getElementById('brief-tab-label');
-        if (briefLabel) briefLabel.textContent = (currentData.name || ‘Your Assistant’) + "’s Brief";
+        if (briefLabel) briefLabel.textContent = (currentData.name || 'Your Assistant') + "'s Brief";
 
         const avatarEl = document.getElementById('detail-avatar');
         if (avatarEl) avatarEl.textContent = (currentData.name || 'A').charAt(0).toUpperCase();
