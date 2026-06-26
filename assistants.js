@@ -2217,7 +2217,8 @@ window._renderReviewChart = async function (goalId) {
         const recsCls = offPace
             ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
             : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow';
-        const recsBtn = `<button type="button" onclick="window._getAiRecommendations(${goalId})" class="px-5 py-2 ${recsCls} text-sm font-bold rounded-lg transition cursor-pointer">${lock}Get AI Recommendations</button>`;
+        const assistantName = document.getElementById('detail-name-input')?.value?.trim() || 'AI';
+        const recsBtn = `<button type="button" onclick="window._getAiRecommendations(${goalId})" class="px-5 py-2 ${recsCls} text-sm font-bold rounded-lg transition cursor-pointer">${lock}${_escapeHtml(assistantName)}'s Recommendations</button>`;
         const editBtn = offPace
             ? `<button type="button" onclick="window._editBriefFromReview()" class="px-5 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-bold rounded-lg transition cursor-pointer">Edit Assistant Brief</button>`
             : '';
@@ -2455,15 +2456,47 @@ window._getAiRecommendations = async function (goalId) {
         const funnelTag = data.funnelStage
             ? `<span class="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">${_escapeHtml(data.funnelStage)}</span>`
             : '';
-        if (box) box.innerHTML = `<div class="mt-3 space-y-2">
+        const assistantName = document.getElementById('detail-name-input')?.value?.trim() || 'AI';
+        if (box) box.innerHTML = `<div class="mt-3 space-y-3">
             <div class="flex items-center gap-2 flex-wrap">
-                <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">AI Recommendations</p>
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">${_escapeHtml(assistantName)}'s Recommendations</p>
                 ${funnelTag}
             </div>
-            ${data.recommendations.map(r => `<div class="flex items-start gap-2 text-sm text-gray-700 bg-emerald-50/60 border border-emerald-100 rounded-lg px-3 py-2"><span class="text-emerald-600 font-bold">✦</span><span>${_escapeHtml(r)}</span></div>`).join('')}
+            <p class="text-xs text-gray-400">Select the recommendations you'd like to progress, then click <strong>Progress Selected</strong>.</p>
+            <div class="space-y-2" id="recs-list">
+                ${data.recommendations.map((r, i) => `<label class="flex items-start gap-3 text-sm text-gray-700 bg-emerald-50/60 border border-emerald-100 rounded-lg px-3 py-2.5 cursor-pointer hover:bg-emerald-50 transition has-[:checked]:border-emerald-400 has-[:checked]:bg-emerald-50">
+                    <input type="checkbox" data-rec-idx="${i}" class="rec-checkbox mt-0.5 accent-emerald-600 shrink-0 w-4 h-4 cursor-pointer">
+                    <span>${_escapeHtml(r)}</span>
+                </label>`).join('')}
+            </div>
+            <div class="flex items-center gap-2 flex-wrap pt-1">
+                <button type="button" onclick="window._progressSelectedRecs()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition cursor-pointer">Progress Selected</button>
+                <button type="button" onclick="window._getAiRecommendations(${goalId})" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-bold rounded-lg transition cursor-pointer">Reject &amp; Ask for More</button>
+            </div>
         </div>`;
     } catch {
         if (box) box.innerHTML = '<p class="text-sm text-red-500 mt-3">Could not generate recommendations.</p>';
+    }
+};
+
+// Progress selected recommendations — opens a checklist confirmation.
+window._progressSelectedRecs = function () {
+    const checked = [...document.querySelectorAll('.rec-checkbox:checked')];
+    if (!checked.length) {
+        alert('Please select at least one recommendation to progress.');
+        return;
+    }
+    const items = checked.map(cb => cb.closest('label')?.querySelector('span')?.textContent?.trim()).filter(Boolean);
+    const list = items.map(t => `• ${t}`).join('\n');
+    if (confirm(`Progress the following ${items.length} recommendation${items.length > 1 ? 's' : ''}?\n\n${list}\n\nThis will add them to your action plan.`)) {
+        const box = document.getElementById('review-recommendations');
+        if (box) {
+            box.innerHTML += `<div class="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-medium">
+                ✓ ${items.length} recommendation${items.length > 1 ? 's' : ''} added to your action plan.
+            </div>`;
+            box.querySelectorAll('.rec-checkbox').forEach(cb => { cb.disabled = true; });
+            box.querySelectorAll('button').forEach(btn => { btn.disabled = true; btn.classList.add('opacity-50'); });
+        }
     }
 };
 
