@@ -22,6 +22,7 @@
     "db:seed:sandbox": "npx tsx seed/cli.ts --sandbox",
     "db:seed-catalog": "npx tsx db/seed-catalog.ts",
     "r2:cors": "npx tsx scripts/set-r2-cors.ts",
+    "dev:issue-fixer": "node scripts/dev-issue-fixer.mjs",
     "build:css": "tailwindcss -i ./input.css -o ./style.css --watch",
     "build:css:prod": "tailwindcss -i ./input.css -o ./style.css",
     "license:check": "license-checker --excludePrivatePackages --failOn 'GPL-1.0;GPL-2.0;GPL-3.0;AGPL-1.0;AGPL-3.0;EUPL-1.0;EUPL-1.1;EUPL-1.2;CDDL-1.0;CDDL-1.1'",

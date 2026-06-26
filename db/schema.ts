@@ -1024,10 +1024,25 @@ export const issueReports = pgTable("issue_reports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at"),      // set when the user confirms the fix (status=closed)
+
+  // "Pass to Developer" AI auto-fix handoff (see db/issue-reports.sql).
+  // null | 'queued' | 'in_progress' | 'completed' | 'failed'
+  devHandoffStatus: text("dev_handoff_status"),
+  devHandoffAt: timestamp("dev_handoff_at"),
+  devBranch: text("dev_branch"),             // branch the runner pushed the fix to
+  devPrUrl: text("dev_pr_url"),              // PR opened by the runner
+  devResult: text("dev_result"),             // AI summary of the fix (or failure reason)
+
+  // DB migration the fix needs, run from the ticket against staging Neon (see SQL file).
+  devSql: text("dev_sql"),                   // idempotent SQL the AI proposed
+  devSqlStatus: text("dev_sql_status"),      // null | 'pending' | 'applied' | 'failed'
+  devSqlResult: text("dev_sql_result"),      // DB feedback from the run
+  devSqlRanAt: timestamp("dev_sql_ran_at"),
 }, (t) => [
   index("issue_reports_user_idx").on(t.userId, t.createdAt),
   index("issue_reports_org_idx").on(t.organisationId),
   index("issue_reports_status_idx").on(t.status, t.createdAt),
+  index("issue_reports_handoff_idx").on(t.devHandoffStatus, t.devHandoffAt),
 ]);
 
 // Issue Report Messages Table — threaded admin status updates + user replies.

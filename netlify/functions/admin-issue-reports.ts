@@ -12,13 +12,12 @@
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
+import postgres from 'postgres';
 import { and, eq, desc, asc, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { issueReports, issueReportMessages, users, notifications } from '../../db/schema';
-import { isAdminRole } from '../../src/utils/rbac';
-import { sendEmail } from '../../src/utils/email';
-import { resolveBaseUrl } from '../../src/utils/base-url';
-import { ISSUE_STATUS_LABEL, isIssueStatus, type IssueStatus } from '../../src/utils/issue-reports';
+import { issueReports, issueReportMessages, users } from '../../db/schema';
+import { isAdminRole, hasPermission } from '../../src/utils/rbac';
+import { ISSUE_STATUS_LABEL, isIssueStatus, notifyIssueUser, type IssueStatus } from '../../src/utils/issue-reports';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -47,6 +46,87 @@ export const handler: Handler = async (event) => {
     const db = getDb();
     const qs = event.queryStringParameters || {};
     const id = qs.id ? Number(qs.id) : null;
+    const action = qs.action || '';
+
+    // ── POST ?action=handoff: queue the issue for AI auto-fix ────────────────────
+    // Flags the issue for a local Claude Code runner (see scripts/dev-issue-fixer.mjs),
+    // moves the user-visible status to "Fix In Progress", and notifies the reporter.
+    if (event.httpMethod === 'POST' && action === 'handoff' && id) {
+        const [issue] = await db.select().from(issueReports).where(eq(issueReports.id, id)).limit(1);
+        if (!issue) return json(404, { error: 'Issue not found.' });
+        if (issue.devHandoffStatus === 'queued' || issue.devHandoffStatus === 'in_progress') {
+            return json(409, { error: 'This issue has already been passed to a developer.' });
+        }
+
+        await db.update(issueReports).set({
+            devHandoffStatus: 'queued',
+            devHandoffAt: new Date(),
+            devResult: null,
+            status: 'fix_in_progress',
+            updatedAt: new Date(),
+        }).where(eq(issueReports.id, id));
+
+        await db.insert(issueReportMessages).values({
+            issueId: id,
+            authorType: 'admin',
+            authorId: admin.id,
+            body: '🤖 Passed to the developer for AI auto-fix. A fix is now in progress.',
+            status: 'fix_in_progress',
+        });
+
+        await notifyIssueUser(db, { userId: issue.userId, issueId: id, status: 'fix_in_progress', headers: event.headers })
+            .catch((e) => console.error('[admin-issue-reports] handoff notify failed:', e?.message || e));
+
+        return json(200, { ok: true, devHandoffStatus: 'queued' });
+    }
+
+    // ── POST ?action=run-sql: run the AI-proposed migration against staging Neon ──
+    // Super-admin only. Executes the SQL on the deployment's owner DB connection and
+    // returns the database's outcome. Only a SUCCESSFUL run advances the issue to
+    // "Fixed & Ready to Test"; a failure leaves the issue untouched for another attempt.
+    if (event.httpMethod === 'POST' && action === 'run-sql' && id) {
+        if (!hasPermission(admin.role, 'run_migration_sql')) {
+            return json(403, { error: 'Running migration SQL requires super-admin privilege.' });
+        }
+        let body: any;
+        try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON.' }); }
+
+        const [issue] = await db.select().from(issueReports).where(eq(issueReports.id, id)).limit(1);
+        if (!issue) return json(404, { error: 'Issue not found.' });
+
+        // Admin may have edited the AI's SQL in the textarea; fall back to the stored SQL.
+        const sqlText = (typeof body.sql === 'string' && body.sql.trim() ? body.sql : issue.devSql || '').trim();
+        if (!sqlText) return json(400, { error: 'No SQL to run for this issue.' });
+
+        const exec = await runMigrationSql(sqlText);
+
+        const setObj: Record<string, unknown> = {
+            devSql: sqlText,
+            devSqlStatus: exec.ok ? 'applied' : 'failed',
+            devSqlResult: exec.outcome,
+            devSqlRanAt: new Date(),
+            updatedAt: new Date(),
+        };
+        if (exec.ok) setObj.status = 'fixed_ready_to_test';
+        await db.update(issueReports).set(setObj).where(eq(issueReports.id, id));
+
+        await db.insert(issueReportMessages).values({
+            issueId: id,
+            authorType: 'admin',
+            authorId: admin.id,
+            body: exec.ok
+                ? `🗄️ Migration SQL ran successfully against staging.\n\n${exec.outcome}`
+                : `🗄️ Migration SQL FAILED on staging — issue left as-is.\n\n${exec.outcome}`,
+            status: exec.ok ? 'fixed_ready_to_test' : null,
+        });
+
+        if (exec.ok) {
+            await notifyIssueUser(db, { userId: issue.userId, issueId: id, status: 'fixed_ready_to_test', headers: event.headers })
+                .catch((e) => console.error('[admin-issue-reports] run-sql notify failed:', e?.message || e));
+        }
+
+        return json(200, { ok: exec.ok, outcome: exec.outcome, status: exec.ok ? 'fixed_ready_to_test' : issue.status });
+    }
 
     // ── GET single issue (with thread + screenshot) ──────────────────────────────
     if (event.httpMethod === 'GET' && id) {
@@ -83,6 +163,9 @@ export const handler: Handler = async (event) => {
                 imageMime: issueReports.imageMime,
                 createdAt: issueReports.createdAt,
                 updatedAt: issueReports.updatedAt,
+                devHandoffStatus: issueReports.devHandoffStatus,
+                devPrUrl: issueReports.devPrUrl,
+                devSqlStatus: issueReports.devSqlStatus,
                 reporterEmail: users.email,
                 reporterFirst: users.firstName,
                 reporterLast: users.lastName,
@@ -109,6 +192,9 @@ export const handler: Handler = async (event) => {
                 hasImage: !!r.imageMime,
                 createdAt: r.createdAt,
                 updatedAt: r.updatedAt,
+                devHandoffStatus: r.devHandoffStatus,
+                devPrUrl: r.devPrUrl,
+                devSqlStatus: r.devSqlStatus,
                 reporterName: [r.reporterFirst, r.reporterLast].filter(Boolean).join(' ') || r.reporterEmail || `User #${r.userId}`,
                 reporterEmail: r.reporterEmail,
             })),
@@ -152,7 +238,7 @@ export const handler: Handler = async (event) => {
         }
 
         // Notify the reporting user so they can act (re-test or supply more info).
-        await notifyUser(db, issue.userId, id, finalStatus, message, event.headers)
+        await notifyIssueUser(db, { userId: issue.userId, issueId: id, status: finalStatus, adminMessage: message, headers: event.headers })
             .catch((e) => console.error('[admin-issue-reports] user notify failed:', e?.message || e));
 
         return json(200, { ok: true, status: finalStatus });
@@ -161,62 +247,49 @@ export const handler: Handler = async (event) => {
     return { statusCode: 405, body: 'Method Not Allowed' };
 };
 
-async function notifyUser(
-    db: ReturnType<typeof getDb>,
-    userId: number,
-    issueId: number,
-    status: IssueStatus,
-    adminMessage: string,
-    headers: Record<string, string | undefined>,
-): Promise<void> {
-    const label = ISSUE_STATUS_LABEL[status];
+/**
+ * Execute admin-approved migration SQL against the deployment's owner DB connection
+ * (on the staging deploy, NETLIFY_DATABASE_URL → staging Neon; set MIGRATION_DATABASE_URL
+ * to use a dedicated owner/migration role instead).
+ *
+ * Mirrors how a human applies db/*.sql with `psql -f`: a short-lived owner connection and
+ * the SIMPLE query protocol, so multiple statements and DO/$$ blocks run in one shot. No
+ * implicit BEGIN/COMMIT wrapper — our migration files are idempotent and self-contained,
+ * so this matches the manual apply exactly. Never throws; returns the DB's outcome as text.
+ */
+async function runMigrationSql(sqlText: string): Promise<{ ok: boolean; outcome: string }> {
+    const url = process.env.MIGRATION_DATABASE_URL || process.env.NETLIFY_DATABASE_URL;
+    if (!url) return { ok: false, outcome: 'No database URL configured (MIGRATION_DATABASE_URL / NETLIFY_DATABASE_URL).' };
 
-    // Status-specific call to action.
-    const cta =
-        status === 'fixed_ready_to_test' ? 'Please re-test and confirm the fix worked.' :
-        status === 'more_info_required'  ? 'The team needs more information to proceed.' :
-        status === 'fix_in_progress'     ? 'A fix is now in progress.' :
-        status === 'closed'              ? 'This issue has been closed.' :
-        'Your reported issue has been updated.';
-
-    const title =
-        status === 'fixed_ready_to_test' ? `✅ Issue #${issueId} fixed — ready to test` :
-        status === 'more_info_required'  ? `❓ Issue #${issueId} — more info needed` :
-        `🔧 Issue #${issueId} updated: ${label}`;
-
-    const messageLine = adminMessage ? ` — “${adminMessage}”` : '';
-
-    // In-app notification (canonical table). type 'issue_update' defaults to the
-    // 'informational' category until/unless added to the categorization map.
-    await db.insert(notifications).values({
-        userId,
-        type: 'issue_update',
-        title,
-        message: `${cta}${messageLine}`,
-        metadata: { issueId, status },
-    }).catch((e) => console.error('[admin-issue-reports] notification insert failed:', e?.message || e));
-
-    // Email the user too.
-    const [u] = await db.select({ email: users.email, firstName: users.firstName })
-        .from(users).where(eq(users.id, userId)).limit(1);
-    if (!u?.email) return;
-
-    const base = resolveBaseUrl(headers) || process.env.BASE_URL || 'https://bemoreswan.com';
-    const link = `${base}/workspace.html?issue=${issueId}`;
-    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const html = `
-        <p>Hi ${esc(u.firstName || 'there')},</p>
-        <p>There's an update on the issue you reported (#${issueId}).</p>
-        <p><strong>Status:</strong> ${esc(label)}</p>
-        <p>${esc(cta)}</p>
-        ${adminMessage ? `<blockquote style="border-left:3px solid #e5e7eb;margin:0;padding:8px 16px;color:#374151;white-space:pre-wrap;">${esc(adminMessage)}</blockquote>` : ''}
-        <p style="margin-top:24px;">
-          <a href="${link}" style="background:#059669;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
-            View in your workspace →
-          </a>
-        </p>
-        <p style="color:#6b7280;font-size:13px;">Thank you for helping us test Be More Swan.</p>`;
-
-    await sendEmail({ to: u.email, subject: title, html })
-        .catch((e) => console.error('[admin-issue-reports] email failed:', e?.message || e));
+    const notices: string[] = [];
+    const client = postgres(url, {
+        max: 1,
+        connect_timeout: 8,
+        idle_timeout: 5,
+        onnotice: (n: any) => { if (n?.message) notices.push(String(n.message)); },
+    });
+    try {
+        // Cap runaway statements, then run the migration via the simple protocol.
+        await client.unsafe("SET statement_timeout = '60s'").simple();
+        const res: any = await client.unsafe(sqlText).simple();
+        const sets = Array.isArray(res) ? res.length : 0;
+        const lines = [
+            '✓ Executed successfully on staging.',
+            sets ? `Statements / result sets: ${sets}` : '',
+            notices.length ? `Notices:\n${notices.join('\n')}` : '',
+        ].filter(Boolean);
+        return { ok: true, outcome: lines.join('\n') };
+    } catch (e: any) {
+        const parts = [
+            `✗ ${e?.message || 'SQL execution failed.'}`,
+            e?.code ? `Code: ${e.code}` : '',
+            e?.detail ? `Detail: ${e.detail}` : '',
+            e?.hint ? `Hint: ${e.hint}` : '',
+            e?.where ? `Where: ${e.where}` : '',
+            notices.length ? `Notices:\n${notices.join('\n')}` : '',
+        ].filter(Boolean);
+        return { ok: false, outcome: parts.join('\n') };
+    } finally {
+        await client.end({ timeout: 5 }).catch(() => {});
+    }
 }

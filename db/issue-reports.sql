@@ -82,3 +82,59 @@ BEGIN
       CHECK (author_type IN ('admin', 'user'));
   END IF;
 END $$;
+
+-- ── "Pass to Developer" AI auto-fix handoff ──────────────────────────────────
+-- An admin can hand a reported issue to an AI developer agent (Claude Code) that
+-- runs on a dev machine. The cloud only orchestrates: it queues the issue, a local
+-- watcher claims it, fixes it on a branch, opens a PR and writes the result back.
+--
+--   dev_handoff_status: null      → never handed off
+--                       queued    → admin pressed "Pass to Developer"; awaiting a runner
+--                       in_progress → a runner has claimed it and is working
+--                       completed → fix produced (see dev_branch / dev_pr_url / dev_result)
+--                       failed    → the runner could not produce a fix (see dev_result)
+--
+-- The user-visible lifecycle (status) is unchanged: queueing moves it to
+-- 'fix_in_progress' and a successful completion moves it to 'fixed_ready_to_test'.
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_handoff_status TEXT;
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_handoff_at     TIMESTAMP;
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_branch         TEXT;
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_pr_url         TEXT;
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_result         TEXT;
+
+-- When a fix needs a database migration, the runner returns the (idempotent) SQL here
+-- instead of moving the issue straight to "Fixed & Ready to Test". A super-admin reviews
+-- and runs it against the staging Neon DB from inside the ticket; only a successful run
+-- advances the issue. dev_sql_status: null | pending | applied | failed.
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_sql        TEXT;
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_sql_status TEXT;
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_sql_result TEXT;       -- DB feedback from the run
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_sql_ran_at TIMESTAMP;
+
+-- Lets a runner cheaply claim the oldest queued issue.
+CREATE INDEX IF NOT EXISTS issue_reports_handoff_idx
+  ON issue_reports (dev_handoff_status, dev_handoff_at);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'issue_reports_dev_handoff_status_check'
+  ) THEN
+    ALTER TABLE issue_reports
+      ADD CONSTRAINT issue_reports_dev_handoff_status_check
+      CHECK (dev_handoff_status IS NULL
+             OR dev_handoff_status IN ('queued', 'in_progress', 'completed', 'failed'));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'issue_reports_dev_sql_status_check'
+  ) THEN
+    ALTER TABLE issue_reports
+      ADD CONSTRAINT issue_reports_dev_sql_status_check
+      CHECK (dev_sql_status IS NULL
+             OR dev_sql_status IN ('pending', 'applied', 'failed'));
+  END IF;
+END $$;

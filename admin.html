@@ -3257,6 +3257,25 @@ const IR_STATUS_CLS = {
 };
 let _irFilter = '';
 function _irBadge(s) { return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${IR_STATUS_CLS[s] || 'bg-gray-100 text-gray-700'}">${IR_STATUS_LABEL[s] || s}</span>`; }
+// Small AI auto-fix ("Pass to Developer") badge for the list — empty unless handed off.
+const IR_HANDOFF_BADGE = {
+  queued:      { cls: 'bg-violet-100 text-violet-700', text: '🤖 Queued' },
+  in_progress: { cls: 'bg-violet-100 text-violet-700', text: '🤖 Fixing…' },
+  completed:   { cls: 'bg-violet-100 text-violet-700', text: '🤖 PR ready' },
+  failed:      { cls: 'bg-amber-100 text-amber-800',   text: '🤖 Failed' },
+};
+function _irHandoffBadge(i) {
+  // A pending DB migration is the most actionable state — surface it over "PR ready".
+  if (i.devSqlStatus === 'pending') {
+    return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">🗄️ SQL to run</span>`;
+  }
+  const b = IR_HANDOFF_BADGE[i.devHandoffStatus];
+  if (!b) return '';
+  const inner = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${b.cls}">${b.text}</span>`;
+  return i.devHandoffStatus === 'completed' && i.devPrUrl
+    ? `<a href="${_esc(i.devPrUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="View pull request">${inner}</a>`
+    : inner;
+}
 function _irFmt(d) { return d ? new Date(d).toLocaleString() : ''; }
 
 async function loadIssueReports() {
@@ -3279,7 +3298,7 @@ async function loadIssueReports() {
         <td class="px-5 py-3 max-w-xs truncate" title="${(i.description||'').replace(/"/g,'&quot;')}">${i.description || ''}${i.hasImage ? ' 📎' : ''}</td>
         <td class="px-5 py-3 text-xs text-gray-500">${i.reporterEmail || i.reporterName || ''}</td>
         <td class="px-5 py-3 text-xs text-gray-500">${i.sourceLocation || '—'}</td>
-        <td class="px-5 py-3">${_irBadge(i.status)}</td>
+        <td class="px-5 py-3"><div class="flex items-center gap-1.5 flex-wrap">${_irBadge(i.status)}${_irHandoffBadge(i)}</div></td>
         <td class="px-5 py-3 text-xs text-gray-400">${_irFmt(i.createdAt)}</td>
         <td class="px-5 py-3"><button onclick="openIssuePanel(${i.id})" class="text-xs text-emerald-600 font-semibold hover:underline">Manage →</button></td>
       </tr>`).join('') || '<tr><td colspan="7" class="px-5 py-8 text-center text-gray-400">No issues found.</td></tr>';
@@ -3321,6 +3340,12 @@ async function openIssuePanel(id) {
 
       ${i.imageData ? `<div><span class="text-gray-400 text-xs font-bold uppercase">Screenshot</span><br><a href="${i.imageData}" target="_blank" rel="noopener"><img src="${i.imageData}" alt="Screenshot" class="mt-2 max-h-72 rounded-lg border border-gray-200"></a></div>` : ''}
 
+      <!-- AI auto-fix handoff -->
+      ${_irHandoffCard(i)}
+
+      <!-- Database migration the fix needs -->
+      ${_irSqlCard(i)}
+
       <!-- Status control -->
       <div class="border border-gray-200 rounded-xl p-4 space-y-3">
         <div class="flex items-center gap-3">
@@ -3354,6 +3379,112 @@ async function submitIssueUpdate(id) {
     await openIssuePanel(id);
     if (!document.getElementById('view-issue-reports').classList.contains('hidden')) loadIssueReports();
   } catch (e) { alert(e.message); }
+}
+
+// ── "Pass to Developer" AI auto-fix handoff ──────────────────────────────────
+// Renders the handoff state and, when actionable, the button that queues the
+// issue for the local Claude Code runner (scripts/dev-issue-fixer.mjs).
+function _esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _irHandoffCard(i) {
+  const s = i.devHandoffStatus || null;
+  const passBtn = (label) =>
+    `<button onclick="passToDeveloper(${i.id})" class="w-full px-4 py-2.5 bg-violet-600 text-white text-sm font-bold rounded-lg hover:bg-violet-700 transition flex items-center justify-center gap-2">
+       <span>🤖</span> ${label}
+     </button>`;
+  const resultBlock = i.devResult
+    ? `<div class="bg-white/70 border border-gray-200 rounded-lg p-3 text-xs text-gray-700 whitespace-pre-wrap max-h-48 overflow-auto">${_esc(i.devResult)}</div>` : '';
+  const prLink = i.devPrUrl
+    ? `<a href="${_esc(i.devPrUrl)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-sm font-bold text-violet-700 hover:underline">View pull request →</a>` : '';
+
+  let inner;
+  if (s === 'queued') {
+    inner = `<div class="flex items-center gap-2 text-sm font-semibold text-violet-700"><span class="animate-pulse">●</span> Queued for AI auto-fix… a developer runner will pick this up.</div>`;
+  } else if (s === 'in_progress') {
+    inner = `<div class="flex items-center gap-2 text-sm font-semibold text-violet-700"><span class="animate-pulse">●</span> The AI developer is working on a fix…</div>`;
+  } else if (s === 'completed') {
+    inner = `<div class="space-y-2">
+        <div class="flex items-center gap-2 text-sm font-semibold text-emerald-700">✅ AI auto-fix completed.</div>
+        ${prLink}${resultBlock}
+        ${passBtn('Pass to Developer again')}
+      </div>`;
+  } else if (s === 'failed') {
+    inner = `<div class="space-y-2">
+        <div class="flex items-center gap-2 text-sm font-semibold text-amber-700">⚠️ The AI auto-fix could not complete.</div>
+        ${resultBlock}
+        ${passBtn('Try again')}
+      </div>`;
+  } else {
+    inner = `<div class="space-y-2">
+        <p class="text-xs text-gray-500">Hand this issue to an AI developer (Claude Code). It will fix it on a branch, open a pull request, and move the status to “Fixed &amp; Ready to Test”.</p>
+        ${passBtn('Pass to Developer')}
+      </div>`;
+  }
+  return `<div class="border border-violet-200 bg-violet-50 rounded-xl p-4 space-y-3">
+      <span class="text-xs font-bold uppercase text-violet-600">AI Auto-Fix</span>
+      ${inner}
+    </div>`;
+}
+
+async function passToDeveloper(id) {
+  if (!confirm('Pass this issue to the AI developer? It will be fixed on a branch and a pull request opened for review.')) return;
+  try {
+    await api(`${IR_API}?id=${id}&action=handoff`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    await openIssuePanel(id);
+    if (!document.getElementById('view-issue-reports').classList.contains('hidden')) loadIssueReports();
+  } catch (e) { alert(e.message); }
+}
+
+// ── Run AI-proposed migration SQL against staging Neon, from inside the ticket ─
+// Only shown when the fix shipped a DB migration. The status only advances to
+// "Fixed & Ready to Test" on a successful run; failures show the DB's error inline.
+function _irSqlCard(i) {
+  if (!i.devSql) return '';
+  const st = i.devSqlStatus || 'pending';
+  const chip = {
+    pending: ['bg-amber-100 text-amber-800', 'Pending — not run yet'],
+    applied: ['bg-emerald-100 text-emerald-700', 'Applied ✓'],
+    failed:  ['bg-red-100 text-red-700', 'Last run failed'],
+  }[st] || ['bg-gray-100 text-gray-700', st];
+  const ranAt = i.devSqlRanAt ? ` · ${_irFmt(i.devSqlRanAt)}` : '';
+  const resultBlock = i.devSqlResult
+    ? `<div class="rounded-lg p-3 text-xs whitespace-pre-wrap font-mono max-h-56 overflow-auto ${st === 'applied' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}"><div class="font-sans font-bold mb-1">Staging database response${ranAt}:</div>${_esc(i.devSqlResult)}</div>`
+    : '';
+  const canRun = (typeof _adminRole !== 'undefined') && _adminRole === 'super_admin';
+  const runBtn = canRun
+    ? `<button onclick="runIssueSql(${i.id})" class="w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"><span>🗄️</span> ${st === 'applied' ? 'Re-run on staging Neon' : 'Run on staging Neon'}</button>`
+    : `<p class="text-xs text-amber-700 font-semibold">Only a super-admin can run this SQL.</p>`;
+  return `<div class="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase text-blue-600">Database Migration</span>
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${chip[0]}">${chip[1]}</span>
+      </div>
+      <p class="text-xs text-gray-500">This fix needs a schema change. Review the SQL${canRun ? ' (edit if needed) ' : ' '}and run it against the staging database. The issue moves to “Fixed &amp; Ready to Test” only after a successful run.</p>
+      <textarea id="ir-sql" rows="8" ${canRun ? '' : 'readonly'} class="w-full text-xs font-mono border border-blue-200 rounded-lg px-3 py-2 bg-white resize-y focus:ring-2 focus:ring-indigo-500 focus:outline-none">${_esc(i.devSql)}</textarea>
+      ${runBtn}
+      ${resultBlock}
+    </div>`;
+}
+
+async function runIssueSql(id) {
+  const sql = document.getElementById('ir-sql')?.value || '';
+  if (!sql.trim()) { alert('There is no SQL to run.'); return; }
+  if (!confirm('Run this SQL against the STAGING database now? This executes immediately as the database owner.')) return;
+  const btn = event?.target?.closest('button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Running…'; }
+  try {
+    const res = await api(`${IR_API}?id=${id}&action=run-sql`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql }),
+    });
+    await openIssuePanel(id);
+    if (!document.getElementById('view-issue-reports').classList.contains('hidden')) loadIssueReports();
+    if (!res.ok) alert('The SQL did not run cleanly — see the staging database response in the ticket.');
+  } catch (e) {
+    if (btn) { btn.disabled = false; }
+    alert(e.message);
+  }
 }
 
 // ── Epic: Superadmin Environment Management — US4/US5: Sandbox panel ──────────

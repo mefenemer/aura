@@ -3,7 +3,9 @@
 
 import { eq, or } from 'drizzle-orm';
 import type { getDb } from '../../db/client';
-import { users } from '../../db/schema';
+import { users, notifications } from '../../db/schema';
+import { sendEmail } from './email';
+import { resolveBaseUrl } from './base-url';
 
 type Db = ReturnType<typeof getDb>;
 
@@ -70,4 +72,75 @@ export async function getAdminRecipients(db: Db): Promise<AdminRecipient[]> {
         .from(users)
         .where(or(eq(users.role, 'super_admin'), eq(users.role, 'admin')));
     return rows;
+}
+
+/**
+ * Notify the reporting user that their issue changed state — an in-app notification
+ * plus an email with a link back into their workspace. Shared by the admin triage
+ * endpoint and the AI auto-fix handoff endpoint so the messaging stays consistent.
+ *
+ * Best-effort: never throws; each side-channel failure is logged and swallowed so a
+ * notification problem can't fail the status update that triggered it.
+ */
+export async function notifyIssueUser(
+    db: Db,
+    opts: {
+        userId: number;
+        issueId: number;
+        status: IssueStatus;
+        adminMessage?: string;
+        headers?: Record<string, string | undefined>;
+    },
+): Promise<void> {
+    const { userId, issueId, status, adminMessage = '' } = opts;
+    const label = ISSUE_STATUS_LABEL[status];
+
+    // Status-specific call to action.
+    const cta =
+        status === 'fixed_ready_to_test' ? 'Please re-test and confirm the fix worked.' :
+        status === 'more_info_required'  ? 'The team needs more information to proceed.' :
+        status === 'fix_in_progress'     ? 'A fix is now in progress.' :
+        status === 'closed'              ? 'This issue has been closed.' :
+        'Your reported issue has been updated.';
+
+    const title =
+        status === 'fixed_ready_to_test' ? `✅ Issue #${issueId} fixed — ready to test` :
+        status === 'more_info_required'  ? `❓ Issue #${issueId} — more info needed` :
+        `🔧 Issue #${issueId} updated: ${label}`;
+
+    const messageLine = adminMessage ? ` — “${adminMessage}”` : '';
+
+    // In-app notification (canonical table). type 'issue_update' defaults to the
+    // 'informational' category until/unless added to the categorization map.
+    await db.insert(notifications).values({
+        userId,
+        type: 'issue_update',
+        title,
+        message: `${cta}${messageLine}`,
+        metadata: { issueId, status },
+    }).catch((e) => console.error('[issue-reports] notification insert failed:', e?.message || e));
+
+    // Email the user too.
+    const [u] = await db.select({ email: users.email, firstName: users.firstName })
+        .from(users).where(eq(users.id, userId)).limit(1);
+    if (!u?.email) return;
+
+    const base = resolveBaseUrl(opts.headers || {}) || process.env.BASE_URL || 'https://bemoreswan.com';
+    const link = `${base}/workspace.html?issue=${issueId}`;
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const html = `
+        <p>Hi ${esc(u.firstName || 'there')},</p>
+        <p>There's an update on the issue you reported (#${issueId}).</p>
+        <p><strong>Status:</strong> ${esc(label)}</p>
+        <p>${esc(cta)}</p>
+        ${adminMessage ? `<blockquote style="border-left:3px solid #e5e7eb;margin:0;padding:8px 16px;color:#374151;white-space:pre-wrap;">${esc(adminMessage)}</blockquote>` : ''}
+        <p style="margin-top:24px;">
+          <a href="${link}" style="background:#059669;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+            View in your workspace →
+          </a>
+        </p>
+        <p style="color:#6b7280;font-size:13px;">Thank you for helping us test Be More Swan.</p>`;
+
+    await sendEmail({ to: u.email, subject: title, html })
+        .catch((e) => console.error('[issue-reports] email failed:', e?.message || e));
 }
