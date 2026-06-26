@@ -1714,18 +1714,27 @@ function _renderMeetingsBrief(data) {
                 const b = STATUS_BADGE[gs.status] || { cls: 'bg-gray-100 text-gray-600', label: gs.status };
                 return `<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${b.cls}">${_escapeHtml(gs.label)}: ${b.label}</span>`;
             }).join('');
+            const recs = (r.recommendations || []).map(t => `<li class="text-sm text-gray-700">${_escapeHtml(t)}</li>`).join('');
+            const autoBadge = r.auto
+                ? '<span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">Auto-logged</span>'
+                : '';
             return `
             <div class="border border-gray-100 rounded-xl p-4 space-y-2.5">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <p class="text-sm font-bold text-gray-900">${fmtDate(r.date)}</p>
+                  <div class="flex items-center gap-2">
+                    <p class="text-sm font-bold text-gray-900">${fmtDate(r.date)}</p>
+                    ${autoBadge}
+                  </div>
                   <p class="text-xs text-gray-500 mt-0.5">${stars(r.rating)} ${['','Poor','Needs improvement','Satisfactory','Good','Excellent'][r.rating] || ''}</p>
                 </div>
                 <button onclick="window._deleteReviewMeeting(${idx})" class="text-xs text-gray-400 hover:text-red-500 transition cursor-pointer shrink-0">Remove</button>
               </div>
+              ${r.agenda ? `<div><p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Agenda</p><p class="text-sm text-gray-700 whitespace-pre-wrap">${_escapeHtml(r.agenda)}</p></div>` : ''}
               ${goalChips ? `<div class="flex flex-wrap gap-1.5">${goalChips}</div>` : ''}
               ${r.notes ? `<div><p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Discussion</p><p class="text-sm text-gray-700 whitespace-pre-wrap">${_escapeHtml(r.notes)}</p></div>` : ''}
               ${r.outcomes ? `<div><p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Outcomes &amp; Actions</p><p class="text-sm text-gray-700 whitespace-pre-wrap">${_escapeHtml(r.outcomes)}</p></div>` : ''}
+              ${recs ? `<div><p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Recommendations</p><ul class="list-disc list-inside space-y-0.5">${recs}</ul></div>` : ''}
               ${r.nextDate ? `<p class="text-xs text-gray-400 pt-1 border-t border-gray-50">Next review: <span class="font-semibold text-gray-600">${fmtDate(r.nextDate)}</span></p>` : ''}
             </div>`;
         }).join('');
@@ -1794,6 +1803,26 @@ function _renderMeetingsBrief(data) {
         list.splice(idx, 1);
         _saveReviews(list);
         _renderHistory();
+    };
+
+    // Auto-log / update today's Review Progress session as a Review Meeting. Deduped to one
+    // auto entry per assistant per day: reopening the page (or generating recommendations)
+    // updates that entry rather than appending a new one. Manual "Log a Review" entries are
+    // left untouched.
+    window._upsertAutoReviewMeeting = function (payload) {
+        if (_reviewAssistantId == null) return null;
+        const today = new Date().toISOString().slice(0, 10);
+        const list = _loadReviews();
+        let entry = list.find(r => r.auto && r.date === today);
+        if (entry) {
+            Object.assign(entry, payload, { auto: true, date: today, savedAt: new Date().toISOString() });
+        } else {
+            entry = { date: today, auto: true, notes: '', outcomes: '', goalStatuses: [], nextDate: '', recommendations: [], savedAt: new Date().toISOString(), ...payload };
+            list.push(entry);
+        }
+        _saveReviews(list);
+        _renderHistory();
+        return entry;
     };
 })();
 
@@ -2511,7 +2540,10 @@ const _REVIEW_TONE_CLS = {
 window._openReviewProgress = function (goalId) {
     const modal = document.getElementById('modal-review-progress');
     const sel = document.getElementById('review-goal-select');
-    if (!modal || !sel || !_goalsCache.length) return;
+    if (!modal || !sel) return;
+    // No goals to review against yet — fall back to the manual review-log form so the
+    // hero CTA is never a dead end.
+    if (!_goalsCache.length) { window._openReviewMeeting?.(); return; }
     sel.innerHTML = _goalsCache.map(g => {
         const { label } = _goalMetricLabel(g.metricKey);
         return `<option value="${g.id}">${_escapeHtml(label)}${g.isPrimary ? ' (Primary)' : ''}</option>`;
@@ -2520,7 +2552,40 @@ window._openReviewProgress = function (goalId) {
     sel.value = String(initial);
     modal.classList.remove('hidden');
     window._renderReviewChart(Number(initial));
+    // Opening the progress page is itself a review session — log it (once per day) as a
+    // Review Meeting so the user and assistant can refer back to it.
+    _recordReviewProgressSession();
 };
+
+// Auto-log the current Review Progress session as a Review Meeting. The "agenda" captures
+// which goals were reviewed and their status; "outcomes" summarises the headline result and
+// is enriched with the assistant's recommendations once they're generated (_getAiRecommendations).
+function _recordReviewProgressSession() {
+    if (!_goalsCache.length || !window._upsertAutoReviewMeeting) return;
+    const goalStatuses = _goalsCache.map(g => {
+        const { label } = _goalMetricLabel(g.metricKey);
+        const status = _GOAL_STATUS_META[g.status] ? g.status : 'pending';
+        return { goalId: String(g.id), label, status };
+    });
+    const counts = goalStatuses.reduce((a, gs) => { a[gs.status] = (a[gs.status] || 0) + 1; return a; }, {});
+    const onTrack = counts.on_track || 0;
+    const atRisk = counts.at_risk || 0;
+    const offTrack = counts.off_track || 0;
+    const n = goalStatuses.length;
+    const assistantName = document.getElementById('detail-name-input')?.value?.trim() || 'Your assistant';
+    const agenda = `Progress review of ${n} goal${n > 1 ? 's' : ''}: ${goalStatuses.map(gs => gs.label).join(', ')}.`;
+    let rating = 3;
+    if (offTrack === 0 && atRisk === 0) rating = 5;
+    else if (offTrack === 0) rating = 4;
+    else if (offTrack >= n) rating = 1;
+    else rating = 2;
+    const bits = [];
+    if (onTrack) bits.push(`${onTrack} on track`);
+    if (atRisk) bits.push(`${atRisk} at risk`);
+    if (offTrack) bits.push(`${offTrack} off track`);
+    const outcomes = `${assistantName} reviewed progress — ${bits.join(', ') || 'status pending'}.`;
+    window._upsertAutoReviewMeeting({ agenda, goalStatuses, rating, outcomes });
+}
 
 window._renderReviewChart = async function (goalId) {
     const chart = document.getElementById('review-chart');
@@ -2803,6 +2868,8 @@ window._getAiRecommendations = async function (goalId) {
             ? `<span class="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">${_escapeHtml(data.funnelStage)}</span>`
             : '';
         const assistantName = document.getElementById('detail-name-input')?.value?.trim() || 'AI';
+        // Fold the assistant's update + recommendations into today's auto-logged Review Meeting.
+        window._upsertAutoReviewMeeting?.({ recommendations: data.recommendations });
         if (box) box.innerHTML = `<div class="mt-3 space-y-3">
             <div class="flex items-center gap-2 flex-wrap">
                 <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">${_escapeHtml(assistantName)}'s Recommendations</p>

@@ -67,12 +67,13 @@
       <!-- CTA group — Review Meeting is the hero action -->
       <div class="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
         <span id="detail-save-status" class="text-sm font-semibold text-emerald-600 transition-all mr-1"></span>
-        <!-- Primary CTA: Review Meeting — navigates to Meetings tab and opens the review log form -->
-        <button id="btn-review-progress" onclick="window._openReviewMeeting()" type="button"
+        <!-- Primary CTA: Review Progress — opens the progress page (update + recommendations),
+             which auto-logs a Review Meeting in the Meetings tab. -->
+        <button id="btn-review-progress" onclick="window._openReviewProgress()" type="button"
           class="relative flex-1 sm:flex-none px-5 py-2.5 text-sm font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-md cursor-pointer">
           <span class="flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            Review Meeting
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Review Progress
           </span>
         </button>
         <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl transition-colors shadow-sm cursor-pointer" type="button">
