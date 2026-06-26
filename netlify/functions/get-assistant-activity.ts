@@ -6,7 +6,7 @@
 // tosAcceptances, dpaAcceptances, and contentRules (Kick Off meeting milestones).
 
 import { Handler } from '@netlify/functions';
-import { eq, and, desc, inArray, sql } from 'drizzle-orm';
+import { eq, and, desc, inArray, gte } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
 import {
     aiAssistants,
@@ -15,7 +15,6 @@ import {
     scheduledPosts,
     postIdeaSuggestions,
     mediaGenerationJobs,
-    relationshipBuildingTasks,
     tosAcceptances,
     dpaAcceptances,
     contentRules,
@@ -34,6 +33,15 @@ export const handler: Handler = async (event) => {
     const aId = parseInt(assistantId);
     const limit = Math.min(parseInt(event.queryStringParameters?.limit ?? '50'), 100);
 
+    const timeframe = event.queryStringParameters?.timeframe ?? '30d';
+    const cutoffDate = (() => {
+        const days = timeframe === '7d' ? 7 : timeframe === '90d' ? 90 : timeframe === 'all' ? null : 30;
+        if (days === null) return null;
+        const d = new Date();
+        d.setDate(d.getDate() - days);
+        return d;
+    })();
+
     const db = getDb();
     const ctx = await requireTenant(event, db);
     if ('error' in ctx) return ctx.error;
@@ -46,7 +54,6 @@ export const handler: Handler = async (event) => {
                 .select({
                     id: aiAssistants.id,
                     userId: aiAssistants.userId,
-                    roleKey: sql<string | null>`(${aiAssistants.configuration} ->> 'type')`,
                 })
                 .from(aiAssistants)
                 .where(and(eq(aiAssistants.id, aId), eq(aiAssistants.organisationId, orgId)))
@@ -57,11 +64,12 @@ export const handler: Handler = async (event) => {
             return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
         }
         const assistantUserId = ownedAssistant.userId;
-        // Relationship building tasks belong to a future assistant type, not SMM.
-        const supportsRelationshipTasks = ownedAssistant.roleKey !== 'social_media_manager';
+
+        const withCutoff = <T>(col: any, baseFilters: any) =>
+            cutoffDate ? and(baseFilters, gte(col, cutoffDate)) : baseFilters;
 
         // Run all queries in parallel
-        const [genJobs, posts, ideas, mediaJobs, rbtRows, auditRows, tosRows, dpaRows, ruleRows] = await Promise.all([
+        const [genJobs, posts, ideas, mediaJobs, auditRows, tosRows, dpaRows, ruleRows] = await Promise.all([
             // Content generation jobs
             db.select({
                 id: contentGenerationJobs.id,
@@ -72,10 +80,10 @@ export const handler: Handler = async (event) => {
                 createdAt: contentGenerationJobs.createdAt,
             })
             .from(contentGenerationJobs)
-            .where(and(
+            .where(withCutoff(contentGenerationJobs.createdAt, and(
                 eq(contentGenerationJobs.assistantId, aId),
                 eq(contentGenerationJobs.organisationId, orgId),
-            ))
+            )))
             .orderBy(desc(contentGenerationJobs.createdAt))
             .limit(limit),
 
@@ -91,10 +99,10 @@ export const handler: Handler = async (event) => {
                 createdAt: scheduledPosts.createdAt,
             })
             .from(scheduledPosts)
-            .where(and(
+            .where(withCutoff(scheduledPosts.createdAt, and(
                 eq(scheduledPosts.assistantId, aId),
                 eq(scheduledPosts.organisationId, orgId),
-            ))
+            )))
             .orderBy(desc(scheduledPosts.createdAt))
             .limit(limit),
 
@@ -107,10 +115,10 @@ export const handler: Handler = async (event) => {
                 createdAt: postIdeaSuggestions.createdAt,
             })
             .from(postIdeaSuggestions)
-            .where(and(
+            .where(withCutoff(postIdeaSuggestions.createdAt, and(
                 eq(postIdeaSuggestions.assistantId, aId),
                 eq(postIdeaSuggestions.organisationId, orgId),
-            ))
+            )))
             .orderBy(desc(postIdeaSuggestions.createdAt))
             .limit(limit),
 
@@ -124,31 +132,12 @@ export const handler: Handler = async (event) => {
                 createdAt: mediaGenerationJobs.createdAt,
             })
             .from(mediaGenerationJobs)
-            .where(and(
+            .where(withCutoff(mediaGenerationJobs.createdAt, and(
                 eq(mediaGenerationJobs.assistantId, aId),
                 eq(mediaGenerationJobs.organisationId, orgId),
-            ))
+            )))
             .orderBy(desc(mediaGenerationJobs.createdAt))
             .limit(limit),
-
-            // Relationship building tasks — only for assistant types that support this feature.
-            supportsRelationshipTasks
-                ? db.select({
-                    id: relationshipBuildingTasks.id,
-                    title: relationshipBuildingTasks.title,
-                    category: relationshipBuildingTasks.category,
-                    taskDate: relationshipBuildingTasks.taskDate,
-                    completed: relationshipBuildingTasks.completed,
-                    createdAt: relationshipBuildingTasks.createdAt,
-                })
-                .from(relationshipBuildingTasks)
-                .where(and(
-                    eq(relationshipBuildingTasks.assistantId, aId),
-                    eq(relationshipBuildingTasks.organisationId, orgId),
-                ))
-                .orderBy(desc(relationshipBuildingTasks.createdAt))
-                .limit(limit)
-                : Promise.resolve([] as { id: number; title: string; category: string | null; taskDate: string | null; completed: boolean; createdAt: Date }[]),
 
             // Audit log entries — covers both the legacy 'assistant' resourceType and
             // the 'ai_assistants' type written by transitionAssistantStatus (lifecycle events,
@@ -160,10 +149,10 @@ export const handler: Handler = async (event) => {
                 createdAt: auditLogs.createdAt,
             })
             .from(auditLogs)
-            .where(and(
+            .where(withCutoff(auditLogs.createdAt, and(
                 inArray(auditLogs.resourceType, ['assistant', 'ai_assistants']),
                 eq(auditLogs.resourceId, String(assistantId)),
-            ))
+            )))
             .orderBy(desc(auditLogs.createdAt))
             .limit(limit),
 
@@ -175,7 +164,7 @@ export const handler: Handler = async (event) => {
                     acceptedAt: tosAcceptances.acceptedAt,
                   })
                   .from(tosAcceptances)
-                  .where(eq(tosAcceptances.userId, assistantUserId))
+                  .where(withCutoff(tosAcceptances.acceptedAt, eq(tosAcceptances.userId, assistantUserId)))
                   .orderBy(desc(tosAcceptances.acceptedAt))
                   .limit(5)
                 : Promise.resolve([] as { id: number; version: string; acceptedAt: Date }[]),
@@ -188,7 +177,7 @@ export const handler: Handler = async (event) => {
                 createdAt: dpaAcceptances.createdAt,
             })
             .from(dpaAcceptances)
-            .where(eq(dpaAcceptances.organisationId, orgId))
+            .where(withCutoff(dpaAcceptances.createdAt, eq(dpaAcceptances.organisationId, orgId)))
             .orderBy(desc(dpaAcceptances.createdAt))
             .limit(5),
 
@@ -201,11 +190,11 @@ export const handler: Handler = async (event) => {
                 createdAt: contentRules.createdAt,
             })
             .from(contentRules)
-            .where(and(
+            .where(withCutoff(contentRules.createdAt, and(
                 eq(contentRules.assistantId, aId),
                 eq(contentRules.workspaceId, orgId),
                 eq(contentRules.isActive, true),
-            ))
+            )))
             .orderBy(desc(contentRules.createdAt))
             .limit(limit),
         ]);
@@ -317,12 +306,6 @@ export const handler: Handler = async (event) => {
                 icon = m.mediaType === 'video' ? 'video' : 'image';
             }
             items.push({ id: `media-${m.id}`, type: 'media_generation', icon, description, createdAt: m.createdAt });
-        }
-
-        for (const t of rbtRows) {
-            const catLabel = t.category ? ` (${t.category})` : '';
-            const description = `Relationship task planned${catLabel}: ${t.title}.`;
-            items.push({ id: `rbt-${t.id}`, type: 'relationship_task', icon: 'users', description, createdAt: t.createdAt });
         }
 
         for (const log of auditRows) {

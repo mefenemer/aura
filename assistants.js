@@ -970,8 +970,15 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── Recent Activity ───────────────────────────────────────────
     const activityList = document.getElementById('recent-activity-list');
     if (activityList) {
+        const loadActivity = async (timeframe = '30d') => {
+        // update button styles
+        document.querySelectorAll('.activity-tf-btn').forEach(btn => {
+            const active = btn.dataset.tf === timeframe;
+            btn.className = `activity-tf-btn text-xs px-2.5 py-1 rounded-lg border ${active ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`;
+        });
+        activityList.innerHTML = '<div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading activity…</div>';
         try {
-            const res = await fetch(`/.netlify/functions/get-assistant-activity?id=${assistantId}`);
+            const res = await fetch(`/.netlify/functions/get-assistant-activity?id=${assistantId}&timeframe=${timeframe}`);
             if (res.ok) {
                 const { logs } = await res.json();
                 if (logs && logs.length > 0) {
@@ -1034,6 +1041,12 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         } catch {
             activityList.innerHTML = '<p class="text-sm text-gray-400 text-center py-3">No activity yet.</p>';
         }
+        }; // end loadActivity
+
+        document.querySelectorAll('.activity-tf-btn').forEach(btn => {
+            btn.addEventListener('click', () => loadActivity(btn.dataset.tf));
+        });
+        await loadActivity('30d');
     }
 
     // ── Performance Metrics (post_insights aggregation) ───────────
