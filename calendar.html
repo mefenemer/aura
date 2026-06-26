@@ -22,6 +22,15 @@
 
     <!-- Right: assistant filter + view toggle -->
     <div class="flex items-center gap-3 flex-wrap">
+      <!-- Platform filter -->
+      <select id="cal-platform-filter"
+        class="text-sm font-semibold text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        <option value="all">All platforms</option>
+        <option value="facebook">Facebook</option>
+        <option value="instagram">Instagram</option>
+        <option value="linkedin">LinkedIn</option>
+        <option value="x">X (Twitter)</option>
+      </select>
       <!-- #4: filter calendar to a single assistant's activity -->
       <select id="cal-assistant-filter"
         class="text-sm font-semibold text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500">

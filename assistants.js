@@ -7,6 +7,15 @@ window.cachedContext = {};
 // ==========================================
 // 1. SHARED CARD GENERATOR (Dashboard & Directory)
 // ==========================================
+// Platform display helpers used by card and detail metrics
+window._PLATFORM_ICONS = {
+    instagram: `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>`,
+    facebook: `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`,
+    linkedin: `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>`,
+    x: `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`,
+};
+window._PLATFORM_LABEL = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X' };
+
 window.generateAssistantCardHTML = function(assistant) {
     const initial = assistant.name ? assistant.name.charAt(0).toUpperCase() : 'A';
     const role = assistant.role || 'Custom Assistant';
@@ -46,6 +55,57 @@ window.generateAssistantCardHTML = function(assistant) {
         ? `<button type="button" onclick="event.stopPropagation(); window._reviewProgressOnLoad=true; window.routeToAssistantDetail('${assistant.id}')" class="text-sm font-bold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer">Review Progress</button>`
         : '';
 
+    // Post metrics strip
+    const pm = assistant.postMetrics || {};
+    const totalCreated = pm.totalCreated || 0;
+    const totalScheduled = pm.totalScheduled || 0;
+    const totalPublished = pm.totalPublished || 0;
+    const hoursSaved = pm.hoursSaved || 0;
+    const gbpSaved = pm.gbpSaved ?? null;
+
+    // Per-platform icons row (only platforms with at least one post)
+    const byPlatform = pm.byPlatform || {};
+    const platformPills = Object.entries(byPlatform)
+        .filter(([, v]) => v.created > 0)
+        .map(([p, v]) => {
+            const icon = window._PLATFORM_ICONS[p] || '';
+            const label = window._PLATFORM_LABEL[p] || p;
+            return `<span class="inline-flex items-center gap-1 text-gray-500" title="${label}: ${v.created} created, ${v.published} published">
+                ${icon}<span class="text-xs font-semibold">${v.published}/${v.created}</span>
+            </span>`;
+        }).join('');
+
+    const metricsHtml = totalCreated > 0 ? `
+        <div class="mt-3 mb-4 p-3 rounded-xl bg-gray-50 border border-gray-100">
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <span class="inline-flex items-center gap-1 text-xs font-semibold text-gray-700" title="Posts created by this assistant">
+                        <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        ${totalCreated} created
+                    </span>
+                    <span class="inline-flex items-center gap-1 text-xs font-semibold text-gray-700" title="Posts scheduled or awaiting approval">
+                        <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        ${totalScheduled} scheduled
+                    </span>
+                    <span class="inline-flex items-center gap-1 text-xs font-semibold text-gray-700" title="Posts successfully published">
+                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        ${totalPublished} published
+                    </span>
+                </div>
+            </div>
+            ${platformPills ? `<div class="flex items-center gap-3 mb-2">${platformPills}</div>` : ''}
+            <div class="flex items-center justify-between pt-2 border-t border-gray-200">
+                <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700" title="Estimated time saved (30 min per post)">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    ~${hoursSaved}h saved
+                </span>
+                ${gbpSaved !== null
+                    ? `<span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">≈ £${gbpSaved.toLocaleString('en-GB', {minimumFractionDigits: 0, maximumFractionDigits: 0})} ROI</span>`
+                    : `<span class="text-xs text-gray-400 cursor-pointer hover:text-emerald-600 transition" onclick="event.stopPropagation(); loadView && loadView('account')" title="Set your hourly rate to see financial ROI">Set rate → ROI</span>`
+                }
+            </div>
+        </div>` : '';
+
     return `
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col cursor-pointer group" onclick="window.routeToAssistantDetail('${assistant.id}')">
         <div class="flex justify-between items-start mb-4">
@@ -57,6 +117,7 @@ window.generateAssistantCardHTML = function(assistant) {
         <h3 class="text-lg font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">${assistant.name}</h3>
         <p class="text-sm text-gray-500 mb-4">${role}</p>
         ${goalsHtml}
+        ${metricsHtml}
         <div class="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
             ${reviewBtn || '<span></span>'}
             <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">Board Room &rarr;</span>
@@ -996,7 +1057,68 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── AC6: Daily Relationship-Building Checklist ────────────────
     // Hidden — belongs to a future Engagement/CTA assistant, not SMM.
     // await _fetchAndRenderRelationshipChecklist(assistantId);
+
+    // ── Impact & ROI metrics card ─────────────────────────────────
+    _fetchAndRenderAssistantMetrics(assistantId);
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Impact & ROI metrics — per-assistant post counts + time/money saved.
+// ─────────────────────────────────────────────────────────────────
+async function _fetchAndRenderAssistantMetrics(assistantId) {
+    const card = document.getElementById('assistant-metrics-card');
+    if (!card) return;
+
+    try {
+        const res = await fetch(`/.netlify/functions/get-assistant-metrics?id=${assistantId}`);
+        if (!res.ok) return;
+        const d = await res.json();
+
+        if (!d.totalCreated) return; // no posts yet — keep card hidden
+
+        card.classList.remove('hidden');
+
+        const el = id => document.getElementById(id);
+        el('metrics-total-created').textContent = d.totalCreated.toLocaleString();
+        el('metrics-total-scheduled').textContent = d.totalScheduled.toLocaleString();
+        el('metrics-total-published').textContent = d.totalPublished.toLocaleString();
+        el('metrics-hours-saved').textContent = `~${d.hoursSaved}h`;
+
+        if (d.gbpSaved !== null) {
+            el('metrics-gbp-saved').textContent = `£${d.gbpSaved.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+            el('metrics-roi-note').textContent = `At your configured hourly rate`;
+        } else {
+            el('metrics-gbp-saved').textContent = '—';
+            el('metrics-roi-note').innerHTML = `<a href="#" onclick="loadView && loadView('account'); return false" class="text-emerald-600 hover:underline">Set your hourly rate</a> to see £ ROI`;
+        }
+
+        // Per-platform breakdown table
+        const platformEl = el('metrics-by-platform');
+        if (platformEl && d.byPlatform) {
+            const rows = Object.entries(d.byPlatform)
+                .filter(([, v]) => v.created > 0)
+                .sort(([, a], [, b]) => b.created - a.created)
+                .map(([p, v]) => {
+                    const icon = (window._PLATFORM_ICONS || {})[p] || '';
+                    const label = (window._PLATFORM_LABEL || {})[p] || p.charAt(0).toUpperCase() + p.slice(1);
+                    const pct = d.totalCreated > 0 ? Math.round((v.published / d.totalCreated) * 100) : 0;
+                    return `<div class="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                        <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                            <span class="text-gray-400">${icon}</span>${label}
+                        </div>
+                        <div class="flex items-center gap-4 text-xs font-semibold">
+                            <span class="text-gray-500">${v.created} created</span>
+                            <span class="text-blue-600">${v.scheduled} scheduled</span>
+                            <span class="text-emerald-600">${v.published} published</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            platformEl.innerHTML = rows || '<p class="text-xs text-gray-400">No platform data yet.</p>';
+        }
+    } catch {
+        // silently skip — metrics are supplementary
+    }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // AC6: Daily Relationship-Building Checklist — loads today's actions, renders

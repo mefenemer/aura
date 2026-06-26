@@ -6,7 +6,7 @@
 // tosAcceptances, dpaAcceptances, and contentRules (Kick Off meeting milestones).
 
 import { Handler } from '@netlify/functions';
-import { eq, and, desc, inArray } from 'drizzle-orm';
+import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
 import {
     aiAssistants,
@@ -43,7 +43,11 @@ export const handler: Handler = async (event) => {
         // IDOR guard — also capture userId so we can scope TOS acceptances to the assistant owner
         const ownedAssistant = await withTenant(orgId, async (tx) => {
             const [row] = await tx
-                .select({ id: aiAssistants.id, userId: aiAssistants.userId })
+                .select({
+                    id: aiAssistants.id,
+                    userId: aiAssistants.userId,
+                    roleKey: sql<string | null>`(${aiAssistants.configuration} ->> 'type')`,
+                })
                 .from(aiAssistants)
                 .where(and(eq(aiAssistants.id, aId), eq(aiAssistants.organisationId, orgId)))
                 .limit(1);
@@ -53,6 +57,8 @@ export const handler: Handler = async (event) => {
             return { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found.' }) };
         }
         const assistantUserId = ownedAssistant.userId;
+        // Relationship building tasks belong to a future assistant type, not SMM.
+        const supportsRelationshipTasks = ownedAssistant.roleKey !== 'social_media_manager';
 
         // Run all queries in parallel
         const [genJobs, posts, ideas, mediaJobs, rbtRows, auditRows, tosRows, dpaRows, ruleRows] = await Promise.all([
@@ -125,22 +131,24 @@ export const handler: Handler = async (event) => {
             .orderBy(desc(mediaGenerationJobs.createdAt))
             .limit(limit),
 
-            // Relationship building tasks
-            db.select({
-                id: relationshipBuildingTasks.id,
-                title: relationshipBuildingTasks.title,
-                category: relationshipBuildingTasks.category,
-                taskDate: relationshipBuildingTasks.taskDate,
-                completed: relationshipBuildingTasks.completed,
-                createdAt: relationshipBuildingTasks.createdAt,
-            })
-            .from(relationshipBuildingTasks)
-            .where(and(
-                eq(relationshipBuildingTasks.assistantId, aId),
-                eq(relationshipBuildingTasks.organisationId, orgId),
-            ))
-            .orderBy(desc(relationshipBuildingTasks.createdAt))
-            .limit(limit),
+            // Relationship building tasks — only for assistant types that support this feature.
+            supportsRelationshipTasks
+                ? db.select({
+                    id: relationshipBuildingTasks.id,
+                    title: relationshipBuildingTasks.title,
+                    category: relationshipBuildingTasks.category,
+                    taskDate: relationshipBuildingTasks.taskDate,
+                    completed: relationshipBuildingTasks.completed,
+                    createdAt: relationshipBuildingTasks.createdAt,
+                })
+                .from(relationshipBuildingTasks)
+                .where(and(
+                    eq(relationshipBuildingTasks.assistantId, aId),
+                    eq(relationshipBuildingTasks.organisationId, orgId),
+                ))
+                .orderBy(desc(relationshipBuildingTasks.createdAt))
+                .limit(limit)
+                : Promise.resolve([] as { id: number; title: string; category: string | null; taskDate: string | null; completed: boolean; createdAt: Date }[]),
 
             // Audit log entries — covers both the legacy 'assistant' resourceType and
             // the 'ai_assistants' type written by transitionAssistantStatus (lifecycle events,

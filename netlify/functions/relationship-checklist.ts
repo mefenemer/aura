@@ -116,7 +116,13 @@ async function loadAssistant(
 
     if (!assistant) return { error: { statusCode: 404, body: JSON.stringify({ error: 'Assistant not found' }) } };
 
-    const roleArg = { roleKey: (assistant.configuration as { type?: string } | null)?.type, role: assistant.name };
+    const roleKey = (assistant.configuration as { type?: string } | null)?.type;
+    // Relationship building checklist is reserved for a future assistant type; explicitly not
+    // supported by the Social Media Manager.
+    if (roleKey === 'social_media_manager') {
+        return { error: { statusCode: 403, body: JSON.stringify({ error: 'Relationship building checklist is not available for this assistant type.', code: 'FEATURE_NOT_SUPPORTED' }) } };
+    }
+    const roleArg = { roleKey, role: assistant.name };
     if (!isServiceAllowedForAssistant('instagram', roleArg) && !isServiceAllowedForAssistant('linkedin', roleArg)) {
         return { error: { statusCode: 403, body: JSON.stringify({ error: 'This assistant does not manage social engagement.', code: 'CONNECTION_NOT_RELEVANT' }) } };
     }

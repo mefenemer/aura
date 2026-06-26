@@ -3,12 +3,39 @@
 (function () {
 
 // ── Config ────────────────────────────────────────────────────────
-const PLATFORM_META = {
-    facebook:  { label: 'Facebook',   emoji: '📘', bg: 'bg-blue-600',   text: 'text-white' },
-    instagram: { label: 'Instagram',  emoji: '📸', bg: 'bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400', text: 'text-white' },
-    linkedin:  { label: 'LinkedIn',   emoji: '💼', bg: 'bg-blue-700',   text: 'text-white' },
-    x:         { label: 'X (Twitter)', emoji: '✕', bg: 'bg-gray-950',   text: 'text-white' },
+// SVG brand logos for each platform, sized for chip use (16×16).
+const PLATFORM_LOGOS = {
+    facebook: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-full h-full"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.874v2.25h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>`,
+    instagram: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-full h-full"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>`,
+    linkedin:  `<svg viewBox="0 0 24 24" fill="currentColor" class="w-full h-full"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>`,
+    x:         `<svg viewBox="0 0 24 24" fill="currentColor" class="w-full h-full"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`,
 };
+
+const PLATFORM_META = {
+    facebook:  { label: 'Facebook',    bg: '#1877F2', text: 'text-white' },
+    instagram: { label: 'Instagram',   bg: 'linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)', text: 'text-white' },
+    linkedin:  { label: 'LinkedIn',    bg: '#0A66C2', text: 'text-white' },
+    x:         { label: 'X (Twitter)', bg: '#000000', text: 'text-white' },
+};
+
+// Returns a platform logo rendered in a sized container (inline SVG).
+function _platLogo(platform, size = 'sm') {
+    const svg = PLATFORM_LOGOS[platform];
+    const px = size === 'lg' ? '20px' : size === 'md' ? '16px' : '13px';
+    if (!svg) return `<span style="font-size:${px}">📣</span>`;
+    return `<span style="display:inline-flex;width:${px};height:${px};color:#fff;flex-shrink:0">${svg}</span>`;
+}
+
+// Returns a circular platform avatar (logo on brand bg) for list/panel use.
+function _platAvatar(platform, sizePx = 36) {
+    const meta = PLATFORM_META[platform];
+    const logo = PLATFORM_LOGOS[platform];
+    const bg = meta ? meta.bg : '#9ca3af';
+    const inner = logo
+        ? `<span style="display:flex;width:${Math.round(sizePx*0.5)}px;height:${Math.round(sizePx*0.5)}px;color:#fff">${logo}</span>`
+        : `<span style="font-size:${Math.round(sizePx*0.45)}px;color:#fff">📣</span>`;
+    return `<div style="width:${sizePx}px;height:${sizePx}px;border-radius:10px;background:${bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.15)">${inner}</div>`;
+}
 
 const STATUS_META = {
     draft:           { label: 'Draft',       badge: 'bg-gray-100 text-gray-600 border-gray-300',   chipBorder: 'border-gray-400',    dot: 'bg-gray-400' },
@@ -53,6 +80,7 @@ let _listFilter = 'all';         // 'all' | 'pending' | 'approved' | 'published'
 let _activities = [];            // completed task runs (get-calendar-activity)
 let _assistants = [];            // org assistants for names + colour assignment
 let _assistantFilter = 'all';    // 'all' | <assistantId>
+let _platformFilter  = 'all';    // 'all' | 'facebook' | 'instagram' | 'linkedin' | 'x'
 
 // Stable colour palette assigned to assistants by load order (inline styles → no Tailwind
 // arbitrary-class compile issues). Null/unknown assistant → neutral grey.
@@ -70,6 +98,9 @@ function _assistantName(id) {
 }
 function _matchesAssistantFilter(assistantId) {
     return _assistantFilter === 'all' || String(assistantId) === String(_assistantFilter);
+}
+function _matchesPlatformFilter(platform) {
+    return _platformFilter === 'all' || platform === _platformFilter;
 }
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -140,7 +171,7 @@ async function _loadAndRender() {
     _render();
 }
 
-// Populate the assistant filter dropdown + colour legend (once assistants are loaded).
+// Populate the assistant + platform filter dropdowns and colour legend.
 function _renderAssistantControls() {
     const sel = document.getElementById('cal-assistant-filter');
     if (sel) {
@@ -152,6 +183,14 @@ function _renderAssistantControls() {
             sel.addEventListener('change', () => { _assistantFilter = sel.value; _render(); });
         }
     }
+
+    const psel = document.getElementById('cal-platform-filter');
+    if (psel && !psel.dataset.bound) {
+        psel.dataset.bound = '1';
+        psel.addEventListener('change', () => { _platformFilter = psel.value; _render(); });
+    }
+    if (psel) psel.value = _platformFilter;
+
     const legend = document.getElementById('cal-legend');
     if (legend) {
         legend.innerHTML = _assistants.map(a =>
@@ -347,7 +386,7 @@ window._calSetListFilter = function (key) {
 
 // ── Post chip (month/week) ────────────────────────────────────────
 function _postChip(post, viewType) {
-    const plat = PLATFORM_META[post.platform] || { emoji: '📣', bg: 'bg-gray-500', text: 'text-white' };
+    const plat = PLATFORM_META[post.platform] || { label: post.platform, bg: '#9ca3af', text: 'text-white' };
     const sm = STATUS_META[post.status] || STATUS_META.draft;
     const posted = post.status === 'published';
     const publishing = post.status === 'publishing';
@@ -394,7 +433,7 @@ function _postChip(post, viewType) {
         class="group flex items-center gap-1.5 px-2 py-1 rounded-lg ${chipBg} shadow-sm cursor-pointer transition select-none text-left w-full"
         style="border-left:3px solid ${asstColor}"
         title="${_escHtml(asstName)} · ${_escHtml(post.caption || post.platform)}${titleSuffix}">
-        <span class="text-xs">${plat.emoji}</span>
+        ${_platLogo(post.platform, 'sm')}
         <div class="flex-1 min-w-0">
             <p class="text-[11px] font-bold ${timeColor} truncate">${overdue ? '⚠ ' : ''}${time}</p>
             ${viewType === 'week' ? `<p class="text-[11px] text-gray-500 truncate leading-tight">${_escHtml((post.caption || '').substring(0, 40))}</p>` : ''}
@@ -423,7 +462,7 @@ function _activityChip(act, viewType) {
 
 // ── List row ──────────────────────────────────────────────────────
 function _listRow(post) {
-    const plat = PLATFORM_META[post.platform] || { emoji: '📣', label: post.platform, bg: 'bg-gray-500', text: 'text-white' };
+    const plat = PLATFORM_META[post.platform] || { label: post.platform, bg: '#9ca3af', text: 'text-white' };
     const sm = STATUS_META[post.status] || STATUS_META.draft;
     const posted = post.status === 'published';
     const overdue = _isOverdue(post);
@@ -448,7 +487,7 @@ function _listRow(post) {
 
     return `<div onclick="window._calOpenPost(${post.id})"
         class="flex items-start gap-4 bg-white border border-gray-200 rounded-xl px-5 py-4 hover:border-emerald-300 hover:shadow-sm cursor-pointer transition">
-        <div class="w-9 h-9 rounded-xl ${plat.bg} ${plat.text} flex items-center justify-center text-base font-bold shrink-0 mt-0.5 shadow-sm">${plat.emoji}</div>
+        ${_platAvatar(post.platform, 36)}
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
                 <span class="text-sm font-extrabold text-gray-900">${plat.label}</span>
@@ -494,8 +533,9 @@ window._calOpenPost = async function (postId) {
 
     // ── Header ────────────────────────────────────────────────────
     const iconEl = document.getElementById('panel-platform-icon');
-    iconEl.className = `w-9 h-9 rounded-xl flex items-center justify-center text-base font-bold shadow-sm shrink-0 ${plat.bg} ${plat.text}`;
-    iconEl.textContent = plat.emoji;
+    iconEl.className = 'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm overflow-hidden';
+    iconEl.style.background = plat.bg || '#9ca3af';
+    iconEl.innerHTML = `<span style="display:flex;width:20px;height:20px;color:#fff">${PLATFORM_LOGOS[post.platform] || '📣'}</span>`;
     document.getElementById('panel-platform-name').textContent = plat.label;
     const overdue = _isOverdue(post);
     const subEl = document.getElementById('panel-publish-date');
@@ -1186,6 +1226,7 @@ function _postsOnDate(date) {
     return _posts.filter(p => {
         if (!p.publishDate) return false;
         if (!_matchesAssistantFilter(p.assistantId)) return false;
+        if (!_matchesPlatformFilter(p.platform)) return false;
         return _dateKey(new Date(p.publishDate)) === key;
     });
 }

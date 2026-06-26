@@ -35,6 +35,12 @@ export const ASSISTANT_FEATURES: readonly AssistantFeature[] = [
         description: 'Generate videos with AI in My Content (a premium plan is also required).',
         category: 'Media',
     },
+    {
+        key: 'relationship_building_checklist',
+        label: 'Relationship Building Checklist',
+        description: 'Daily AI-generated checklist of engagement, outreach, and community tasks. Reserved for a future assistant type — not available for Social Media Manager.',
+        category: 'Engagement',
+    },
 ] as const;
 
 export const ASSISTANT_FEATURE_KEYS = ASSISTANT_FEATURES.map(f => f.key);

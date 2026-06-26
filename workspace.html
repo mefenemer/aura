@@ -564,6 +564,27 @@ async function submitTosAcceptance(btn) {
         </div>
         <div id="post-review-media-host"></div>
       </div>
+      <!-- Reschedule panel: natural-language instruction OR explicit datetime picker -->
+      <div id="post-review-reschedule" class="hidden space-y-2.5">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">Ask your assistant when to post this</label>
+          <textarea id="post-review-reschedule-instruction" rows="2" maxlength="300"
+            placeholder='e.g. "Next Friday at 3pm" or "This Sunday morning"'
+            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"></textarea>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <span class="text-xs text-gray-400 shrink-0">or pick a date &amp; time</span>
+          <div class="flex-1 h-px bg-gray-200"></div>
+        </div>
+        <input id="post-review-reschedule-dt" type="datetime-local"
+          class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+        <p id="post-review-reschedule-status" class="hidden text-xs text-gray-500 italic"></p>
+        <div class="flex gap-2">
+          <button onclick="rqReviewReschedule()" class="flex-1 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer">Reschedule</button>
+          <button onclick="rqReviewToggle()" class="py-2.5 px-4 text-xs font-bold text-gray-500 hover:bg-gray-50 rounded-lg cursor-pointer">Cancel</button>
+        </div>
+      </div>
       <div id="post-review-buttons" class="grid grid-cols-2 gap-2">
         <button onclick="rqReviewApprove()" class="col-span-2 py-3 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Approve — let the assistant schedule it</button>
         <button onclick="rqReviewAddMedia()" class="col-span-2 py-2.5 text-xs font-bold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5">
@@ -572,7 +593,8 @@ async function submitTosAcceptance(btn) {
         </button>
         <button onclick="rqReviewToggle('amend')" class="py-2.5 text-xs font-bold border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition cursor-pointer">Amend myself</button>
         <button onclick="rqReviewToggle('changes')" class="py-2.5 text-xs font-bold border border-violet-300 text-violet-700 hover:bg-violet-50 rounded-lg transition cursor-pointer">Request changes</button>
-        <button onclick="rqReviewToggle('reject')" class="col-span-2 py-2.5 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer">Reject</button>
+        <button onclick="rqReviewToggle('reschedule')" class="py-2.5 text-xs font-bold border border-blue-300 text-blue-700 hover:bg-blue-50 rounded-lg transition cursor-pointer">Reschedule</button>
+        <button onclick="rqReviewToggle('reject')" class="py-2.5 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer">Reject</button>
       </div>
     </div>
   </div>
@@ -4059,7 +4081,8 @@ function openPostReview(postId) {
     } else if (post.status === 'scheduled' || post.status === 'approved') {
         noteEl.className = 'mt-4 text-xs rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-blue-700';
         noteEl.innerHTML = `<p class="font-semibold">${post.status === 'scheduled' ? 'Scheduled' : 'Approved'}</p>
-          <p class="mt-0.5">${when ? `Goes out ${_rqEsc(when)}.` : 'Awaiting a slot from your assistant.'}</p>`;
+          <p class="mt-0.5">${when ? `Goes out ${_rqEsc(when)}.` : 'Awaiting a slot from your assistant.'}</p>
+          <button onclick="rqReviewOpenRescheduleOnly()" class="mt-2 py-1.5 px-3 text-xs font-bold border border-blue-400 text-blue-700 hover:bg-blue-100 rounded-lg cursor-pointer">Change schedule</button>`;
         noteEl.classList.remove('hidden');
     } else if (post.status === 'published') {
         noteEl.className = 'mt-4 text-xs rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-emerald-700';
@@ -4130,11 +4153,18 @@ function rqReviewMediaDone() {
     rqReviewToggle();
 }
 
-// Show one inline form (amend/changes/reject/media) and hide the primary buttons; no arg → buttons.
+// Show one inline form (amend/changes/reject/media/reschedule) and hide the primary buttons; no arg → buttons.
 function rqReviewToggle(which) {
-    ['amend', 'changes', 'reject', 'media'].forEach(k => document.getElementById('post-review-' + k).classList.add('hidden'));
+    ['amend', 'changes', 'reject', 'media', 'reschedule'].forEach(k => document.getElementById('post-review-' + k).classList.add('hidden'));
     const buttons = document.getElementById('post-review-buttons');
     if (which) {
+        if (which === 'reschedule') {
+            // Reset the reschedule panel state.
+            document.getElementById('post-review-reschedule-instruction').value = '';
+            document.getElementById('post-review-reschedule-dt').value = '';
+            const st = document.getElementById('post-review-reschedule-status');
+            st.textContent = ''; st.classList.add('hidden');
+        }
         document.getElementById('post-review-' + which).classList.remove('hidden');
         buttons.classList.add('hidden');
     } else {
@@ -4227,6 +4257,62 @@ async function rqReviewRequestChanges() {
         if (window.showToast) window.showToast('Sent to the assistant — the revised draft will appear shortly.');
         _rqReviewRefresh();
     } catch { alert('Network error — please try again.'); }
+}
+
+function rqReviewOpenRescheduleOnly() {
+    // For scheduled/approved posts the actions footer is hidden — reveal it and go straight to reschedule.
+    document.getElementById('post-review-actions').classList.remove('hidden');
+    rqReviewToggle('reschedule');
+}
+
+async function rqReviewReschedule() {
+    const id = _rqReviewPostId;
+    if (!id) return;
+    const instruction = document.getElementById('post-review-reschedule-instruction').value.trim();
+    const dtValue     = document.getElementById('post-review-reschedule-dt').value;
+    const statusEl    = document.getElementById('post-review-reschedule-status');
+
+    if (!instruction && !dtValue) {
+        statusEl.textContent = 'Describe when to post it, or pick a date and time.';
+        statusEl.className = 'text-xs text-red-500 italic';
+        statusEl.classList.remove('hidden');
+        return;
+    }
+
+    const btn = document.querySelector('#post-review-reschedule button');
+    if (btn) { btn.disabled = true; btn.textContent = instruction ? 'Asking assistant…' : 'Rescheduling…'; }
+    statusEl.textContent = instruction ? 'Your assistant is working out the best time…' : 'Rescheduling…';
+    statusEl.className = 'text-xs text-gray-500 italic';
+    statusEl.classList.remove('hidden');
+
+    try {
+        const payload = { postId: id };
+        if (instruction) payload.instruction = instruction;
+        if (dtValue) payload.rescheduleAt = new Date(dtValue).toISOString();
+        const res = await fetch('/.netlify/functions/reschedule-post-chat', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            statusEl.textContent = d.error || 'Could not reschedule — please try again.';
+            statusEl.className = 'text-xs text-red-500 italic';
+            if (btn) { btn.disabled = false; btn.textContent = 'Reschedule'; }
+            return;
+        }
+        // Update the cached post and re-render the modal header.
+        if (_rqPostCache[id]) {
+            _rqPostCache[id].publishDate = d.scheduledFor;
+            _rqPostCache[id].status = ['draft','pending_approval','in_review'].includes(_rqPostCache[id].status)
+                ? _rqPostCache[id].status : 'scheduled';
+        }
+        if (window.showToast) window.showToast(d.confirmation || 'Post rescheduled.');
+        _rqReviewRefresh();
+    } catch {
+        statusEl.textContent = 'Network error — please try again.';
+        statusEl.className = 'text-xs text-red-500 italic';
+        if (btn) { btn.disabled = false; btn.textContent = 'Reschedule'; }
+    }
 }
 
 async function rqReviewReject() {
