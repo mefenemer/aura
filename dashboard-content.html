@@ -110,6 +110,35 @@
       </div>
     </section>
 
+    <!-- ════════════════════════════════════════════════════════════════════
+         US-DASH-2: The Proactive "Action Stream"
+         AC1 live "Currently working on" · AC2 "Requires your attention" feed
+         with one-click Approve/Edit/Reject · AC3 proactive suggestion cards.
+         Hidden until there is at least one item, to keep the dashboard calm.
+         ════════════════════════════════════════════════════════════════════ -->
+    <section id="action-stream" class="mb-10 hidden">
+      <!-- AC1: live status -->
+      <div id="as-live" class="as-live hidden"></div>
+
+      <!-- AC2: requires your attention -->
+      <div id="as-attention-wrap" class="hidden">
+        <div class="as-head">
+          <h3 class="as-h3">Requires your attention</h3>
+          <span id="as-attention-count" class="as-badge">0</span>
+        </div>
+        <div id="as-attention" class="as-grid"></div>
+      </div>
+
+      <!-- AC3: proactive suggestions -->
+      <div id="as-suggest-wrap" class="hidden">
+        <div class="as-head">
+          <h3 class="as-h3">Ideas from your team</h3>
+          <span class="as-sub">One tap and they'll get started</span>
+        </div>
+        <div id="as-suggest" class="as-suggest-row"></div>
+      </div>
+    </section>
+
     <!-- Dynamic Assistants Grid -->
     <div id="dashboard-assistants-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div class="col-span-full py-12 text-center text-gray-500 font-medium bg-white rounded-2xl border border-gray-100 shadow-sm animate-pulse">
@@ -332,5 +361,225 @@
 
     renderMetrics();
     renderHeatmap();
+  })();
+</script>
+
+<style>
+  /* US-DASH-2 — Action Stream. Scoped plain CSS (immune to prebuilt-Tailwind). */
+  .as-head { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+  .as-h3 { font-size: 16px; font-weight: 800; color: #0f172a; margin: 0; }
+  .as-sub { font-size: 13px; color: #94a3b8; }
+  .as-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px;
+    padding: 0 7px; border-radius: 999px; background: #f59e0b; color: #fff; font-size: 12px; font-weight: 700; }
+
+  /* AC1 — live banner */
+  .as-live { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 18px; margin-bottom: 22px;
+    border-radius: 16px; background: linear-gradient(120deg, rgba(16,185,129,0.10), rgba(99,102,241,0.08));
+    border: 1px solid rgba(16,185,129,0.22); }
+  .as-live-pulse { position: relative; width: 10px; height: 10px; border-radius: 50%; background: #10b981; flex: 0 0 auto; }
+  .as-live-pulse::after { content: ''; position: absolute; inset: -6px; border-radius: 50%;
+    background: rgba(16,185,129,0.35); animation: asPulse 1.6s ease-out infinite; }
+  @keyframes asPulse { 0% { transform: scale(.6); opacity: .8 } 100% { transform: scale(1.8); opacity: 0 } }
+  .as-live-label { font-size: 12px; font-weight: 700; color: #047857; text-transform: uppercase; letter-spacing: .06em; }
+  .as-live-items { display: flex; gap: 8px; flex-wrap: wrap; }
+  .as-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px;
+    background: rgba(255,255,255,0.85); border: 1px solid rgba(15,23,42,0.08); font-size: 13px; color: #334155; }
+
+  /* AC2 — attention cards */
+  .as-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .as-grid { grid-template-columns: 1fr; } }
+  .as-card { position: relative; padding: 16px 16px 14px; border-radius: 16px; background: #fff;
+    border: 1px solid rgba(15,23,42,0.08); box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    transition: box-shadow .2s ease, transform .25s ease, opacity .25s ease; }
+  .as-card:hover { box-shadow: 0 14px 26px -16px rgba(6,78,59,0.35); }
+  .as-card.as-removing { opacity: 0; transform: translateY(-6px) scale(.98); }
+  .as-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .as-card-assist { font-size: 12px; font-weight: 700; color: #059669; }
+  .as-pill { margin-left: auto; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; color: #64748b; }
+  .as-pill-warn { background: #fef3c7; color: #b45309; }
+  .as-card-title { font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 4px; }
+  .as-card-prev { font-size: 13px; color: #64748b; margin: 0 0 12px; line-height: 1.45; }
+  .as-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .as-btn { border: 0; cursor: pointer; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 10px; transition: all .15s ease; }
+  .as-btn-approve { background: #10b981; color: #fff; }
+  .as-btn-approve:hover { background: #059669; }
+  .as-btn-edit { background: #f1f5f9; color: #334155; }
+  .as-btn-edit:hover { background: #e2e8f0; }
+  .as-btn-reject { background: #fff; color: #dc2626; border: 1px solid #fecaca; }
+  .as-btn-reject:hover { background: #fef2f2; }
+  .as-btn:disabled { opacity: .5; cursor: default; }
+  .as-reject-box { margin-top: 10px; display: none; }
+  .as-reject-box.open { display: block; }
+  .as-reject-input { width: 100%; font-size: 13px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 10px; resize: vertical; min-height: 54px; font-family: inherit; }
+  .as-reject-row { display: flex; gap: 8px; margin-top: 8px; }
+
+  /* AC3 — suggestion cards */
+  .as-suggest-row { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 4px; }
+  .as-sg { flex: 0 0 300px; max-width: 300px; padding: 16px; border-radius: 16px;
+    background: linear-gradient(160deg, #eef2ff, #ffffff); border: 1px solid rgba(99,102,241,0.2);
+    transition: transform .25s ease, opacity .25s ease; }
+  .as-sg.as-removing { opacity: 0; transform: translateY(-6px) scale(.98); }
+  .as-sg-top { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12px; font-weight: 700; color: #4f46e5; }
+  .as-sg-idea { font-size: 14px; color: #1e293b; line-height: 1.5; margin: 0 0 14px; }
+  .as-sg-actions { display: flex; gap: 8px; align-items: center; }
+  .as-btn-yes { background: #4f46e5; color: #fff; }
+  .as-btn-yes:hover { background: #4338ca; }
+  .as-btn-later { background: transparent; color: #94a3b8; padding: 8px 6px; }
+  .as-btn-later:hover { color: #64748b; }
+</style>
+
+<script>
+  (function () {
+    // ── US-DASH-2: Proactive Action Stream ──────────────────────────────────
+    const section = document.getElementById('action-stream');
+    if (!section) return;
+
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const toast = (m, o) => (window.showToast ? window.showToast(m, o) : null);
+
+    function removeCard(el, sel, after) {
+      if (!el) return;
+      el.classList.add('as-removing');
+      setTimeout(() => { el.remove(); after && after(); }, 280);
+    }
+
+    function reconcile() {
+      const att = document.getElementById('as-attention');
+      const sg = document.getElementById('as-suggest');
+      const live = document.getElementById('as-live');
+      const attN = att ? att.querySelectorAll('.as-card').length : 0;
+      const sgN = sg ? sg.querySelectorAll('.as-sg').length : 0;
+      const countEl = document.getElementById('as-attention-count');
+      if (countEl) countEl.textContent = attN;
+      document.getElementById('as-attention-wrap').classList.toggle('hidden', attN === 0);
+      document.getElementById('as-suggest-wrap').classList.toggle('hidden', sgN === 0);
+      const liveVisible = live && !live.classList.contains('hidden');
+      section.classList.toggle('hidden', attN === 0 && sgN === 0 && !liveVisible);
+    }
+
+    // ── AC2: approvals ──
+    async function approvePost(id, btn, card) {
+      btn.disabled = true; btn.textContent = 'Approving…';
+      try {
+        const res = await fetch('/.netlify/functions/approve-post', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: id, action: 'approve' }) });
+        if (res.status === 409) { // scheduled time is in the past → hand off to the full review modal
+          if (window.openPostReview) window.openPostReview(id);
+          btn.disabled = false; btn.textContent = 'Approve'; return;
+        }
+        if (!res.ok) throw 0;
+        toast('Approved — your assistant will publish it. ✅', { icon: '✅' });
+        removeCard(card, null, reconcile);
+      } catch { btn.disabled = false; btn.textContent = 'Approve'; toast('Could not approve — please try again.'); }
+    }
+    async function rejectPost(id, reason, card) {
+      try {
+        const res = await fetch('/.netlify/functions/reject-post', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: id, feedbackText: reason, applyAsRule: false }) });
+        if (!res.ok) throw 0;
+        toast('Sent back with your feedback.');
+        removeCard(card, null, reconcile);
+      } catch { toast('Could not send that — please try again.'); }
+    }
+    async function decideAction(id, decision, reason, card, btn) {
+      if (btn) { btn.disabled = true; }
+      try {
+        const res = await fetch('/.netlify/functions/approve-pending-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pendingActionId: id, decision, rejectionReason: reason }) });
+        if (!res.ok) throw 0;
+        toast(decision === 'approved' ? 'Approved. ✅' : 'Declined.');
+        removeCard(card, null, reconcile);
+      } catch { if (btn) btn.disabled = false; toast('Could not update — please try again.'); }
+    }
+
+    function attentionCard(item) {
+      const isPost = item.kind === 'post';
+      const card = document.createElement('div');
+      card.className = 'as-card';
+      const pill = item.platform
+        ? `<span class="as-pill">${esc(item.platform)}</span>`
+        : (item.reversibilityTier ? `<span class="as-pill ${item.reversibilityTier !== 'reversible' ? 'as-pill-warn' : ''}">${esc(item.reversibilityTier)}</span>` : '');
+      card.innerHTML = `
+        <div class="as-card-top"><span class="as-card-assist">${esc(item.assistantName)}</span>${pill}</div>
+        <p class="as-card-title">${esc(item.title)}</p>
+        ${item.preview ? `<p class="as-card-prev">${esc(item.preview)}${isPost && item.preview.length >= 140 ? '…' : ''}</p>` : ''}
+        <div class="as-actions">
+          <button class="as-btn as-btn-approve">Approve</button>
+          ${isPost ? '<button class="as-btn as-btn-edit">Edit</button>' : ''}
+          <button class="as-btn as-btn-reject">Reject</button>
+        </div>
+        <div class="as-reject-box">
+          <textarea class="as-reject-input" placeholder="${isPost ? 'What should change? (saved as feedback)' : 'Why are you declining this?'}"></textarea>
+          <div class="as-reject-row">
+            <button class="as-btn as-btn-reject as-reject-confirm">Confirm reject</button>
+            <button class="as-btn as-btn-edit as-reject-cancel">Cancel</button>
+          </div>
+        </div>`;
+      const approveBtn = card.querySelector('.as-btn-approve');
+      approveBtn.onclick = () => isPost ? approvePost(item.id, approveBtn, card) : decideAction(item.id, 'approved', undefined, card, approveBtn);
+      if (isPost) {
+        const editBtn = card.querySelector('.as-btn-edit');
+        if (editBtn) editBtn.onclick = () => { if (window.openPostReview) window.openPostReview(item.id); else if (window.loadView) window.loadView('review-queue'); };
+      }
+      const box = card.querySelector('.as-reject-box');
+      card.querySelector('.as-btn-reject').onclick = () => { box.classList.toggle('open'); if (box.classList.contains('open')) box.querySelector('.as-reject-input').focus(); };
+      card.querySelector('.as-reject-cancel').onclick = () => box.classList.remove('open');
+      card.querySelector('.as-reject-confirm').onclick = () => {
+        const input = card.querySelector('.as-reject-input');
+        const v = input.value.trim();
+        if (!v) { input.focus(); return; }
+        isPost ? rejectPost(item.id, v, card) : decideAction(item.id, 'rejected', v, card);
+      };
+      return card;
+    }
+
+    // ── AC3: act on a suggestion ──
+    async function actOnIdea(item, btn, card) {
+      btn.disabled = true; btn.textContent = 'On it…';
+      try {
+        const platform = item.platform ? item.platform.split(',')[0] : undefined;
+        const res = await fetch('/.netlify/functions/generate-post', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assistantId: item.assistantId, platform, contextPrompt: item.idea, triggerType: 'on_demand' }) });
+        if (!res.ok) throw 0;
+        toast('On it — drafting this now. Find it in your review queue shortly. ✨', { icon: '✨' });
+        removeCard(card, null, reconcile);
+      } catch { btn.disabled = false; btn.textContent = 'Yes, please'; toast('Could not start that — please try again.'); }
+    }
+    function suggestCard(item) {
+      const card = document.createElement('div'); card.className = 'as-sg';
+      card.innerHTML = `
+        <div class="as-sg-top">💡 ${esc(item.assistantName)}${item.platformLabel ? ` · ${esc(item.platformLabel)}` : ''}</div>
+        <p class="as-sg-idea">${esc(item.idea)}</p>
+        <div class="as-sg-actions">
+          <button class="as-btn as-btn-yes">Yes, please</button>
+          <button class="as-btn as-btn-later">Maybe later</button>
+        </div>`;
+      const yes = card.querySelector('.as-btn-yes');
+      yes.onclick = () => actOnIdea(item, yes, card);
+      card.querySelector('.as-btn-later').onclick = () => removeCard(card, null, reconcile);
+      return card;
+    }
+
+    async function render() {
+      try {
+        const res = await fetch('/.netlify/functions/dashboard-action-stream');
+        if (!res.ok) return;
+        const d = await res.json();
+
+        const live = document.getElementById('as-live');
+        if (d.working && d.working.length) {
+          live.innerHTML = '<span class="as-live-pulse"></span><span class="as-live-label">Working now</span><div class="as-live-items">'
+            + d.working.slice(0, 4).map(w => `<span class="as-chip">${esc(w.icon)} <strong>${esc(w.assistantName)}</strong> — ${esc(w.label)}</span>`).join('')
+            + '</div>';
+          live.classList.remove('hidden');
+        } else { live.classList.add('hidden'); }
+
+        const att = document.getElementById('as-attention'); att.innerHTML = '';
+        (d.attention || []).forEach(i => att.appendChild(attentionCard(i)));
+
+        const sg = document.getElementById('as-suggest'); sg.innerHTML = '';
+        (d.suggestions || []).forEach(i => sg.appendChild(suggestCard(i)));
+
+        reconcile();
+      } catch (_) { /* silent — dashboard still renders without the stream */ }
+    }
+
+    render();
   })();
 </script>

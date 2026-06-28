@@ -1410,7 +1410,11 @@ function formatCurrency(amount, currency) {
         // Initialize engine lifecycles depending on route targets
         // =======================================================
         if (routeKey === 'dashboard') {
-          await initDashboard();
+          // Use the wizard-aware dashboard init (window.initDashboard) — it renders the
+          // dashboard AND auto-opens the setup wizard for users still onboarding. Calling it
+          // explicitly avoids the bare `initDashboard()` reference resolving to the now-removed
+          // local duplicate, which never opened the wizard.
+          await window.initDashboard();
           // US-AUD-5.2.1: Check if upgrade moment should fire (non-blocking)
           setTimeout(() => window._maybeShowUpgradeMoment?.(), 3000);
         }
@@ -3057,12 +3061,10 @@ function formatCurrency(amount, currency) {
       }
     }
   }
-  // In workspace.html or dashboard.js
-  async function initDashboard() {
-    // US1.1 + US2.1: render the 3-step onboarding widget + Time Saved card, then the team grid.
-    await window._renderDashboardEngagement();
-    await fetchAndRenderAssistants('dashboard-assistants-grid');
-  }
+  // NOTE: the dashboard initialiser lives at window.initDashboard (defined below). It renders
+  // the engagement widget + team grid AND auto-opens the setup wizard. A duplicate local
+  // initDashboard used to sit here and silently shadowed it (so the wizard never opened on
+  // login) — it was removed; do not reintroduce it.
   // 1. Shared Card Generator
   window.generateAssistantCardHTML = function(assistant) {
     const initial = assistant.name ? assistant.name.charAt(0).toUpperCase() : 'A';
