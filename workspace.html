@@ -3660,38 +3660,21 @@ function formatCurrency(amount, currency) {
 
   // US1.1 + US2.1: render the onboarding progress widget and the Time Saved card.
   window._renderDashboardEngagement = async function () {
-    // ── Onboarding 3-step widget ──
+    // ── Onboarding feature-gating sync (no UI) ──
+    // The slide-over Setup Wizard (window.SetupWizard / get-wizard-state) is the SINGLE
+    // onboarding guidance + celebration surface now — the legacy inline 3-step dashboard
+    // widget is retired and the wizard owns the go-live celebration. We still ping
+    // get-onboarding-progress here for its one remaining job: server-side it flips
+    // organisations.onboarding_completed once the 3 core steps are done, which is what
+    // get-onboarding-status reads to unlock the gated nav items (review-queue/calendar/
+    // my-content). No widget, and no "setup complete" toast — celebrating 3-of-9 here would
+    // disagree with the wizard's 9-step go-live, so that's left entirely to the wizard.
     try {
-      const res = await fetch('/.netlify/functions/get-onboarding-progress');
-      if (res.ok) {
-        const data = await res.json();
-        const container = document.getElementById('onboarding-widget-container');
-        // The persistent slide-over Setup Wizard now owns onboarding guidance, so the
-        // legacy inline 3-step dashboard widget is suppressed to avoid duplication. The
-        // justCompleted celebration below still fires off get-onboarding-progress.
-        if (false && container && !data.onboardingCompleted && Array.isArray(data.steps) && data.steps.length) {
-          const done = data.steps.filter(s => s.done).length;
-          const pct  = Math.round((done / data.steps.length) * 100);
-          const pctEl = document.getElementById('onboarding-progress-pct');
-          const barEl = document.getElementById('onboarding-progress-bar');
-          if (pctEl) pctEl.textContent = pct + '%';
-          if (barEl) barEl.style.width = pct + '%';
-          const ACTION = { business_profile: ['assets', 'Set up'], connection: ['assistants', 'Connect'], first_assistant: ['catalog', 'Hire'] };
-          const ul = document.getElementById('onboarding-steps');
-          if (ul) ul.innerHTML = data.steps.map(s => {
-            const node = s.done
-              ? '<span class="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></span>'
-              : '<span class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-gray-300 shrink-0"></span>';
-            const act = (!s.done && ACTION[s.key]) ? `<button onclick="window.loadView('${ACTION[s.key][0]}')" class="ml-auto text-xs font-semibold text-emerald-700 hover:underline cursor-pointer">${ACTION[s.key][1]} →</button>` : '';
-            return `<li class="flex items-center gap-3">${node}<span class="text-sm ${s.done ? 'text-gray-400 line-through' : 'font-medium text-gray-800'}">${s.label}</span>${act}</li>`;
-          }).join('');
-          container.classList.remove('hidden');
-        } else if (container) {
-          container.classList.add('hidden'); // completed → never renders again (AC1.1.3)
-        }
-        if (data.justCompleted) { window.showToast?.('Workspace setup complete! 🎉', { icon: '🎉' }); window.fireConfetti?.(); }
-      }
-    } catch (e) { console.warn('Onboarding progress failed:', e); }
+      await fetch('/.netlify/functions/get-onboarding-progress');
+      document.getElementById('onboarding-widget-container')?.classList.add('hidden');
+      // Re-sync nav locks in case the flag just flipped (non-blocking, no-op if unchanged).
+      window.refreshOnboardingLock?.();
+    } catch (e) { console.warn('Onboarding gating sync failed:', e); }
 
     // ── Time Saved card ──
     try {
@@ -5911,6 +5894,247 @@ async function gpSubmitReject() {
   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
   <span>Resume setup <span id="setup-wizard-fab-count" class="opacity-90 font-semibold"></span></span>
 </button>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     US-DASH-3: Omnipresent Interaction Bar (Swan Command Bar)
+     AC1 floating Spotlight-style bar · AC2 type or dictate (mic + waveform)
+     · AC3 in-line execution (reply expands beneath the bar, no reload).
+     Lives outside #workspace-content so it persists across loadView().
+     ══════════════════════════════════════════════════════════════════════════ -->
+<button id="cmdbar-trigger" type="button" aria-label="Open command bar (Cmd-K)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+  <span class="cmdbar-trigger-label">Ask your team anything</span>
+  <kbd class="cmdbar-kbd">⌘K</kbd>
+</button>
+
+<div id="cmdbar-overlay" class="cmdbar-overlay" aria-hidden="true">
+  <div class="cmdbar-panel" role="dialog" aria-modal="true" aria-label="Command bar">
+    <form id="cmdbar-form" class="cmdbar-inputrow">
+      <span class="cmdbar-spark" aria-hidden="true">✦</span>
+      <input id="cmdbar-input" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Tell your team what to do…  e.g. “Draft a LinkedIn post about our summer sale”">
+      <button id="cmdbar-mic" type="button" class="cmdbar-iconbtn" aria-label="Dictate" title="Dictate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
+      </button>
+      <button id="cmdbar-submit" type="submit" class="cmdbar-iconbtn cmdbar-send" aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+    <div id="cmdbar-wave" class="cmdbar-wave hidden" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div id="cmdbar-result" class="cmdbar-result hidden"></div>
+    <div class="cmdbar-hints" id="cmdbar-hints">
+      <span class="cmdbar-hint-label">Try</span>
+      <button type="button" class="cmdbar-chip" data-cmd="Show me what needs my approval">What needs approval</button>
+      <button type="button" class="cmdbar-chip" data-cmd="Open my calendar">Open calendar</button>
+      <button type="button" class="cmdbar-chip" data-cmd="Draft a LinkedIn post about our latest project">Draft a post</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* US-DASH-3 — Swan Command Bar. Scoped plain CSS (immune to prebuilt-Tailwind). */
+  #cmdbar-trigger {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 60;
+    display: inline-flex; align-items: center; gap: 10px; padding: 11px 16px; cursor: pointer;
+    border: 1px solid rgba(15,23,42,0.10); border-radius: 999px;
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(10px);
+    box-shadow: 0 12px 30px -12px rgba(6,78,59,0.45), 0 2px 6px -3px rgba(0,0,0,0.12);
+    color: #334155; font-size: 14px; font-weight: 600; transition: transform .2s ease, box-shadow .2s ease;
+  }
+  #cmdbar-trigger:hover { transform: translateX(-50%) translateY(-2px); box-shadow: 0 18px 36px -12px rgba(6,78,59,0.5); }
+  #cmdbar-trigger svg { width: 16px; height: 16px; color: #10b981; }
+  .cmdbar-kbd { font-size: 11px; font-weight: 700; color: #94a3b8; background: #f1f5f9; border-radius: 6px; padding: 2px 6px; }
+  @media (max-width: 640px) { .cmdbar-trigger-label { display: none; } #cmdbar-trigger { bottom: 5.25rem; } }
+
+  .cmdbar-overlay { position: fixed; inset: 0; z-index: 95; display: none; padding-top: 12vh;
+    background: rgba(15,23,42,0.42); backdrop-filter: blur(4px); }
+  .cmdbar-overlay.open { display: block; animation: cmdFade .18s ease; }
+  @keyframes cmdFade { from { opacity: 0 } to { opacity: 1 } }
+  .cmdbar-panel { width: min(680px, 92vw); margin: 0 auto; background: #fff; border-radius: 20px;
+    border: 1px solid rgba(15,23,42,0.08); box-shadow: 0 40px 80px -24px rgba(0,0,0,0.5);
+    overflow: hidden; animation: cmdRise .22s cubic-bezier(.2,.8,.2,1); }
+  @keyframes cmdRise { from { opacity: 0; transform: translateY(14px) scale(.98) } to { opacity: 1; transform: none } }
+
+  .cmdbar-inputrow { display: flex; align-items: center; gap: 10px; padding: 16px 16px; }
+  .cmdbar-spark { color: #10b981; font-size: 18px; }
+  #cmdbar-input { flex: 1; border: 0; outline: 0; font-size: 17px; color: #0f172a; background: transparent; }
+  #cmdbar-input::placeholder { color: #94a3b8; }
+  .cmdbar-iconbtn { border: 0; cursor: pointer; width: 38px; height: 38px; border-radius: 11px; background: #f1f5f9;
+    color: #475569; display: inline-flex; align-items: center; justify-content: center; transition: all .15s ease; }
+  .cmdbar-iconbtn svg { width: 18px; height: 18px; }
+  .cmdbar-iconbtn:hover { background: #e2e8f0; }
+  .cmdbar-send { background: #10b981; color: #fff; }
+  .cmdbar-send:hover { background: #059669; }
+  .cmdbar-iconbtn.listening { background: #fee2e2; color: #dc2626; animation: cmdMic 1.2s ease-in-out infinite; }
+  @keyframes cmdMic { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4) } 50% { box-shadow: 0 0 0 8px rgba(220,38,38,0) } }
+
+  .cmdbar-wave { display: flex; align-items: center; justify-content: center; gap: 4px; height: 40px; padding: 0 16px 12px; }
+  .cmdbar-wave i { width: 4px; height: 8px; border-radius: 4px; background: #10b981; animation: cmdWave 1s ease-in-out infinite; }
+  .cmdbar-wave i:nth-child(2){animation-delay:.1s}.cmdbar-wave i:nth-child(3){animation-delay:.2s}.cmdbar-wave i:nth-child(4){animation-delay:.3s}
+  .cmdbar-wave i:nth-child(5){animation-delay:.4s}.cmdbar-wave i:nth-child(6){animation-delay:.5s}.cmdbar-wave i:nth-child(7){animation-delay:.6s}
+  .cmdbar-wave i:nth-child(8){animation-delay:.7s}.cmdbar-wave i:nth-child(9){animation-delay:.8s}
+  @keyframes cmdWave { 0%,100% { height: 8px; opacity: .5 } 50% { height: 30px; opacity: 1 } }
+
+  .cmdbar-result { border-top: 1px solid #f1f5f9; padding: 16px; font-size: 15px; color: #1e293b; line-height: 1.5; }
+  .cmdbar-result.hidden, .cmdbar-wave.hidden { display: none; }
+  .cmdbar-result .cmdbar-reply { display: flex; align-items: flex-start; gap: 10px; }
+  .cmdbar-result .cmdbar-reply .dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-top: 7px; flex: 0 0 auto; }
+  .cmdbar-result .cmdbar-followup { margin-top: 12px; }
+  .cmdbar-go { border: 0; cursor: pointer; background: #10b981; color: #fff; font-weight: 700; font-size: 14px; padding: 8px 16px; border-radius: 10px; }
+  .cmdbar-go:hover { background: #059669; }
+  .cmdbar-thinking { display: inline-flex; gap: 5px; align-items: center; color: #64748b; }
+  .cmdbar-thinking i { width: 6px; height: 6px; border-radius: 50%; background: #cbd5e1; animation: cmdBlink 1.2s infinite; }
+  .cmdbar-thinking i:nth-child(2){animation-delay:.2s}.cmdbar-thinking i:nth-child(3){animation-delay:.4s}
+  @keyframes cmdBlink { 0%,100% { opacity: .3 } 50% { opacity: 1 } }
+
+  .cmdbar-hints { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid #f8fafc; }
+  .cmdbar-hint-label { font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; }
+  .cmdbar-chip { border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-size: 13px; font-weight: 600;
+    padding: 6px 12px; border-radius: 999px; cursor: pointer; transition: all .15s ease; }
+  .cmdbar-chip:hover { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  @media (prefers-reduced-motion: reduce) { .cmdbar-overlay.open, .cmdbar-panel, .cmdbar-wave i, .cmdbar-iconbtn.listening { animation: none !important; } }
+</style>
+
+<script>
+  (function () {
+    // ── US-DASH-3: Swan Command Bar controller ───────────────────────────────
+    const trigger = document.getElementById('cmdbar-trigger');
+    const overlay = document.getElementById('cmdbar-overlay');
+    const form = document.getElementById('cmdbar-form');
+    const input = document.getElementById('cmdbar-input');
+    const micBtn = document.getElementById('cmdbar-mic');
+    const wave = document.getElementById('cmdbar-wave');
+    const result = document.getElementById('cmdbar-result');
+    const hints = document.getElementById('cmdbar-hints');
+    if (!trigger || !overlay || !form) return;
+
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    function open() {
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
+      setTimeout(() => input.focus(), 40);
+    }
+    function close() {
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
+      stopDictation();
+    }
+    const isOpen = () => overlay.classList.contains('open');
+
+    trigger.addEventListener('click', open);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); isOpen() ? close() : open(); }
+      else if (e.key === 'Escape' && isOpen()) close();
+    });
+    hints.querySelectorAll('.cmdbar-chip').forEach(chip => {
+      chip.addEventListener('click', () => { input.value = chip.dataset.cmd; runCommand(chip.dataset.cmd); });
+    });
+
+    // ── AC3: submit → interpret → execute inline ──
+    form.addEventListener('submit', e => { e.preventDefault(); const v = input.value.trim(); if (v) runCommand(v); });
+
+    function showThinking() {
+      result.classList.remove('hidden');
+      hints.style.display = 'none';
+      result.innerHTML = '<span class="cmdbar-thinking">Working on it <i></i><i></i><i></i></span>';
+    }
+    function showReply(html) {
+      result.classList.remove('hidden');
+      result.innerHTML = `<div class="cmdbar-reply"><span class="dot"></span><div>${html}</div></div>`;
+    }
+
+    async function runCommand(command) {
+      stopDictation();
+      showThinking();
+      let d;
+      try {
+        const res = await fetch('/.netlify/functions/assistant-command', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command }),
+        });
+        d = await res.json();
+      } catch { showReply('I had trouble reaching the team just now — please try again.'); return; }
+
+      const reply = esc(d.reply || 'Done.');
+
+      if (d.type === 'navigate' && d.view) {
+        showReply(reply);
+        setTimeout(() => { if (window.loadView) window.loadView(d.view); close(); }, 650);
+        return;
+      }
+
+      if (d.type === 'delegate' && d.assistantId) {
+        showReply(reply);
+        try {
+          const platform = d.platform || undefined;
+          const r = await fetch('/.netlify/functions/generate-post', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assistantId: d.assistantId, platform, contextPrompt: d.brief || command, triggerType: 'on_demand' }),
+          });
+          if (!r.ok) throw 0;
+          showReply(`${reply}<div class="cmdbar-followup"><button type="button" class="cmdbar-go">View in Review Queue →</button></div>`);
+          result.querySelector('.cmdbar-go').onclick = () => { if (window.loadView) window.loadView('review-queue'); close(); };
+          input.value = '';
+        } catch {
+          showReply('I started on that but couldn’t queue it — you can create it from the Review Queue.');
+        }
+        return;
+      }
+
+      // answer (with optional suggested view)
+      if (d.suggestView && window.loadView) {
+        showReply(`${reply}<div class="cmdbar-followup"><button type="button" class="cmdbar-go">Take me there →</button></div>`);
+        result.querySelector('.cmdbar-go').onclick = () => { window.loadView(d.suggestView); close(); };
+      } else {
+        showReply(reply);
+      }
+    }
+
+    // ── AC2: voice dictation (Web Speech API) with waveform ──
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recog = null, listening = false;
+    if (!SR) { micBtn.style.display = 'none'; }
+
+    function startDictation() {
+      if (!SR || listening) return;
+      recog = new SR();
+      recog.lang = (navigator.language || 'en-GB');
+      recog.interimResults = true;
+      recog.continuous = false;
+      listening = true;
+      micBtn.classList.add('listening');
+      wave.classList.remove('hidden');
+      let finalText = '';
+      recog.onresult = e => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) finalText += t; else interim += t;
+        }
+        input.value = (finalText + interim).trim();
+      };
+      recog.onerror = () => stopDictation();
+      recog.onend = () => {
+        const had = listening;
+        stopDictation();
+        const v = input.value.trim();
+        if (had && v) runCommand(v); // auto-run once dictation completes
+      };
+      try { recog.start(); } catch { stopDictation(); }
+    }
+    function stopDictation() {
+      if (recog) { try { recog.stop(); } catch {} recog = null; }
+      listening = false;
+      micBtn.classList.remove('listening');
+      wave.classList.add('hidden');
+    }
+    micBtn.addEventListener('click', () => listening ? stopDictation() : startDictation());
+
+    // Expose for programmatic open (e.g. a future nav button).
+    window.SwanCommandBar = { open, close, run: runCommand };
+  })();
+</script>
 
 <script>
 (function () {

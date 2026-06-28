@@ -45,7 +45,6 @@ export const handler: Handler = async (event) => {
     const userId = ctx.userId;
 
     const [org] = await db.select({
-        onboardingCompleted:  organisations.onboardingCompleted,
         complianceAcceptedAt: organisations.complianceAcceptedAt,
         industry:             organisations.industry,
         businessDescription:  organisations.businessDescription,
@@ -133,10 +132,14 @@ export const handler: Handler = async (event) => {
         allDone,
         completedCount: steps.filter(s => s.done).length,
         total: steps.length,
-        // Once the legacy onboarding flag is set the wizard no longer auto-opens (US8 AC2):
-        // the user can still re-open it manually from My Account. A secondary-onboarding
-        // journey is never "dismissed" — it should surface until the new assistant is live.
-        dismissed: isNewMode ? false : (org?.onboardingCompleted === true),
+        // Auto-open is driven by the wizard's OWN 9-step completion (allDone), NOT the legacy
+        // 3-step `onboarding_completed` flag. That flag flips after only business-profile +
+        // assistant + connection (see get-onboarding-progress), a subset of these steps, so
+        // keying `dismissed` off it suppressed the wizard mid-journey (e.g. before compliance,
+        // working-hours, kick-off or go-live). `allDone` + the go-live celebration already hide
+        // the drawer permanently for genuinely-finished users, and per-session collapse handles
+        // "not now", so the wizard never needs a separate legacy-dismissal signal.
+        dismissed: false,
         // Baseline anchors for the next "add assistant" journey (US8 AC3).
         maxAssistantId,
         maxDraftId,
