@@ -55,8 +55,20 @@ export const handler: Handler = async (event) => {
     const [profile] = await db.select({ workingHours: userProfiles.workingHours })
         .from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1);
 
+    // ── Secondary-onboarding scoping (US8 AC3) ──────────────────────────────
+    // When a user adds another assistant, steps 6-9 must track only THAT new assistant,
+    // not the org's existing live ones. The client passes mode=new plus a monotonic
+    // baseline (the max assistant/draft id captured the moment "Add New Assistant" was
+    // clicked); we then consider only entities created past that baseline. Ids survive
+    // the full-page hop to the standalone onboarding wizard (carried in sessionStorage),
+    // and being monotonic they're immune to client clock skew.
+    const qs = event.queryStringParameters || {};
+    const isNewMode = qs.mode === 'new';
+    const sinceAssistantId = isNewMode ? Number(qs.sinceAssistantId || 0) : 0;
+    const sinceDraftId     = isNewMode ? Number(qs.sinceDraftId || 0) : 0;
+
     const exists = async (rows: Promise<{ id: number | string }[]>) => (await rows).length > 0;
-    const [planActive, connection, anyAssistant, draftInProgress, kickedOff, live] = await Promise.all([
+    const [planActive, connection, assistantRows, draftRows] = await Promise.all([
         // Step 1 — an active (or grace-period past_due) subscription exists for the org.
         exists(db.select({ id: plans.id }).from(plans).where(and(
             eq(plans.organisationId, orgId), inArray(plans.status, ['active', 'past_due']),
@@ -64,23 +76,31 @@ export const handler: Handler = async (event) => {
         // Step 4 — at least one system connection has been made.
         exists(db.select({ id: systemConnections.id }).from(systemConnections)
             .where(eq(systemConnections.organisationId, orgId)).limit(1)),
-        // Steps 6/7 — an assistant has been chosen (row exists, even if still provisioning).
-        exists(db.select({ id: aiAssistants.id }).from(aiAssistants)
-            .where(eq(aiAssistants.organisationId, orgId)).limit(1)),
-        // An onboarding draft only exists while the assistant wizard is still in progress.
-        exists(db.select({ id: onboardingDrafts.id }).from(onboardingDrafts)
-            .where(eq(onboardingDrafts.organisationId, orgId)).limit(1)),
-        // Step 8 — an assistant has been kicked off (activated).
-        exists(db.select({ id: aiAssistants.id }).from(aiAssistants).where(and(
-            eq(aiAssistants.organisationId, orgId), eq(aiAssistants.isActive, true),
-        )).limit(1)),
-        // Step 9 — an assistant is fully provisioned and live.
-        exists(db.select({ id: aiAssistants.id }).from(aiAssistants).where(and(
-            eq(aiAssistants.organisationId, orgId),
-            eq(aiAssistants.provisioningStatus, 'complete'),
-            eq(aiAssistants.isActive, true),
-        )).limit(1)),
+        // Org assistants — few per org, so fetch the columns we need and reason in JS. This
+        // lets the same rows drive both the org-global (primary) and id-scoped (new) views.
+        db.select({ id: aiAssistants.id, provisioningStatus: aiAssistants.provisioningStatus, isActive: aiAssistants.isActive })
+            .from(aiAssistants).where(eq(aiAssistants.organisationId, orgId)),
+        // Open onboarding drafts (one exists only while an assistant wizard is in progress).
+        db.select({ id: onboardingDrafts.id }).from(onboardingDrafts)
+            .where(eq(onboardingDrafts.organisationId, orgId)),
     ]);
+
+    // Latest ids — returned so the client can baseline the next "add assistant" journey.
+    const maxAssistantId = assistantRows.reduce((m, a) => Math.max(m, Number(a.id)), 0);
+    const maxDraftId     = draftRows.reduce((m, d) => Math.max(m, Number(d.id)), 0);
+
+    // Scope the assistant/draft sets: in new-mode, only entities past the baseline count.
+    const scopedAssistants = isNewMode ? assistantRows.filter(a => Number(a.id) > sinceAssistantId) : assistantRows;
+    const scopedDrafts      = isNewMode ? draftRows.filter(d => Number(d.id) > sinceDraftId)        : draftRows;
+
+    const anyAssistant    = scopedAssistants.length > 0;
+    const draftInProgress = scopedDrafts.length > 0;
+    // Step 8 (kick-off reached) — provisioning has completed → assistant is ready_for_work or
+    // beyond. Step 9 (live) — provisioning complete AND active (the kick-off flipped it to
+    // 'working'/isActive). ready_for_work has isActive=false, so 8 ticks before 9, giving a
+    // real 7→8→9 progression instead of isActive (which defaults true on creation).
+    const provisioned = scopedAssistants.some(a => a.provisioningStatus === 'complete');
+    const live        = scopedAssistants.some(a => a.provisioningStatus === 'complete' && a.isActive === true);
 
     // Business profile is "done" on the same signal the legacy widget uses (industry +
     // description + audience) so the two stay consistent.
@@ -96,7 +116,7 @@ export const handler: Handler = async (event) => {
         assistant_selection:  anyAssistant || draftInProgress,
         // Onboarding form finished = assistant exists and no draft is still open.
         assistant_onboarding: anyAssistant && !draftInProgress,
-        kick_off:             kickedOff,
+        kick_off:             provisioned,
         go_live:              live,
     };
 
@@ -114,7 +134,11 @@ export const handler: Handler = async (event) => {
         completedCount: steps.filter(s => s.done).length,
         total: steps.length,
         // Once the legacy onboarding flag is set the wizard no longer auto-opens (US8 AC2):
-        // the user can still re-open it manually from My Account.
-        dismissed: org?.onboardingCompleted === true,
+        // the user can still re-open it manually from My Account. A secondary-onboarding
+        // journey is never "dismissed" — it should surface until the new assistant is live.
+        dismissed: isNewMode ? false : (org?.onboardingCompleted === true),
+        // Baseline anchors for the next "add assistant" journey (US8 AC3).
+        maxAssistantId,
+        maxDraftId,
     });
 };

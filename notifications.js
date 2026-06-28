@@ -60,15 +60,22 @@ window.initNotifications = async function() {
     // The label drives the visible affordance so users can tell which rows go somewhere.
     const go = (view) => () => window.loadView?.(view);
 
+    // The new onboarding lives in the Setup Wizard slide-over (window.SetupWizard).
+    // Fall back to the legacy getting-started checklist if the wizard isn't mounted.
+    const openWizard = () => {
+        if (window.SetupWizard && typeof window.SetupWizard.open === 'function') window.SetupWizard.open();
+        else window.loadView?.('getting-started');
+    };
+
     // type → primary call-to-action. Action-kind types should all resolve to a CTA so
     // every action card has one clear next step; info types are mostly passive.
     const ACTIONS_BY_TYPE = {
         invoice_ready:                 { label: 'View invoice',        run: routeToBilling },
         ticket_created:                { label: 'View ticket',         run: () => window.routeToSupportTicket?.() },
         ticket_reply:                  { label: 'View ticket',         run: () => window.routeToSupportTicket?.() },
-        onboarding_prompt:             { label: 'View setup checklist', run: go('getting-started') },
-        onboarding_incomplete:         { label: 'View setup checklist', run: go('getting-started') },
-        welcome:                       { label: 'Get started',         run: go('getting-started') },
+        onboarding_prompt:             { label: 'Open Setup Wizard',   run: openWizard },
+        onboarding_incomplete:         { label: 'Resume setup',        run: openWizard },
+        welcome:                       { label: 'Get started',         run: openWizard },
         setup_complete:                { label: 'Go to dashboard',     run: go('dashboard') },
         // Approvals — folds the review queue into the action surface.
         hitl_approval_required:        { label: 'Review post',         run: go('review-queue') },
@@ -113,6 +120,7 @@ window.initNotifications = async function() {
         }
         if (meta.action === 'view_invoices') return ACTIONS_BY_TYPE.invoice_ready;
         if (meta.action === 'view_ticket')   return ACTIONS_BY_TYPE.ticket_created;
+        if (meta.action === 'open_wizard')   return { label: meta.ctaLabel || 'Open Setup Wizard', run: openWizard };
         if (meta.action === 'getting_started') return ACTIONS_BY_TYPE.onboarding_prompt;
         if (ACTIONS_BY_TYPE[notif.type]) return ACTIONS_BY_TYPE[notif.type];
         // Any remaining action-kind item still needs a way in — default to the dashboard.

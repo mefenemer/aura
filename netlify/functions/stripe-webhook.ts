@@ -159,9 +159,9 @@ export const handler: Handler = async (event) => {
             userId: userIdInt,
             type: 'welcome',
             title: 'Welcome to Be More Swan!',
-            message: 'Your workspace is ready. Open your User Guide to get started.',
+            message: 'Your workspace is ready. Open the Setup Wizard to build your AI assistant and go live.',
             isRead: false,
-            metadata: { ctaLabel: 'Open User Guide', ctaUrl: '/help.html' },
+            metadata: { action: 'open_wizard', ctaLabel: 'Open Setup Wizard' },
         }).catch(() => {});
 
         // Referral Program Expansion: earn a referral TOKEN (not an instant £10 credit).
@@ -245,71 +245,12 @@ export const handler: Handler = async (event) => {
             if (mp) { planName = mp.name; masterPlan = mp; }
         }
 
-        // Create Stripe subscription with the saved payment method for recurring billing.
-        // For annual subscriptions use inline price_data (interval: year); monthly uses the fixed price ID.
-        // We capture the subscription ID to store on the plan record for future upgrade/downgrade.
-        let createdStripeSubscriptionId: string | null = null;
-        if (pi.payment_method) {
-            const isAnnual  = billingCycle === 'annual';
-            const subMeta   = { userId, organisationId, tier: tier || '', masterPlanId: masterPlanId || '', billingCycle: billingCycle || 'monthly' };
-
-            try {
-                let createdSub: Stripe.Subscription | null = null;
-                if (isAnnual && masterPlan) {
-                    // US-I18N-2.1 SC6: use pi.currency from Stripe event, not hardcoded 'gbp'
-                    const piCurrency = (pi.currency || 'gbp').toLowerCase();
-
-                    // BUG-P0-6: Look up the per-currency price from planPrices; fall back to GBP only
-                    // if no planPrices row exists for this currency (with a warning for ops visibility).
-                    let monthlyPriceMajor = Number(masterPlan.monthlyPriceGbp);
-                    if (piCurrency !== 'gbp') {
-                        const [priceRow] = await db
-                            .select({ monthlyPriceMajorUnit: planPrices.monthlyPriceMajorUnit })
-                            .from(planPrices)
-                            .where(and(
-                                eq(planPrices.masterPlanId, masterPlan.id),
-                                eq(planPrices.currency, piCurrency.toUpperCase()),
-                                eq(planPrices.isActive, true),
-                            ))
-                            .limit(1);
-                        if (priceRow) {
-                            monthlyPriceMajor = Number(priceRow.monthlyPriceMajorUnit);
-                        } else {
-                            console.warn(`[stripe-webhook] No planPrices row for masterPlanId=${masterPlan.id} currency=${piCurrency.toUpperCase()} — falling back to GBP price`);
-                        }
-                    }
-                    const annualAmount = Math.round(monthlyPriceMajor * 12 * 0.80 * 100);
-                    // dahlia API requires price_data.product (an ID); create the product
-                    // explicitly (older API auto-created one from product_data).
-                    const annualProduct = await stripe.products.create({ name: masterPlan.name });
-                    createdSub = await stripe.subscriptions.create({
-                        customer: stripeCustomerId,
-                        items: [{
-                            price_data: {
-                                currency: piCurrency,
-                                product: annualProduct.id,
-                                unit_amount: annualAmount,
-                                recurring: { interval: 'year' },
-                            },
-                        }],
-                        default_payment_method: pi.payment_method as string,
-                        proration_behavior: 'none',
-                        metadata: subMeta,
-                    });
-                } else if (stripePriceId) {
-                    createdSub = await stripe.subscriptions.create({
-                        customer: stripeCustomerId,
-                        items: [{ price: stripePriceId }],
-                        default_payment_method: pi.payment_method as string,
-                        proration_behavior: 'none',
-                        metadata: subMeta,
-                    });
-                }
-                if (createdSub) createdStripeSubscriptionId = createdSub.id;
-            } catch (err) {
-                console.error('[stripe-webhook] Subscription creation failed:', err);
-            }
-        }
+        // The Stripe subscription is now created up-front by create-subscription.ts using the
+        // `default_incomplete` pattern, and THIS PaymentIntent is that subscription's first
+        // invoice payment. We must NOT create another subscription here — doing so charged the
+        // customer a second time for the first period. Carry the existing subscription id
+        // (stamped onto the PI metadata at creation) onto the plan record below.
+        const createdStripeSubscriptionId: string | null = pi.metadata?.stripeSubscriptionId || null;
 
         // Create plan record — include Stripe references for future upgrade/downgrade/cancel.
         // BUG-P0-4: Wrap in try-catch to handle the plans_one_active_per_org_unique violation
@@ -409,9 +350,9 @@ export const handler: Handler = async (event) => {
             userId: userIdInt,
             type: 'welcome',
             title: 'Welcome to Be More Swan!',
-            message: 'Your workspace is ready. Open your User Guide to get started.',
+            message: 'Your workspace is ready. Open the Setup Wizard to build your AI assistant and go live.',
             isRead: false,
-            metadata: { ctaLabel: 'Open User Guide', ctaUrl: '/help.html' },
+            metadata: { action: 'open_wizard', ctaLabel: 'Open Setup Wizard' },
         }).catch(() => {});
 
         // ── Referral Program Expansion: earn a referral TOKEN ────────

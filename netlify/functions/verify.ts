@@ -103,8 +103,9 @@ export const handler: Handler = async (event) => {
                     {
                         userId: user.id,
                         type: 'onboarding_prompt',
-                        title: 'Onboard your digital assistant',
-                        message: "You're one step away from having your own AI team member. Complete onboarding to get started.",
+                        title: 'Finish setting up your workspace',
+                        message: "Open the Setup Wizard to build your AI assistant — it walks you through every step, from your business details to going live.",
+                        metadata: { action: 'open_wizard', ctaLabel: 'Open Setup Wizard' },
                     },
                 ]);
             } catch (notifErr) {

@@ -606,7 +606,12 @@ async function submitTosAcceptance(btn) {
 
 <!-- US-ONB-2.1.1: Plan selection gate — non-dismissible, shows live plan cards from DB (AC5–AC18) -->
 <div id="plan-gate-modal" class="hidden fixed inset-0 z-[10000] backdrop-blur-sm flex items-center justify-center p-4" style="z-index:10000;background-color:rgba(20,18,15,0.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding-top:max(1rem,env(safe-area-inset-top));padding-bottom:max(1rem,env(safe-area-inset-bottom))">
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-y-auto" style="max-height:calc(100vh - 2rem)">
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-y-auto" style="max-height:calc(100vh - 2rem)">
+    <!-- Dismissible: the wizard now drives onboarding, so the plan picker is an on-demand step rather than a hard block. -->
+    <button type="button" id="plan-gate-close" aria-label="Close plan picker"
+      class="absolute top-3 right-3 z-10 text-gray-400 hover:text-gray-700 transition p-1 cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
     <div class="p-8 pb-4 text-center border-b border-gray-100">
       <!-- AC10: referral discount banner -->
       <div id="plan-gate-referral-banner" class="hidden mb-4 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-semibold text-emerald-800">
@@ -2255,6 +2260,16 @@ function formatCurrency(amount, currency) {
         }
       }
 
+      // The setup wizard now owns onboarding; the plan picker is an on-demand, dismissible
+      // step (wizard step 1) rather than a hard block. closeGate hides it and lifts the blur.
+      function closeGate() {
+        gateModal.classList.add('hidden');
+        applyGateBlur(false);
+      }
+      document.getElementById('plan-gate-close')?.addEventListener('click', closeGate);
+      // Exposed so the wizard's "Choose your plan" step can open the picker on demand.
+      window.openPlanSelection = (referralCode) => showGate(referralCode || null);
+
       async function loadPlanCards(referralCode) {
         if (!cardsEl) return;
         try {
@@ -2344,7 +2359,10 @@ function formatCurrency(amount, currency) {
         loadPlanCards(referralCode);
       }
 
-      // US-ONB-2.1.2 AC11: strip ?action=select-plan from URL after modal opens
+      // US-ONB-2.1.2 AC11: strip ?action=select-plan from URL after handling.
+      // The setup wizard now drives onboarding (step 1 = "Choose your plan"), so a brand-new
+      // user lands on the wizard rather than the hard plan gate. If a referral code is present
+      // we still surface the picker immediately so the discount banner isn't missed.
       const actionParam = qs.get('action');
       const refParam    = qs.get('ref');
       if (actionParam === 'select-plan') {
@@ -2352,18 +2370,17 @@ function formatCurrency(amount, currency) {
         url.searchParams.delete('action');
         url.searchParams.delete('ref');
         history.replaceState(null, '', url.toString());
-        showGate(refParam || null);
+        if (refParam) showGate(refParam);
       }
 
       // Returning from Stripe checkout — the webhook may not have marked the plan active yet,
       // so we must NOT show the plan-selection gate here; the polling block below handles it.
       const planActivated = qs.get('plan_activated') === 'true';
 
-      // Show gate if user has no active plan (AC1-3)
-      const cap = await window.checkCapacity();
-      if (cap && cap.planStatus === null && actionParam !== 'select-plan' && !planActivated) {
-        showGate(null);
-      }
+      // No-plan users are no longer hard-gated: the setup wizard auto-opens and its step 1
+      // ("Choose your plan") opens this picker on demand via window.openPlanSelection.
+      // Still warm the capacity cache for the rest of the workspace.
+      await window.checkCapacity();
 
       // AC6: gate is non-dismissible — no cancel handler
 
@@ -2390,6 +2407,8 @@ function formatCurrency(amount, currency) {
             gateModal.classList.add('hidden');
             applyGateBlur(false);
             if (typeof window.refreshPlanPill === 'function') window.refreshPlanPill(); // cache already fresh
+            // Plan is now active — tick the wizard's "Choose your plan" step (and celebrate).
+            window.SetupWizard?.refresh?.({ autoOpen: true });
             // Welcome modal retired — welcome + setup checklist now live in the
             // Notifications area (see initGettingStarted / notifications.js).
           } else if (attempts >= 5) {
@@ -3773,7 +3792,7 @@ function formatCurrency(amount, currency) {
 </script>
 <script src="/integrations.js"></script>
 <script src="/assets.js"></script>
-<script src="/notifications.js"></script>
+<script src="/notifications.js?v=20260628-wizard-cta"></script>
 <script src="/assistants.js"></script>
 <script src="/help.js"></script>
 <script src="/my-content.js"></script>
@@ -5898,6 +5917,15 @@ async function gpSubmitReject() {
   // step to its real page (drawer stays open), celebrates completions, and resumes
   // at the next incomplete step. Owns no form data — pages auto-save themselves.
   const COLLAPSE_KEY = 'swan_wizard_collapsed';
+  // Secondary-onboarding (US8 AC3) lives in sessionStorage so it survives the full-page
+  // hop to the standalone assistant onboarding wizard (onboarding-*.html) and back. MODE_KEY
+  // flags an in-progress "add another assistant" journey; the SINCE_* ids baseline it so the
+  // backend scopes steps 6-9 to the new assistant only.
+  const MODE_KEY = 'swan_wizard_mode';
+  const SINCE_A_KEY = 'swan_wizard_since_assistant';
+  const SINCE_D_KEY = 'swan_wizard_since_draft';
+  const isAddMode = () => sessionStorage.getItem(MODE_KEY) === 'new';
+  const clearAddMode = () => { sessionStorage.removeItem(MODE_KEY); sessionStorage.removeItem(SINCE_A_KEY); sessionStorage.removeItem(SINCE_D_KEY); };
 
   const drawer = document.getElementById('setup-wizard-drawer');
   const fab    = document.getElementById('setup-wizard-fab');
@@ -5953,7 +5981,7 @@ async function gpSubmitReject() {
       const num = `<span class="flex items-center justify-center w-7 h-7 rounded-full ${isCurrent ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'} font-bold text-sm shrink-0">${i + 1}</span>`;
       return `
         <li>
-          <button type="button" data-view="${s.view || ''}" ${s.view ? '' : 'disabled'}
+          <button type="button" data-key="${s.key}" data-view="${s.view || ''}" ${(s.view || s.key === 'plan') ? '' : 'disabled'}
             class="setup-wizard-step w-full text-left flex items-start gap-3 p-3 rounded-xl border ${isCurrent ? 'border-emerald-300 bg-emerald-50/50' : s.done ? 'border-gray-100' : 'border-gray-100 hover:border-emerald-200 hover:bg-emerald-50/40'} transition ${s.view ? 'cursor-pointer' : 'cursor-default'}">
             ${s.done ? tick : num}
             <span class="min-w-0 flex-1">
@@ -5967,7 +5995,14 @@ async function gpSubmitReject() {
     }).join('')}</ul>`;
 
     body.querySelectorAll('.setup-wizard-step').forEach(btn => {
+      const key  = btn.getAttribute('data-key');
       const view = btn.getAttribute('data-view');
+      // Step 1 ("Choose your plan") opens the on-demand plan picker — the billing view can't
+      // sell a plan to a no-plan user, so the wizard owns plan selection now.
+      if (key === 'plan') {
+        btn.addEventListener('click', () => window.openPlanSelection?.());
+        return;
+      }
       if (!view) return;
       btn.addEventListener('click', () => {
         // US1 AC2 — route the main area, but keep the drawer open as a companion.
@@ -5988,6 +6023,8 @@ async function gpSubmitReject() {
       celebratedGoLive = true;
       window.showToast?.('Your assistant is live! 🎉', { icon: '🎉' });
       window.fireConfetti?.();
+      // The new-assistant journey is finished — drop back to normal (org-global) behaviour.
+      if (isAddMode()) clearAddMode();
     }
     last = {};
     (data.steps || []).forEach(s => { last[s.key] = s.done; });
@@ -5995,7 +6032,14 @@ async function gpSubmitReject() {
 
   async function fetchState() {
     try {
-      const res = await fetch('/.netlify/functions/get-wizard-state');
+      let url = '/.netlify/functions/get-wizard-state';
+      if (isAddMode()) {
+        // Scope steps 6-9 to the new assistant being added (past the captured baseline).
+        const sa = sessionStorage.getItem(SINCE_A_KEY) || '0';
+        const sd = sessionStorage.getItem(SINCE_D_KEY) || '0';
+        url += `?mode=new&sinceAssistantId=${encodeURIComponent(sa)}&sinceDraftId=${encodeURIComponent(sd)}`;
+      }
+      const res = await fetch(url);
       if (!res.ok) return null;
       return await res.json();
     } catch { return null; }
@@ -6049,24 +6093,29 @@ async function gpSubmitReject() {
   }
 
   // US8 AC3 — secondary onboarding. An existing user adding another assistant re-opens the
-  // same drawer with the global steps (plan/business/profile/compliance) auto-ticked and the
-  // assistant-specific steps reset, starting directly at Step 6. State is org-global so the
-  // backend reports steps 6-9 as already done once one assistant is live; we locally override
-  // them for this "add" session so the journey restarts.
-  const GLOBAL_STEP_KEYS = ['plan', 'business_info', 'profile', 'system_config', 'compliance'];
+  // same drawer with the global steps (plan/business/profile/compliance) already ticked and
+  // the assistant-specific steps 6-9 genuinely reset for the NEW assistant. We baseline on
+  // the current max assistant/draft ids and hand them to the backend (via fetchState), which
+  // scopes 6-9 to entities created past that baseline — so the new journey ticks 7-9
+  // independently of any existing live assistants, and the state survives the full-page hop
+  // to the standalone onboarding wizard.
   async function openForNewAssistant() {
     localStorage.removeItem(COLLAPSE_KEY);
-    if (!lastData) await refresh();
-    setOpen(true);
-    showFab(false);
-    if (lastData) {
-      const data = JSON.parse(JSON.stringify(lastData));
-      data.steps = (data.steps || []).map(s => ({ ...s, done: GLOBAL_STEP_KEYS.includes(s.key) }));
-      data.allDone = false;
-      data.completedCount = data.steps.filter(s => s.done).length;
-      data.currentStep = 6;
-      render(data);
-    }
+    clearAddMode();
+    // Read the current max ids directly (no celebrate/render side-effects — an established
+    // org is allDone org-globally, which would otherwise fire a spurious go-live).
+    let base = null;
+    try {
+      const r = await fetch('/.netlify/functions/get-wizard-state');
+      if (r.ok) base = await r.json();
+    } catch { /* non-fatal */ }
+    sessionStorage.setItem(MODE_KEY, 'new');
+    sessionStorage.setItem(SINCE_A_KEY, String(base?.maxAssistantId ?? 0));
+    sessionStorage.setItem(SINCE_D_KEY, String(base?.maxDraftId ?? 0));
+    // Reset celebration/diff baselines so the fresh journey is tracked from scratch.
+    last = null; celebratedGoLive = false;
+    await refresh();   // now scoped to the new assistant (steps 6-9 reset)
+    open();
     if (window.loadView) window.loadView('catalog');
   }
 
