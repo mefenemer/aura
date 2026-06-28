@@ -39,45 +39,76 @@
       </div>
     </div>
 
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-      <div>
-        <h1 class="text-3xl font-extrabold text-gray-900">Welcome back.</h1>
-        <p class="text-gray-500 mt-1">Here is what your digital team has been up to while you were away.</p>
-      </div>
-
-      <!-- US-AUD-1.2.1: Full ROI widget with £ value, break-even, and period toggle -->
-      <div class="bg-white px-5 py-4 rounded-xl border border-emerald-100 shadow-sm min-w-[220px]">
-        <div class="flex items-center justify-between mb-1 gap-3">
-          <p class="text-sm text-gray-500 font-medium">Savings</p>
-          <!-- SC4: month/week toggle -->
-          <div class="flex bg-gray-100 rounded-lg p-0.5 text-xs">
-            <button id="roi-btn-month" onclick="window._roiSetPeriod('month')"
-              class="px-2 py-1 rounded-md font-semibold transition bg-white shadow text-gray-800">Month</button>
-            <button id="roi-btn-week" onclick="window._roiSetPeriod('week')"
-              class="px-2 py-1 rounded-md font-semibold transition text-gray-500">Week</button>
-          </div>
-        </div>
-        <p id="roi-value" class="text-2xl font-extrabold text-gray-900">—</p>
-        <p id="roi-subtext" class="text-xs text-gray-500 mt-0.5"></p>
-        <button id="roi-view-tasks" type="button"
-          class="hidden mt-1 text-xs font-semibold text-emerald-600 hover:underline cursor-pointer"
-          onclick="window._showSavingsModal && window._showSavingsModal()">View the tasks behind this →</button>
-        <p id="roi-hint" class="hidden text-xs text-emerald-600 mt-1 cursor-pointer hover:underline"></p>
-      </div>
+    <div>
+      <h1 class="text-3xl font-extrabold text-gray-900">Welcome back.</h1>
+      <p class="text-gray-500 mt-1">Here is what your digital team has been up to while you were away.</p>
     </div>
   </header>
 
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pb-20">
 
-    <!-- US2.1: "Hours Saved" this month -->
-    <div id="time-saved-card" class="hidden mb-8 bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-2xl p-6 shadow-sm">
-      <div class="flex items-baseline gap-3 flex-wrap">
-        <p class="text-sm font-semibold text-indigo-500 uppercase tracking-wider w-full">Time Saved</p>
-        <span id="time-saved-hours" class="text-4xl font-extrabold text-gray-900">0</span>
-        <span class="text-lg font-bold text-gray-700">Hours Saved <span id="time-saved-month" class="text-gray-400 font-medium"></span></span>
+    <!-- ════════════════════════════════════════════════════════════════════
+         US-DASH-1: "Wow" Metrics + Activity Heatmap (Swan Command Center)
+         AC1 animated Hours Saved / Tasks Handled · AC2 Estimated Money Saved
+         · AC3 24/7 activity heatmap. Driven by roi-stats + dashboard-heatmap.
+         ════════════════════════════════════════════════════════════════════ -->
+    <section id="command-center-hero" class="mb-10">
+      <div class="cc-hero">
+        <div class="cc-hero-glow" aria-hidden="true"></div>
+
+        <div class="cc-hero-head">
+          <div>
+            <p class="cc-eyebrow">Your Command Center</p>
+            <h2 class="cc-hero-title">Here's the value your digital team created.</h2>
+          </div>
+          <div class="cc-toggle" role="tablist" aria-label="Time period">
+            <button id="cc-tab-week"  type="button" class="cc-toggle-btn is-active" data-period="week"  role="tab">This Week</button>
+            <button id="cc-tab-month" type="button" class="cc-toggle-btn"           data-period="month" role="tab">This Month</button>
+          </div>
+        </div>
+
+        <div class="cc-metrics">
+          <!-- AC1: Hours Saved -->
+          <div class="cc-tile">
+            <div class="cc-tile-icon">⏱️</div>
+            <div class="cc-tile-label">Hours Saved</div>
+            <div class="cc-tile-value"><span id="cc-hours" data-count="0">0</span><span class="cc-unit">hrs</span></div>
+            <div class="cc-tile-sub" id="cc-hours-sub">this week</div>
+          </div>
+
+          <!-- AC1: Tasks Handled -->
+          <div class="cc-tile">
+            <div class="cc-tile-icon">✅</div>
+            <div class="cc-tile-label">Tasks Handled</div>
+            <div class="cc-tile-value"><span id="cc-tasks" data-count="0">0</span></div>
+            <button id="cc-tasks-link" type="button" class="cc-tile-sub cc-link"
+              onclick="window._showSavingsModal && window._showSavingsModal()">See the tasks behind this →</button>
+          </div>
+
+          <!-- AC2: Estimated Money Saved -->
+          <div class="cc-tile cc-tile-accent">
+            <div class="cc-tile-icon">💷</div>
+            <div class="cc-tile-label">Estimated Money Saved</div>
+            <div class="cc-tile-value"><span id="cc-money">—</span></div>
+            <div class="cc-tile-sub" id="cc-money-sub"></div>
+          </div>
+        </div>
+
+        <!-- AC3: Activity heatmap — proves 24/7 background productivity -->
+        <div class="cc-heatmap-wrap">
+          <div class="cc-heatmap-head">
+            <span class="cc-heatmap-title">When your team is working</span>
+            <span class="cc-heatmap-legend" id="cc-heatmap-legend">
+              <span>Quiet</span>
+              <i class="cc-key cc-key-0"></i><i class="cc-key cc-key-1"></i><i class="cc-key cc-key-2"></i><i class="cc-key cc-key-3"></i><i class="cc-key cc-key-4"></i>
+              <span>Busy</span>
+            </span>
+          </div>
+          <div id="cc-heatmap" class="cc-heatmap" aria-label="Assistant activity by day and hour"></div>
+          <p id="cc-heatmap-caption" class="cc-heatmap-caption">Loading activity…</p>
+        </div>
       </div>
-      <div id="time-saved-breakdown" class="mt-4 space-y-1.5"></div>
-    </div>
+    </section>
 
     <!-- Dynamic Assistants Grid -->
     <div id="dashboard-assistants-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -95,72 +126,211 @@
   </div>
 </div>
 
+<style>
+  /* US-DASH-1 — Swan Command Center hero. Scoped plain CSS (immune to the prebuilt
+     Tailwind build), so new visual treatments render without a build:css step. */
+  #command-center-hero * { box-sizing: border-box; }
+  .cc-hero {
+    position: relative; overflow: hidden;
+    border-radius: 28px;
+    padding: 28px;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78)),
+      radial-gradient(120% 140% at 0% 0%, #d1fae5 0%, rgba(209,250,229,0) 55%),
+      radial-gradient(120% 140% at 100% 0%, #e0e7ff 0%, rgba(224,231,255,0) 55%);
+    border: 1px solid rgba(16,185,129,0.18);
+    box-shadow: 0 20px 50px -24px rgba(6,78,59,0.35), 0 2px 8px -4px rgba(0,0,0,0.06);
+    backdrop-filter: blur(8px);
+  }
+  .cc-hero-glow {
+    position: absolute; top: -120px; right: -80px; width: 360px; height: 360px;
+    background: radial-gradient(circle, rgba(16,185,129,0.22), rgba(16,185,129,0) 70%);
+    filter: blur(12px); pointer-events: none; animation: ccFloat 9s ease-in-out infinite;
+  }
+  @keyframes ccFloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(22px) } }
+
+  .cc-hero-head { position: relative; display: flex; flex-wrap: wrap; gap: 16px;
+    align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+  .cc-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #059669; margin: 0 0 4px; }
+  .cc-hero-title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2; }
+
+  .cc-toggle { display: inline-flex; background: rgba(15,23,42,0.06); border-radius: 12px; padding: 4px; gap: 2px; }
+  .cc-toggle-btn { border: 0; background: transparent; cursor: pointer; font-size: 13px; font-weight: 600;
+    color: #475569; padding: 6px 14px; border-radius: 9px; transition: all .2s ease; }
+  .cc-toggle-btn.is-active { background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+  .cc-toggle-btn:hover:not(.is-active) { color: #0f172a; }
+
+  .cc-metrics { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 760px) { .cc-metrics { grid-template-columns: 1fr; } }
+  .cc-tile {
+    position: relative; padding: 20px; border-radius: 18px;
+    background: rgba(255,255,255,0.72); border: 1px solid rgba(15,23,42,0.06);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease;
+  }
+  .cc-tile:hover { transform: translateY(-4px); box-shadow: 0 18px 30px -18px rgba(6,78,59,0.4); }
+  .cc-tile-accent { background: linear-gradient(160deg, #ecfdf5, rgba(255,255,255,0.85)); border-color: rgba(16,185,129,0.25); }
+  .cc-tile-icon { font-size: 20px; line-height: 1; margin-bottom: 10px; }
+  .cc-tile-label { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #64748b; }
+  .cc-tile-value { font-size: 38px; font-weight: 800; color: #0f172a; line-height: 1.05; margin-top: 6px;
+    font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 6px; }
+  .cc-unit { font-size: 16px; font-weight: 600; color: #94a3b8; }
+  .cc-tile-sub { display: inline-block; margin-top: 8px; font-size: 13px; color: #64748b; }
+  .cc-link { border: 0; background: transparent; padding: 0; cursor: pointer; color: #059669; font-weight: 600; }
+  .cc-link:hover { text-decoration: underline; }
+
+  /* Heatmap */
+  .cc-heatmap-wrap { position: relative; margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(15,23,42,0.07); }
+  .cc-heatmap-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .cc-heatmap-title { font-size: 13px; font-weight: 700; color: #334155; }
+  .cc-heatmap-legend { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; }
+  .cc-key { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .cc-key-0, .cc-lvl-0 { background: #eef2f5; }
+  .cc-key-1, .cc-lvl-1 { background: #a7f3d0; }
+  .cc-key-2, .cc-lvl-2 { background: #34d399; }
+  .cc-key-3, .cc-lvl-3 { background: #059669; }
+  .cc-key-4, .cc-lvl-4 { background: #065f46; }
+
+  .cc-heatmap { display: flex; flex-direction: column; gap: 4px; overflow-x: auto; }
+  .cc-hm-row { display: grid; grid-template-columns: 34px repeat(24, minmax(9px, 1fr)); gap: 4px; align-items: center; }
+  .cc-hm-daylabel { font-size: 11px; font-weight: 600; color: #94a3b8; text-align: right; padding-right: 4px; }
+  .cc-cell { aspect-ratio: 1 / 1; min-width: 9px; border-radius: 3px; transition: transform .12s ease; }
+  .cc-cell:hover { transform: scale(1.35); outline: 2px solid rgba(16,185,129,0.5); position: relative; z-index: 2; }
+  .cc-hm-axis { display: grid; grid-template-columns: 34px repeat(24, minmax(9px, 1fr)); gap: 4px; margin-top: 6px; }
+  .cc-hm-tick { font-size: 10px; color: #cbd5e1; text-align: center; }
+  .cc-heatmap-caption { margin-top: 12px; font-size: 13px; color: #475569; }
+  .cc-heatmap-caption strong { color: #047857; }
+</style>
+
 <script>
   (function () {
-    // Note: the first-login welcome modal has been retired; onboarding welcome now
-    // lives in the Notifications area + the Getting Started view. This partial just
-    // renders the dashboard onboarding progress widget below.
+    // ── US-DASH-1: animated "Wow" metrics + activity heatmap ──────────────────
+    const root = document.getElementById('command-center-hero');
+    if (!root) return;
 
-    // US-AUD-1.2.1: Full ROI widget — £ value, break-even messaging, period toggle
-    let _roiPeriod = 'month';
-    window._roiSetPeriod = async function (period) {
-      _roiPeriod = period;
-      document.getElementById('roi-btn-month')?.classList.toggle('bg-white', period === 'month');
-      document.getElementById('roi-btn-month')?.classList.toggle('shadow', period === 'month');
-      document.getElementById('roi-btn-month')?.classList.toggle('text-gray-800', period === 'month');
-      document.getElementById('roi-btn-month')?.classList.toggle('text-gray-500', period !== 'month');
-      document.getElementById('roi-btn-week')?.classList.toggle('bg-white', period === 'week');
-      document.getElementById('roi-btn-week')?.classList.toggle('shadow', period === 'week');
-      document.getElementById('roi-btn-week')?.classList.toggle('text-gray-800', period === 'week');
-      document.getElementById('roi-btn-week')?.classList.toggle('text-gray-500', period !== 'week');
-      await window._roiRender();
-    };
+    const fmtGBP = v => Number(v).toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
+    const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    window._roiRender = async function () {
-      const roiValue = document.getElementById('roi-value');
-      const roiSubtext = document.getElementById('roi-subtext');
-      const roiHint = document.getElementById('roi-hint');
-      const viewTasksBtn = document.getElementById('roi-view-tasks');
-      if (!roiValue) return;
+    // Smooth count-up with easing. `format` maps the running number → display text.
+    function countUp(el, target, { decimals = 0, duration = 1100, format } = {}) {
+      if (!el) return;
+      const fmt = format || (n => decimals ? n.toFixed(decimals) : String(Math.round(n)));
+      const from = parseFloat(el.dataset.count || '0') || 0;
+      el.dataset.count = String(target);
+      if (prefersReduced || from === target) { el.textContent = fmt(target); return; }
+      const start = performance.now();
+      const ease = t => 1 - Math.pow(1 - t, 3); // easeOutCubic
+      (function tick(now) {
+        const p = Math.min((now - start) / duration, 1);
+        el.textContent = fmt(from + (target - from) * ease(p));
+        if (p < 1) requestAnimationFrame(tick);
+      })(start);
+    }
+
+    let period = 'week';
+
+    async function renderMetrics() {
+      const hoursEl = document.getElementById('cc-hours');
+      const tasksEl = document.getElementById('cc-tasks');
+      const moneyEl = document.getElementById('cc-money');
+      const moneySub = document.getElementById('cc-money-sub');
+      const hoursSub = document.getElementById('cc-hours-sub');
+      if (hoursSub) hoursSub.textContent = period === 'week' ? 'this week' : 'this month';
       try {
-        const res = await fetch(`/.netlify/functions/roi-stats?period=${_roiPeriod}`);
+        const res = await fetch(`/.netlify/functions/roi-stats?period=${period}`);
         if (!res.ok) return;
         const d = await res.json();
 
-        if (d.gbpSaved !== null) {
-          // SC1: Show £ value
-          const fmt = v => v.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
-          roiValue.innerHTML = `${fmt(d.gbpSaved)} <span class="text-base font-normal text-gray-500">saved</span>`;
+        const hours = Number(d.hoursSaved) || 0;
+        countUp(hoursEl, hours, { decimals: Number.isInteger(hours) ? 0 : 1 });
+        countUp(tasksEl, Number(d.taskCount) || 0);
 
-          if (_roiPeriod === 'month') {
-            if (d.multiplier !== null && d.multiplier >= 1) {
-              // SC2: Paid for itself
-              roiSubtext.textContent = `Your subscription has paid for itself ${d.multiplier}× this month`;
-            } else if (d.tasksToBreakEven !== null && d.tasksToBreakEven > 0) {
-              // SC3: Below break-even
-              roiSubtext.textContent = `${d.tasksToBreakEven} more task${d.tasksToBreakEven === 1 ? '' : 's'} and it's paid for itself`;
+        if (d.gbpSaved !== null && d.gbpSaved !== undefined) {
+          // AC2: animated £ value
+          countUp(moneyEl, Number(d.gbpSaved), { format: n => fmtGBP(n) });
+          if (moneySub) {
+            if (period === 'month' && d.multiplier !== null && d.multiplier >= 1) {
+              moneySub.innerHTML = `Paid for itself <strong style="color:#047857">${d.multiplier}×</strong> this month 🎉`;
+            } else if (period === 'month' && d.tasksToBreakEven > 0) {
+              moneySub.textContent = `${d.tasksToBreakEven} more task${d.tasksToBreakEven === 1 ? '' : 's'} to break even`;
             } else {
-              roiSubtext.textContent = `${d.hoursSaved} hrs saved from ${d.taskCount} tasks`;
+              moneySub.textContent = 'based on your hourly rate';
             }
-          } else {
-            roiSubtext.textContent = `${d.hoursSaved} hrs saved from ${d.taskCount} tasks this week`;
           }
-          roiHint?.classList.add('hidden');
-          viewTasksBtn?.classList.remove('hidden'); // #3: let the user drill into the tasks
         } else {
-          // SC5 (from US-AUD-1.1.2): hours fallback + rate CTA
-          roiValue.innerHTML = `${d.hoursSaved} <span class="text-base font-normal text-gray-500">hrs saved</span>`;
-          roiSubtext.textContent = `from ${d.taskCount} completed task${d.taskCount === 1 ? '' : 's'}`;
-          viewTasksBtn?.classList.remove('hidden');
-          if (roiHint) {
-            roiHint.textContent = '£ value: Set your hourly rate →';
-            roiHint.classList.remove('hidden');
-            roiHint.onclick = () => { if (window.loadView) window.loadView('settings'); };
+          // Fallback: no rate set → CTA to unlock the £ figure
+          moneyEl.dataset.count = '0';
+          moneyEl.textContent = '£—';
+          if (moneySub) {
+            moneySub.innerHTML = '<button type="button" class="cc-link">Set your hourly rate to see this →</button>';
+            const btn = moneySub.querySelector('button');
+            if (btn) btn.onclick = () => window.loadView && window.loadView('settings');
           }
         }
       } catch (_) { /* fail silently */ }
-    };
+    }
 
-    window._roiRender();
+    const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon-first display
+    const hourLabel = h => { const ampm = h < 12 ? 'a' : 'p'; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}${ampm}`; };
+
+    function level(count, max) {
+      if (!count) return 0;
+      const r = count / max;
+      if (r > 0.75) return 4;
+      if (r > 0.5) return 3;
+      if (r > 0.25) return 2;
+      return 1;
+    }
+
+    async function renderHeatmap() {
+      const wrap = document.getElementById('cc-heatmap');
+      const caption = document.getElementById('cc-heatmap-caption');
+      if (!wrap) return;
+      try {
+        const res = await fetch('/.netlify/functions/dashboard-heatmap?weeks=8');
+        if (!res.ok) { if (caption) caption.textContent = ''; return; }
+        const d = await res.json();
+        const grid = d.grid || [];
+        const max = d.maxCount || 0;
+
+        wrap.innerHTML = ORDER.map(dow => {
+          const cells = Array.from({ length: 24 }, (_, h) => {
+            const c = (grid[dow] && grid[dow][h]) || 0;
+            const lvl = level(c, max);
+            const title = `${DOW[dow]} ${hourLabel(h)} — ${c} task${c === 1 ? '' : 's'}`;
+            return `<div class="cc-cell cc-lvl-${lvl}" title="${title}"></div>`;
+          }).join('');
+          return `<div class="cc-hm-row"><span class="cc-hm-daylabel">${DOW[dow]}</span>${cells}</div>`;
+        }).join('') + `<div class="cc-hm-axis"><span></span>${
+          Array.from({ length: 24 }, (_, h) => `<span class="cc-hm-tick">${[0,6,12,18].includes(h) ? hourLabel(h) : ''}</span>`).join('')
+        }</div>`;
+
+        if (caption) {
+          if (d.totalTasks > 0 && d.peak) {
+            const p = d.peak;
+            caption.innerHTML = `Your team handled <strong>${d.totalTasks}</strong> task${d.totalTasks === 1 ? '' : 's'} over the last 8 weeks — busiest on <strong>${DOW[p.dow]}s around ${hourLabel(p.hour)}</strong>, often while you were away.`;
+          } else {
+            caption.textContent = 'As your assistants complete work, you’ll see exactly when they were busy here — including overnight.';
+          }
+        }
+      } catch (_) {
+        if (caption) caption.textContent = '';
+      }
+    }
+
+    // Period toggle
+    root.querySelectorAll('.cc-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.period === period) return;
+        period = btn.dataset.period;
+        root.querySelectorAll('.cc-toggle-btn').forEach(b => b.classList.toggle('is-active', b === btn));
+        renderMetrics();
+      });
+    });
+
+    renderMetrics();
+    renderHeatmap();
   })();
 </script>

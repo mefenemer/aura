@@ -5916,7 +5916,15 @@ async function gpSubmitReject() {
   // Companion checklist: reads aggregate state from get-wizard-state, routes each
   // step to its real page (drawer stays open), celebrates completions, and resumes
   // at the next incomplete step. Owns no form data — pages auto-save themselves.
+  // Session-scoped (sessionStorage, not localStorage) so a returning user gets the wizard
+  // auto-opened again by default while onboarding is unfinished. Collapsing only suppresses
+  // it for the current session (the Resume pill stays); permanent hiding is server-side
+  // (data.dismissed / data.allDone), not this UI flag.
   const COLLAPSE_KEY = 'swan_wizard_collapsed';
+  const collapseStore = window.sessionStorage;
+  // One-time cleanup: this flag used to live in localStorage (persisted forever, so the
+  // wizard never re-opened on return). Drop any leftover so it can't keep suppressing it.
+  try { window.localStorage.removeItem(COLLAPSE_KEY); } catch { /* non-fatal */ }
   // Secondary-onboarding (US8 AC3) lives in sessionStorage so it survives the full-page
   // hop to the standalone assistant onboarding wizard (onboarding-*.html) and back. MODE_KEY
   // flags an in-progress "add another assistant" journey; the SINCE_* ids baseline it so the
@@ -5976,20 +5984,27 @@ async function gpSubmitReject() {
       return;
     }
 
+    const lock = '<span class="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-400 shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v3m-6 6h12a2 2 0 002-2v-5a2 2 0 00-2-2H6a2 2 0 00-2 2v5a2 2 0 002 2zM9 9V6a3 3 0 116 0v3"/></svg></span>';
+
     body.innerHTML = `<ul class="space-y-2">${steps.map((s, i) => {
       const isCurrent = (i + 1) === data.currentStep && !s.done;
+      // Sequential gating: a step unlocks only once every prior step is complete. The backend
+      // reports currentStep as the first incomplete step, so anything past it stays locked.
+      const locked = !s.done && (i + 1) > data.currentStep;
+      const actionable = !locked && (s.view || s.key === 'plan');
       const num = `<span class="flex items-center justify-center w-7 h-7 rounded-full ${isCurrent ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'} font-bold text-sm shrink-0">${i + 1}</span>`;
       return `
         <li>
-          <button type="button" data-key="${s.key}" data-view="${s.view || ''}" ${(s.view || s.key === 'plan') ? '' : 'disabled'}
-            class="setup-wizard-step w-full text-left flex items-start gap-3 p-3 rounded-xl border ${isCurrent ? 'border-emerald-300 bg-emerald-50/50' : s.done ? 'border-gray-100' : 'border-gray-100 hover:border-emerald-200 hover:bg-emerald-50/40'} transition ${s.view ? 'cursor-pointer' : 'cursor-default'}">
-            ${s.done ? tick : num}
+          <button type="button" data-key="${s.key}" data-view="${s.view || ''}" data-locked="${locked ? '1' : ''}" ${actionable ? '' : 'disabled'}
+            class="setup-wizard-step w-full text-left flex items-start gap-3 p-3 rounded-xl border ${isCurrent ? 'border-emerald-300 bg-emerald-50/50' : s.done ? 'border-gray-100' : 'border-gray-100' + (actionable ? ' hover:border-emerald-200 hover:bg-emerald-50/40' : '')} transition ${actionable ? 'cursor-pointer' : locked ? 'cursor-not-allowed opacity-60' : 'cursor-default'}">
+            ${s.done ? tick : locked ? lock : num}
             <span class="min-w-0 flex-1">
-              <span class="block text-sm font-semibold ${s.done ? 'text-gray-400 line-through' : 'text-gray-900'}">${s.label}</span>
-              ${(!s.done && (isCurrent)) ? `<span class="block text-xs text-gray-500 mt-0.5">${s.benefit}</span>` : ''}
+              <span class="block text-sm font-semibold ${s.done ? 'text-gray-400 line-through' : locked ? 'text-gray-400' : 'text-gray-900'}">${s.label}</span>
+              ${(!s.done && isCurrent) ? `<span class="block text-xs text-gray-500 mt-0.5">${s.benefit}</span>` : ''}
               ${s.done ? '<span class="block text-xs text-emerald-600 font-semibold mt-0.5">Completed</span>' : ''}
+              ${locked ? '<span class="block text-xs text-gray-400 mt-0.5">Complete the previous step to unlock</span>' : ''}
             </span>
-            ${(!s.done && s.view) ? '<span class="text-emerald-600 font-bold self-center shrink-0">&rarr;</span>' : ''}
+            ${(!s.done && actionable && s.view) ? '<span class="text-emerald-600 font-bold self-center shrink-0">&rarr;</span>' : ''}
           </button>
         </li>`;
     }).join('')}</ul>`;
@@ -5997,6 +6012,8 @@ async function gpSubmitReject() {
     body.querySelectorAll('.setup-wizard-step').forEach(btn => {
       const key  = btn.getAttribute('data-key');
       const view = btn.getAttribute('data-view');
+      // Locked steps carry no handler — they unlock only once the prior step completes.
+      if (btn.getAttribute('data-locked') === '1') return;
       // Step 1 ("Choose your plan") opens the on-demand plan picker — the billing view can't
       // sell a plan to a no-plan user, so the wizard owns plan selection now.
       if (key === 'plan') {
@@ -6053,7 +6070,7 @@ async function gpSubmitReject() {
     lastData = data;
     render(data);
 
-    const collapsedPref = localStorage.getItem(COLLAPSE_KEY) === '1';
+    const collapsedPref = collapseStore.getItem(COLLAPSE_KEY) === '1';
     const remaining = (data.total ?? 9) - (data.completedCount ?? 0);
 
     // Permanent hide once finished, or for users who completed the legacy onboarding —
@@ -6071,14 +6088,14 @@ async function gpSubmitReject() {
   }
 
   function open() {
-    localStorage.removeItem(COLLAPSE_KEY);
+    collapseStore.removeItem(COLLAPSE_KEY);
     setOpen(true);
     showFab(false);
     if (lastData) render(lastData); else refresh();
   }
 
   function collapse() {
-    localStorage.setItem(COLLAPSE_KEY, '1');
+    collapseStore.setItem(COLLAPSE_KEY, '1');
     setOpen(false);
     const remaining = lastData ? ((lastData.total ?? 9) - (lastData.completedCount ?? 0)) : 0;
     // Show the Resume pill only while there's still onboarding to do (US1 AC3).
@@ -6089,7 +6106,7 @@ async function gpSubmitReject() {
   // completed on the page just visited ticks (and celebrates) when the user returns,
   // but never force-opens a collapsed/finished drawer.
   function onNavigate() {
-    if (isOpen || localStorage.getItem(COLLAPSE_KEY) === '1') refresh();
+    if (isOpen || collapseStore.getItem(COLLAPSE_KEY) === '1') refresh();
   }
 
   // US8 AC3 — secondary onboarding. An existing user adding another assistant re-opens the
@@ -6100,7 +6117,7 @@ async function gpSubmitReject() {
   // independently of any existing live assistants, and the state survives the full-page hop
   // to the standalone onboarding wizard.
   async function openForNewAssistant() {
-    localStorage.removeItem(COLLAPSE_KEY);
+    collapseStore.removeItem(COLLAPSE_KEY);
     clearAddMode();
     // Read the current max ids directly (no celebrate/render side-effects — an established
     // org is allDone org-globally, which would otherwise fire a spurious go-live).
