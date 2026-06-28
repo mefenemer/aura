@@ -1458,6 +1458,12 @@ function formatCurrency(amount, currency) {
           window.initGettingStarted();
         }
 
+        // Onboarding Wizard companion — refresh progress after any view loads so a step
+        // completed on the page just navigated to ticks (and celebrates) when the user returns.
+        if (window.SetupWizard && typeof window.SetupWizard.onNavigate === 'function') {
+          window.SetupWizard.onNavigate(routeKey);
+        }
+
       } catch (error) {
         console.error("Routing execution error:", error);
         contentContainer.innerHTML = `<div class="p-8 text-center text-red-600 font-medium">Failed to load requested view. Please try again.</div>`;
@@ -2877,6 +2883,137 @@ function formatCurrency(amount, currency) {
     }
     initNotificationPreferences();
 
+    // ── Onboarding Wizard Step 3: Working Hours + browser pre-fill (US5) ──
+    (async function initWorkingHours() {
+      const card = document.getElementById('working-hours-card');
+
+      // Pull the stored working-hours value (also tells us whether the profile is "fresh").
+      let wh = null;
+      try {
+        const r = await fetch('/.netlify/functions/update-profile');
+        if (r.ok) wh = (await r.json()).workingHours || null;
+      } catch { /* non-fatal */ }
+      const isFresh = wh == null;
+
+      // US5 AC1 — pre-fill timezone & language from the browser while the user is still
+      // onboarding (no working hours set yet), without clobbering a later explicit choice.
+      if (isFresh) {
+        try {
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          const tzSel = document.getElementById('input-timezone');
+          if (tz && tzSel && [...tzSel.options].some(o => o.value === tz) && tzSel.value !== tz) {
+            tzSel.value = tz; tzSel.dispatchEvent(new Event('change'));
+          }
+          const lang = (navigator.language || 'en').slice(0, 2);
+          const langSel = document.getElementById('input-language');
+          if (langSel && [...langSel.options].some(o => o.value === lang) && langSel.value !== lang) {
+            langSel.value = lang; langSel.dispatchEvent(new Event('change'));
+          }
+        } catch { /* Intl/navigator unavailable */ }
+      }
+
+      if (!card) return;
+      const presets   = Array.from(card.querySelectorAll('.wh-preset'));
+      const dayBtns   = Array.from(card.querySelectorAll('.wh-day'));
+      const customRow = document.getElementById('wh-custom-row');
+      const startEl   = document.getElementById('wh-start');
+      const endEl     = document.getElementById('wh-end');
+      const savedEl   = document.getElementById('wh-saved');
+      const state = { preset: null, start: null, end: null, days: [] };
+
+      const setActive = (el, on, cls) => cls.forEach(c => el.classList.toggle(c, on));
+
+      function paint() {
+        presets.forEach(b => setActive(b, b.dataset.preset === state.preset, ['bg-emerald-50','border-emerald-400','text-emerald-700']));
+        dayBtns.forEach(b => setActive(b, state.days.includes(Number(b.dataset.day)), ['bg-emerald-500','border-emerald-500','text-white']));
+        if (customRow) {
+          const custom = state.preset === 'custom';
+          customRow.classList.toggle('hidden', !custom);
+          customRow.classList.toggle('flex', custom);
+        }
+        if (startEl) startEl.value = state.start || '';
+        if (endEl)   endEl.value   = state.end   || '';
+      }
+
+      async function save() {
+        try {
+          const res = await fetch('/.netlify/functions/update-profile', {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fieldKey: 'workingHours', value: { ...state } }),
+          });
+          if (res.ok && savedEl) { savedEl.classList.remove('hidden'); setTimeout(() => savedEl.classList.add('hidden'), 2000); }
+          window.SetupWizard?.onNavigate?.(); // tick Step 3 in the wizard
+        } catch { /* non-fatal */ }
+      }
+
+      // Hydrate from any stored value.
+      if (wh) {
+        state.preset = wh.preset || (wh.start ? 'custom' : 'always_on');
+        state.start  = wh.start || null;
+        state.end    = wh.end || null;
+        state.days   = Array.isArray(wh.days) ? wh.days.map(Number) : [];
+      }
+      paint();
+
+      presets.forEach(b => b.addEventListener('click', () => {
+        state.preset = b.dataset.preset;
+        if (b.dataset.start) { state.start = b.dataset.start; state.end = b.dataset.end; }
+        if (b.dataset.preset === 'always_on') { state.start = null; state.end = null; state.days = [0,1,2,3,4,5,6]; }
+        else if (!state.days.length) { state.days = [1,2,3,4,5]; } // sensible default weekdays
+        paint(); save();
+      }));
+      dayBtns.forEach(b => b.addEventListener('click', () => {
+        const d = Number(b.dataset.day);
+        const i = state.days.indexOf(d);
+        if (i === -1) state.days.push(d); else state.days.splice(i, 1);
+        paint(); save();
+      }));
+      [startEl, endEl].forEach(el => el && el.addEventListener('change', () => {
+        state.preset = 'custom';
+        state.start = startEl.value || null;
+        state.end   = endEl.value || null;
+        paint(); save();
+      }));
+    })();
+
+    // ── Onboarding Wizard Step 5: Compliance acceptance toggle (US6 AC2) ──
+    (async function initComplianceToggle() {
+      const btn = document.getElementById('compliance-toggle');
+      if (!btn) return;
+      const knob = btn.querySelector('span');
+      const saved = document.getElementById('compliance-saved');
+      const paint = (on) => {
+        btn.setAttribute('aria-checked', String(on));
+        btn.classList.toggle('bg-emerald-500', on);
+        btn.classList.toggle('bg-gray-300', !on);
+        if (knob) { knob.classList.toggle('translate-x-5', on); knob.classList.toggle('translate-x-0', !on); }
+      };
+      let accepted = false;
+      try {
+        const r = await fetch('/.netlify/functions/accept-compliance');
+        if (r.ok) accepted = !!(await r.json()).acceptedAt;
+      } catch { /* non-fatal */ }
+      paint(accepted);
+      if (accepted && saved) saved.classList.remove('hidden');
+
+      btn.addEventListener('click', async () => {
+        const next = btn.getAttribute('aria-checked') !== 'true';
+        paint(next); // optimistic
+        try {
+          const r = await fetch('/.netlify/functions/accept-compliance', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accepted: next }),
+          });
+          if (r.ok) { if (saved) saved.classList.toggle('hidden', !next); window.SetupWizard?.onNavigate?.(); }
+          else paint(!next);
+        } catch { paint(!next); }
+      });
+    })();
+
+    // ── US8 AC2: re-open the setup wizard from My Account ──
+    const resumeBtn = document.getElementById('resume-wizard-btn');
+    if (resumeBtn) resumeBtn.addEventListener('click', () => window.SetupWizard?.open?.());
+
     // Helper function to animate the toggle switches smoothly to match the provided image
     function updateToggleView(el, status) {
       el.setAttribute('aria-checked', status ? 'true' : 'false');
@@ -3508,7 +3645,10 @@ function formatCurrency(amount, currency) {
       if (res.ok) {
         const data = await res.json();
         const container = document.getElementById('onboarding-widget-container');
-        if (container && !data.onboardingCompleted && Array.isArray(data.steps) && data.steps.length) {
+        // The persistent slide-over Setup Wizard now owns onboarding guidance, so the
+        // legacy inline 3-step dashboard widget is suppressed to avoid duplication. The
+        // justCompleted celebration below still fires off get-onboarding-progress.
+        if (false && container && !data.onboardingCompleted && Array.isArray(data.steps) && data.steps.length) {
           const done = data.steps.filter(s => s.done).length;
           const pct  = Math.round((done / data.steps.length) * 100);
           const pctEl = document.getElementById('onboarding-progress-pct');
@@ -3558,6 +3698,11 @@ function formatCurrency(amount, currency) {
   window.initDashboard = async function() {
     await window._renderDashboardEngagement();
     await fetchAndRenderAssistants('dashboard-assistants-grid');
+    // US1 AC1 — the setup wizard auto-slides in for users still onboarding when the
+    // dashboard loads (unless they've collapsed it or already finished).
+    if (window.SetupWizard && typeof window.SetupWizard.refresh === 'function') {
+      window.SetupWizard.refresh({ autoOpen: true });
+    }
   };
 
   window.initAssistantsDirectory = async function(loadViewCb) {
@@ -3566,7 +3711,11 @@ function formatCurrency(amount, currency) {
     const routeToCatalogBtn = document.getElementById('route-to-catalog-from-dir');
     if (routeToCatalogBtn && !routeToCatalogBtn.dataset.bound) {
       routeToCatalogBtn.dataset.bound = 'true';
-      routeToCatalogBtn.addEventListener('click', () => loadViewCb('catalog'));
+      // US8 AC3 — "Hire New Assistant" re-opens the wizard at Step 6 (secondary onboarding).
+      routeToCatalogBtn.addEventListener('click', () => {
+        if (window.SetupWizard?.openForNewAssistant) window.SetupWizard.openForNewAssistant();
+        else loadViewCb('catalog');
+      });
     }
   };
 
@@ -5698,6 +5847,233 @@ async function gpSubmitReject() {
     const qs = new URLSearchParams(window.location.search);
     if (qs.get('issue')) window.addEventListener('load', () => setTimeout(() => window.openReportIssue('mine'), 600));
   } catch { /* noop */ }
+})();
+</script>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     Frictionless Onboarding Wizard — persistent right-hand slide-over companion.
+     Lives outside #workspace-content so it survives every SPA view swap (US1 AC2).
+     Layout-critical styles are inline because the prebuilt style.css does not
+     compile newly-introduced arbitrary Tailwind classes (see project memory).
+     ════════════════════════════════════════════════════════════════════════ -->
+<aside id="setup-wizard-drawer" aria-label="Set up your assistant"
+       style="position:fixed; top:0; right:0; height:100%; width:100%; max-width:25rem; z-index:70; transform:translateX(100%); transition:transform .32s cubic-bezier(.4,0,.2,1); box-shadow:-10px 0 40px rgba(15,23,42,.14);"
+       class="bg-white flex flex-col">
+  <!-- Header + progress tracker (US2 AC2) -->
+  <div class="px-5 pt-5 pb-4 border-b border-gray-100">
+    <div class="flex items-start justify-between gap-3 mb-3">
+      <div>
+        <h2 class="text-lg font-extrabold text-gray-900">Set up your assistant</h2>
+        <p id="setup-wizard-progress-label" class="text-xs font-semibold text-emerald-600 mt-0.5">Step 1 of 9</p>
+      </div>
+      <button type="button" id="setup-wizard-close" aria-label="Collapse setup guide"
+              class="text-gray-400 hover:text-gray-700 transition shrink-0 cursor-pointer p-1 -m-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div style="height:6px;" class="w-full rounded-full bg-gray-100 overflow-hidden">
+      <div id="setup-wizard-bar" style="width:0%; height:100%; transition:width .5s ease;" class="bg-emerald-500"></div>
+    </div>
+  </div>
+  <!-- Step list / go-live state (filled by the controller) -->
+  <div id="setup-wizard-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
+  <div class="px-5 py-3 border-t border-gray-100">
+    <a href="/help.html" target="_blank" rel="noopener noreferrer"
+       class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">Need a hand? Read the setup guide &rarr;</a>
+  </div>
+</aside>
+
+<!-- Persistent "Resume Setup" pill, shown when the drawer is collapsed mid-onboarding (US1 AC3) -->
+<button type="button" id="setup-wizard-fab"
+        style="position:fixed; bottom:1.5rem; right:1.5rem; z-index:69; display:none;"
+        class="items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-full shadow-lg px-4 py-3 transition cursor-pointer">
+  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+  <span>Resume setup <span id="setup-wizard-fab-count" class="opacity-90 font-semibold"></span></span>
+</button>
+
+<script>
+(function () {
+  // ── Onboarding Wizard controller (window.SetupWizard) ──────────────────────
+  // Companion checklist: reads aggregate state from get-wizard-state, routes each
+  // step to its real page (drawer stays open), celebrates completions, and resumes
+  // at the next incomplete step. Owns no form data — pages auto-save themselves.
+  const COLLAPSE_KEY = 'swan_wizard_collapsed';
+
+  const drawer = document.getElementById('setup-wizard-drawer');
+  const fab    = document.getElementById('setup-wizard-fab');
+  const body   = document.getElementById('setup-wizard-body');
+  const bar    = document.getElementById('setup-wizard-bar');
+  const label  = document.getElementById('setup-wizard-progress-label');
+  if (!drawer || !fab || !body) return;
+
+  let last = null;          // previous snapshot { key: done } for completion diffing
+  let lastData = null;      // last full payload (re-render on open)
+  let isOpen = false;
+  let celebratedGoLive = false;
+
+  const tick = '<span class="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-600 text-white shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></span>';
+
+  function setOpen(open) {
+    isOpen = open;
+    drawer.style.transform = open ? 'translateX(0)' : 'translateX(100%)';
+  }
+
+  function showFab(show, remaining) {
+    fab.style.display = show ? 'inline-flex' : 'none';
+    const c = document.getElementById('setup-wizard-fab-count');
+    if (c) c.textContent = (typeof remaining === 'number' && remaining > 0) ? `· ${remaining} left` : '';
+  }
+
+  function render(data) {
+    const steps = data.steps || [];
+    const done = data.completedCount ?? steps.filter(s => s.done).length;
+    const total = data.total ?? steps.length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    if (bar) bar.style.width = pct + '%';
+    if (label) label.textContent = data.allDone ? 'All steps complete 🎉' : `Step ${Math.min(data.currentStep, total)} of ${total}`;
+
+    // Go-live success state (US8 AC1) replaces the list once every step is done.
+    if (data.allDone) {
+      body.innerHTML = `
+        <div class="text-center py-10">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-100 flex items-center justify-center">
+            <svg class="w-9 h-9 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <h3 class="text-xl font-extrabold text-gray-900 mb-1">Your assistant is live!</h3>
+          <p class="text-sm text-gray-500 mb-6">Everything's set up — your assistant is working for you. You can revisit any step from My Account.</p>
+          <button type="button" id="setup-wizard-done-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl px-5 py-2.5 transition cursor-pointer">Done</button>
+        </div>`;
+      const doneBtn = document.getElementById('setup-wizard-done-btn');
+      if (doneBtn) doneBtn.addEventListener('click', () => collapse());
+      return;
+    }
+
+    body.innerHTML = `<ul class="space-y-2">${steps.map((s, i) => {
+      const isCurrent = (i + 1) === data.currentStep && !s.done;
+      const num = `<span class="flex items-center justify-center w-7 h-7 rounded-full ${isCurrent ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'} font-bold text-sm shrink-0">${i + 1}</span>`;
+      return `
+        <li>
+          <button type="button" data-view="${s.view || ''}" ${s.view ? '' : 'disabled'}
+            class="setup-wizard-step w-full text-left flex items-start gap-3 p-3 rounded-xl border ${isCurrent ? 'border-emerald-300 bg-emerald-50/50' : s.done ? 'border-gray-100' : 'border-gray-100 hover:border-emerald-200 hover:bg-emerald-50/40'} transition ${s.view ? 'cursor-pointer' : 'cursor-default'}">
+            ${s.done ? tick : num}
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-semibold ${s.done ? 'text-gray-400 line-through' : 'text-gray-900'}">${s.label}</span>
+              ${(!s.done && (isCurrent)) ? `<span class="block text-xs text-gray-500 mt-0.5">${s.benefit}</span>` : ''}
+              ${s.done ? '<span class="block text-xs text-emerald-600 font-semibold mt-0.5">Completed</span>' : ''}
+            </span>
+            ${(!s.done && s.view) ? '<span class="text-emerald-600 font-bold self-center shrink-0">&rarr;</span>' : ''}
+          </button>
+        </li>`;
+    }).join('')}</ul>`;
+
+    body.querySelectorAll('.setup-wizard-step').forEach(btn => {
+      const view = btn.getAttribute('data-view');
+      if (!view) return;
+      btn.addEventListener('click', () => {
+        // US1 AC2 — route the main area, but keep the drawer open as a companion.
+        if (window.loadView) window.loadView(view);
+      });
+    });
+  }
+
+  // Compare against the previous snapshot and celebrate any step that just flipped done.
+  function celebrate(data) {
+    const prev = last || {};
+    let newlyDone = false;
+    (data.steps || []).forEach(s => { if (s.done && prev[s.key] === false) newlyDone = true; });
+    if (newlyDone && !data.allDone) {
+      window.showToast?.('Great job — you\'re one step closer! 🎉', { icon: '✅' });
+    }
+    if (data.allDone && !celebratedGoLive && last !== null) {
+      celebratedGoLive = true;
+      window.showToast?.('Your assistant is live! 🎉', { icon: '🎉' });
+      window.fireConfetti?.();
+    }
+    last = {};
+    (data.steps || []).forEach(s => { last[s.key] = s.done; });
+  }
+
+  async function fetchState() {
+    try {
+      const res = await fetch('/.netlify/functions/get-wizard-state');
+      if (!res.ok) return null;
+      return await res.json();
+    } catch { return null; }
+  }
+
+  async function refresh(opts = {}) {
+    const data = await fetchState();
+    if (!data) return;
+    const firstLoad = last === null;
+    celebrate(data);          // sets `last`; also fires celebrations on subsequent loads
+    lastData = data;
+    render(data);
+
+    const collapsedPref = localStorage.getItem(COLLAPSE_KEY) === '1';
+    const remaining = (data.total ?? 9) - (data.completedCount ?? 0);
+
+    // Permanent hide once finished, or for users who completed the legacy onboarding —
+    // they can still re-open from My Account (US8 AC2).
+    if ((data.allDone && celebratedGoLive && !isOpen) || (data.dismissed && !isOpen && firstLoad)) {
+      setOpen(false); showFab(false); return;
+    }
+
+    if (opts.autoOpen && !data.allDone && !data.dismissed && !collapsedPref && !isOpen) {
+      open();
+      return;
+    }
+    // Otherwise reflect current open/collapsed state without forcing anything open.
+    if (!isOpen) showFab(!data.allDone && !data.dismissed && collapsedPref, remaining);
+  }
+
+  function open() {
+    localStorage.removeItem(COLLAPSE_KEY);
+    setOpen(true);
+    showFab(false);
+    if (lastData) render(lastData); else refresh();
+  }
+
+  function collapse() {
+    localStorage.setItem(COLLAPSE_KEY, '1');
+    setOpen(false);
+    const remaining = lastData ? ((lastData.total ?? 9) - (lastData.completedCount ?? 0)) : 0;
+    // Show the Resume pill only while there's still onboarding to do (US1 AC3).
+    showFab(!!(lastData && !lastData.allDone && !lastData.dismissed), remaining);
+  }
+
+  // Called at the end of every SPA navigation — cheaply re-syncs done flags so a step
+  // completed on the page just visited ticks (and celebrates) when the user returns,
+  // but never force-opens a collapsed/finished drawer.
+  function onNavigate() {
+    if (isOpen || localStorage.getItem(COLLAPSE_KEY) === '1') refresh();
+  }
+
+  // US8 AC3 — secondary onboarding. An existing user adding another assistant re-opens the
+  // same drawer with the global steps (plan/business/profile/compliance) auto-ticked and the
+  // assistant-specific steps reset, starting directly at Step 6. State is org-global so the
+  // backend reports steps 6-9 as already done once one assistant is live; we locally override
+  // them for this "add" session so the journey restarts.
+  const GLOBAL_STEP_KEYS = ['plan', 'business_info', 'profile', 'system_config', 'compliance'];
+  async function openForNewAssistant() {
+    localStorage.removeItem(COLLAPSE_KEY);
+    if (!lastData) await refresh();
+    setOpen(true);
+    showFab(false);
+    if (lastData) {
+      const data = JSON.parse(JSON.stringify(lastData));
+      data.steps = (data.steps || []).map(s => ({ ...s, done: GLOBAL_STEP_KEYS.includes(s.key) }));
+      data.allDone = false;
+      data.completedCount = data.steps.filter(s => s.done).length;
+      data.currentStep = 6;
+      render(data);
+    }
+    if (window.loadView) window.loadView('catalog');
+  }
+
+  document.getElementById('setup-wizard-close').addEventListener('click', collapse);
+  fab.addEventListener('click', open);
+
+  window.SetupWizard = { refresh, open, collapse, toggle: () => (isOpen ? collapse() : open()), onNavigate, openForNewAssistant };
 })();
 </script>
 </body>

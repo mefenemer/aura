@@ -82,6 +82,33 @@
                     <p class="text-xs text-gray-500 mt-2">This ensures your assistants schedule tasks and deliver reports at the correct local time.</p>
                 </div>
 
+                <!-- Onboarding Wizard Step 3 — Working Hours (US5 AC2) -->
+                <div id="working-hours-card">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Working hours</label>
+                    <p class="text-xs text-gray-500 mb-3">When should your assistant focus on your work? Pick a preset or set your own.</p>
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        <button type="button" class="wh-preset px-3 py-1.5 text-sm font-semibold rounded-full border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-preset="standard_9_5" data-start="09:00" data-end="17:00">Standard 9–5</button>
+                        <button type="button" class="wh-preset px-3 py-1.5 text-sm font-semibold rounded-full border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-preset="extended" data-start="08:00" data-end="18:00">Extended 8–6</button>
+                        <button type="button" class="wh-preset px-3 py-1.5 text-sm font-semibold rounded-full border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-preset="always_on">Always on</button>
+                        <button type="button" class="wh-preset px-3 py-1.5 text-sm font-semibold rounded-full border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-preset="custom">Custom</button>
+                    </div>
+                    <div id="wh-custom-row" class="hidden items-center gap-2 mb-3">
+                        <input type="time" id="wh-start" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
+                        <span class="text-sm text-gray-500">to</span>
+                        <input type="time" id="wh-end" class="px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </div>
+                    <div id="wh-days" class="flex flex-wrap gap-1.5">
+                        <button type="button" class="wh-day w-9 h-9 text-xs font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-day="1">Mon</button>
+                        <button type="button" class="wh-day w-9 h-9 text-xs font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-day="2">Tue</button>
+                        <button type="button" class="wh-day w-9 h-9 text-xs font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-day="3">Wed</button>
+                        <button type="button" class="wh-day w-9 h-9 text-xs font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-day="4">Thu</button>
+                        <button type="button" class="wh-day w-9 h-9 text-xs font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-day="5">Fri</button>
+                        <button type="button" class="wh-day w-9 h-9 text-xs font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-day="6">Sat</button>
+                        <button type="button" class="wh-day w-9 h-9 text-xs font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-emerald-300 transition cursor-pointer" data-day="0">Sun</button>
+                    </div>
+                    <p id="wh-saved" class="hidden text-xs text-emerald-600 font-semibold mt-2">✓ Saved</p>
+                </div>
+
                 <!-- US-AUD-1.1.2: Hourly Rate for ROI Calculation -->
                 <div>
                     <label for="input-hourly-rate" class="block text-sm font-medium text-gray-700 mb-1">
@@ -98,6 +125,36 @@
                         Set your hourly rate to see time savings displayed in £ on your dashboard.
                         Leave blank to show savings in hours instead.
                     </p>
+                </div>
+
+                <!-- Onboarding Wizard Step 5 — Compliance (US6 AC2) -->
+                <div id="compliance-card" class="rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+                    <div class="flex items-start gap-3">
+                        <button type="button" id="compliance-toggle" role="switch" aria-checked="false"
+                            class="bg-gray-300 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none mt-0.5">
+                            <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                        </button>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-900">AI usage &amp; data processing agreement</p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                I understand my assistant is powered by AI and I agree to how Be More Swan processes my
+                                business data to deliver this service. This keeps your company's data safe and your
+                                assistant compliant. Read our
+                                <a href="/privacy.html" target="_blank" rel="noopener noreferrer" class="text-emerald-700 font-semibold hover:underline">Privacy Policy</a> and
+                                <a href="/terms_of_service.html" target="_blank" rel="noopener noreferrer" class="text-emerald-700 font-semibold hover:underline">Terms</a>.
+                            </p>
+                            <p id="compliance-saved" class="hidden text-xs text-emerald-600 font-semibold mt-2">✓ Accepted — thank you!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- US8 AC2 — re-open the setup wizard after completion -->
+                <div id="resume-wizard-card" class="pt-2">
+                    <button type="button" id="resume-wizard-btn"
+                        class="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:underline cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        Resume setup guide
+                    </button>
                 </div>
             </div>
         </div>

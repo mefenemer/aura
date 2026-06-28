@@ -59,6 +59,9 @@ export const organisations = pgTable('organisations', {
   targetAudience: text('target_audience'),
   // Gamification & Engagement:
   onboardingCompleted: boolean('onboarding_completed').notNull().default(false), // AC1.1.3 — 3-step widget done
+  // Onboarding Wizard Step 5 (Compliance) — stamped when the AI-usage / data-processing
+  // agreement is accepted (US6 AC2). NULL = not yet accepted. See get-wizard-state.ts.
+  complianceAcceptedAt: timestamp('compliance_accepted_at'),
   betaAccess: boolean('beta_access').notNull().default(false),                    // AC3.1.2 — 50h-saved milestone
   bonusReferralTokens: integer('bonus_referral_tokens').notNull().default(0),     // AC3.1.3 — milestone token drops into the vault
   // Abuse Prevention US3: Stripe card fingerprint (hash of the physical card) for this workspace's
@@ -351,6 +354,9 @@ export const userProfiles = pgTable("user_profiles", {
   // stored value. Supersedes the legacy notify_wins/billing/availability columns.
   inAppPreferences: jsonb("in_app_preferences"),
   language: text("language").default("en"),
+  // Onboarding Wizard Step 3 (User Profile). Shape: { preset?, start?, end?, days?[] }.
+  // A non-null value marks the working-hours step complete (see get-wizard-state.ts).
+  workingHours: jsonb("working_hours"),
   preferences: jsonb("preferences"),
   legalConsents: jsonb("legal_consents"),
   // US-ONB-2.2.1: tracks whether the first-login welcome modal has been shown

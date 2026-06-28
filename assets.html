@@ -46,8 +46,45 @@
       </div>
       <div>
         <label for="bp-input-industry" class="block text-sm font-semibold text-gray-700 mb-1.5">Industry / sector</label>
-        <input type="text" id="bp-input-industry" placeholder="e.g. Hospitality, SaaS, Retail"
+        <!-- US4 AC3: searchable dropdown via datalist; US4 AC2: free typing still allowed. -->
+        <input type="text" id="bp-input-industry" list="bp-industry-options" autocomplete="off"
+          placeholder="Search or type your industry…"
           class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+        <datalist id="bp-industry-options">
+          <option value="Accounting &amp; Finance"></option>
+          <option value="Agriculture"></option>
+          <option value="Architecture &amp; Design"></option>
+          <option value="Automotive"></option>
+          <option value="Beauty &amp; Wellness"></option>
+          <option value="Construction"></option>
+          <option value="Consulting"></option>
+          <option value="Creative &amp; Media"></option>
+          <option value="E-commerce"></option>
+          <option value="Education &amp; Training"></option>
+          <option value="Energy &amp; Utilities"></option>
+          <option value="Events"></option>
+          <option value="Fashion &amp; Apparel"></option>
+          <option value="Financial Services"></option>
+          <option value="Fitness &amp; Sport"></option>
+          <option value="Food &amp; Beverage"></option>
+          <option value="Government &amp; Public Sector"></option>
+          <option value="Healthcare"></option>
+          <option value="Hospitality"></option>
+          <option value="Insurance"></option>
+          <option value="Legal Services"></option>
+          <option value="Logistics &amp; Transport"></option>
+          <option value="Manufacturing"></option>
+          <option value="Marketing &amp; Advertising"></option>
+          <option value="Non-profit &amp; Charity"></option>
+          <option value="Property &amp; Real Estate"></option>
+          <option value="Recruitment &amp; HR"></option>
+          <option value="Retail"></option>
+          <option value="SaaS &amp; Software"></option>
+          <option value="Technology"></option>
+          <option value="Telecommunications"></option>
+          <option value="Travel &amp; Tourism"></option>
+          <option value="Other"></option>
+        </datalist>
       </div>
       <div>
         <label for="bp-input-website" class="block text-sm font-semibold text-gray-700 mb-1.5">Website</label>
