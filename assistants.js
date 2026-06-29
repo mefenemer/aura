@@ -1228,6 +1228,10 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         await loadActivity('30d');
     }
 
+    // ── Impact & ROI metrics card — fire immediately so it appears at the top of
+    // Overview without waiting behind connections/integrations/goals fetches ──────
+    _fetchAndRenderAssistantMetrics(assistantId);
+
     // ── Performance Metrics (post_insights aggregation) ───────────
     await _loadAssistantMetrics(assistantId);
 
@@ -1249,9 +1253,6 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── AC6: Daily Relationship-Building Checklist ────────────────
     // Hidden — belongs to a future Engagement/CTA assistant, not SMM.
     // await _fetchAndRenderRelationshipChecklist(assistantId);
-
-    // ── Impact & ROI metrics card ─────────────────────────────────
-    await _fetchAndRenderAssistantMetrics(assistantId);
 
     // ── Review Queue tab — prefetch pending count so the badge shows without opening the tab ──
     _prefetchDetailRqBadge(assistantId);
