@@ -87,15 +87,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const btn = document.getElementById('btn-dpa-accept');
     if (cb && btn) cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
 
-    checkDpaAcceptance();
+    // NOTE: no longer auto-checked on login. The compliance modals are surfaced on demand
+    // from the Setup Wizard's "Compliance & data use" step (window.showComplianceModals).
+    // The DPA modal is still shown contextually when opening an assistant that requires it
+    // (DPA_REQUIRED gate in assistants.js).
 });
 
-async function checkDpaAcceptance() {
+async function checkDpaAcceptance(force) {
     try {
         const res = await fetch('/.netlify/functions/check-dpa');
         if (!res.ok) return; // Non-blocking — don't prevent workspace loading on auth errors
         const data = await res.json();
-        if (!data.upToDate) {
+        // `force` (the "Review agreements" button) shows the modal even when already accepted.
+        if (force || !data.upToDate) {
             const modal = document.getElementById('modal-dpa-required');
             if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
         }
@@ -172,16 +176,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const btn = document.getElementById('btn-tos-accept');
     if (cb && btn) cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
 
-    // Check ToS acceptance on load
-    checkTosAcceptance();
+    // NOTE: no longer auto-checked on login — surfaced on demand from the Setup Wizard's
+    // "Compliance & data use" step (window.showComplianceModals).
 });
 
-async function checkTosAcceptance() {
+async function checkTosAcceptance(force) {
     try {
         const res = await fetch('/.netlify/functions/check-tos');
         if (!res.ok) return; // Don't block on auth errors
         const data = await res.json();
-        if (!data.upToDate) {
+        // `force` (the "Review agreements" button) shows the modal even when already accepted.
+        if (force || !data.upToDate) {
             const modal = document.getElementById('modal-tos-required');
             if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
         }
@@ -208,6 +213,18 @@ async function submitTosAcceptance(btn) {
         alert('Failed to record acceptance. Please try again.');
     }
 }
+
+// Surfaced from the Setup Wizard's "Compliance & data use" step (and the My Account
+// compliance card). Opens whichever of the DPA / ToS / AI-disclaimer modals are still
+// outstanding — replacing the old auto-pop-on-login behaviour so these only appear when
+// the user actively works through the wizard.
+// `force` shows every agreement (used by the My Account "Review agreements" button);
+// without it, only the outstanding ones appear (used by the wizard's compliance step).
+window.showComplianceModals = function showComplianceModals(force) {
+    if (typeof checkDpaAcceptance === 'function') checkDpaAcceptance(force);
+    if (typeof checkTosAcceptance === 'function') checkTosAcceptance(force);
+    if (typeof window.checkAiDisclaimerConsent === 'function') window.checkAiDisclaimerConsent(force);
+};
 </script>
 
 <!-- US-GOV-2.1.1: Review Queue drawer removed — superseded by the full review-queue.html page.
@@ -1773,18 +1790,21 @@ function formatCurrency(amount, currency) {
 
     loadRoiCard('month');
 
-    // US-AUD-4.3.1 SC5: Check if user has acknowledged AI disclaimer; show modal if not.
-    (async function checkAiDisclaimerConsent() {
+    // US-AUD-4.3.1 SC5: Show the AI disclaimer modal if the user hasn't acknowledged it.
+    // No longer auto-run on login — surfaced on demand from the Setup Wizard's
+    // "Compliance & data use" step (window.showComplianceModals).
+    window.checkAiDisclaimerConsent = async function checkAiDisclaimerConsent(force) {
       try {
         const res = await fetch('/.netlify/functions/legal-consent');
         if (!res.ok) return;
         const data = await res.json();
-        if (!data.aiDisclaimerAccepted) {
+        // `force` (the "Review agreements" button) shows the modal even when already accepted.
+        if (force || !data.aiDisclaimerAccepted) {
           const modal = document.getElementById('ai-disclaimer-modal');
           if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
         }
       } catch { /* fail silently — don't block the workspace */ }
-    })();
+    };
 
     // US-AUD-5.2.1: Success-Triggered Upgrade Moment
     // SC4: A/B test variant feature bullets
@@ -3031,6 +3051,11 @@ function formatCurrency(amount, currency) {
           else paint(!next);
         } catch { paint(!next); }
       });
+
+      // "Review agreements" — re-open the DPA / ToS / AI-disclaimer modals on demand,
+      // so they stay reachable from My Account after onboarding is finished.
+      document.getElementById('review-agreements-btn')
+        ?.addEventListener('click', () => window.showComplianceModals?.(true));
     })();
 
     // ── US8 AC2: re-open the setup wizard from My Account ──
@@ -5993,6 +6018,25 @@ async function gpSubmitReject() {
     padding: 6px 12px; border-radius: 999px; cursor: pointer; transition: all .15s ease; }
   .cmdbar-chip:hover { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
   @media (prefers-reduced-motion: reduce) { .cmdbar-overlay.open, .cmdbar-panel, .cmdbar-wave i, .cmdbar-iconbtn.listening { animation: none !important; } }
+  /* US-DASH-5 AC2: command-bar dark theme (system preference) */
+  @media (prefers-color-scheme: dark) {
+    #cmdbar-trigger { background: rgba(17,26,46,0.9); border-color: rgba(148,163,184,0.16); color: #cbd5e1; }
+    .cmdbar-kbd { background: #1e293b; color: #94a3b8; }
+    .cmdbar-panel { background: #0f1729; border-color: rgba(148,163,184,0.14); }
+    #cmdbar-input { color: #f1f5f9; }
+    #cmdbar-input::placeholder { color: #64748b; }
+    .cmdbar-iconbtn { background: #1e293b; color: #cbd5e1; }
+    .cmdbar-iconbtn:hover { background: #243049; }
+    .cmdbar-send { background: #10b981; color: #fff; }
+    .cmdbar-result { border-top-color: #1e293b; color: #e2e8f0; }
+    .cmdbar-hints { border-top-color: #1e293b; }
+    .cmdbar-chip { background: #111a2e; border-color: #243049; color: #cbd5e1; }
+    .cmdbar-chip:hover { background: #0c2a20; border-color: #115e44; color: #6ee7b7; }
+  }
+  /* US-DASH-5 AC3: command-bar micro-interactions */
+  #cmdbar-trigger:active { transform: translateX(-50%) scale(.97); }
+  .cmdbar-iconbtn:active, .cmdbar-chip:active { transform: scale(.94); }
+  .cmdbar-iconbtn:focus-visible, .cmdbar-chip:focus-visible, #cmdbar-trigger:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
 </style>
 
 <script>
@@ -6250,6 +6294,12 @@ async function gpSubmitReject() {
       btn.addEventListener('click', () => {
         // US1 AC2 — route the main area, but keep the drawer open as a companion.
         if (window.loadView) window.loadView(view);
+        // The compliance step is where the DPA / ToS / AI-disclaimer modals now live.
+        // They no longer auto-pop on login — they surface only when the user reaches
+        // this wizard step. Defer so the routed settings view has mounted first.
+        if (key === 'compliance' && typeof window.showComplianceModals === 'function') {
+          setTimeout(() => window.showComplianceModals(), 300);
+        }
       });
     });
   }

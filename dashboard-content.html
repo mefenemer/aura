@@ -1,4 +1,4 @@
-<div class="flex flex-col">
+<div class="flex flex-col" id="dash-root">
 
   <!-- Post-payment / first-login welcome now lives in the Notifications area + the
        Getting Started view (getting-started.html); no welcome modal is shown. -->
@@ -72,7 +72,7 @@
           <div class="cc-tile">
             <div class="cc-tile-icon">⏱️</div>
             <div class="cc-tile-label">Hours Saved</div>
-            <div class="cc-tile-value"><span id="cc-hours" data-count="0">0</span><span class="cc-unit">hrs</span></div>
+            <div class="cc-tile-value"><span id="cc-hours" data-count="0"><span class="cc-skel-text"></span></span><span class="cc-unit">hrs</span></div>
             <div class="cc-tile-sub" id="cc-hours-sub">this week</div>
           </div>
 
@@ -80,7 +80,7 @@
           <div class="cc-tile">
             <div class="cc-tile-icon">✅</div>
             <div class="cc-tile-label">Tasks Handled</div>
-            <div class="cc-tile-value"><span id="cc-tasks" data-count="0">0</span></div>
+            <div class="cc-tile-value"><span id="cc-tasks" data-count="0"><span class="cc-skel-text"></span></span></div>
             <button id="cc-tasks-link" type="button" class="cc-tile-sub cc-link"
               onclick="window._showSavingsModal && window._showSavingsModal()">See the tasks behind this →</button>
           </div>
@@ -89,7 +89,7 @@
           <div class="cc-tile cc-tile-accent">
             <div class="cc-tile-icon">💷</div>
             <div class="cc-tile-label">Estimated Money Saved</div>
-            <div class="cc-tile-value"><span id="cc-money">—</span></div>
+            <div class="cc-tile-value"><span id="cc-money"><span class="cc-skel-text"></span></span></div>
             <div class="cc-tile-sub" id="cc-money-sub"></div>
           </div>
         </div>
@@ -104,7 +104,7 @@
               <span>Busy</span>
             </span>
           </div>
-          <div id="cc-heatmap" class="cc-heatmap" aria-label="Assistant activity by day and hour"></div>
+          <div id="cc-heatmap" class="cc-heatmap" aria-label="Assistant activity by day and hour"><div class="cc-hm-skel"></div></div>
           <p id="cc-heatmap-caption" class="cc-heatmap-caption">Loading activity…</p>
         </div>
       </div>
@@ -138,6 +138,36 @@
         <div id="as-suggest" class="as-suggest-row"></div>
       </div>
     </section>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         US-DASH-4: Modular, Personalized Workspaces
+         AC1 "Customize" → widget-library tray · AC2 drag-and-drop snap grid
+         · AC3 silent auto-save to the user's profile (preferences.dashboardLayout).
+         ════════════════════════════════════════════════════════════════════ -->
+    <section id="dash-widgets-section" class="mb-12">
+      <div class="dw-head">
+        <h3 class="dw-title">Your workspace</h3>
+        <button id="dw-customize" type="button" class="dw-customize">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 14a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4"/></svg>
+          <span>Customize</span>
+        </button>
+      </div>
+      <div id="dash-widgets" class="dw-grid"></div>
+      <p id="dw-empty" class="dw-empty hidden">No widgets here yet — tap <strong>Customize</strong> to add some.</p>
+    </section>
+
+    <!-- Edit-mode widget library tray -->
+    <div id="dw-tray-backdrop" class="dw-tray-backdrop" aria-hidden="true"></div>
+    <aside id="dw-tray" class="dw-tray" aria-hidden="true" aria-label="Widget library">
+      <div class="dw-tray-head">
+        <div>
+          <h4 class="dw-tray-title">Widget library</h4>
+          <p class="dw-tray-sub">Toggle widgets on or off, then drag cards to reorder.</p>
+        </div>
+        <button id="dw-tray-close" type="button" class="dw-tray-close">Done</button>
+      </div>
+      <div id="dw-tray-list" class="dw-tray-list"></div>
+    </aside>
 
     <!-- Dynamic Assistants Grid -->
     <div id="dashboard-assistants-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -583,3 +613,342 @@
     render();
   })();
 </script>
+
+<style>
+  /* US-DASH-4 — Modular widgets. Scoped plain CSS (immune to prebuilt-Tailwind). */
+  .dw-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .dw-title { font-size: 18px; font-weight: 800; color: #0f172a; margin: 0; }
+  .dw-customize { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #e2e8f0; background: #fff;
+    color: #334155; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 10px; cursor: pointer; transition: all .15s ease; }
+  .dw-customize svg { width: 16px; height: 16px; color: #10b981; }
+  .dw-customize:hover { background: #f8fafc; border-color: #cbd5e1; }
+  .dw-customize.active { background: #10b981; color: #fff; border-color: #10b981; }
+  .dw-customize.active svg { color: #fff; }
+
+  .dw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .dw-empty { text-align: center; color: #94a3b8; font-size: 14px; padding: 28px; border: 1.5px dashed #e2e8f0; border-radius: 16px; }
+
+  .dw-card { position: relative; background: #fff; border: 1px solid rgba(15,23,42,0.08); border-radius: 18px; padding: 18px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04); transition: box-shadow .2s ease, transform .18s ease, opacity .2s ease; }
+  .dw-card:hover { box-shadow: 0 14px 26px -18px rgba(6,78,59,0.3); }
+  .dw-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .dw-card-ico { font-size: 16px; }
+  .dw-card-title { font-size: 13px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: .04em; }
+  .dw-card-body { font-size: 14px; color: #1e293b; }
+
+  /* edit mode */
+  #dash-widgets-section.editing .dw-card { cursor: grab; border-style: dashed; border-color: #a7f3d0; animation: dwWobble 2.4s ease-in-out infinite; }
+  #dash-widgets-section.editing .dw-card:active { cursor: grabbing; }
+  .dw-card.dragging { opacity: .45; transform: scale(.98); animation: none; }
+  @keyframes dwWobble { 0%,100% { transform: rotate(-.35deg) } 50% { transform: rotate(.35deg) } }
+  .dw-card-remove { display: none; position: absolute; top: -9px; right: -9px; width: 24px; height: 24px; border-radius: 50%;
+    background: #ef4444; color: #fff; border: 2px solid #fff; cursor: pointer; font-size: 15px; line-height: 1; align-items: center; justify-content: center; z-index: 2; }
+  #dash-widgets-section.editing .dw-card-remove { display: inline-flex; }
+
+  /* widget internals */
+  .dw-stat { font-size: 30px; font-weight: 800; color: #0f172a; line-height: 1; }
+  .dw-stat-sub { font-size: 13px; color: #64748b; margin-top: 6px; }
+  .dw-qa { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dw-qa button { border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; font-size: 13px; font-weight: 600;
+    padding: 10px; border-radius: 10px; cursor: pointer; text-align: left; transition: all .15s ease; }
+  .dw-qa button:hover { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  .dw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .dw-list li { font-size: 13px; color: #475569; display: flex; gap: 8px; }
+  .dw-list .t { color: #0f172a; font-weight: 600; }
+  .dw-link { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 700; color: #059669; cursor: pointer; }
+  .dw-link:hover { text-decoration: underline; }
+  .dw-skel { height: 14px; border-radius: 6px; background: linear-gradient(90deg,#f1f5f9,#e2e8f0,#f1f5f9);
+    background-size: 200% 100%; animation: dwShimmer 1.2s infinite; margin-bottom: 8px; }
+  @keyframes dwShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+
+  /* tray */
+  .dw-tray-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.35); z-index: 88; display: none; }
+  .dw-tray-backdrop.open { display: block; }
+  .dw-tray { position: fixed; top: 0; right: 0; height: 100%; width: min(360px, 90vw); background: #fff; z-index: 89;
+    box-shadow: -20px 0 50px -20px rgba(0,0,0,0.4); transform: translateX(100%);
+    transition: transform .28s cubic-bezier(.2,.8,.2,1); display: flex; flex-direction: column; }
+  .dw-tray.open { transform: none; }
+  .dw-tray-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px; border-bottom: 1px solid #f1f5f9; }
+  .dw-tray-title { font-size: 16px; font-weight: 800; color: #0f172a; margin: 0; }
+  .dw-tray-sub { font-size: 12px; color: #94a3b8; margin: 4px 0 0; }
+  .dw-tray-close { border: 0; background: #10b981; color: #fff; font-weight: 700; font-size: 13px; padding: 8px 16px; border-radius: 10px; cursor: pointer; }
+  .dw-tray-list { padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .dw-tray-item { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #f1f5f9; border-radius: 12px; }
+  .dw-tray-item .ico { font-size: 18px; }
+  .dw-tray-item .meta { flex: 1; }
+  .dw-tray-item .meta .n { font-size: 14px; font-weight: 700; color: #0f172a; }
+  .dw-tray-item .meta .d { font-size: 12px; color: #94a3b8; }
+  .dw-switch { position: relative; width: 42px; height: 24px; flex: 0 0 auto; }
+  .dw-switch input { opacity: 0; width: 0; height: 0; }
+  .dw-switch span { position: absolute; inset: 0; background: #cbd5e1; border-radius: 999px; transition: .2s; cursor: pointer; }
+  .dw-switch span::before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  .dw-switch input:checked + span { background: #10b981; }
+  .dw-switch input:checked + span::before { transform: translateX(18px); }
+  @media (prefers-reduced-motion: reduce) { #dash-widgets-section.editing .dw-card { animation: none } .dw-skel { animation: none } }
+</style>
+
+<script>
+  (function () {
+    // ── US-DASH-4: Modular, personalized widget grid ─────────────────────────
+    const section = document.getElementById('dash-widgets-section');
+    const grid = document.getElementById('dash-widgets');
+    if (!section || !grid) return;
+
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmtGBP = v => Number(v).toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
+
+    const CATALOG = {
+      'quick-actions': { title: 'Quick actions', icon: '⚡', desc: 'One-tap shortcuts', render: renderQuickActions },
+      'roi-mini':      { title: 'Value this week', icon: '💷', desc: 'Hours & money saved', render: renderRoiMini },
+      'team-status':   { title: 'Your team', icon: '👥', desc: 'Who is working right now', render: renderTeamStatus },
+      'notifications': { title: 'Latest updates', icon: '🔔', desc: 'Your most recent activity', render: renderNotifications },
+      'tips':          { title: 'Tip', icon: '💡', desc: 'Get more from your team', render: renderTips },
+      'referral':      { title: 'Invite a teammate', icon: '🎁', desc: 'Share Be More Swan', render: renderReferral },
+    };
+    const ORDER = ['quick-actions', 'roi-mini', 'team-status', 'notifications', 'tips', 'referral'];
+    const DEFAULT_ON = { 'quick-actions': true, 'roi-mini': true, 'team-status': true, 'notifications': true, 'tips': false, 'referral': false };
+
+    let layout = [];
+    let editing = false;
+    let saveTimer = null;
+    let dragEl = null;
+
+    const defaultLayout = () => ORDER.map(k => ({ key: k, enabled: DEFAULT_ON[k] }));
+    function mergeCatalog(l) {
+      const have = new Set(l.map(w => w.key));
+      ORDER.forEach(k => { if (!have.has(k)) l.push({ key: k, enabled: false }); });
+      return l.filter(w => CATALOG[w.key]);
+    }
+    function save() { // AC3: silent debounced persistence
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        fetch('/.netlify/functions/dashboard-layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ layout }) }).catch(() => {});
+      }, 550);
+    }
+
+    function renderGrid() {
+      grid.innerHTML = '';
+      const enabled = layout.filter(w => w.enabled);
+      // Drive visibility via inline style (not Tailwind .hidden) so it works regardless
+      // of whether the prebuilt CSS has the utility compiled.
+      document.getElementById('dw-empty').style.display = enabled.length > 0 ? 'none' : 'block';
+      enabled.forEach(w => {
+        const meta = CATALOG[w.key]; if (!meta) return;
+        const card = document.createElement('div');
+        card.className = 'dw-card'; card.dataset.key = w.key; card.draggable = editing;
+        card.innerHTML = `<button class="dw-card-remove" title="Remove" aria-label="Remove">×</button>
+          <div class="dw-card-head"><span class="dw-card-ico">${meta.icon}</span><span class="dw-card-title">${esc(meta.title)}</span></div>
+          <div class="dw-card-body"><div class="dw-skel" style="width:80%"></div><div class="dw-skel" style="width:55%"></div></div>`;
+        card.querySelector('.dw-card-remove').onclick = e => { e.stopPropagation(); toggle(w.key, false); };
+        grid.appendChild(card);
+        try { meta.render(card.querySelector('.dw-card-body')); } catch (_) {}
+        bindDnD(card);
+      });
+      section.classList.toggle('editing', editing);
+    }
+
+    function toggle(key, on) {
+      const item = layout.find(w => w.key === key); if (!item) return;
+      item.enabled = on; renderGrid(); renderTray(); save();
+    }
+
+    // ── AC2: drag-and-drop reorder with snap ──
+    function bindDnD(card) {
+      card.addEventListener('dragstart', () => { if (!editing) return; dragEl = card; card.classList.add('dragging'); });
+      card.addEventListener('dragend', () => { card.classList.remove('dragging'); dragEl = null; persistOrder(); });
+    }
+    grid.addEventListener('dragover', e => {
+      if (!editing || !dragEl) return; e.preventDefault();
+      const after = afterElement(grid, e.clientY);
+      if (after == null) grid.appendChild(dragEl); else grid.insertBefore(dragEl, after);
+    });
+    function afterElement(container, y) {
+      const els = [...container.querySelectorAll('.dw-card:not(.dragging)')];
+      return els.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest;
+      }, { offset: -Infinity, element: null }).element;
+    }
+    function persistOrder() {
+      const order = [...grid.querySelectorAll('.dw-card')].map(c => c.dataset.key);
+      const disabled = layout.filter(w => !w.enabled);
+      layout = [...order.map(k => ({ key: k, enabled: true })), ...disabled];
+      save();
+    }
+
+    // ── AC1: edit mode + widget-library tray ──
+    function renderTray() {
+      const list = document.getElementById('dw-tray-list'); if (!list) return;
+      list.innerHTML = '';
+      layout.forEach(w => {
+        const meta = CATALOG[w.key]; if (!meta) return;
+        const row = document.createElement('div'); row.className = 'dw-tray-item';
+        row.innerHTML = `<span class="ico">${meta.icon}</span>
+          <div class="meta"><div class="n">${esc(meta.title)}</div><div class="d">${esc(meta.desc || '')}</div></div>
+          <label class="dw-switch"><input type="checkbox" ${w.enabled ? 'checked' : ''}><span></span></label>`;
+        row.querySelector('input').onchange = e => toggle(w.key, e.target.checked);
+        list.appendChild(row);
+      });
+    }
+    const customizeBtn = document.getElementById('dw-customize');
+    function setBtn(on) { customizeBtn.classList.toggle('active', on); customizeBtn.querySelector('span').textContent = on ? 'Done' : 'Customize'; }
+    function openTray() { document.getElementById('dw-tray').classList.add('open'); document.getElementById('dw-tray-backdrop').classList.add('open'); renderTray(); }
+    function closeTray() { document.getElementById('dw-tray').classList.remove('open'); document.getElementById('dw-tray-backdrop').classList.remove('open'); }
+    function enterEdit() { editing = true; setBtn(true); openTray(); renderGrid(); }
+    function exitEdit() { editing = false; setBtn(false); closeTray(); renderGrid(); }
+
+    customizeBtn.onclick = () => editing ? exitEdit() : enterEdit();
+    document.getElementById('dw-tray-close').onclick = exitEdit;
+    document.getElementById('dw-tray-backdrop').onclick = exitEdit;
+
+    // ── widget renderers ──
+    function renderQuickActions(el) {
+      const acts = [['📝', 'Create a post', 'review-queue'], ['➕', 'Hire an assistant', 'catalog'], ['📅', 'Open calendar', 'calendar'], ['🎁', 'Invite a teammate', 'referral']];
+      el.innerHTML = `<div class="dw-qa">${acts.map(a => `<button data-v="${a[2]}">${a[0]} ${esc(a[1])}</button>`).join('')}</div>`;
+      el.querySelectorAll('button').forEach(b => b.onclick = () => window.loadView && window.loadView(b.dataset.v));
+    }
+    async function renderRoiMini(el) {
+      try {
+        const d = await (await fetch('/.netlify/functions/roi-stats?period=week')).json();
+        const money = (d.gbpSaved != null) ? fmtGBP(d.gbpSaved) : null;
+        el.innerHTML = `<div class="dw-stat">${d.hoursSaved ?? 0}<span style="font-size:15px;color:#94a3b8;font-weight:600"> hrs</span></div>
+          <div class="dw-stat-sub">${money ? money + ' saved · ' : ''}${d.taskCount ?? 0} task${(d.taskCount ?? 0) === 1 ? '' : 's'} this week</div>`;
+      } catch { el.innerHTML = '<div class="dw-stat-sub">Unavailable right now.</div>'; }
+    }
+    async function renderTeamStatus(el) {
+      try {
+        const d = await (await fetch('/.netlify/functions/get-assistants')).json();
+        const a = d.assistants || [];
+        const working = a.filter(x => x.lifecycleStatus === 'working').length;
+        el.innerHTML = `<div class="dw-stat">${working}<span style="font-size:15px;color:#94a3b8;font-weight:600"> / ${a.length} working</span></div>
+          <div class="dw-stat-sub">${a.length ? 'Your digital team' : 'No assistants yet'}</div>
+          <span class="dw-link">Manage team →</span>`;
+        el.querySelector('.dw-link').onclick = () => window.loadView && window.loadView('assistants');
+      } catch { el.innerHTML = '<div class="dw-stat-sub">Unavailable right now.</div>'; }
+    }
+    async function renderNotifications(el) {
+      try {
+        const d = await (await fetch('/.netlify/functions/notifications')).json();
+        const n = (d.notifications || []).slice(0, 3);
+        el.innerHTML = n.length
+          ? `<ul class="dw-list">${n.map(x => `<li><span class="t">${esc(x.title || 'Update')}</span></li>`).join('')}</ul><span class="dw-link">View all →</span>`
+          : `<div class="dw-stat-sub">You're all caught up. 🎉</div>`;
+        const link = el.querySelector('.dw-link'); if (link) link.onclick = () => window.loadView && window.loadView('notifications');
+      } catch { el.innerHTML = '<div class="dw-stat-sub">Unavailable right now.</div>'; }
+    }
+    function renderTips(el) {
+      const tips = ['Press ⌘K anywhere to tell your team what to do.', 'Reject a draft with feedback and it becomes a rule for next time.', 'Set your hourly rate in Settings to unlock the money-saved figure.'];
+      el.innerHTML = esc(tips[Math.floor(Math.random() * tips.length)]);
+    }
+    function renderReferral(el) {
+      el.innerHTML = `<div class="dw-stat-sub">Invite a teammate — you both get rewarded.</div><span class="dw-link">Invite now →</span>`;
+      el.querySelector('.dw-link').onclick = () => window.loadView && window.loadView('referral');
+    }
+
+    async function init() {
+      try {
+        const d = await (await fetch('/.netlify/functions/dashboard-layout')).json();
+        layout = (d && Array.isArray(d.layout) && d.layout.length) ? mergeCatalog(d.layout) : defaultLayout();
+      } catch { layout = defaultLayout(); }
+      renderGrid();
+    }
+    init();
+  })();
+</script>
+
+<style>
+  /* ════════════════════════════════════════════════════════════════════════
+     US-DASH-5: Premium consumer-grade aesthetics
+     AC1 skeleton loaders · AC2 dark/light thematic harmony · AC3 micro-interactions
+     Scoped to #dash-root so the dark theme never leaks into other workspace views.
+     ════════════════════════════════════════════════════════════════════════ */
+
+  /* ── AC1: skeleton loaders ── */
+  .cc-skel-text { display: inline-block; width: 68px; height: 30px; border-radius: 9px; vertical-align: middle;
+    background: linear-gradient(90deg, #eef2f5, #e2e8f0, #eef2f5); background-size: 200% 100%; animation: ccShimmer 1.2s infinite; }
+  .cc-hm-skel { height: 168px; border-radius: 12px;
+    background: linear-gradient(90deg, #eef2f5, #e2e8f0, #eef2f5); background-size: 200% 100%; animation: ccShimmer 1.2s infinite; }
+  @keyframes ccShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+
+  /* ── AC3: consistent micro-interactions ── */
+  #dash-root .cc-toggle-btn:active, #dash-root .as-btn:active, #dash-root .dw-customize:active,
+  #dash-root .dw-qa button:active, #dash-root .cc-tile:active { transform: scale(.97); }
+  #dash-root .as-btn, #dash-root .dw-customize, #dash-root .cc-toggle-btn, #dash-root .dw-qa button { transition: transform .12s ease, background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease; }
+  #dash-root .as-btn-approve:hover, #dash-root .dw-tray-close:hover { box-shadow: 0 6px 16px -6px rgba(16,185,129,0.6); }
+  #dash-root button:focus-visible, #dash-root input:focus-visible, #dash-root [tabindex]:focus-visible {
+    outline: 2px solid #10b981; outline-offset: 2px; border-radius: 8px; }
+  #dash-root .dw-switch input:focus-visible + span { outline: 2px solid #10b981; outline-offset: 2px; }
+
+  /* ── AC2: dark mode (system preference) — scoped to the dashboard view ── */
+  @media (prefers-color-scheme: dark) {
+    #dash-root { background: #0b1220; }
+
+    /* Tailwind utility overrides, scoped so other views are untouched */
+    #dash-root .text-gray-900 { color: #f1f5f9 !important; }
+    #dash-root .text-gray-700 { color: #cbd5e1 !important; }
+    #dash-root .text-gray-600, #dash-root .text-gray-500 { color: #94a3b8 !important; }
+    #dash-root .text-gray-400 { color: #64748b !important; }
+    #dash-root .bg-white { background: #111a2e !important; }
+    #dash-root .bg-gray-50, #dash-root .bg-gray-50\/50 { background: #0f1729 !important; }
+    #dash-root .bg-gray-100 { background: #1e293b !important; }
+    #dash-root .border-gray-100 { border-color: #1e293b !important; }
+    #dash-root .border-gray-200 { border-color: #243049 !important; }
+    #dash-root .hover\:bg-gray-100:hover { background: #1e293b !important; }
+
+    /* hero */
+    #dash-root .cc-hero {
+      background: linear-gradient(135deg, rgba(17,26,46,0.96), rgba(11,18,32,0.92)),
+        radial-gradient(120% 140% at 0% 0%, rgba(16,185,129,0.20), transparent 55%),
+        radial-gradient(120% 140% at 100% 0%, rgba(99,102,241,0.20), transparent 55%);
+      border-color: rgba(16,185,129,0.28); box-shadow: 0 24px 60px -28px rgba(0,0,0,0.7); }
+    #dash-root .cc-hero-title { color: #f1f5f9; }
+    #dash-root .cc-tile { background: rgba(17,26,46,0.72); border-color: rgba(148,163,184,0.12); }
+    #dash-root .cc-tile-accent { background: linear-gradient(160deg, rgba(6,78,59,0.5), rgba(17,26,46,0.72)); border-color: rgba(16,185,129,0.3); }
+    #dash-root .cc-tile-value { color: #f8fafc; }
+    #dash-root .cc-toggle { background: rgba(148,163,184,0.14); }
+    #dash-root .cc-toggle-btn.is-active { background: #1e293b; color: #f1f5f9; }
+    #dash-root .cc-heatmap-wrap { border-top-color: rgba(148,163,184,0.14); }
+    #dash-root .cc-heatmap-title { color: #cbd5e1; }
+    #dash-root .cc-heatmap-caption { color: #94a3b8; }
+    #dash-root .cc-key-0, #dash-root .cc-lvl-0 { background: #1b2740; }
+
+    /* action stream */
+    #dash-root .as-h3 { color: #f1f5f9; }
+    #dash-root .as-live { background: linear-gradient(120deg, rgba(16,185,129,0.16), rgba(99,102,241,0.14)); border-color: rgba(16,185,129,0.28); }
+    #dash-root .as-chip { background: rgba(17,26,46,0.85); border-color: rgba(148,163,184,0.16); color: #cbd5e1; }
+    #dash-root .as-card { background: #111a2e; border-color: rgba(148,163,184,0.12); }
+    #dash-root .as-card-title { color: #f1f5f9; }
+    #dash-root .as-card-prev { color: #94a3b8; }
+    #dash-root .as-pill { background: #1e293b; color: #94a3b8; }
+    #dash-root .as-btn-edit { background: #1e293b; color: #cbd5e1; }
+    #dash-root .as-btn-reject { background: #1a1320; color: #fca5a5; border-color: #4c1d1d; }
+    #dash-root .as-reject-input { background: #0f1729; border-color: #243049; color: #e2e8f0; }
+    #dash-root .as-sg { background: linear-gradient(160deg, rgba(49,46,129,0.42), rgba(17,26,46,0.82)); border-color: rgba(99,102,241,0.32); }
+    #dash-root .as-sg-idea { color: #e2e8f0; }
+
+    /* widgets */
+    #dash-root .dw-title { color: #f1f5f9; }
+    #dash-root .dw-customize { background: #111a2e; border-color: #243049; color: #cbd5e1; }
+    #dash-root .dw-empty { border-color: #243049; color: #64748b; }
+    #dash-root .dw-card { background: #111a2e; border-color: rgba(148,163,184,0.12); }
+    #dash-root .dw-card-body, #dash-root .dw-stat { color: #f1f5f9; }
+    #dash-root .dw-stat-sub { color: #94a3b8; }
+    #dash-root .dw-qa button { background: #0f1729; border-color: #243049; color: #cbd5e1; }
+    #dash-root .dw-qa button:hover { background: #0c2a20; border-color: #115e44; color: #6ee7b7; }
+    #dash-root .dw-list li { color: #94a3b8; }
+    #dash-root .dw-list .t { color: #e2e8f0; }
+
+    /* edit-mode tray (rendered inside #dash-root) */
+    #dash-root .dw-tray { background: #0f1729; }
+    #dash-root .dw-tray-head { border-bottom-color: #1e293b; }
+    #dash-root .dw-tray-title { color: #f1f5f9; }
+    #dash-root .dw-tray-item { border-color: #1e293b; }
+    #dash-root .dw-tray-item .meta .n { color: #f1f5f9; }
+    #dash-root .dw-switch span { background: #334155; }
+
+    /* skeletons in dark */
+    #dash-root .cc-skel-text, #dash-root .cc-hm-skel, #dash-root .dw-skel {
+      background: linear-gradient(90deg, #162033, #1e293b, #162033); background-size: 200% 100%; }
+  }
+</style>
