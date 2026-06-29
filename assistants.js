@@ -2181,6 +2181,7 @@ function _buildRuleRow(catId, placeholder, rule) {
             try {
                 const r = await fetch(RULES_API, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(tr.dataset.ruleId), isActive: nowActive }) });
                 _setRulesStatus(r.ok ? '✓ Saved' : 'Error saving', !r.ok);
+                if (r.ok) _renderKickOff(_rulesAssistantId);
             } catch { _setRulesStatus('Error saving', true); }
         }
     });
@@ -2193,6 +2194,7 @@ function _buildRuleRow(catId, placeholder, rule) {
                 const r = await fetch(`${RULES_API}?id=${tr.dataset.ruleId}`, { method: 'DELETE' });
                 if (!r.ok) { _setRulesStatus('Error deleting', true); return; }
                 _setRulesStatus('✓ Saved');
+                _renderKickOff(_rulesAssistantId);
             } catch { _setRulesStatus('Error deleting', true); return; }
         }
         const rows = tr.parentElement;
@@ -2231,7 +2233,7 @@ async function _saveRuleRow(tr) {
                 if (data.rule?.id) tr.dataset.ruleId = String(data.rule.id);
             }
         }
-        if (res.ok) { tr.dataset.savedText = text; _setRulesStatus('✓ Saved'); }
+        if (res.ok) { tr.dataset.savedText = text; _setRulesStatus('✓ Saved'); if (!id) _renderKickOff(_rulesAssistantId); }
         else _setRulesStatus('Error saving', true);
     } catch { _setRulesStatus('Error saving', true); }
 }
