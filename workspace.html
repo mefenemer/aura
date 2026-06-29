@@ -1208,6 +1208,7 @@ function formatCurrency(amount, currency) {
           if (nameEl) nameEl.textContent = fullName || 'Be More Swan User';
           if (emailEl) emailEl.textContent = profileData.email || '';
           window._currentUserEmail = profileData.email || '';
+          window._firstLoginWelcomeSeen = profileData.firstLoginWelcomeSeen ?? false;
 
           // US-I18N-1.2 SC1/SC2: apply user's saved language preference
           if (profileData.language && window.i18n) {
@@ -3770,6 +3771,33 @@ function formatCurrency(amount, currency) {
 
   // US1.1 + US2.1: render the onboarding progress widget and the Time Saved card.
   window._renderDashboardEngagement = async function () {
+    // ── Welcome heading: "Welcome." on first visit, "Welcome back." on returns ──
+    // Uses firstLoginWelcomeSeen from the profile (cached in window._firstLoginWelcomeSeen
+    // by loadHeaderProfile; fetched fresh here if the profile hasn't loaded yet).
+    try {
+      let welcomeSeen = window._firstLoginWelcomeSeen;
+      if (welcomeSeen === undefined) {
+        const pRes = await fetch('/.netlify/functions/update-profile');
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          welcomeSeen = pData.firstLoginWelcomeSeen ?? false;
+          window._firstLoginWelcomeSeen = welcomeSeen;
+        }
+      }
+      if (!welcomeSeen) {
+        const heading = document.getElementById('dashboard-welcome-heading');
+        const subtext = document.getElementById('dashboard-welcome-subtext');
+        if (heading) heading.textContent = 'Welcome.';
+        if (subtext) subtext.textContent = 'Your workspace is ready — here\'s what your digital team can do for you.';
+        window._firstLoginWelcomeSeen = true;
+        fetch('/.netlify/functions/update-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fieldKey: 'firstLoginWelcomeSeen', value: true }),
+        }).catch(() => {});
+      }
+    } catch (e) { /* non-fatal */ }
+
     // ── Onboarding feature-gating sync (no UI) ──
     // The slide-over Setup Wizard (window.SetupWizard / get-wizard-state) is the SINGLE
     // onboarding guidance + celebration surface now — the legacy inline 3-step dashboard
