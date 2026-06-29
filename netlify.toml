@@ -32,7 +32,7 @@
 [build]
   # Rebuild the Tailwind stylesheet from input.css on every deploy so style.css can never
   # drift from the markup (a stale committed style.css silently drops classes and breaks layouts).
-  command = "npm run build:css:prod"
+  command = "npm run build:css:prod && npm run build:version"
   functions = "netlify/functions"
 [dev]
   functions = "netlify/functions"

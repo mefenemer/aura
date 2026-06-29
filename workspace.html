@@ -1275,6 +1275,14 @@ function formatCurrency(amount, currency) {
       mobileOverlay.addEventListener('click', closeMobileMenu);
     }
 
+    // Cache-buster for dynamically fetched view partials. Browsers cache the raw
+    // ./*.html partials aggressively, so after a deploy users can be served a stale
+    // view (e.g. the dashboard without the latest widgets). This literal is the local
+    // dev fallback only — on every Netlify deploy scripts/stamp-view-version.mjs
+    // (build:version, see netlify.toml) overwrites it with the commit SHA, so the cache
+    // busts automatically whenever a view changes. No manual bump required.
+    const VIEW_VERSION = '20260629-views';
+
     // Consolidated path definitions mapping navigation links to standard modular components
     const routes = {
       'dashboard': { file: 'dashboard-content.html', title: '| Workspace Overview' },
@@ -1327,7 +1335,7 @@ function formatCurrency(amount, currency) {
       }
 
       try {
-        const response = await fetch(`./${route.file}`);
+        const response = await fetch(`./${route.file}?v=${VIEW_VERSION}`);
         if (!response.ok) throw new Error('Network component not found');
 
         contentContainer.innerHTML = await response.text();

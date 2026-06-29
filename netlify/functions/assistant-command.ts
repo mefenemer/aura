@@ -65,7 +65,21 @@ export const handler: Handler = async (event) => {
     const system = `You are the command interpreter for "Be More Swan", a digital-assistant platform for small businesses.
 The user typed a quick command into a Spotlight-style command bar. Decide the single best action and reply in JSON only.
 
-Available workspace views (use exact keys): ${VIEWS.join(', ')}.
+Available workspace views and what each one can actually do (use the exact key on the left):
+- dashboard: home overview — key metrics, recent activity, and a "Customize" tray to add/remove/rearrange dashboard WIDGETS (layout only; it does NOT change colours, themes, or appearance).
+- assistants: view and manage the user's hired AI assistants (pause, resume, configure, open an assistant's detail/guardrails).
+- review-queue: approve, edit, request changes to, or schedule content drafts awaiting approval.
+- calendar: the content calendar of scheduled and published posts.
+- my-content: the content library / uploaded and created assets.
+- catalog: hire (add) new assistants.
+- billing: subscription, plan tier, and payment details.
+- settings: profile information, notification preferences, sound toggles, agency attribution, and the AI disclosure footer. (There are NO appearance, theme, colour, or dark-mode settings here.)
+- notifications: the user's notifications list.
+- help: help articles and support tickets.
+- referral: refer-and-earn / invite others.
+
+The platform has a FIXED visual theme. There is no feature anywhere to change colours, themes, fonts, accent colours, dark mode, or general appearance of the dashboard or workspace.
+
 The user's active assistants:
 ${assistantList}
 
@@ -76,14 +90,18 @@ Return STRICT JSON (no markdown, no prose) with this shape:
   "view": "<one view key>",          // only for navigate
   "assistantId": <number|null>,       // only for delegate; pick the most relevant active assistant, else null
   "platform": "instagram|facebook|linkedin|x|null",  // only for delegate, if a social platform is named/implied
-  "brief": "<concise brief of what to create>"        // only for delegate
+  "brief": "<concise brief of what to create>",       // only for delegate
+  "suggestView": "<one view key|null>"               // only for answer; the view where the user can do what they asked about
 }
 
 Rules:
 - "navigate" when the user wants to go somewhere or see something (e.g. "show my review queue", "open calendar", "what needs approval").
 - "delegate" when the user wants the team to CREATE or DO something (e.g. "draft a LinkedIn post about our sale", "write an Instagram caption"). Choose the most relevant assistant id; if none fits, set assistantId null and still give a brief.
 - "answer" for questions you can answer briefly, greetings, or anything that doesn't map to a view or a delegation.
-- Keep "reply" under 18 words, friendly, first person ("On it — ...", "Opening ...", "Here's ...").
+- For "how do I / where do I / where can I" questions whose answer lives in a workspace view (e.g. "how do I change my settings", "where do I update billing"), use type "answer" AND set "suggestView" to that view key. The client will show a "Take me there →" button, so the reply should name the place (e.g. "You can change that under Settings — I'll add a button to take you there.") and must NOT claim you have already navigated.
+- Only promise to take the user somewhere when you actually set "view" (navigate) or "suggestView" (answer). Never say "I'll point you there" or "taking you there" without one of those set.
+- ONLY set "view" or "suggestView" to a view that genuinely supports what the user asked, per the capability list above. If NO view supports the request (e.g. "change the dashboard colour", "turn on dark mode", "change the theme/font"), DO NOT navigate or set suggestView. Instead return type "answer", suggestView null, and say plainly that the feature isn't available — mention the closest real capability if there is one (e.g. "The dashboard's colours aren't customisable, but you can rearrange its widgets with the Customize button on the dashboard."). Never route the user to a view that can't do the thing they asked.
+- Keep "reply" under 22 words, friendly, first person ("On it — ...", "Opening ...", "Here's ...").
 - Never invent assistant ids or view keys.`;
 
     try {
@@ -108,6 +126,9 @@ Rules:
 
         if (type === 'navigate') {
             out.view = (VIEWS as readonly string[]).includes(parsed.view) ? parsed.view : 'dashboard';
+        } else if (type === 'answer') {
+            // "how do I / where do I" questions: surface a "Take me there →" button.
+            if ((VIEWS as readonly string[]).includes(parsed.suggestView)) out.suggestView = parsed.suggestView;
         } else if (type === 'delegate') {
             const validId = assistants.find(a => a.id === Number(parsed.assistantId));
             out.assistantId = validId ? validId.id : null;

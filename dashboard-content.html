@@ -7,16 +7,16 @@
 
     <!-- Setup prompt banner (shown when subscribed but no assistant yet) -->
     <div id="setup-assistant-banner" class="mb-8 hidden">
-      <div class="bg-gradient-to-r from-emerald-600 to-emerald-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between shadow-lg text-white">
+      <div class="bg-gradient-to-r from-pink-600 to-pink-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between shadow-lg text-white">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl">🚀</div>
           <div>
             <h3 class="text-lg font-bold">Your subscription is active — now build your Assistant</h3>
-            <p class="text-emerald-100 text-sm">Answer a few questions and our team will set everything up for you.</p>
+            <p class="text-pink-100 text-sm">Answer a few questions and our team will set everything up for you.</p>
           </div>
         </div>
         <a href="onboarding-social-media.html"
-           class="mt-4 sm:mt-0 flex-shrink-0 px-6 py-2 bg-white text-emerald-800 font-bold rounded-lg hover:bg-emerald-50 transition shadow-sm">
+           class="mt-4 sm:mt-0 flex-shrink-0 px-6 py-2 bg-white text-pink-800 font-bold rounded-lg hover:bg-pink-50 transition shadow-sm">
           Start Setup
         </a>
       </div>
@@ -24,16 +24,16 @@
 
     <!-- US1.1: Dynamic onboarding progress widget (3 steps) -->
     <div id="onboarding-widget-container" class="mb-8 hidden">
-      <div class="bg-white border border-emerald-200 rounded-2xl p-6 shadow-sm">
+      <div class="bg-white border border-pink-200 rounded-2xl p-6 shadow-sm">
         <div class="flex items-center justify-between mb-4 gap-3">
           <div>
             <h3 class="text-lg font-bold text-gray-900">Get started — set up your workspace</h3>
             <p class="text-sm text-gray-500">A few quick steps to start getting value from your digital team.</p>
           </div>
-          <span id="onboarding-progress-pct" class="text-2xl font-extrabold text-emerald-600">0%</span>
+          <span id="onboarding-progress-pct" class="text-2xl font-extrabold text-pink-600">0%</span>
         </div>
         <div class="h-2 w-full rounded-full bg-gray-100 overflow-hidden mb-5">
-          <div id="onboarding-progress-bar" class="h-2 rounded-full bg-emerald-500 transition-all duration-500" style="width:0%"></div>
+          <div id="onboarding-progress-bar" class="h-2 rounded-full bg-pink-500 transition-all duration-500" style="width:0%"></div>
         </div>
         <ul id="onboarding-steps" class="space-y-2.5"></ul>
       </div>
@@ -176,10 +176,10 @@
       </div>
     </div>
 
-    <div class="mt-12 bg-emerald-700 rounded-2xl p-8 text-center shadow-lg">
+    <div class="mt-12 bg-pink-700 rounded-2xl p-8 text-center shadow-lg">
       <h3 class="text-2xl font-bold text-white mb-2">Got another chore to take off your plate?</h3>
-      <p class="text-emerald-100 mb-6 max-w-xl mx-auto">You can hire another assistant or upgrade your plan to automate entirely new workflows.</p>
-      <a href="#" id="route-to-catalog" class="inline-block bg-white text-emerald-700 font-bold px-8 py-3 rounded-lg shadow-sm hover:bg-gray-50 transition">Delegate a New Task</a>
+      <p class="text-pink-100 mb-6 max-w-xl mx-auto">You can hire another assistant or upgrade your plan to automate entirely new workflows.</p>
+      <a href="#" id="route-to-catalog" class="inline-block bg-white text-pink-700 font-bold px-8 py-3 rounded-lg shadow-sm hover:bg-gray-50 transition">Delegate a New Task</a>
     </div>
 
   </div>
@@ -195,15 +195,15 @@
     padding: 28px;
     background:
       linear-gradient(135deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78)),
-      radial-gradient(120% 140% at 0% 0%, #d1fae5 0%, rgba(209,250,229,0) 55%),
+      radial-gradient(120% 140% at 0% 0%, #fce7f3 0%, rgba(252,231,243,0) 55%),
       radial-gradient(120% 140% at 100% 0%, #e0e7ff 0%, rgba(224,231,255,0) 55%);
-    border: 1px solid rgba(16,185,129,0.18);
-    box-shadow: 0 20px 50px -24px rgba(6,78,59,0.35), 0 2px 8px -4px rgba(0,0,0,0.06);
+    border: 1px solid rgba(236,72,153,0.18);
+    box-shadow: 0 20px 50px -24px rgba(131,24,67,0.35), 0 2px 8px -4px rgba(0,0,0,0.06);
     backdrop-filter: blur(8px);
   }
   .cc-hero-glow {
     position: absolute; top: -120px; right: -80px; width: 360px; height: 360px;
-    background: radial-gradient(circle, rgba(16,185,129,0.22), rgba(16,185,129,0) 70%);
+    background: radial-gradient(circle, rgba(236,72,153,0.22), rgba(236,72,153,0) 70%);
     filter: blur(12px); pointer-events: none; animation: ccFloat 9s ease-in-out infinite;
   }
   @keyframes ccFloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(22px) } }
@@ -211,7 +211,7 @@
   .cc-hero-head { position: relative; display: flex; flex-wrap: wrap; gap: 16px;
     align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
   .cc-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-    color: #059669; margin: 0 0 4px; }
+    color: #db2777; margin: 0 0 4px; }
   .cc-hero-title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2; }
 
   .cc-toggle { display: inline-flex; background: rgba(15,23,42,0.06); border-radius: 12px; padding: 4px; gap: 2px; }
@@ -228,15 +228,15 @@
     box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease;
   }
-  .cc-tile:hover { transform: translateY(-4px); box-shadow: 0 18px 30px -18px rgba(6,78,59,0.4); }
-  .cc-tile-accent { background: linear-gradient(160deg, #ecfdf5, rgba(255,255,255,0.85)); border-color: rgba(16,185,129,0.25); }
+  .cc-tile:hover { transform: translateY(-4px); box-shadow: 0 18px 30px -18px rgba(131,24,67,0.4); }
+  .cc-tile-accent { background: linear-gradient(160deg, #fdf2f8, rgba(255,255,255,0.85)); border-color: rgba(236,72,153,0.25); }
   .cc-tile-icon { font-size: 20px; line-height: 1; margin-bottom: 10px; }
   .cc-tile-label { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #64748b; }
   .cc-tile-value { font-size: 38px; font-weight: 800; color: #0f172a; line-height: 1.05; margin-top: 6px;
     font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 6px; }
   .cc-unit { font-size: 16px; font-weight: 600; color: #94a3b8; }
   .cc-tile-sub { display: inline-block; margin-top: 8px; font-size: 13px; color: #64748b; }
-  .cc-link { border: 0; background: transparent; padding: 0; cursor: pointer; color: #059669; font-weight: 600; }
+  .cc-link { border: 0; background: transparent; padding: 0; cursor: pointer; color: #db2777; font-weight: 600; }
   .cc-link:hover { text-decoration: underline; }
 
   /* Heatmap */
@@ -246,20 +246,20 @@
   .cc-heatmap-legend { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; }
   .cc-key { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
   .cc-key-0, .cc-lvl-0 { background: #eef2f5; }
-  .cc-key-1, .cc-lvl-1 { background: #a7f3d0; }
-  .cc-key-2, .cc-lvl-2 { background: #34d399; }
-  .cc-key-3, .cc-lvl-3 { background: #059669; }
-  .cc-key-4, .cc-lvl-4 { background: #065f46; }
+  .cc-key-1, .cc-lvl-1 { background: #fbcfe8; }
+  .cc-key-2, .cc-lvl-2 { background: #f472b6; }
+  .cc-key-3, .cc-lvl-3 { background: #db2777; }
+  .cc-key-4, .cc-lvl-4 { background: #9d174d; }
 
   .cc-heatmap { display: flex; flex-direction: column; gap: 4px; overflow-x: auto; }
   .cc-hm-row { display: grid; grid-template-columns: 34px repeat(24, minmax(9px, 1fr)); gap: 4px; align-items: center; }
   .cc-hm-daylabel { font-size: 11px; font-weight: 600; color: #94a3b8; text-align: right; padding-right: 4px; }
   .cc-cell { aspect-ratio: 1 / 1; min-width: 9px; border-radius: 3px; transition: transform .12s ease; }
-  .cc-cell:hover { transform: scale(1.35); outline: 2px solid rgba(16,185,129,0.5); position: relative; z-index: 2; }
+  .cc-cell:hover { transform: scale(1.35); outline: 2px solid rgba(236,72,153,0.5); position: relative; z-index: 2; }
   .cc-hm-axis { display: grid; grid-template-columns: 34px repeat(24, minmax(9px, 1fr)); gap: 4px; margin-top: 6px; }
   .cc-hm-tick { font-size: 10px; color: #cbd5e1; text-align: center; }
   .cc-heatmap-caption { margin-top: 12px; font-size: 13px; color: #475569; }
-  .cc-heatmap-caption strong { color: #047857; }
+  .cc-heatmap-caption strong { color: #be185d; }
 </style>
 
 <script>
@@ -310,7 +310,7 @@
           countUp(moneyEl, Number(d.gbpSaved), { format: n => fmtGBP(n) });
           if (moneySub) {
             if (period === 'month' && d.multiplier !== null && d.multiplier >= 1) {
-              moneySub.innerHTML = `Paid for itself <strong style="color:#047857">${d.multiplier}×</strong> this month 🎉`;
+              moneySub.innerHTML = `Paid for itself <strong style="color:#be185d">${d.multiplier}×</strong> this month 🎉`;
             } else if (period === 'month' && d.tasksToBreakEven > 0) {
               moneySub.textContent = `${d.tasksToBreakEven} more task${d.tasksToBreakEven === 1 ? '' : 's'} to break even`;
             } else {
@@ -404,13 +404,13 @@
 
   /* AC1 — live banner */
   .as-live { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 18px; margin-bottom: 22px;
-    border-radius: 16px; background: linear-gradient(120deg, rgba(16,185,129,0.10), rgba(99,102,241,0.08));
-    border: 1px solid rgba(16,185,129,0.22); }
-  .as-live-pulse { position: relative; width: 10px; height: 10px; border-radius: 50%; background: #10b981; flex: 0 0 auto; }
+    border-radius: 16px; background: linear-gradient(120deg, rgba(236,72,153,0.10), rgba(99,102,241,0.08));
+    border: 1px solid rgba(236,72,153,0.22); }
+  .as-live-pulse { position: relative; width: 10px; height: 10px; border-radius: 50%; background: #ec4899; flex: 0 0 auto; }
   .as-live-pulse::after { content: ''; position: absolute; inset: -6px; border-radius: 50%;
-    background: rgba(16,185,129,0.35); animation: asPulse 1.6s ease-out infinite; }
+    background: rgba(236,72,153,0.35); animation: asPulse 1.6s ease-out infinite; }
   @keyframes asPulse { 0% { transform: scale(.6); opacity: .8 } 100% { transform: scale(1.8); opacity: 0 } }
-  .as-live-label { font-size: 12px; font-weight: 700; color: #047857; text-transform: uppercase; letter-spacing: .06em; }
+  .as-live-label { font-size: 12px; font-weight: 700; color: #be185d; text-transform: uppercase; letter-spacing: .06em; }
   .as-live-items { display: flex; gap: 8px; flex-wrap: wrap; }
   .as-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px;
     background: rgba(255,255,255,0.85); border: 1px solid rgba(15,23,42,0.08); font-size: 13px; color: #334155; }
@@ -421,18 +421,18 @@
   .as-card { position: relative; padding: 16px 16px 14px; border-radius: 16px; background: #fff;
     border: 1px solid rgba(15,23,42,0.08); box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     transition: box-shadow .2s ease, transform .25s ease, opacity .25s ease; }
-  .as-card:hover { box-shadow: 0 14px 26px -16px rgba(6,78,59,0.35); }
+  .as-card:hover { box-shadow: 0 14px 26px -16px rgba(131,24,67,0.35); }
   .as-card.as-removing { opacity: 0; transform: translateY(-6px) scale(.98); }
   .as-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .as-card-assist { font-size: 12px; font-weight: 700; color: #059669; }
+  .as-card-assist { font-size: 12px; font-weight: 700; color: #db2777; }
   .as-pill { margin-left: auto; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; color: #64748b; }
   .as-pill-warn { background: #fef3c7; color: #b45309; }
   .as-card-title { font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 4px; }
   .as-card-prev { font-size: 13px; color: #64748b; margin: 0 0 12px; line-height: 1.45; }
   .as-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .as-btn { border: 0; cursor: pointer; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 10px; transition: all .15s ease; }
-  .as-btn-approve { background: #10b981; color: #fff; }
-  .as-btn-approve:hover { background: #059669; }
+  .as-btn-approve { background: #ec4899; color: #fff; }
+  .as-btn-approve:hover { background: #db2777; }
   .as-btn-edit { background: #f1f5f9; color: #334155; }
   .as-btn-edit:hover { background: #e2e8f0; }
   .as-btn-reject { background: #fff; color: #dc2626; border: 1px solid #fecaca; }
@@ -620,9 +620,9 @@
   .dw-title { font-size: 18px; font-weight: 800; color: #0f172a; margin: 0; }
   .dw-customize { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #e2e8f0; background: #fff;
     color: #334155; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 10px; cursor: pointer; transition: all .15s ease; }
-  .dw-customize svg { width: 16px; height: 16px; color: #10b981; }
+  .dw-customize svg { width: 16px; height: 16px; color: #ec4899; }
   .dw-customize:hover { background: #f8fafc; border-color: #cbd5e1; }
-  .dw-customize.active { background: #10b981; color: #fff; border-color: #10b981; }
+  .dw-customize.active { background: #ec4899; color: #fff; border-color: #ec4899; }
   .dw-customize.active svg { color: #fff; }
 
   .dw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
@@ -630,14 +630,14 @@
 
   .dw-card { position: relative; background: #fff; border: 1px solid rgba(15,23,42,0.08); border-radius: 18px; padding: 18px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.04); transition: box-shadow .2s ease, transform .18s ease, opacity .2s ease; }
-  .dw-card:hover { box-shadow: 0 14px 26px -18px rgba(6,78,59,0.3); }
+  .dw-card:hover { box-shadow: 0 14px 26px -18px rgba(131,24,67,0.3); }
   .dw-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .dw-card-ico { font-size: 16px; }
   .dw-card-title { font-size: 13px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: .04em; }
   .dw-card-body { font-size: 14px; color: #1e293b; }
 
   /* edit mode */
-  #dash-widgets-section.editing .dw-card { cursor: grab; border-style: dashed; border-color: #a7f3d0; animation: dwWobble 2.4s ease-in-out infinite; }
+  #dash-widgets-section.editing .dw-card { cursor: grab; border-style: dashed; border-color: #fbcfe8; animation: dwWobble 2.4s ease-in-out infinite; }
   #dash-widgets-section.editing .dw-card:active { cursor: grabbing; }
   .dw-card.dragging { opacity: .45; transform: scale(.98); animation: none; }
   @keyframes dwWobble { 0%,100% { transform: rotate(-.35deg) } 50% { transform: rotate(.35deg) } }
@@ -651,11 +651,11 @@
   .dw-qa { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .dw-qa button { border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; font-size: 13px; font-weight: 600;
     padding: 10px; border-radius: 10px; cursor: pointer; text-align: left; transition: all .15s ease; }
-  .dw-qa button:hover { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  .dw-qa button:hover { background: #fdf2f8; border-color: #fbcfe8; color: #be185d; }
   .dw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
   .dw-list li { font-size: 13px; color: #475569; display: flex; gap: 8px; }
   .dw-list .t { color: #0f172a; font-weight: 600; }
-  .dw-link { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 700; color: #059669; cursor: pointer; }
+  .dw-link { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 700; color: #db2777; cursor: pointer; }
   .dw-link:hover { text-decoration: underline; }
   .dw-skel { height: 14px; border-radius: 6px; background: linear-gradient(90deg,#f1f5f9,#e2e8f0,#f1f5f9);
     background-size: 200% 100%; animation: dwShimmer 1.2s infinite; margin-bottom: 8px; }
@@ -671,7 +671,7 @@
   .dw-tray-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px; border-bottom: 1px solid #f1f5f9; }
   .dw-tray-title { font-size: 16px; font-weight: 800; color: #0f172a; margin: 0; }
   .dw-tray-sub { font-size: 12px; color: #94a3b8; margin: 4px 0 0; }
-  .dw-tray-close { border: 0; background: #10b981; color: #fff; font-weight: 700; font-size: 13px; padding: 8px 16px; border-radius: 10px; cursor: pointer; }
+  .dw-tray-close { border: 0; background: #ec4899; color: #fff; font-weight: 700; font-size: 13px; padding: 8px 16px; border-radius: 10px; cursor: pointer; }
   .dw-tray-list { padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
   .dw-tray-item { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #f1f5f9; border-radius: 12px; }
   .dw-tray-item .ico { font-size: 18px; }
@@ -682,7 +682,7 @@
   .dw-switch input { opacity: 0; width: 0; height: 0; }
   .dw-switch span { position: absolute; inset: 0; background: #cbd5e1; border-radius: 999px; transition: .2s; cursor: pointer; }
   .dw-switch span::before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
-  .dw-switch input:checked + span { background: #10b981; }
+  .dw-switch input:checked + span { background: #ec4899; }
   .dw-switch input:checked + span::before { transform: translateX(18px); }
   @media (prefers-reduced-motion: reduce) { #dash-widgets-section.editing .dw-card { animation: none } .dw-skel { animation: none } }
 </style>
@@ -860,8 +860,9 @@
 <style>
   /* ════════════════════════════════════════════════════════════════════════
      US-DASH-5: Premium consumer-grade aesthetics
-     AC1 skeleton loaders · AC2 dark/light thematic harmony · AC3 micro-interactions
-     Scoped to #dash-root so the dark theme never leaks into other workspace views.
+     AC1 skeleton loaders · AC3 micro-interactions
+     The dashboard follows the same light theme as the rest of the application —
+     no dark-mode override, so it stays visually consistent with every other view.
      ════════════════════════════════════════════════════════════════════════ */
 
   /* ── AC1: skeleton loaders ── */
@@ -875,80 +876,8 @@
   #dash-root .cc-toggle-btn:active, #dash-root .as-btn:active, #dash-root .dw-customize:active,
   #dash-root .dw-qa button:active, #dash-root .cc-tile:active { transform: scale(.97); }
   #dash-root .as-btn, #dash-root .dw-customize, #dash-root .cc-toggle-btn, #dash-root .dw-qa button { transition: transform .12s ease, background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease; }
-  #dash-root .as-btn-approve:hover, #dash-root .dw-tray-close:hover { box-shadow: 0 6px 16px -6px rgba(16,185,129,0.6); }
+  #dash-root .as-btn-approve:hover, #dash-root .dw-tray-close:hover { box-shadow: 0 6px 16px -6px rgba(236,72,153,0.6); }
   #dash-root button:focus-visible, #dash-root input:focus-visible, #dash-root [tabindex]:focus-visible {
-    outline: 2px solid #10b981; outline-offset: 2px; border-radius: 8px; }
-  #dash-root .dw-switch input:focus-visible + span { outline: 2px solid #10b981; outline-offset: 2px; }
-
-  /* ── AC2: dark mode (system preference) — scoped to the dashboard view ── */
-  @media (prefers-color-scheme: dark) {
-    #dash-root { background: #0b1220; }
-
-    /* Tailwind utility overrides, scoped so other views are untouched */
-    #dash-root .text-gray-900 { color: #f1f5f9 !important; }
-    #dash-root .text-gray-700 { color: #cbd5e1 !important; }
-    #dash-root .text-gray-600, #dash-root .text-gray-500 { color: #94a3b8 !important; }
-    #dash-root .text-gray-400 { color: #64748b !important; }
-    #dash-root .bg-white { background: #111a2e !important; }
-    #dash-root .bg-gray-50, #dash-root .bg-gray-50\/50 { background: #0f1729 !important; }
-    #dash-root .bg-gray-100 { background: #1e293b !important; }
-    #dash-root .border-gray-100 { border-color: #1e293b !important; }
-    #dash-root .border-gray-200 { border-color: #243049 !important; }
-    #dash-root .hover\:bg-gray-100:hover { background: #1e293b !important; }
-
-    /* hero */
-    #dash-root .cc-hero {
-      background: linear-gradient(135deg, rgba(17,26,46,0.96), rgba(11,18,32,0.92)),
-        radial-gradient(120% 140% at 0% 0%, rgba(16,185,129,0.20), transparent 55%),
-        radial-gradient(120% 140% at 100% 0%, rgba(99,102,241,0.20), transparent 55%);
-      border-color: rgba(16,185,129,0.28); box-shadow: 0 24px 60px -28px rgba(0,0,0,0.7); }
-    #dash-root .cc-hero-title { color: #f1f5f9; }
-    #dash-root .cc-tile { background: rgba(17,26,46,0.72); border-color: rgba(148,163,184,0.12); }
-    #dash-root .cc-tile-accent { background: linear-gradient(160deg, rgba(6,78,59,0.5), rgba(17,26,46,0.72)); border-color: rgba(16,185,129,0.3); }
-    #dash-root .cc-tile-value { color: #f8fafc; }
-    #dash-root .cc-toggle { background: rgba(148,163,184,0.14); }
-    #dash-root .cc-toggle-btn.is-active { background: #1e293b; color: #f1f5f9; }
-    #dash-root .cc-heatmap-wrap { border-top-color: rgba(148,163,184,0.14); }
-    #dash-root .cc-heatmap-title { color: #cbd5e1; }
-    #dash-root .cc-heatmap-caption { color: #94a3b8; }
-    #dash-root .cc-key-0, #dash-root .cc-lvl-0 { background: #1b2740; }
-
-    /* action stream */
-    #dash-root .as-h3 { color: #f1f5f9; }
-    #dash-root .as-live { background: linear-gradient(120deg, rgba(16,185,129,0.16), rgba(99,102,241,0.14)); border-color: rgba(16,185,129,0.28); }
-    #dash-root .as-chip { background: rgba(17,26,46,0.85); border-color: rgba(148,163,184,0.16); color: #cbd5e1; }
-    #dash-root .as-card { background: #111a2e; border-color: rgba(148,163,184,0.12); }
-    #dash-root .as-card-title { color: #f1f5f9; }
-    #dash-root .as-card-prev { color: #94a3b8; }
-    #dash-root .as-pill { background: #1e293b; color: #94a3b8; }
-    #dash-root .as-btn-edit { background: #1e293b; color: #cbd5e1; }
-    #dash-root .as-btn-reject { background: #1a1320; color: #fca5a5; border-color: #4c1d1d; }
-    #dash-root .as-reject-input { background: #0f1729; border-color: #243049; color: #e2e8f0; }
-    #dash-root .as-sg { background: linear-gradient(160deg, rgba(49,46,129,0.42), rgba(17,26,46,0.82)); border-color: rgba(99,102,241,0.32); }
-    #dash-root .as-sg-idea { color: #e2e8f0; }
-
-    /* widgets */
-    #dash-root .dw-title { color: #f1f5f9; }
-    #dash-root .dw-customize { background: #111a2e; border-color: #243049; color: #cbd5e1; }
-    #dash-root .dw-empty { border-color: #243049; color: #64748b; }
-    #dash-root .dw-card { background: #111a2e; border-color: rgba(148,163,184,0.12); }
-    #dash-root .dw-card-body, #dash-root .dw-stat { color: #f1f5f9; }
-    #dash-root .dw-stat-sub { color: #94a3b8; }
-    #dash-root .dw-qa button { background: #0f1729; border-color: #243049; color: #cbd5e1; }
-    #dash-root .dw-qa button:hover { background: #0c2a20; border-color: #115e44; color: #6ee7b7; }
-    #dash-root .dw-list li { color: #94a3b8; }
-    #dash-root .dw-list .t { color: #e2e8f0; }
-
-    /* edit-mode tray (rendered inside #dash-root) */
-    #dash-root .dw-tray { background: #0f1729; }
-    #dash-root .dw-tray-head { border-bottom-color: #1e293b; }
-    #dash-root .dw-tray-title { color: #f1f5f9; }
-    #dash-root .dw-tray-item { border-color: #1e293b; }
-    #dash-root .dw-tray-item .meta .n { color: #f1f5f9; }
-    #dash-root .dw-switch span { background: #334155; }
-
-    /* skeletons in dark */
-    #dash-root .cc-skel-text, #dash-root .cc-hm-skel, #dash-root .dw-skel {
-      background: linear-gradient(90deg, #162033, #1e293b, #162033); background-size: 200% 100%; }
-  }
+    outline: 2px solid #ec4899; outline-offset: 2px; border-radius: 8px; }
+  #dash-root .dw-switch input:focus-visible + span { outline: 2px solid #ec4899; outline-offset: 2px; }
 </style>
