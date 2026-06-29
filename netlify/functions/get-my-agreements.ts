@@ -1,0 +1,150 @@
+// netlify/functions/get-my-agreements.ts
+// "My Agreements" tab — single aggregator over every user/org-accepted agreement, so the
+// My Account page renders in one round-trip and the payload doubles as a GDPR / EU AI Act
+// consent snapshot.
+//
+// GET → { agreements: Agreement[] }
+//
+// Reuses the existing acceptance stores and version constants (does NOT re-derive them):
+//   - ToS              → tosAcceptances              · CURRENT_TOS_VERSION (accept-tos.ts)
+//   - Privacy          → static page, no record (informational row)
+//   - DPA              → dpaAcceptances (org-scoped)  · CURRENT_DPA_VERSION (accept-dpa.ts)
+//   - AI usage & data  → organisations.complianceAcceptedAt (accept-compliance.ts)
+//   - AI acknowledgement → userProfiles.legalConsents.aiDisclaimerAcceptedAt (legal-consent.ts)
+
+import { Handler } from '@netlify/functions';
+import jwt from 'jsonwebtoken';
+import { eq, and, desc } from 'drizzle-orm';
+import { getDb } from '../../db/client';
+import {
+    tosAcceptances,
+    dpaAcceptances,
+    organisations,
+    userProfiles,
+    userOrganisations,
+} from '../../db/schema';
+import { CURRENT_TOS_VERSION } from './accept-tos';
+import { CURRENT_DPA_VERSION } from './accept-dpa';
+
+// Keep in lockstep with the disclaimer version stamped in legal-consent.ts.
+const CURRENT_AI_DISCLAIMER_VERSION = '2026-06-10';
+
+const jwtSecret = process.env.JWT_SECRET;
+
+const json = (statusCode: number, body: unknown) => ({
+    statusCode,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+});
+
+export const handler: Handler = async (event) => {
+    if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method Not Allowed' };
+    if (!jwtSecret) return json(500, { error: 'Server misconfigured.' });
+
+    const match = (event.headers.cookie || '').match(/aura_session=([^;]+)/);
+    if (!match) return json(401, { error: 'Unauthorized.' });
+
+    let userId: number;
+    try {
+        userId = (jwt.verify(match[1], jwtSecret) as { userId: number }).userId;
+    } catch {
+        return json(401, { error: 'Invalid or expired session.' });
+    }
+
+    const db = getDb();
+
+    const [org] = await db
+        .select({ organisationId: userOrganisations.organisationId })
+        .from(userOrganisations)
+        .where(eq(userOrganisations.userId, userId))
+        .limit(1);
+    const organisationId = org?.organisationId ?? null;
+
+    // ── ToS (user-scoped) ─────────────────────────────────────────────
+    const [latestTos] = await db
+        .select({ version: tosAcceptances.version, acceptedAt: tosAcceptances.acceptedAt })
+        .from(tosAcceptances)
+        .where(eq(tosAcceptances.userId, userId))
+        .orderBy(desc(tosAcceptances.acceptedAt))
+        .limit(1);
+    const [currentTos] = await db
+        .select({ id: tosAcceptances.id })
+        .from(tosAcceptances)
+        .where(and(eq(tosAcceptances.userId, userId), eq(tosAcceptances.version, CURRENT_TOS_VERSION)))
+        .limit(1);
+
+    // ── DPA (org-scoped) ──────────────────────────────────────────────
+    const [latestDpa] = organisationId
+        ? await db
+              .select({ version: dpaAcceptances.version, acceptedAt: dpaAcceptances.acceptedAt })
+              .from(dpaAcceptances)
+              .where(eq(dpaAcceptances.organisationId, organisationId))
+              .orderBy(desc(dpaAcceptances.acceptedAt))
+              .limit(1)
+        : [undefined];
+
+    // ── Plain-language AI usage & data agreement (org-scoped timestamp) ─
+    const [orgRow] = organisationId
+        ? await db
+              .select({ acceptedAt: organisations.complianceAcceptedAt })
+              .from(organisations)
+              .where(eq(organisations.id, organisationId))
+              .limit(1)
+        : [undefined];
+
+    // ── AI content acknowledgement (user-scoped JSON) ─────────────────
+    const [profile] = await db
+        .select({ legalConsents: userProfiles.legalConsents })
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, userId))
+        .limit(1);
+    const consents = (profile?.legalConsents as Record<string, any>) || {};
+
+    const agreements = [
+        {
+            key: 'tos',
+            name: 'Terms of Service',
+            scope: 'user',
+            acceptedVersion: latestTos?.version ?? null,
+            currentVersion: CURRENT_TOS_VERSION,
+            acceptedAt: latestTos?.acceptedAt ?? null,
+            upToDate: !!currentTos,
+            reviewUrl: '/terms_of_service.html',
+        },
+        {
+            key: 'privacy',
+            name: 'Privacy Policy',
+            scope: 'info',
+            reviewUrl: '/privacy.html',
+        },
+        {
+            key: 'dpa',
+            name: 'Data Processing Agreement',
+            scope: 'org',
+            acceptedVersion: latestDpa?.version ?? null,
+            currentVersion: CURRENT_DPA_VERSION,
+            acceptedAt: latestDpa?.acceptedAt ?? null,
+            upToDate: latestDpa?.version === CURRENT_DPA_VERSION,
+        },
+        {
+            key: 'ai_data',
+            name: 'AI usage & data processing agreement',
+            scope: 'org',
+            acceptedVersion: null,
+            currentVersion: null,
+            acceptedAt: orgRow?.acceptedAt ?? null,
+            upToDate: !!orgRow?.acceptedAt,
+        },
+        {
+            key: 'ai_disclaimer',
+            name: 'AI content acknowledgement',
+            scope: 'user',
+            acceptedVersion: consents.tosVersion ?? null,
+            currentVersion: CURRENT_AI_DISCLAIMER_VERSION,
+            acceptedAt: consents.aiDisclaimerAcceptedAt ?? null,
+            upToDate: !!consents.aiDisclaimerAcceptedAt,
+        },
+    ];
+
+    return json(200, { agreements });
+};

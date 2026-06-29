@@ -126,9 +126,38 @@ window.generateAssistantCardHTML = function(assistant) {
 };
 
 // ==========================================
+// 1b. "ADD NEW ASSISTANT" PLACEHOLDER CARD
+// ==========================================
+// Inviting empty-state / trailing card that guides the user into the hire flow. Styled with the
+// scoped plain CSS in assistants-directory.html (.add-asst-*), so it is immune to the prebuilt
+// Tailwind build. The copy rotates by index to keep multiple placeholders feeling fresh.
+window._ADD_ASSISTANT_COPY = [
+    { title: 'Hire an Assistant',     sub: 'Bring a new AI teammate on board to take a task off your plate.' },
+    { title: 'Grow Your Team',        sub: 'Expand your AI workforce and delegate even more of your day.' },
+    { title: 'Automate Another Task', sub: 'Find the right assistant for your next repetitive chore.' },
+];
+
+window.generateAddAssistantPlaceholderHTML = function(index) {
+    const pool = window._ADD_ASSISTANT_COPY;
+    const copy = pool[(((index || 0) % pool.length) + pool.length) % pool.length];
+    const plus = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>`;
+    return `
+    <div class="add-asst-card" role="button" tabindex="0" aria-label="${copy.title}"
+         onclick="loadView('catalog')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();loadView('catalog');}">
+        <div class="add-asst-ico">${plus}</div>
+        <h3 class="add-asst-title">${copy.title}</h3>
+        <p class="add-asst-sub">${copy.sub}</p>
+        <span class="add-asst-cta">${plus}Add New Assistant</span>
+    </div>`;
+};
+
+// ==========================================
 // 2. FETCH & RENDER ENGINE
 // ==========================================
-window.fetchAndRenderAssistants = async function(containerId) {
+// options.placeholders — render inviting "Add New Assistant" cards (My Assistants page).
+window.fetchAndRenderAssistants = async function(containerId, options) {
+    const opts = options || {};
     const container = document.getElementById(containerId);
     if (!container) return;
 
@@ -141,6 +170,21 @@ window.fetchAndRenderAssistants = async function(containerId) {
 
         // US6 AC5.3: archived assistants are removed from active views (history kept server-side).
         const visible = (data.assistants || []).filter(a => a.lifecycleStatus !== 'archived' && a.status !== 'cancelled');
+
+        if (opts.placeholders) {
+            // My Assistants always guides the user with placeholder cards instead of empty text.
+            // Empty team → a full row of 3 invitations. With assistants present, show them and
+            // fill the first row to 3 (1 active → 2 placeholders, 2 → 1), and always keep at least
+            // one trailing "Add New" placeholder once there are 3+ assistants.
+            visible.forEach(assistant => {
+                container.insertAdjacentHTML('beforeend', window.generateAssistantCardHTML(assistant));
+            });
+            const placeholderCount = visible.length === 0 ? 3 : (visible.length < 3 ? 3 - visible.length : 1);
+            for (let i = 0; i < placeholderCount; i++) {
+                container.insertAdjacentHTML('beforeend', window.generateAddAssistantPlaceholderHTML(i));
+            }
+            return;
+        }
 
         if (visible.length === 0) {
             container.innerHTML = `
@@ -166,7 +210,7 @@ window.initDashboard = async function() {
 };
 
 window.initAssistantsDirectory = async function(loadViewCb) {
-    await window.fetchAndRenderAssistants('directory-assistants-grid');
+    await window.fetchAndRenderAssistants('directory-assistants-grid', { placeholders: true });
 
     const catalogBtn = document.getElementById('route-to-catalog-from-dir');
     if (catalogBtn) {

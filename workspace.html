@@ -3066,6 +3066,83 @@ function formatCurrency(amount, currency) {
         ?.addEventListener('click', () => window.showComplianceModals?.(true));
     })();
 
+    // ── My Agreements tab: render the consolidated acceptance/consent records ──
+    // Read view over /get-my-agreements. Review/accept actions REUSE the existing modals
+    // (showComplianceModals / checkDpaAcceptance / checkTosAcceptance / checkAiDisclaimerConsent);
+    // the plain-language AI/data agreement keeps its own toggle card (#compliance-card) below.
+    (async function initMyAgreements() {
+      const list = document.getElementById('agreements-list');
+      if (!list) return;
+      const loading = document.getElementById('agreements-loading');
+      const errorEl = document.getElementById('agreements-error');
+
+      const fmtDate = (iso) => {
+        if (!iso) return null;
+        try { return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }
+        catch { return null; }
+      };
+
+      // Per-key review handler — reuse the modals already wired up in this page.
+      const reviewers = {
+        tos:           () => (typeof checkTosAcceptance === 'function' ? checkTosAcceptance(true) : window.open('/terms_of_service.html', '_blank', 'noopener')),
+        privacy:       () => window.open('/privacy.html', '_blank', 'noopener'),
+        dpa:           () => (typeof checkDpaAcceptance === 'function' ? checkDpaAcceptance(true) : null),
+        ai_disclaimer: () => window.checkAiDisclaimerConsent?.(true),
+      };
+
+      const statusPill = (a) => {
+        if (a.scope === 'info') return '<span class="text-xs font-semibold text-gray-400">Reference</span>';
+        if (a.upToDate) return '<span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">✓ Up to date</span>';
+        if (a.acceptedAt) return '<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">Update available</span>';
+        return '<span class="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">Not yet accepted</span>';
+      };
+
+      try {
+        const res = await fetch('/.netlify/functions/get-my-agreements');
+        if (!res.ok) throw new Error('fetch failed');
+        const { agreements = [] } = await res.json();
+        loading?.remove();
+
+        // ai_data is represented by the dedicated #compliance-card toggle below — skip it here.
+        const rows = agreements.filter(a => a.key !== 'ai_data');
+        list.querySelectorAll('[data-agreement-row]').forEach(n => n.remove());
+
+        rows.forEach((a) => {
+          const date = fmtDate(a.acceptedAt);
+          const meta = a.scope === 'info'
+            ? 'Always available to read.'
+            : (a.acceptedAt
+                ? `Accepted ${a.acceptedVersion ? `v${a.acceptedVersion} · ` : ''}${date || ''}`.trim()
+                : 'No acceptance on record.');
+          const needsAccept = a.scope !== 'info' && !a.upToDate && reviewers[a.key];
+
+          const row = document.createElement('div');
+          row.dataset.agreementRow = a.key;
+          row.className = 'px-6 py-4 flex items-center justify-between gap-4';
+          row.innerHTML = `
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-sm font-semibold text-gray-900">${a.name}</p>
+                ${statusPill(a)}
+              </div>
+              <p class="text-xs text-gray-500 mt-0.5">${meta}</p>
+            </div>
+            <div class="flex items-center gap-3 flex-shrink-0">
+              ${reviewers[a.key] ? `<button type="button" data-review="${a.key}" class="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer">Review</button>` : ''}
+              ${needsAccept ? `<button type="button" data-review="${a.key}" class="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg cursor-pointer">${a.acceptedAt ? 'Re-accept' : 'Accept'}</button>` : ''}
+            </div>`;
+          list.appendChild(row);
+        });
+
+        list.querySelectorAll('[data-review]').forEach((btn) => {
+          btn.addEventListener('click', () => reviewers[btn.dataset.review]?.());
+        });
+      } catch {
+        loading?.remove();
+        errorEl?.classList.remove('hidden');
+      }
+    })();
+
     // ── US8 AC2: re-open the setup wizard from My Account ──
     const resumeBtn = document.getElementById('resume-wizard-btn');
     if (resumeBtn) resumeBtn.addEventListener('click', () => window.SetupWizard?.open?.());

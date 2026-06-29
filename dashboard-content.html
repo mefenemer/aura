@@ -700,7 +700,7 @@
     const CATALOG = {
       'quick-actions': { title: 'Quick actions', icon: '⚡', desc: 'One-tap shortcuts', render: renderQuickActions },
       'roi-mini':      { title: 'Value this week', icon: '💷', desc: 'Hours & money saved', render: renderRoiMini },
-      'team-status':   { title: 'Your team', icon: '👥', desc: 'Who is working right now', render: renderTeamStatus },
+      'team-status':   { title: 'Your assistants', icon: '👥', desc: 'Who is working right now', render: renderTeamStatus },
       'notifications': { title: 'Latest updates', icon: '🔔', desc: 'Your most recent activity', render: renderNotifications },
       'tips':          { title: 'Tip', icon: '💡', desc: 'Get more from your team', render: renderTips },
       'referral':      { title: 'Invite a teammate', icon: '🎁', desc: 'Share Be More Swan', render: renderReferral },
@@ -823,7 +823,7 @@
         const working = a.filter(x => x.lifecycleStatus === 'working').length;
         el.innerHTML = `<div class="dw-stat">${working}<span style="font-size:15px;color:#94a3b8;font-weight:600"> / ${a.length} working</span></div>
           <div class="dw-stat-sub">${a.length ? 'Your digital team' : 'No assistants yet'}</div>
-          <span class="dw-link">Manage team →</span>`;
+          <span class="dw-link">Manage assistants →</span>`;
         el.querySelector('.dw-link').onclick = () => window.loadView && window.loadView('assistants');
       } catch { el.innerHTML = '<div class="dw-stat-sub">Unavailable right now.</div>'; }
     }
