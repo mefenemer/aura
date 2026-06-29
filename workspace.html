@@ -6012,12 +6012,7 @@ async function gpSubmitReject() {
      · AC3 in-line execution (reply expands beneath the bar, no reload).
      Lives outside #workspace-content so it persists across loadView().
      ══════════════════════════════════════════════════════════════════════════ -->
-<button id="cmdbar-trigger" type="button" aria-label="Open command bar (Cmd-K)">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-  <span class="cmdbar-trigger-label">Ask your team anything</span>
-  <kbd class="cmdbar-kbd">⌘K</kbd>
-</button>
-
+<!-- The trigger lives in the side menu (#nav-ask-team in components/sidebar.html); ⌘K also opens it. -->
 <div id="cmdbar-overlay" class="cmdbar-overlay" aria-hidden="true">
   <div class="cmdbar-panel" role="dialog" aria-modal="true" aria-label="Command bar">
     <form id="cmdbar-form" class="cmdbar-inputrow">
@@ -6043,19 +6038,9 @@ async function gpSubmitReject() {
 </div>
 
 <style>
-  /* US-DASH-3 — Swan Command Bar. Scoped plain CSS (immune to prebuilt-Tailwind). */
-  #cmdbar-trigger {
-    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 60;
-    display: inline-flex; align-items: center; gap: 10px; padding: 11px 16px; cursor: pointer;
-    border: 1px solid rgba(15,23,42,0.10); border-radius: 999px;
-    background: rgba(255,255,255,0.85); backdrop-filter: blur(10px);
-    box-shadow: 0 12px 30px -12px rgba(6,78,59,0.45), 0 2px 6px -3px rgba(0,0,0,0.12);
-    color: #334155; font-size: 14px; font-weight: 600; transition: transform .2s ease, box-shadow .2s ease;
-  }
-  #cmdbar-trigger:hover { transform: translateX(-50%) translateY(-2px); box-shadow: 0 18px 36px -12px rgba(6,78,59,0.5); }
-  #cmdbar-trigger svg { width: 16px; height: 16px; color: #10b981; }
-  .cmdbar-kbd { font-size: 11px; font-weight: 700; color: #94a3b8; background: #f1f5f9; border-radius: 6px; padding: 2px 6px; }
-  @media (max-width: 640px) { .cmdbar-trigger-label { display: none; } #cmdbar-trigger { bottom: 5.25rem; } }
+  /* US-DASH-3 — Swan Command Bar. Scoped plain CSS (immune to prebuilt-Tailwind).
+     The trigger now lives in the side menu (#nav-ask-team); the overlay below is opened
+     from there or via ⌘K. */
 
   /* Onboarding "Resume setup" pill — docked top-centre, pulses to catch the eye. */
   #setup-wizard-fab {
@@ -6121,8 +6106,6 @@ async function gpSubmitReject() {
   @media (prefers-reduced-motion: reduce) { .cmdbar-overlay.open, .cmdbar-panel, .cmdbar-wave i, .cmdbar-iconbtn.listening { animation: none !important; } }
   /* US-DASH-5 AC2: command-bar dark theme (system preference) */
   @media (prefers-color-scheme: dark) {
-    #cmdbar-trigger { background: rgba(17,26,46,0.9); border-color: rgba(148,163,184,0.16); color: #cbd5e1; }
-    .cmdbar-kbd { background: #1e293b; color: #94a3b8; }
     .cmdbar-panel { background: #0f1729; border-color: rgba(148,163,184,0.14); }
     #cmdbar-input { color: #f1f5f9; }
     #cmdbar-input::placeholder { color: #64748b; }
@@ -6135,15 +6118,13 @@ async function gpSubmitReject() {
     .cmdbar-chip:hover { background: #0c2a20; border-color: #115e44; color: #6ee7b7; }
   }
   /* US-DASH-5 AC3: command-bar micro-interactions */
-  #cmdbar-trigger:active { transform: translateX(-50%) scale(.97); }
   .cmdbar-iconbtn:active, .cmdbar-chip:active { transform: scale(.94); }
-  .cmdbar-iconbtn:focus-visible, .cmdbar-chip:focus-visible, #cmdbar-trigger:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
+  .cmdbar-iconbtn:focus-visible, .cmdbar-chip:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
 </style>
 
 <script>
   (function () {
     // ── US-DASH-3: Swan Command Bar controller ───────────────────────────────
-    const trigger = document.getElementById('cmdbar-trigger');
     const overlay = document.getElementById('cmdbar-overlay');
     const form = document.getElementById('cmdbar-form');
     const input = document.getElementById('cmdbar-input');
@@ -6151,7 +6132,7 @@ async function gpSubmitReject() {
     const wave = document.getElementById('cmdbar-wave');
     const result = document.getElementById('cmdbar-result');
     const hints = document.getElementById('cmdbar-hints');
-    if (!trigger || !overlay || !form) return;
+    if (!overlay || !form) return;
 
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -6167,7 +6148,10 @@ async function gpSubmitReject() {
     }
     const isOpen = () => overlay.classList.contains('open');
 
-    trigger.addEventListener('click', open);
+    // The trigger lives in the side menu (#nav-ask-team), injected async → delegate.
+    document.addEventListener('click', e => {
+      if (e.target.closest && e.target.closest('#nav-ask-team')) { e.preventDefault(); open(); }
+    });
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
     document.addEventListener('keydown', e => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); isOpen() ? close() : open(); }
