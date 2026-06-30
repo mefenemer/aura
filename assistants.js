@@ -1146,6 +1146,10 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         });
     }
 
+    // ── Impact & ROI metrics card — fetched first so the card is visible before
+    //    Completed Tasks loads, preserving the DOM order on first render. ─────
+    await _fetchAndRenderAssistantMetrics(assistantId);
+
     // ── Recent Activity ───────────────────────────────────────────
     const activityList = document.getElementById('recent-activity-list');
     if (activityList) {
@@ -1249,9 +1253,6 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── AC6: Daily Relationship-Building Checklist ────────────────
     // Hidden — belongs to a future Engagement/CTA assistant, not SMM.
     // await _fetchAndRenderRelationshipChecklist(assistantId);
-
-    // ── Impact & ROI metrics card ─────────────────────────────────
-    await _fetchAndRenderAssistantMetrics(assistantId);
 
     // ── Review Queue tab — prefetch pending count so the badge shows without opening the tab ──
     _prefetchDetailRqBadge(assistantId);
