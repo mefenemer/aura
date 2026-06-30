@@ -24,8 +24,11 @@
         }
         .settings-tab:hover { color: #374151; border-bottom-color: #d1d5db; }
         .settings-tab.active { color: #059669; border-bottom-color: #10b981; }
+        /* Allow horizontal scroll on narrow viewports without showing a scrollbar */
+        .settings-tabs-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .settings-tabs-scroll::-webkit-scrollbar { display: none; }
     </style>
-    <div class="mb-8 border-b border-gray-200 overflow-x-auto">
+    <div class="settings-tabs-scroll mb-8 border-b border-gray-200 overflow-x-auto">
         <nav id="settings-tabs" class="-mb-px flex gap-x-6" aria-label="Account settings tabs">
             <button type="button" class="settings-tab active" data-tab="profile">Profile Information</button>
             <button type="button" class="settings-tab" data-tab="notifications">Notification Preferences</button>
@@ -441,10 +444,15 @@
         const tabs = Array.from(document.querySelectorAll('#settings-tabs .settings-tab'));
         const panels = Array.from(document.querySelectorAll('.settings-tab-panel'));
         function activate(name) {
+            if (!name || !panels.some(p => p.dataset.panel === name)) return;
             tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
             panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== name));
         }
         tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
+        // Exposed so other parts of the workspace can deep-link to a specific tab — notably
+        // the Setup Wizard's "Compliance & data use" step, which routes here and opens the
+        // "My Agreements" panel (not the default Profile Information one).
+        window.activateSettingsTab = activate;
     })();
     </script>
 

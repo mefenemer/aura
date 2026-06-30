@@ -54,7 +54,7 @@ const STEP_DEFS: { key: string; label: string; view: string | null; benefit: str
     { key: 'plan',                 label: 'Choose your plan',            view: 'billing',    benefit: 'Pick the plan that fits and activate your account to unlock your digital team.' },
     { key: 'business_info',        label: 'Business information',        view: 'assets',     benefit: 'Tell us about your business so your assistant matches your brand, industry and audience.' },
     { key: 'profile',              label: 'Your profile',                view: 'settings',   benefit: 'Set your working hours and timezone so your assistant works to your schedule.' },
-    { key: 'compliance',           label: 'Compliance & data use',       view: 'settings',   benefit: 'Review our plain-language AI and data-processing terms to keep your company data safe.' },
+    { key: 'compliance',           label: 'Compliance & data use',       view: 'settings',   benefit: 'Review and accept your agreements in My Account → My Agreements to keep your company data safe.' },
     { key: 'assistant_selection',  label: 'Choose your assistant',       view: 'catalog',    benefit: 'Pick the assistant persona that matches the work you want done for you.' },
     { key: 'assistant_onboarding', label: 'Onboard your assistant',      view: 'assistants', benefit: 'Give your assistant the context it needs — your goals, brand voice and guardrails.' },
     { key: 'system_config',        label: 'Connect your tools',          view: 'catalog',    benefit: 'Securely connect the apps your assistant needs — you stay in control of every permission.' },
