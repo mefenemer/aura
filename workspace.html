@@ -10,7 +10,7 @@
   <!-- Markdown rendering for the in-workspace Help Center article reader (merged from help.html) -->
   <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
-  <script src="./explainers.js?v=20260630-1" defer></script>
+  <script src="./explainers.js?v=20260630-2" defer></script>
   <link rel="icon" href="/favicon/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
   <link rel="manifest" href="/favicon/manifest.json">
@@ -3873,7 +3873,7 @@ function formatCurrency(amount, currency) {
     // organisations.onboarding_completed once the 3 core steps are done, which is what
     // get-onboarding-status reads to unlock the gated nav items (review-queue/calendar/
     // my-content). No widget, and no "setup complete" toast — celebrating 3-of-9 here would
-    // disagree with the wizard's 9-step go-live, so that's left entirely to the wizard.
+    // disagree with the wizard's 8-step go-live, so that's left entirely to the wizard.
     try {
       await fetch('/.netlify/functions/get-onboarding-progress');
       document.getElementById('onboarding-widget-container')?.classList.add('hidden');
@@ -6092,7 +6092,7 @@ async function gpSubmitReject() {
     <div class="flex items-start justify-between gap-3 mb-3">
       <div>
         <h2 class="text-lg font-extrabold text-gray-900">Set up your assistant</h2>
-        <p id="setup-wizard-progress-label" class="text-xs font-semibold text-emerald-600 mt-0.5">Step 1 of 9</p>
+        <p id="setup-wizard-progress-label" class="text-xs font-semibold text-emerald-600 mt-0.5">Step 1 of 8</p>
       </div>
       <button type="button" id="setup-wizard-close" aria-label="Collapse setup guide"
               class="text-gray-400 hover:text-gray-700 transition shrink-0 cursor-pointer p-1 -m-1">
@@ -6397,7 +6397,7 @@ async function gpSubmitReject() {
   // Secondary-onboarding (US8 AC3) lives in sessionStorage so it survives the full-page
   // hop to the standalone assistant onboarding wizard (onboarding-*.html) and back. MODE_KEY
   // flags an in-progress "add another assistant" journey; the SINCE_* ids baseline it so the
-  // backend scopes steps 6-9 to the new assistant only.
+  // backend scopes steps 6-8 to the new assistant only.
   const MODE_KEY = 'swan_wizard_mode';
   const SINCE_A_KEY = 'swan_wizard_since_assistant';
   const SINCE_D_KEY = 'swan_wizard_since_draft';
@@ -6427,6 +6427,45 @@ async function gpSubmitReject() {
     fab.style.display = show ? 'inline-flex' : 'none';
     const c = document.getElementById('setup-wizard-fab-count');
     if (c) c.textContent = (typeof remaining === 'number' && remaining > 0) ? `· ${remaining} left` : '';
+  }
+
+  // Sub-task CTA labels for the "Preparing your assistant" readiness checklist. The routing
+  // for each key lives in the click wiring below (agreements → My Account; the rest → the
+  // primary assistant's relevant tab).
+  const SUBSTEP_CTA = {
+    connections:    'Connect your tools',
+    disclosure:     'Set AI disclosure',
+    guardrails:     'Add guardrails',
+    brand_strategy: 'Complete onboarding',
+    tos:            'Review agreements',
+    dpa:            'Review agreements',
+    prohibited_use: 'Review agreements',
+    conformity:     'Review agreements',
+  };
+
+  // Render the Board Room readiness items as the nested sub-tasks of "Preparing your assistant",
+  // plus the inline Kick Off button once every required item is green.
+  function renderPreparingSubSteps(step) {
+    const subTick   = '<svg class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+    const subCircle = '<svg class="w-4 h-4 text-gray-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>';
+    const items = (step.subSteps || []).map(ss => `
+      <div class="flex items-start gap-2">
+        ${ss.done ? subTick : subCircle}
+        <div class="min-w-0 flex-1">
+          <span class="block text-xs font-semibold ${ss.done ? 'text-gray-400 line-through' : 'text-gray-700'}">${ss.label}${ss.required ? '' : ' <span class="font-normal text-gray-400">(recommended)</span>'}</span>
+          ${!ss.done ? `<button type="button" class="setup-wizard-substep mt-0.5 text-xs font-semibold text-emerald-600 hover:underline cursor-pointer" data-subkey="${ss.key}">${SUBSTEP_CTA[ss.key] || 'Open'} &rarr;</button>` : ''}
+        </div>
+      </div>`).join('');
+    // Kick Off appears only when the assistant is genuinely ready (provisioned + all required
+    // sub-tasks green). When the prep is done but provisioning is still finishing, show a brief
+    // "almost there" note instead so the button never 409s.
+    let footer = '';
+    if (step.subStepsReady) {
+      footer = '<button type="button" id="setup-wizard-kickoff" class="mt-3 w-full inline-flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl px-4 py-2.5 transition cursor-pointer">🚀 Initiate Kick Off</button>';
+    } else if (step.subStepsAllRequiredDone) {
+      footer = '<p class="mt-3 text-xs text-gray-500">Finishing setup — you\'ll be able to kick off in a moment.</p>';
+    }
+    return `<div class="mt-2 ml-10 mr-1 space-y-2 border-l border-gray-200 pl-3">${items}${footer}</div>`;
   }
 
   function render(data) {
@@ -6462,6 +6501,13 @@ async function gpSubmitReject() {
       const locked = !s.done && (i + 1) > data.currentStep;
       const actionable = !locked && (s.view || s.key === 'plan');
       const num = `<span class="flex items-center justify-center w-7 h-7 rounded-full ${isCurrent ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'} font-bold text-sm shrink-0">${i + 1}</span>`;
+      // "Preparing your assistant" expands into the Board Room readiness checklist as in-drawer
+      // sub-tasks while it's the current step — so every outstanding kick-off item is visible
+      // here (no surprises at the Board Room) and the inline Kick Off can fire once all required
+      // sub-tasks are green.
+      const subHtml = (s.key === 'preparing' && isCurrent && !s.done && Array.isArray(s.subSteps) && s.subSteps.length)
+        ? renderPreparingSubSteps(s)
+        : '';
       return `
         <li>
           <button type="button" data-key="${s.key}" data-view="${s.view || ''}" data-locked="${locked ? '1' : ''}" ${actionable ? '' : 'disabled'}
@@ -6473,8 +6519,9 @@ async function gpSubmitReject() {
               ${s.done ? '<span class="block text-xs text-emerald-600 font-semibold mt-0.5">Completed</span>' : ''}
               ${locked ? '<span class="block text-xs text-gray-400 mt-0.5">Complete the previous step to unlock</span>' : ''}
             </span>
-            ${(!s.done && actionable && s.view) ? '<span class="text-emerald-600 font-bold self-center shrink-0">&rarr;</span>' : ''}
+            ${(!s.done && actionable && s.view && !subHtml) ? '<span class="text-emerald-600 font-bold self-center shrink-0">&rarr;</span>' : ''}
           </button>
+          ${subHtml}
         </li>`;
     }).join('')}</ul>`;
 
@@ -6500,9 +6547,61 @@ async function gpSubmitReject() {
           });
           return;
         }
+        // "Preparing your assistant" acts ON the assistant being onboarded — clicking the row
+        // itself opens its Board Room. The granular sub-task buttons (rendered beneath) deep-link
+        // to the specific tab each readiness item needs. Falls back to the catalog only when no
+        // assistant exists yet (selection step not done).
+        if (key === 'preparing' && data.primaryAssistantId && window.routeToAssistantDetail) {
+          window.routeToAssistantDetail(data.primaryAssistantId);
+          return;
+        }
         // US1 AC2 — route the main area, but keep the drawer open as a companion.
         if (window.loadView) window.loadView(view);
       });
+    });
+
+    // Readiness sub-task deep-links (Preparing your assistant). Agreements (ToS/DPA/etc.) route
+    // to My Account → My Agreements; everything else to the primary assistant's relevant tab.
+    body.querySelectorAll('.setup-wizard-substep').forEach(btn => {
+      const subkey = btn.getAttribute('data-subkey');
+      btn.addEventListener('click', () => {
+        if (['tos', 'dpa', 'prohibited_use', 'conformity'].includes(subkey)) {
+          Promise.resolve(window.loadView?.('settings')).then(() => window.activateSettingsTab?.('agreements'));
+          return;
+        }
+        if (!data.primaryAssistantId || !window.routeToAssistantDetail) { window.loadView?.('catalog'); return; }
+        if (subkey === 'connections') window._assistantDetailInitialTab = 'platforms';
+        else if (subkey === 'disclosure' || subkey === 'guardrails') window._assistantDetailInitialTab = 'guardrails';
+        window.routeToAssistantDetail(data.primaryAssistantId);
+      });
+    });
+
+    // Inline Kick Off — activates the assistant without leaving the drawer (mirrors the Board
+    // Room kick-off in assistants.js). On success the wizard refreshes: go_live ticks and the
+    // drawer flips to the "Your assistant is live!" celebration.
+    const koBtn = document.getElementById('setup-wizard-kickoff');
+    if (koBtn) koBtn.addEventListener('click', async () => {
+      const pid = data.primaryAssistantId;
+      if (!pid) return;
+      koBtn.disabled = true;
+      const original = koBtn.textContent;
+      koBtn.textContent = 'Starting…';
+      try {
+        const res = await fetch(`/.netlify/functions/kickoff-assistant?id=${pid}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          alert(d.error || 'Could not start the assistant. Please complete the checklist and try again.');
+          koBtn.disabled = false; koBtn.textContent = original; return;
+        }
+        window.showToast?.('Your assistant is now working! 🚀', { icon: '🚀' });
+        window.fireConfetti?.();
+        refresh();
+      } catch {
+        alert('Network error — please try again.');
+        koBtn.disabled = false; koBtn.textContent = original;
+      }
     });
   }
 
@@ -6529,7 +6628,7 @@ async function gpSubmitReject() {
     try {
       let url = '/.netlify/functions/get-wizard-state';
       if (isAddMode()) {
-        // Scope steps 6-9 to the new assistant being added (past the captured baseline).
+        // Scope steps 6-8 to the new assistant being added (past the captured baseline).
         const sa = sessionStorage.getItem(SINCE_A_KEY) || '0';
         const sd = sessionStorage.getItem(SINCE_D_KEY) || '0';
         url += `?mode=new&sinceAssistantId=${encodeURIComponent(sa)}&sinceDraftId=${encodeURIComponent(sd)}`;
@@ -6549,7 +6648,7 @@ async function gpSubmitReject() {
     render(data);
 
     const collapsedPref = collapseStore.getItem(COLLAPSE_KEY) === '1';
-    const remaining = (data.total ?? 9) - (data.completedCount ?? 0);
+    const remaining = (data.total ?? 8) - (data.completedCount ?? 0);
 
     // Permanent hide once finished, or for users who completed the legacy onboarding —
     // they can still re-open from My Account (US8 AC2).
@@ -6579,7 +6678,7 @@ async function gpSubmitReject() {
   function collapse() {
     collapseStore.setItem(COLLAPSE_KEY, '1');
     setOpen(false);
-    const remaining = lastData ? ((lastData.total ?? 9) - (lastData.completedCount ?? 0)) : 0;
+    const remaining = lastData ? ((lastData.total ?? 8) - (lastData.completedCount ?? 0)) : 0;
     // Show the Resume pill only while there's still onboarding to do (US1 AC3).
     showFab(!!(lastData && !lastData.allDone && !lastData.dismissed), remaining);
   }
@@ -6600,9 +6699,9 @@ async function gpSubmitReject() {
 
   // US8 AC3 — secondary onboarding. An existing user adding another assistant re-opens the
   // same drawer with the global steps (plan/business/profile/compliance) already ticked and
-  // the assistant-specific steps 6-9 genuinely reset for the NEW assistant. We baseline on
+  // the assistant-specific steps 6-8 genuinely reset for the NEW assistant. We baseline on
   // the current max assistant/draft ids and hand them to the backend (via fetchState), which
-  // scopes 6-9 to entities created past that baseline — so the new journey ticks 7-9
+  // scopes 6-8 to entities created past that baseline — so the new journey ticks 7-8
   // independently of any existing live assistants, and the state survives the full-page hop
   // to the standalone onboarding wizard.
   async function openForNewAssistant() {
@@ -6620,7 +6719,7 @@ async function gpSubmitReject() {
     sessionStorage.setItem(SINCE_D_KEY, String(base?.maxDraftId ?? 0));
     // Reset celebration/diff baselines so the fresh journey is tracked from scratch.
     last = null; celebratedGoLive = false;
-    await refresh();   // now scoped to the new assistant (steps 6-9 reset)
+    await refresh();   // now scoped to the new assistant (steps 6-8 reset)
     open();
     if (window.loadView) window.loadView('catalog');
   }

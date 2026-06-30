@@ -145,6 +145,48 @@
       plain: "Your simple game plan for Instagram — what you post, how often, and what you want it to achieve (more followers? more sales?). A strategy just means you're posting on purpose, not just hoping.",
       example: 'e.g. "3 reels a week to grow reach, with a monthly offer."'
     },
+    'linkedin-strategy': {
+      term: 'LinkedIn Strategy',
+      emoji: '💼',
+      plain: "How you show up on LinkedIn — the work-and-business network. It rewards genuine, useful posts and quietly punishes anything that feels like an ad, so the tactics here are about playing nicely with it.",
+      example: 'e.g. "Share a lesson learned each week, keep links out of the post itself."'
+    },
+    'x-strategy': {
+      term: 'X (Twitter) Strategy',
+      emoji: '🐦',
+      plain: "Your plan for X (formerly Twitter) — a fast, text-first feed. Posts are short, so it's about picking the right mix of quick one-liners and longer “threads” to get your point across.",
+      example: 'e.g. "A daily tip, plus one longer thread a week."'
+    },
+    'content-formats': {
+      term: 'Reels, Carousels & Static',
+      emoji: '🎞️',
+      plain: "The three main kinds of Instagram post. Reels are short videos (great for reaching new people), Carousels are swipeable multi-image posts (great for tips), and Static is a single image. A mix keeps your feed varied.",
+      example: 'e.g. "Reels to get discovered, carousels to teach, statics for quick updates."'
+    },
+    'trending-audio': {
+      term: 'Trending Audio',
+      emoji: '🎵',
+      plain: "The songs and sounds lots of people are using on Reels right now. Instagram pushes posts that ride a trending sound to more viewers — so adding one is a free little boost to your reach.",
+      example: 'e.g. "Pair your behind-the-scenes clip with this week\'s viral sound."'
+    },
+    'link-first-comment': {
+      term: 'Link in First Comment',
+      emoji: '🔗',
+      plain: "A LinkedIn trick: the app shows your post to fewer people if it has an outside link in it. So you leave the link out of the post and drop it in the first comment instead — same link, no penalty.",
+      example: 'e.g. "Post the story, then comment \'Full guide here: …\'"'
+    },
+    'pdf-carousel': {
+      term: 'PDF Slider / Carousel',
+      emoji: '📑',
+      plain: "A swipeable, multi-page post on LinkedIn (it's really a PDF behind the scenes). Brilliant for step-by-step tips or mini-guides people can flick through — they tend to get lots of engagement.",
+      example: 'e.g. "A 6-slide \'how to write a great bio\' walkthrough."'
+    },
+    'media-placeholders': {
+      term: 'Media Placeholders',
+      emoji: '🖼️',
+      plain: "Little reminders left in a draft post that say “add a photo or video here.” Posts with an image or clip get noticed far more, so the assistant flags the best spot for you to pop one in.",
+      example: 'e.g. "[add product photo here] before this line."'
+    },
     'engagement': {
       term: 'Engagement',
       emoji: '❤️',

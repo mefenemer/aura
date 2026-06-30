@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Assistant Setup | Be More Swan</title>
   <link href="./style.css" rel="stylesheet">
-  <script src="./explainers.js?v=20260630-1" defer></script>
+  <script src="./explainers.js?v=20260630-2" defer></script>
   <link rel="icon" href="/favicon/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
   <link rel="manifest" href="/favicon/manifest.json">
@@ -493,10 +493,9 @@
               <p class="text-xs text-gray-500 mb-2">How should the assistant handle images or video?</p>
               <select id="val_visuals" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white">
                 <option>Text Only (No visuals needed)</option>
-                <option>Generate AI Images (e.g., Midjourney / DALL-E)</option>
-                <option>Use Free Stock Photos (e.g., Unsplash - Static Only)</option>
-                <option>Apply my branded templates (Requires Canva/Bannerbear setup)</option>
-                <option>I will provide ready-to-post assets in a linked folder</option>
+                <option>Generate AI Images &amp; Video (Flux + Hailuo)</option>
+                <option>Use Free Stock Photos &amp; Videos (Pexels)</option>
+                <option>I will provide my own ready-to-post assets</option>
               </select>
             </div>
             <div>
@@ -584,29 +583,29 @@
             </div>
 
             <div id="algo_block_ig" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-              <h4 class="font-bold text-gray-800 text-sm mb-2">Instagram Strategy</h4>
+              <h4 class="font-bold text-gray-800 text-sm mb-2" data-explain="instagram-strategy">Instagram Strategy</h4>
               <input type="text" id="algo_custom_tags_ig" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #InstaGood">
-              <select id="ig_opt_format" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
+              <div class="flex items-center"><select id="ig_opt_format" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
                 <option value="mix">Optimize for a Mix (Reels, Carousels, Static)</option>
                 <option value="reels">Prioritize Reels</option>
-              </select>
+              </select><span data-explain="content-formats" class="inline-flex"></span></div>
               <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" data-feature="ig_opt_audio">
-                <input type="checkbox" id="ig_opt_audio" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Suggest trending audio concepts</span>
+                <input type="checkbox" id="ig_opt_audio" class="h-4 w-4 text-emerald-700 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700" data-explain="trending-audio">Suggest trending audio concepts</span>
               </label>
             </div>
 
             <div id="algo_block_li" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-              <h4 class="font-bold text-gray-800 text-sm mb-2">LinkedIn Strategy</h4>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition"><input type="checkbox" id="li_opt_links" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Anti-Penalty: URLs in first comment</span></label>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" data-feature="li_opt_sliders"><input type="checkbox" id="li_opt_sliders" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">PDF Slider/Carousel outlines</span></label>
+              <h4 class="font-bold text-gray-800 text-sm mb-2" data-explain="linkedin-strategy">LinkedIn Strategy</h4>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition"><input type="checkbox" id="li_opt_links" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700" data-explain="link-first-comment">Anti-Penalty: URLs in first comment</span></label>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" data-feature="li_opt_sliders"><input type="checkbox" id="li_opt_sliders" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700" data-explain="pdf-carousel">PDF Slider/Carousel outlines</span></label>
             </div>
 
             <div id="algo_block_x" class="hidden algo-block space-y-3 mb-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-              <h4 class="font-bold text-gray-800 text-sm mb-2">X (Twitter) Strategy</h4>
+              <h4 class="font-bold text-gray-800 text-sm mb-2" data-explain="x-strategy">X (Twitter) Strategy</h4>
               <select id="x_opt_length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition">
                 <option value="mix">Mix of Threads and Single Posts</option>
               </select>
-              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" data-feature="x_opt_media"><input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700">Include placeholders for media</span></label>
+              <label class="flex items-center cursor-pointer hover:text-emerald-800 transition gated-feature" data-feature="x_opt_media"><input type="checkbox" id="x_opt_media" class="h-4 w-4 text-emerald-700 rounded"><span class="ml-2 text-sm text-gray-700" data-explain="media-placeholders">Include placeholders for media</span></label>
             </div>
           </div>
         </div>
@@ -658,13 +657,13 @@
         <div id="step-8" class="step-hidden text-center py-4">
           <div id="setup-initial-view">
             <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold mx-auto mb-6 text-4xl">📋</div>
-            <h2 class="text-3xl font-extrabold text-gray-900 mb-8">Perfect. Let's start the build.</h2>
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-8">Perfect. Let's get your assistant ready.</h2>
           </div>
 
           <div id="setup-loading-view" class="hidden py-12">
             <div class="w-16 h-16 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin mx-auto mb-6"></div>
-            <h3 class="text-xl font-bold text-gray-900">Provisioning your workspace...</h3>
-            <p class="text-gray-500 mt-2">Connecting your accounts and building your assistant.</p>
+            <h3 class="text-xl font-bold text-gray-900">Getting your assistant settled in...</h3>
+            <p class="text-gray-500 mt-2">Setting up your accounts and getting your assistant ready to start.</p>
           </div>
         </div>
 
@@ -1496,6 +1495,20 @@
     // 2. Safe Consent Handling: Use optional chaining or fallback to false
     const getConsent = (id) => document.getElementById(id)?.checked || false;
 
+    // Map the chosen Visual Strategy onto the per-assistant Media Source priority list
+    // (Manual/Stock/AI — see src/utils/media-sources.ts). Order = priority, with graceful
+    // fallback for the auto-sourcing choices. NOTE: the resolver treats an empty list as
+    // "use the default matrix" (which includes AI), so Text Only maps to manual-only — no
+    // auto AI/stock sourcing; posts stay text-only unless the org has its own library assets.
+    const mediaSources = (() => {
+      const v = document.getElementById('val_visuals')?.value || '';
+      if (v.includes('Text Only')) return ['manual'];               // no auto-sourcing
+      if (v.includes('Generate AI')) return ['ai', 'stock', 'manual']; // AI first, fall back
+      if (v.includes('Free Stock')) return ['stock', 'manual'];     // Pexels, then own library
+      if (v.includes('provide my own')) return ['manual'];          // own library only
+      return ['manual', 'stock', 'ai'];                             // safe default matrix
+    })();
+
     const hourlyRateRaw = parseFloat(document.getElementById('val_hourly_rate')?.value);
     const payload = {
       clientName: sessionStorage.getItem('aura_client_name') || 'User',
@@ -1505,6 +1518,7 @@
       tier: currentTierKey,
       ...(draftId ? { draftId } : {}),
       rawInputs: window.globalRawInputs,
+      mediaSources,
       onboardingContext: structuredContext,
       ...(hourlyRateRaw > 0 ? { hourlyRateGbp: hourlyRateRaw } : {}),
       consents: {

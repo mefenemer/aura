@@ -1,6 +1,6 @@
 // netlify/functions/get-wizard-state.ts
 // Endpoint for the Frictionless Onboarding Wizard — the persistent right-hand slide-over
-// companion checklist. Reports the 9-step journey with live `done` flags, the next
+// companion checklist. Reports the 8-step journey with live `done` flags, the next
 // incomplete step (resume focus, US2 AC5), and aggregate completion + dismissed signals
 // that drive auto-open / go-live behaviour.
 //
@@ -13,6 +13,7 @@ import { Handler } from '@netlify/functions';
 import { getDb } from '../../db/client';
 import { requireTenant } from '../../src/utils/tenant';
 import { computeOnboardingProgress } from '../../src/utils/onboarding-progress';
+import { computeAssistantReadiness } from './get-assistant-readiness';
 
 const json = (statusCode: number, body: unknown) => ({
     statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -27,7 +28,7 @@ export const handler: Handler = async (event) => {
     const { organisationId: orgId, userId } = ctx;
 
     // ── Secondary-onboarding scoping (US8 AC3) ──────────────────────────────
-    // When a user adds another assistant, steps 6-9 must track only THAT new assistant.
+    // When a user adds another assistant, steps 6-8 must track only THAT new assistant.
     // The client passes mode=new plus a monotonic baseline (max assistant/draft id captured
     // the moment "Add New Assistant" was clicked). Ids survive the full-page hop to the
     // standalone onboarding wizard (carried in sessionStorage) and are immune to clock skew.
@@ -38,8 +39,33 @@ export const handler: Handler = async (event) => {
         sinceDraftId: Number(qs.sinceDraftId || 0),
     });
 
+    // Hydrate the "Preparing your assistant" step with the Board Room readiness checklist so the
+    // wizard surfaces every outstanding kick-off item (tools, AI disclosure, ToS/DPA, guardrails…)
+    // as in-drawer sub-tasks — and can fire the inline Kick Off once they're all green. Best-effort:
+    // any failure (e.g. table not yet migrated) just leaves the step without sub-tasks.
+    const steps = progress.steps as (typeof progress.steps[number] & {
+        subSteps?: unknown; subStepsAllRequiredDone?: boolean; subStepsReady?: boolean;
+    })[];
+    const preparing = steps.find(s => s.key === 'preparing');
+    if (preparing && progress.primaryAssistantId) {
+        try {
+            const readiness = await computeAssistantReadiness(db, orgId, progress.primaryAssistantId);
+            if (readiness) {
+                preparing.subSteps = readiness.items;
+                preparing.subStepsAllRequiredDone = readiness.allRequiredDone;
+                // The inline Kick Off may fire only once the assistant is actually kick-off-able:
+                // provisioning complete (ready_for_work), every required readiness item green, and
+                // not already live. Otherwise kickoff-assistant would 409/422.
+                preparing.subStepsReady = readiness.status === 'complete'
+                    && readiness.allRequiredDone === true && readiness.working !== true;
+            }
+        } catch (err) {
+            console.warn('[get-wizard-state] readiness sub-tasks unavailable (non-blocking):', err);
+        }
+    }
+
     return json(200, {
-        steps: progress.steps,
+        steps,
         currentStep: progress.currentStep,
         allDone: progress.allDone,
         completedCount: progress.completedCount,
@@ -52,5 +78,7 @@ export const handler: Handler = async (event) => {
         // Baseline anchors for the next "add assistant" journey (US8 AC3).
         maxAssistantId: progress.maxAssistantId,
         maxDraftId: progress.maxDraftId,
+        // The assistant the "Preparing your assistant" step (and its sub-tasks) deep-links into.
+        primaryAssistantId: progress.primaryAssistantId,
     });
 };
