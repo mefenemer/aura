@@ -1208,6 +1208,7 @@ function formatCurrency(amount, currency) {
           if (nameEl) nameEl.textContent = fullName || 'Be More Swan User';
           if (emailEl) emailEl.textContent = profileData.email || '';
           window._currentUserEmail = profileData.email || '';
+          window._firstLoginWelcomeSeen = profileData.firstLoginWelcomeSeen ?? false;
 
           // US-I18N-1.2 SC1/SC2: apply user's saved language preference
           if (profileData.language && window.i18n) {
@@ -3812,6 +3813,24 @@ function formatCurrency(amount, currency) {
   window.initDashboard = async function() {
     await window._renderDashboardEngagement();
     await fetchAndRenderAssistants('dashboard-assistants-grid');
+
+    // Show "Welcome." for first-time visitors; "Welcome back." for returning users.
+    const welcomeEl = document.getElementById('dash-welcome-heading');
+    if (welcomeEl) {
+      if (!window._firstLoginWelcomeSeen) {
+        welcomeEl.textContent = 'Welcome.';
+        // Mark as seen so subsequent visits show "Welcome back."
+        window._firstLoginWelcomeSeen = true;
+        fetch('/.netlify/functions/update-profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fieldKey: 'firstLoginWelcomeSeen', value: true }),
+        }).catch(() => {});
+      } else {
+        welcomeEl.textContent = 'Welcome back.';
+      }
+    }
+
     // US1 AC1 — the setup wizard auto-slides in for users still onboarding when the
     // dashboard loads (unless they've collapsed it or already finished).
     if (window.SetupWizard && typeof window.SetupWizard.refresh === 'function') {
