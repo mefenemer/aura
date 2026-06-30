@@ -352,10 +352,17 @@ export const handler: Handler = async (event) => {
         items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         const paged = items.slice(0, limit);
 
+        // Operational signal for the assistant-detail status pill (Epic 1): how many
+        // content-generation jobs are mid-flight. Derived from the rows already fetched
+        // above so the pill can read "Executing Task" without parsing translated strings.
+        const activeJobCount = genJobs.filter(
+            (j) => j.status === 'processing' || j.status === 'queued' || j.status === 'pending',
+        ).length;
+
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ logs: paged }),
+            body: JSON.stringify({ logs: paged, activeJobCount }),
         };
 
     } catch (err: any) {

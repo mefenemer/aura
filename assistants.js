@@ -448,6 +448,8 @@ async function _detailRqRenderGroups(statusKey) {
         if (colBadge) { colBadge.textContent = posts.length || ''; colBadge.classList.toggle('hidden', !posts.length); }
         const tabBadge = document.getElementById('detail-rq-pending-badge');
         if (tabBadge) { tabBadge.textContent = posts.length || ''; tabBadge.classList.toggle('hidden', !posts.length); }
+        // Keep the operational status pill in sync as the queue changes (e.g. after approving).
+        window._updateOpSignals?.({ pendingReview: posts.length });
     }
 
     // Reuse the global render helpers from workspace.html (rqRenderSocialCard, rqRenderIdeaCard, etc.)
@@ -485,29 +487,55 @@ window._detailRqToggleGroup = function(key) {
     if (chev) chev.classList.toggle('rotate-90', !wasOpen);
 };
 
-// Open the right-hand brief drawer for a given tab key
-window._openBriefDrawer = function(tabKey) {
+// ── Right-hand persona / config slide-over (Epic 1) ───────────────────────────
+// The drawer has a "home" panel (#tab-profile-home: onboarding answers + Operating
+// File card index) and one panel per section (#tab-problem, #tab-operation, …).
+// _openProfileDrawer lands on home; clicking a card calls _openBriefDrawer(section),
+// which swaps panels in place and reveals a back arrow. It is reached from the header
+// "Assistant Profile" button — there is no longer a setup tab in the main nav.
+
+// Show exactly one drawer panel by element id (CSS hides all .detail-tab-content
+// unless they carry .active-drawer-tab while the drawer is open).
+function _briefShowPanel(panelId) {
+    document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.remove('active-drawer-tab'));
+    const panel = document.getElementById(panelId);
+    if (panel) panel.classList.add('active-drawer-tab');
+}
+
+// Run the open animation/backdrop/scroll-lock. Idempotent: safe to call when the
+// drawer is already open (so cards can swap panels without re-triggering anything odd).
+function _briefOpenChrome() {
     const drawer = document.getElementById('brief-drawer');
     const backdrop = document.getElementById('brief-drawer-backdrop');
     if (!drawer) return;
-
-    // Show the correct panel inside the drawer
-    document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.remove('active-drawer-tab'));
-    const panel = document.getElementById('tab-' + tabKey);
-    if (panel) panel.classList.add('active-drawer-tab');
-
-    // Set drawer title
-    const titles = { problem: 'Mandate', operation: 'Operational Setup', strategy: 'Creative Brief', platforms: 'Connections', guardrails: 'Brand Safety & Legal' };
-    const titleEl = document.getElementById('brief-drawer-title');
-    if (titleEl) titleEl.textContent = titles[tabKey] || tabKey;
-
-    // Open
     document.body.classList.add('brief-drawer-open');
     if (backdrop) { backdrop.style.display = 'block'; setTimeout(() => backdrop.style.opacity = '1', 10); }
     drawer.style.transform = 'translateX(0)';
     document.body.style.overflow = 'hidden';
-
+    const body = document.getElementById('brief-drawer-body');
+    if (body) body.scrollTop = 0;
     _resizeBriefAutoGrow();
+}
+
+// Entry point from the header — opens the drawer to the profile "home" card index.
+window._openProfileDrawer = function() {
+    _briefShowPanel('tab-profile-home');
+    const titleEl = document.getElementById('brief-drawer-title');
+    if (titleEl) titleEl.textContent = window._assistantProfileTitle || 'Assistant Profile';
+    const backBtn = document.getElementById('brief-drawer-back');
+    if (backBtn) backBtn.hidden = true;
+    _briefOpenChrome();
+};
+
+// Open (or swap to) a specific section panel, with a back arrow to the home index.
+window._openBriefDrawer = function(tabKey) {
+    _briefShowPanel('tab-' + tabKey);
+    const titles = { problem: 'Mandate', operation: 'Operational Setup', strategy: 'Creative Brief', platforms: 'Connections', guardrails: 'Brand Safety & Legal' };
+    const titleEl = document.getElementById('brief-drawer-title');
+    if (titleEl) titleEl.textContent = titles[tabKey] || tabKey;
+    const backBtn = document.getElementById('brief-drawer-back');
+    if (backBtn) backBtn.hidden = false;
+    _briefOpenChrome();
 };
 
 window._closeBriefDrawer = function() {
@@ -517,6 +545,58 @@ window._closeBriefDrawer = function() {
     if (backdrop) { backdrop.style.opacity = '0'; setTimeout(() => { backdrop.style.display = 'none'; }, 250); }
     document.body.classList.remove('brief-drawer-open');
     document.body.style.overflow = '';
+};
+
+// ── Operational status pill (Epic 1 AC1.1.2) ──────────────────────────────────
+// The header pill keeps the lifecycle vocabulary for every non-active state
+// (Setup in Progress / Paused / Archived …). For an actively *working* assistant it
+// refines into an operational sub-state from live signals: a mid-flight job →
+// "Executing Task"; else drafts awaiting the user → "Awaiting Human Review"; else
+// "Idle". Signals are cached so the pill re-renders as activity/review data lands.
+window._detailOpSignals = { activeJobCount: 0, pendingReview: 0 };
+
+const _STATUS_PILL = {
+    blocked:        { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500',                 label: 'Action Required',    toggle: 'Initiate Kick-Off' },
+    provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Setup in Progress',  toggle: 'Pause Assistant' },
+    ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work',     toggle: 'Initiate Kick-Off' },
+    working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Working',            toggle: 'Pause Assistant' },
+    paused:         { cls: 'bg-gray-100 text-gray-600 border-gray-200',         dot: 'bg-gray-400',                  label: 'Paused',             toggle: 'Resume Assistant' },
+    system_paused:  { cls: 'bg-red-50 text-red-700 border-red-200',             dot: 'bg-red-500 animate-pulse',     label: 'Attention Required', toggle: 'Resume Assistant' },
+    archived:       { cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-300',                  label: 'Archived',           toggle: 'Resume Assistant' },
+};
+
+window._renderStatusPill = function(data) {
+    data = data || window._detailCurrentData;
+    const statusEl = document.getElementById('detail-status');
+    if (!statusEl || !data) return;
+    const toggleBtn = document.getElementById('btn-toggle-status');
+
+    // Lifecycle state machine (assistant-lifecycle-epic). Fall back to legacy fields.
+    // Gate-blocked assistants read as lifecycle 'provisioning' but need action → own pill.
+    const lifecycle = data.status === 'blocked' ? 'blocked' : (data.lifecycleStatus
+      || (data.status === 'pending' ? 'provisioning' : (data.isActive === false ? 'paused' : 'working')));
+    let p = _STATUS_PILL[lifecycle] || _STATUS_PILL.working;
+
+    if (lifecycle === 'working') {
+        const sig = window._detailOpSignals || {};
+        if (sig.activeJobCount > 0) {
+            p = { ...p, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Executing Task' };
+        } else if (sig.pendingReview > 0) {
+            p = { ...p, cls: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', label: 'Awaiting Human Review' };
+        } else {
+            p = { ...p, cls: 'bg-gray-100 text-gray-600 border-gray-200', dot: 'bg-gray-400', label: 'Idle' };
+        }
+    }
+
+    statusEl.className = `inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold border ${p.cls}`;
+    statusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${p.dot}"></span> ${p.label}`;
+    if (toggleBtn) toggleBtn.textContent = p.toggle;
+};
+
+// Update one or more operational signals and re-render the pill in place.
+window._updateOpSignals = function(patch) {
+    window._detailOpSignals = { ...window._detailOpSignals, ...patch };
+    window._renderStatusPill();
 };
 
 document.addEventListener('keydown', (e) => {
@@ -532,10 +612,9 @@ if (!window._detailTabsDelegated) {
         const mainBtn = e.target.closest('.main-tab-btn');
         if (mainBtn) { window._activateMainTab(mainBtn.dataset.maintab); return; }
 
-        // Child-level (Operating File) tabs — open the slide-in drawer
+        // Child-level (Operating File) cards — swap to that section inside the open drawer.
         const btn = e.target.closest('.detail-tab-btn');
         if (!btn) return;
-        window._activateMainTab('config');
         window._openBriefDrawer(btn.dataset.tab);
     });
 }
@@ -865,9 +944,17 @@ function _detailCollect(currentData) {
 
 function _detailSetSaveStatus(msg, colour) {
     const el = document.getElementById('detail-save-status');
-    if (!el) return;
-    el.className = `text-sm font-semibold transition-all ${colour || 'text-emerald-600'}`;
-    el.textContent = msg;
+    if (el) {
+        el.className = `text-sm font-semibold transition-all ${colour || 'text-emerald-600'}`;
+        el.textContent = msg;
+    }
+    // Mirror into the slide-over header — the page header status sits behind the drawer
+    // backdrop, so edits made inside the drawer need their own visible save indicator.
+    const drawerEl = document.getElementById('brief-drawer-save');
+    if (drawerEl) {
+        drawerEl.style.color = /fail|error/i.test(msg) ? '#dc2626' : (/saving/i.test(msg) ? '#9ca3af' : '#059669');
+        drawerEl.textContent = msg;
+    }
 }
 
 window.initAssistantDetail = async function(assistantId, loadViewCb) {
@@ -1043,9 +1130,13 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         const nameInput = document.getElementById('detail-name-input');
         if (nameInput) nameInput.value = currentData.name || 'Your Assistant';
 
-        // Brief tab label — "[Name]'s Brief"
-        const briefLabel = document.getElementById('brief-tab-label');
-        if (briefLabel) briefLabel.textContent = (currentData.name || 'Your Assistant') + "'s Brief";
+        // Assistant Profile slide-over title — "[Name]'s Profile" (header button keeps its
+        // static "Assistant Profile" label; the personalised title shows on the drawer home).
+        window._assistantProfileTitle = (currentData.name || 'Your Assistant') + "'s Profile";
+        const homeTitleEl = document.getElementById('brief-drawer-title');
+        if (homeTitleEl && !document.body.classList.contains('brief-drawer-open')) {
+            homeTitleEl.textContent = window._assistantProfileTitle;
+        }
 
         const avatarEl = document.getElementById('detail-avatar');
         if (avatarEl) avatarEl.textContent = (currentData.name || 'A').charAt(0).toUpperCase();
@@ -1053,27 +1144,10 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         const roleEl = document.getElementById('detail-role');
         if (roleEl) roleEl.textContent = currentData.role || 'Digital Assistant';
 
-        const statusEl = document.getElementById('detail-status');
-        const toggleBtn = document.getElementById('btn-toggle-status');
-        if (statusEl) {
-            // Lifecycle state machine (assistant-lifecycle-epic). Fall back to legacy fields.
-            // Gate-blocked assistants read as lifecycle 'provisioning' but need action → own pill.
-            const lifecycle = currentData.status === 'blocked' ? 'blocked' : (currentData.lifecycleStatus
-              || (currentData.status === 'pending' ? 'provisioning' : (currentData.isActive === false ? 'paused' : 'working')));
-            const PILL = {
-                blocked:        { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500',                 label: 'Action Required',    toggle: 'Initiate Kick-Off' },
-                provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Setup in Progress',  toggle: 'Pause Assistant' },
-                ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work',     toggle: 'Initiate Kick-Off' },
-                working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Working',            toggle: 'Pause Assistant' },
-                paused:         { cls: 'bg-gray-100 text-gray-600 border-gray-200',         dot: 'bg-gray-400',                  label: 'Paused',             toggle: 'Resume Assistant' },
-                system_paused:  { cls: 'bg-red-50 text-red-700 border-red-200',             dot: 'bg-red-500 animate-pulse',     label: 'Attention Required', toggle: 'Resume Assistant' },
-                archived:       { cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-300',                  label: 'Archived',           toggle: 'Resume Assistant' },
-            };
-            const p = PILL[lifecycle] || PILL.working;
-            statusEl.className = `inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold ${p.cls}`;
-            statusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${p.dot}"></span> ${p.label}`;
-            if (toggleBtn) toggleBtn.textContent = p.toggle;
-        }
+        // Status pill (Epic 1 AC1.1.2). Cache the record so the pill can re-render
+        // reactively when operational signals (active jobs / pending reviews) arrive.
+        window._detailCurrentData = currentData;
+        window._renderStatusPill(currentData);
 
         // US6 AC5.1: Archive Assistant — permanent end-of-life, then return to the dashboard.
         const archiveBtn = document.getElementById('btn-archive-assistant');
@@ -1163,7 +1237,9 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         try {
             const res = await fetch(`/.netlify/functions/get-assistant-activity?id=${assistantId}&timeframe=${timeframe}`);
             if (res.ok) {
-                const { logs } = await res.json();
+                const { logs, activeJobCount } = await res.json();
+                // Feed the operational status pill (Epic 1 AC1.1.2): mid-flight jobs → "Executing Task".
+                window._updateOpSignals?.({ activeJobCount: activeJobCount || 0 });
                 if (logs && logs.length > 0) {
                     const iconSvg = (icon) => {
                         const icons = {
@@ -1269,6 +1345,8 @@ async function _prefetchDetailRqBadge(assistantId) {
         // Also update the action-required strip on the Overview tab.
         const strip = document.getElementById('action-required-strip');
         if (strip) strip.classList.toggle('hidden', !count);
+        // Feed the operational status pill (Epic 1 AC1.1.2): pending drafts → "Awaiting Human Review".
+        window._updateOpSignals?.({ pendingReview: count });
     } catch { /* non-critical */ }
 }
 
@@ -1623,13 +1701,8 @@ async function _renderKickOff(assistantId) {
                 window.showToast?.('Assistant paused.');
                 // Re-render: card flips to the Kick-Off state so the user can confirm to resume (AC4.4).
                 await _renderKickOff(assistantId);
-                const statusEl = document.getElementById('detail-status');
-                if (statusEl) {
-                    statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200';
-                    statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-400"></span> Paused';
-                }
-                const toggleBtn = document.getElementById('btn-toggle-status');
-                if (toggleBtn) toggleBtn.textContent = 'Resume Assistant';
+                if (window._detailCurrentData) { window._detailCurrentData.lifecycleStatus = 'paused'; window._detailCurrentData.isActive = false; }
+                window._renderStatusPill?.();
             } catch { alert('Network error — please try again.'); pauseBtn.disabled = false; }
         };
         // Active/working → start collapsed (the user can expand to review the checklist).
@@ -1679,13 +1752,8 @@ async function _renderKickOff(assistantId) {
             window.showToast?.('Your assistant is now working! 🚀', { icon: '🚀' });
             window.fireConfetti?.();
             await _renderKickOff(assistantId);
-            const statusEl = document.getElementById('detail-status');
-            if (statusEl) {
-                statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
-                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Working';
-            }
-            const toggleBtn = document.getElementById('btn-toggle-status');
-            if (toggleBtn) toggleBtn.textContent = 'Pause Assistant';
+            if (window._detailCurrentData) { window._detailCurrentData.lifecycleStatus = 'working'; window._detailCurrentData.isActive = true; }
+            window._renderStatusPill?.();
         } catch {
             alert('Network error — please try again.');
             btn.disabled = false;
