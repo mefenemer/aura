@@ -1146,6 +1146,10 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         });
     }
 
+    // ── Impact & ROI metrics card — fetched first so the card is visible before
+    //    Completed Tasks loads, preserving the DOM order on first render. ─────
+    await _fetchAndRenderAssistantMetrics(assistantId);
+
     // ── Recent Activity ───────────────────────────────────────────
     const activityList = document.getElementById('recent-activity-list');
     if (activityList) {
@@ -1249,9 +1253,6 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── AC6: Daily Relationship-Building Checklist ────────────────
     // Hidden — belongs to a future Engagement/CTA assistant, not SMM.
     // await _fetchAndRenderRelationshipChecklist(assistantId);
-
-    // ── Impact & ROI metrics card ─────────────────────────────────
-    await _fetchAndRenderAssistantMetrics(assistantId);
 
     // ── Review Queue tab — prefetch pending count so the badge shows without opening the tab ──
     _prefetchDetailRqBadge(assistantId);
@@ -1550,7 +1551,7 @@ async function _renderKickOff(assistantId) {
                 ${it.done ? bTick : bCross}
                 <span class="min-w-0">
                     <span class="block text-sm font-semibold ${it.done ? 'text-gray-800' : 'text-red-700'}">${it.label}${it.required ? '' : ' <span class="text-xs font-normal text-gray-400">(recommended)</span>'}</span>
-                    ${it.done ? '' : `<span class="block text-xs text-red-500 mt-0.5">${it.hint || ''}</span>`}
+                    ${it.done ? '' : `<span class="block text-xs text-red-500 mt-0.5">${it.hint || ''}${it.key === 'disclosure' ? ' <button type="button" onclick="window._goToDisclosureField()" class="text-emerald-600 hover:underline cursor-pointer font-semibold">Open Guardrails tab →</button>' : ''}</span>`}
                 </span>
             </li>`).join('') || '';
         btn.classList.add('hidden');
@@ -1562,12 +1563,20 @@ async function _renderKickOff(assistantId) {
     const tick = `<svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`;
     const cross = `<svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>`;
 
+    window._goToDisclosureField = function() {
+        document.querySelector('.detail-tab-btn[data-tab="guardrails"]')?.click();
+        setTimeout(() => {
+            const el = document.getElementById('edit_ai_disclosure');
+            if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+        }, 120);
+    };
+
     listEl.innerHTML = items.map(it => `
         <li class="flex items-start gap-3">
             ${it.done ? tick : cross}
             <span class="min-w-0">
                 <span class="block text-sm font-semibold ${it.done ? 'text-gray-800' : 'text-gray-500'}">${it.label}${it.required ? '' : ' <span class="text-xs font-normal text-gray-400">(recommended)</span>'}</span>
-                ${it.done ? '' : `<span class="block text-xs text-gray-400 mt-0.5">${it.hint || ''}</span>`}
+                ${it.done ? '' : `<span class="block text-xs text-gray-400 mt-0.5">${it.hint || ''}${it.key === 'disclosure' ? ' <button type="button" onclick="window._goToDisclosureField()" class="text-emerald-600 hover:underline cursor-pointer font-semibold">Open Guardrails tab →</button>' : ''}</span>`}
             </span>
         </li>`).join('') || '<li class="text-sm text-gray-400">No checklist items.</li>';
 
