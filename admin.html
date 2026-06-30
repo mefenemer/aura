@@ -3380,7 +3380,13 @@ async function openIssuePanel(id) {
         ${i.userAgent ? `<div class="col-span-2"><span class="text-gray-400 text-xs font-bold uppercase">User agent</span><br><span class="text-xs text-gray-500 break-all">${i.userAgent}</span></div>` : ''}
       </div>
 
-      <div class="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${i.description || ''}</div>
+      <div class="border border-gray-200 rounded-xl p-4 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase text-gray-400">Description</span>
+          <button onclick="submitIssueDescription(${i.id})" class="text-xs font-semibold text-emerald-600 hover:underline">Save description</button>
+        </div>
+        <textarea id="ir-description" rows="4" class="w-full text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg px-3 py-2 resize-y focus:ring-2 focus:ring-emerald-500 focus:outline-none">${i.description || ''}</textarea>
+      </div>
 
       ${i.imageData ? `<div><span class="text-gray-400 text-xs font-bold uppercase">Screenshot</span><br><a href="${i.imageData}" target="_blank" rel="noopener"><img src="${i.imageData}" alt="Screenshot" class="mt-2 max-h-72 rounded-lg border border-gray-200"></a></div>` : ''}
 
@@ -3422,6 +3428,21 @@ async function submitIssueUpdate(id) {
     await api(`${IR_API}?id=${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status, message }),
+    });
+    await openIssuePanel(id);
+    if (!document.getElementById('view-issue-reports').classList.contains('hidden')) loadIssueReports();
+  } catch (e) { alert(e.message); }
+}
+
+// Save an admin edit to the issue description. Independent of the status/message flow —
+// it doesn't notify the reporter or thread a message.
+async function submitIssueDescription(id) {
+  const description = document.getElementById('ir-description')?.value?.trim() || '';
+  if (!description) { alert('Description cannot be empty.'); return; }
+  try {
+    await api(`${IR_API}?id=${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description }),
     });
     await openIssuePanel(id);
     if (!document.getElementById('view-issue-reports').classList.contains('hidden')) loadIssueReports();

@@ -246,9 +246,23 @@ export const handler: Handler = async (event) => {
         const [issue] = await db.select().from(issueReports).where(eq(issueReports.id, id)).limit(1);
         if (!issue) return json(404, { error: 'Issue not found.' });
 
+        // Admins can correct/clarify the reporter's description. This is an independent
+        // edit — it doesn't change status, thread a message, or notify the reporter.
+        const description = typeof body.description === 'string' ? body.description.trim() : null;
+        if (description !== null) {
+            if (!description) return json(400, { error: 'Description cannot be empty.' });
+            await db.update(issueReports)
+                .set({ description, updatedAt: new Date() })
+                .where(eq(issueReports.id, id));
+        }
+
         const newStatus: IssueStatus | null = isIssueStatus(body.status) ? body.status : null;
         const message = typeof body.message === 'string' ? body.message.trim() : '';
-        if (!newStatus && !message) return json(400, { error: 'Provide a status and/or a message.' });
+        if (!newStatus && !message) {
+            // Description-only edit — nothing left to notify about.
+            if (description !== null) return json(200, { ok: true, description });
+            return json(400, { error: 'Provide a status and/or a message.' });
+        }
 
         const finalStatus = newStatus || (issue.status as IssueStatus);
 

@@ -69,40 +69,72 @@ function run(cmd, args, opts = {}) {
 }
 const git = (args, opts = {}) => run('git', ['-C', opts.cwd || REPO, ...args], opts);
 
+// Resilient JSON fetch to the handoff endpoint.
+//
+// Why this exists: a fix can take MINUTES (the Claude Code run) between claiming an
+// issue and reporting the result. Node's global fetch (undici) pools keep-alive
+// sockets; after that long idle gap the server has usually closed the pooled socket,
+// so the *first* request afterwards — the success report — reuses a dead socket and
+// rejects with the opaque `TypeError: fetch failed` (cause ECONNRESET / "other side
+// closed"). The next request gets a fresh socket and works, which is exactly why the
+// failure report always lands while the success report didn't.
+//
+// We defend on three fronts: send `Connection: close` so no socket is ever pooled,
+// retry connection-level failures on a fresh connection, and — if we still give up —
+// surface the underlying cause so the recorded message is actionable instead of just
+// "fetch failed".
+async function apiFetch(url, init = {}, { tries = 3, label = 'request' } = {}) {
+  let lastErr;
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    try {
+      return await fetch(url, { ...init, headers: { Connection: 'close', ...(init.headers || {}) } });
+    } catch (e) {
+      lastErr = e;
+      const cause = e?.cause;
+      const code = cause?.code || cause?.message || '';
+      log(`  ${label} fetch attempt ${attempt}/${tries} failed: ${e.message}${code ? ` (${code})` : ''}`);
+      if (attempt < tries) await sleep(500 * attempt);
+    }
+  }
+  const cause = lastErr?.cause;
+  const detail = cause ? ` — ${cause.code || cause.message || String(cause)}` : '';
+  throw new Error(`${lastErr?.message || 'fetch failed'}${detail}`);
+}
+
 async function claimNext() {
-  const res = await fetch(`${ENDPOINT}?action=claim`, {
+  const res = await apiFetch(`${ENDPOINT}?action=claim`, {
     headers: { 'x-handoff-token': TOKEN },
-  });
+  }, { label: 'claim' });
   if (!res.ok) throw new Error(`claim failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
   return data.issue || null;
 }
 
 async function report(id, payload) {
-  const res = await fetch(`${ENDPOINT}?id=${id}`, {
+  const res = await apiFetch(`${ENDPOINT}?id=${id}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-handoff-token': TOKEN },
     body: JSON.stringify(payload),
-  });
+  }, { label: 'report' });
   if (!res.ok) throw new Error(`report failed: ${res.status} ${await res.text()}`);
   return res.json();
 }
 
 async function claimMerge() {
-  const res = await fetch(`${ENDPOINT}?action=claim-merge`, {
+  const res = await apiFetch(`${ENDPOINT}?action=claim-merge`, {
     headers: { 'x-handoff-token': TOKEN },
-  });
+  }, { label: 'claim-merge' });
   if (!res.ok) throw new Error(`claim-merge failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
   return data.issue || null;
 }
 
 async function reportMerge(id, payload) {
-  const res = await fetch(`${ENDPOINT}?id=${id}&action=merge-result`, {
+  const res = await apiFetch(`${ENDPOINT}?id=${id}&action=merge-result`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-handoff-token': TOKEN },
     body: JSON.stringify(payload),
-  });
+  }, { label: 'merge-result' });
   if (!res.ok) throw new Error(`merge-result failed: ${res.status} ${await res.text()}`);
   return res.json();
 }
