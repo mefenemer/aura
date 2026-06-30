@@ -39,6 +39,22 @@
 [functions]
 node_bundler = "esbuild"
 
+# HTML must always be revalidated, never served stale from the browser/CDN cache.
+# Our pages carry their JS inline (admin.html, workspace.html, …), so a cached HTML
+# document = stale JS = old behaviour after a deploy (the "stale-cache trap").
+# `no-cache` still lets the browser store the file but forces a revalidation (cheap
+# ETag/304) before reuse, so every load picks up the latest deploy. Static assets
+# (style.css, *.js fetched separately) keep their own cache-busting (?v=).
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache"
+
 [[edge_functions]]
   function = "auth-guard"
   path = "/*.html" # Maintenance mode + session guard on all HTML pages

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Custom Operations Setup | Be More Swan</title>
   <link href="./style.css" rel="stylesheet">
+  <script src="./explainers.js?v=20260630-1" defer></script>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
@@ -299,7 +300,7 @@
               <input type="text" id="val_logic" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., If total > $5,000 route to High Tier pipeline, else Standard pipeline.">
             </div>
             <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1">Tone & Communication Style (If applicable):</label>
+              <label class="block text-sm font-bold text-gray-700 mb-1" data-explain="tone-of-voice">Tone & Communication Style (If applicable):</label>
               <input type="text" id="val_tone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., Highly professional, legal/corporate tone for client facing emails.">
             </div>
             <div>
@@ -307,7 +308,7 @@
               <input type="text" id="val_escalation" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="e.g., If API returns 404, send SMS to IT lead.">
             </div>
             <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1">Additional Knowledge Bases:</label>
+              <label class="block text-sm font-bold text-gray-700 mb-1" data-explain="knowledge-base">Additional Knowledge Bases:</label>
               <input type="url" id="val_braintrust" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white" placeholder="Link to SOPs, internal wikis, or logic documentation.">
             </div>
           </div>
@@ -331,7 +332,7 @@
             <span class="text-xl mr-1">+</span> Add Next Step
           </button>
 
-          <label class="block text-sm font-bold text-gray-700 mb-2">Absolute Constraints / Never-Do Rules: *</label>
+          <label class="block text-sm font-bold text-gray-700 mb-2" data-explain="guardrails">Absolute Constraints / Never-Do Rules: *</label>
           <div class="relative mb-6">
             <textarea id="acceptance_criteria_rules" rows="3" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none" placeholder="e.g., Never modify existing database rows, only append new records."></textarea>
           </div>
