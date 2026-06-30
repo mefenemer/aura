@@ -172,7 +172,7 @@ export const handler: Handler = async (event) => {
             { key: 'connections', label: 'Tools connected', done: hasHealthyConnection, required: true,
               hint: 'Connect at least one account — and reconnect any expired ones — so your assistant can do its work.' },
             { key: 'disclosure', label: 'AI disclosure acknowledged', done: disclosureDone, required: true,
-              hint: 'Add the AI disclosure text (required by EU AI Act Art. 52) before activation.' },
+              hint: 'Enter the disclosure caption in the Guardrails tab — the text appended to every post to declare AI-generated content (this is separate from the general AI disclaimer you may have already accepted).' },
             { key: 'tos', label: 'Terms of Service accepted', done: tosDone, required: true,
               hint: 'Accept the current Terms of Service before this assistant can be activated.' },
             { key: 'dpa', label: 'Data Processing Agreement accepted', done: dpaDone, required: true,
