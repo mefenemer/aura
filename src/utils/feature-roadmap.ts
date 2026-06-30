@@ -3,7 +3,8 @@
 
 import { eq, sql } from 'drizzle-orm';
 import type { getDb } from '../../db/client';
-import { featureRoadmap } from '../../db/schema';
+import { featureRoadmap, featureRequests } from '../../db/schema';
+import { nextTopSortOrder as nextTopFeatureRequestSortOrder } from './feature-requests';
 
 type Db = ReturnType<typeof getDb>;
 
@@ -50,9 +51,10 @@ export async function nextTopSortOrder(db: Db): Promise<number> {
 }
 
 /**
- * Promote a reported issue to the Feature Roadmap. Idempotent: if a roadmap item already
- * exists for this issue, its priority/title/description are refreshed instead of inserting a
- * duplicate. New items are inserted at the top of the board. Returns the item id.
+ * Promote a reported issue into the unified Feature Requests board (see
+ * feature-requests-roadmap epic). Idempotent on issueId: re-promoting refreshes
+ * title/description/priority rather than inserting a duplicate. Admin-originated, so it
+ * skips 'pending_review' and lands as 'planned' (source='issue'). Returns the request id.
  */
 export async function createRoadmapItemFromIssue(
     db: Db,
@@ -69,28 +71,29 @@ export async function createRoadmapItemFromIssue(
     const description = opts.description ?? null;
 
     const [existing] = await db
-        .select({ id: featureRoadmap.id })
-        .from(featureRoadmap)
-        .where(eq(featureRoadmap.issueId, opts.issueId))
+        .select({ id: featureRequests.id })
+        .from(featureRequests)
+        .where(eq(featureRequests.issueId, opts.issueId))
         .limit(1);
 
     if (existing) {
-        await db.update(featureRoadmap)
+        await db.update(featureRequests)
             .set({ title, description, priority, updatedAt: new Date() })
-            .where(eq(featureRoadmap.id, existing.id));
+            .where(eq(featureRequests.id, existing.id));
         return existing.id;
     }
 
-    const sortOrder = await nextTopSortOrder(db);
-    const [inserted] = await db.insert(featureRoadmap).values({
+    const sortOrder = await nextTopFeatureRequestSortOrder(db);
+    const [inserted] = await db.insert(featureRequests).values({
         title,
         description,
         priority,
         status: 'planned',
-        sortOrder,
         source: 'issue',
         issueId: opts.issueId,
-        createdBy: opts.createdBy ?? null,
-    }).returning({ id: featureRoadmap.id });
+        sortOrder,
+        reviewedBy: opts.createdBy ?? null,
+        reviewedAt: new Date(),
+    }).returning({ id: featureRequests.id });
     return inserted.id;
 }

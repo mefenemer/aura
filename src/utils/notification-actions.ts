@@ -81,8 +81,10 @@ const TYPE_CATEGORY: Record<string, NotificationCategory> = {
     risk_assessment_decision: 'state_change', risk_reclassification: 'state_change',
     account_update: 'state_change', assistant_task: 'state_change', assistant_ready: 'state_change',
     goal_autonomous_adjustment: 'state_change', // SMART Goals AC3.3.3 — autonomous brief change FYI
+    feature_status_change: 'state_change', // Feature Requests US06 — a backed request moved status
     // celebratory
     setup_complete: 'celebratory', milestone_unlock: 'celebratory', referral_reward: 'celebratory',
+    feature_released: 'celebratory', // Feature Requests US06 — a backed request shipped
     // informational (explicit; unknown types also fall here)
     welcome: 'informational', invoice_ready: 'informational', ticket_created: 'informational',
     ticket_reply: 'informational', billing: 'informational', new_role_availability: 'informational',

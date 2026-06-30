@@ -140,7 +140,7 @@ export const handler: Handler = async (event) => {
         },
         {
             key: 'ai_data',
-            name: 'AI usage & data processing agreement',
+            name: 'Responsible AI Use Agreement',
             scope: 'org',
             acceptedVersion: null,
             currentVersion: null,

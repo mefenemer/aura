@@ -1291,7 +1291,7 @@ function formatCurrency(amount, currency) {
     // dev fallback only — on every Netlify deploy scripts/stamp-view-version.mjs
     // (build:version, see netlify.toml) overwrites it with the commit SHA, so the cache
     // busts automatically whenever a view changes. No manual bump required.
-    const VIEW_VERSION = '20260629-views';
+    const VIEW_VERSION = '20260630-views';
 
     // Consolidated path definitions mapping navigation links to standard modular components
     const routes = {
@@ -1307,6 +1307,7 @@ function formatCurrency(amount, currency) {
       'my-content': { file: 'my-content.html', title: '| My Content' },
       'calendar': { file: 'calendar.html', title: '| Content Calendar' },
       'referral': { file: 'referral-content.html', title: '| Refer a Friend' },
+      'feature-requests': { file: 'feature-requests-content.html', title: '| Feature Requests' },
       'review-queue': { file: 'review-queue.html', title: '| Review Queue' },
       'assistant-setup': { file: 'assistant-setup-checklist.html', title: '| Assistant Setup' },
       'getting-started': { file: 'getting-started.html', title: '| Getting Started' }
@@ -1324,6 +1325,7 @@ function formatCurrency(amount, currency) {
       'my-content': document.getElementById('nav-my-content'),
       'calendar': document.getElementById('nav-calendar'),
       'referral': document.getElementById('nav-referral'),
+      'feature-requests': document.getElementById('nav-feature-requests'),
       'review-queue': document.getElementById('nav-review-queue')
     };
 
@@ -1500,6 +1502,10 @@ function formatCurrency(amount, currency) {
 
         if (routeKey === 'getting-started' && typeof window.initGettingStarted === 'function') {
           window.initGettingStarted();
+        }
+
+        if (routeKey === 'feature-requests' && typeof window.initFeatureRequests === 'function') {
+          await window.initFeatureRequests();
         }
 
         // Onboarding Wizard companion — refresh progress after any view loads so a step

@@ -1100,6 +1100,67 @@ export const featureRoadmap = pgTable("feature_roadmap", {
   index("feature_roadmap_issue_idx").on(t.issueId),
 ]);
 
+// Feature Requests & Roadmap — unified, user-facing feature voting + admin roadmap.
+// See db/feature-requests.sql. Supersedes feature_roadmap (which it migrates in): adds
+// public submission, a moderation queue, voting, LLM-enhanced admin workflow and a
+// Year/Quarter Gantt. Status/category/priority/source are mirrored by SQL CHECK constraints
+// and the SoT in src/utils/feature-requests.ts.
+export const featureRequests = pgTable("feature_requests", {
+  id: serial("id").primaryKey(),
+  // Who raised it. NULL for purely admin/issue-originated items.
+  submittedBy: integer("submitted_by").references(() => users.id, { onDelete: "set null" }),
+  // Submitter's org for context (the board is global/cross-tenant).
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "set null" }),
+  // Live (admin-editable) text shown on the public board.
+  title: text("title").notNull(),
+  description: text("description"),
+  // The submitter's raw original text, preserved so "Enhance with AI" works from their words.
+  submitterDescription: text("submitter_description"),
+  // 'app_core' | 'existing_assistant' | 'new_assistant'
+  category: text("category").notNull().default("app_core"),
+  // CATALOGUE ROLE slug when category='existing_assistant' (not a tenant instance).
+  assistantRef: text("assistant_ref"),
+  // pending_review | under_review | open | planned | in_progress | released | declined | duplicate
+  status: text("status").notNull().default("pending_review"),
+  // 'critical' | 'high' | 'medium' | 'low'
+  priority: text("priority").notNull().default("medium"),
+  // Gantt placement, e.g. '2026-Q3'.
+  targetQuarter: text("target_quarter"),
+  // Manual drag-rank within the admin board; lower sorts higher.
+  sortOrder: integer("sort_order").notNull().default(0),
+  // Denormalised vote tally (feature_request_votes is the source of truth).
+  voteCount: integer("vote_count").notNull().default(0),
+  // 'user' (moderated) | 'manual' (admin) | 'issue' (promoted bug report)
+  source: text("source").notNull().default("user"),
+  issueId: integer("issue_id").references(() => issueReports.id, { onDelete: "set null" }),
+  // Duplicate handling: the request this one was merged into (status='duplicate').
+  mergedIntoId: integer("merged_into_id").references((): AnyPgColumn => featureRequests.id, { onDelete: "set null" }),
+  reviewedBy: integer("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at"),
+  // Set when status first becomes 'released'; powers the avg-wait metric.
+  releasedAt: timestamp("released_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("feature_requests_status_idx").on(t.status, t.voteCount),
+  index("feature_requests_board_idx").on(t.status, t.sortOrder),
+  index("feature_requests_submitter_idx").on(t.submittedBy, t.createdAt),
+  index("feature_requests_quarter_idx").on(t.targetQuarter),
+  index("feature_requests_issue_idx").on(t.issueId),
+]);
+
+// One row per (feature, user). UNIQUE enforces "one upvote per user"; toggling deletes the row.
+export const featureRequestVotes = pgTable("feature_request_votes", {
+  id: serial("id").primaryKey(),
+  featureId: integer("feature_id").notNull().references(() => featureRequests.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  unique("feature_request_votes_unique").on(t.featureId, t.userId),
+  index("feature_request_votes_user_idx").on(t.userId),
+  index("feature_request_votes_feature_idx").on(t.featureId),
+]);
+
 // AI Model Config Table — runtime routing rules; admin-editable without deploys (US13)
 export const aiModelConfig = pgTable("ai_model_config", {
   id: serial("id").primaryKey(),
