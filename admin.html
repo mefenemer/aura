@@ -1567,6 +1567,56 @@
         </div>
       </section>
 
+      <!-- ── Feature Roadmap (Testing) ───────────────────────────────────── -->
+      <section id="view-feature-roadmap" class="admin-view hidden overflow-y-auto" style="max-height:calc(100vh - 130px)">
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
+          <div>
+            <h2 class="text-lg font-extrabold text-gray-900">Feature Roadmap</h2>
+            <p class="text-sm text-gray-500 mt-0.5">Prioritised delivery backlog. Items arrive when an issue is promoted to the roadmap, or add one directly. Drag to reorder.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openRoadmapAdd()" class="px-3 py-2 text-sm font-semibold bg-gray-900 text-white rounded-lg hover:bg-black transition">+ Add item</button>
+            <button onclick="loadFeatureRoadmap()" class="px-3 py-2 text-sm font-semibold border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- Add / edit item form (hidden until opened) -->
+        <div id="fr-form" class="hidden bg-white rounded-2xl border border-gray-200 p-5 mb-5 space-y-3">
+          <input type="hidden" id="fr-form-id">
+          <div class="flex items-center justify-between">
+            <h3 id="fr-form-title" class="text-sm font-extrabold text-gray-900">Add roadmap item</h3>
+            <button onclick="closeRoadmapForm()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Title</label>
+            <input id="fr-form-title-input" type="text" maxlength="200" placeholder="e.g. Bulk-schedule posts from a CSV" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Description <span class="text-gray-300 font-normal">(optional)</span></label>
+            <textarea id="fr-form-desc" rows="3" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-y focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Priority</label>
+              <select id="fr-form-priority" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2"></select>
+            </div>
+            <div id="fr-form-status-wrap" class="hidden">
+              <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Status</label>
+              <select id="fr-form-status" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2"></select>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 pt-1">
+            <button onclick="submitRoadmapForm()" class="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition">Save</button>
+            <button onclick="closeRoadmapForm()" class="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Board -->
+        <div id="fr-board" class="space-y-2">
+          <div class="text-gray-400 text-sm py-8 text-center">Loading…</div>
+        </div>
+      </section>
+
     </div><!-- /p-8 -->
   </main>
 </div>
@@ -1883,7 +1933,7 @@ const VIEW_LABELS = {
   workspaces: 'Workspaces', 'workspace-detail': 'Workspace Detail',
   'blueprint-inspector': 'Blueprint Inspector', sandbox: 'Sandbox Environment',
   'email-templates': 'Manage Emails', systems: 'Systems & Connections',
-  'issue-reports': 'Issue Reports',
+  'issue-reports': 'Issue Reports', 'feature-roadmap': 'Feature Roadmap',
 };
 
 // Category → child items mapping
@@ -1932,7 +1982,8 @@ const ADMIN_CATS = {
     { view: 'logs',            icon: '📋', label: 'System Logs' },
   ]},
   testing: { label: 'Testing', roles: ['admin','super_admin','support_agent'], children: [
-    { view: 'issue-reports', icon: '🐞', label: 'Issue Reports' },
+    { view: 'issue-reports',   icon: '🐞', label: 'Issue Reports' },
+    { view: 'feature-roadmap', icon: '🗺️', label: 'Feature Roadmap' },
   ]},
   workspaces: { label: 'Workspaces', roles: ['admin','super_admin'], children: [
     { view: 'workspaces', icon: '🏢', label: 'All Workspaces' },
@@ -2145,6 +2196,7 @@ function adminNav(view) {
   if (view === 'systems')             loadSystemStatus();
   if (view === 'email-templates')     loadEmailTemplates();
   if (view === 'issue-reports')       loadIssueReports();
+  if (view === 'feature-roadmap')     loadFeatureRoadmap();
 }
 
 // ── US-COMMS-1: Manage Emails (template editor) ──────────────────────────────
@@ -3279,16 +3331,20 @@ async function api(url, opts) {
 
 // ── Issue Reports (Testing) ──────────────────────────────────────────────────
 const IR_API = '/.netlify/functions/admin-issue-reports';
-const IR_STATUSES = ['reported','fix_in_progress','fixed_ready_to_test','more_info_required','closed'];
+const IR_STATUSES = ['reported','fix_in_progress','fixed_ready_to_test','more_info_required','closed','roadmap'];
 const IR_STATUS_LABEL = {
   reported: 'Reported', fix_in_progress: 'Fix In Progress',
   fixed_ready_to_test: 'Fixed & Ready to Test', more_info_required: 'More Info Required', closed: 'Closed',
+  roadmap: 'On Roadmap',
 };
 const IR_STATUS_CLS = {
   reported: 'bg-gray-100 text-gray-700', fix_in_progress: 'bg-blue-100 text-blue-700',
   fixed_ready_to_test: 'bg-emerald-100 text-emerald-700', more_info_required: 'bg-amber-100 text-amber-800',
-  closed: 'bg-gray-200 text-gray-500',
+  closed: 'bg-gray-200 text-gray-500', roadmap: 'bg-violet-100 text-violet-700',
 };
+// Roadmap priority/status vocab — shared by the issue panel picker and the board.
+const IR_PRIORITIES = ['critical','high','medium','low'];
+const IR_PRIORITY_LABEL = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' };
 let _irFilter = '';
 function _irBadge(s) { return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${IR_STATUS_CLS[s] || 'bg-gray-100 text-gray-700'}">${IR_STATUS_LABEL[s] || s}</span>`; }
 // Small AI auto-fix ("Pass to Developer") badge for the list — empty unless handed off.
@@ -3405,9 +3461,16 @@ async function openIssuePanel(id) {
           <span class="text-xs font-bold uppercase text-gray-400">Current</span>${_irBadge(i.status)}${i.devMergeStatus === 'merged' ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🔀 Merged to staging</span>' : ''}
         </div>
         <label class="block text-xs font-bold uppercase text-gray-400">Update status</label>
-        <select id="ir-new-status" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+        <select id="ir-new-status" onchange="irOnStatusChange()" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
           ${IR_STATUSES.map(s => `<option value="${s}" ${i.status === s ? 'selected' : ''}>${IR_STATUS_LABEL[s]}</option>`).join('')}
         </select>
+        <div id="ir-roadmap-priority-wrap" class="${i.status === 'roadmap' ? '' : 'hidden'} bg-violet-50 border border-violet-100 rounded-lg p-3">
+          <label class="block text-xs font-bold uppercase text-violet-700">Roadmap priority</label>
+          <p class="text-[11px] text-violet-600/80 mb-1.5">Closes the issue and adds it to the Feature Roadmap with this priority.</p>
+          <select id="ir-roadmap-priority" class="w-full text-sm border border-violet-200 rounded-lg px-3 py-2 bg-white">
+            ${IR_PRIORITIES.map(p => `<option value="${p}" ${p === 'medium' ? 'selected' : ''}>${IR_PRIORITY_LABEL[p]}</option>`).join('')}
+          </select>
+        </div>
         <label class="block text-xs font-bold uppercase text-gray-400">Message to reporter <span class="text-gray-300 font-normal">(optional)</span></label>
         <textarea id="ir-admin-message" rows="3" placeholder="Supporting message — sent to the reporter with the status update…" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
         <button onclick="submitIssueUpdate(${i.id})" class="w-full px-4 py-2 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-black transition">Save & notify reporter</button>
@@ -3421,13 +3484,21 @@ async function openIssuePanel(id) {
 
 function closeIssuePanel() { document.getElementById('ir-detail-panel').classList.add('hidden'); }
 
+// Reveal the roadmap priority picker only when "On Roadmap" is the chosen status.
+function irOnStatusChange() {
+  const status = document.getElementById('ir-new-status')?.value;
+  document.getElementById('ir-roadmap-priority-wrap')?.classList.toggle('hidden', status !== 'roadmap');
+}
+
 async function submitIssueUpdate(id) {
   const status = document.getElementById('ir-new-status')?.value;
   const message = document.getElementById('ir-admin-message')?.value?.trim() || '';
+  const payload = { status, message };
+  if (status === 'roadmap') payload.priority = document.getElementById('ir-roadmap-priority')?.value || 'medium';
   try {
     await api(`${IR_API}?id=${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, message }),
+      body: JSON.stringify(payload),
     });
     await openIssuePanel(id);
     if (!document.getElementById('view-issue-reports').classList.contains('hidden')) loadIssueReports();
@@ -3688,6 +3759,174 @@ async function requestMerge(id) {
     if (btn) { btn.disabled = false; }
     alert(e.message);
   }
+}
+
+// ── Feature Roadmap (Testing) ────────────────────────────────────────────────
+const FR_API = '/.netlify/functions/admin-feature-roadmap';
+const FR_PRIORITIES = ['critical','high','medium','low'];
+const FR_PRIORITY_LABEL = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' };
+const FR_PRIORITY_CLS = {
+  critical: 'bg-red-100 text-red-700', high: 'bg-orange-100 text-orange-700',
+  medium: 'bg-amber-100 text-amber-800', low: 'bg-gray-100 text-gray-600',
+};
+const FR_STATUSES = ['planned','in_progress','shipped','declined'];
+const FR_STATUS_LABEL = { planned: 'Planned', in_progress: 'In Progress', shipped: 'Shipped', declined: 'Declined' };
+const FR_STATUS_CLS = {
+  planned: 'bg-gray-100 text-gray-600', in_progress: 'bg-blue-100 text-blue-700',
+  shipped: 'bg-emerald-100 text-emerald-700', declined: 'bg-gray-200 text-gray-500',
+};
+let _frItems = [];
+let _frDragId = null;
+
+async function loadFeatureRoadmap() {
+  const board = document.getElementById('fr-board');
+  if (board) board.innerHTML = '<div class="text-gray-400 text-sm py-8 text-center animate-pulse">Loading…</div>';
+  try {
+    const d = await api(FR_API);
+    _frItems = d.items || [];
+    renderRoadmapBoard();
+  } catch (e) {
+    if (board) board.innerHTML = `<div class="text-red-500 text-sm py-5">${e.message}</div>`;
+  }
+}
+
+function renderRoadmapBoard() {
+  const board = document.getElementById('fr-board');
+  if (!board) return;
+  if (!_frItems.length) {
+    board.innerHTML = '<div class="text-gray-400 text-sm py-10 text-center border border-dashed border-gray-200 rounded-2xl">No roadmap items yet. Promote an issue or add one above.</div>';
+    return;
+  }
+  board.innerHTML = _frItems.map((it, idx) => {
+    const pCls = FR_PRIORITY_CLS[it.priority] || 'bg-gray-100 text-gray-600';
+    const sCls = FR_STATUS_CLS[it.status] || 'bg-gray-100 text-gray-600';
+    const origin = it.source === 'issue' && it.issueId
+      ? `<button onclick="openIssuePanel(${it.issueId})" class="text-[11px] text-violet-600 font-semibold hover:underline">From issue #${it.issueId}${it.reporterEmail ? ' · ' + _esc(it.reporterEmail) : ''}</button>`
+      : '<span class="text-[11px] text-gray-400">Added manually</span>';
+    return `
+      <div class="fr-card group bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-3 hover:border-gray-300 transition"
+           draggable="true" data-fr-id="${it.id}"
+           ondragstart="frDragStart(event, ${it.id})" ondragover="frDragOver(event, ${it.id})" ondragend="frDragEnd(event)">
+        <div class="flex flex-col items-center pt-0.5 select-none">
+          <span class="cursor-grab text-gray-300 group-hover:text-gray-500" title="Drag to reorder">⠿</span>
+          <div class="flex flex-col gap-0.5 mt-1">
+            <button onclick="moveRoadmapItem(${it.id}, -1)" ${idx === 0 ? 'disabled' : ''} class="text-gray-300 hover:text-gray-600 disabled:opacity-30 text-[10px] leading-none" title="Move up">▲</button>
+            <button onclick="moveRoadmapItem(${it.id}, 1)" ${idx === _frItems.length - 1 ? 'disabled' : ''} class="text-gray-300 hover:text-gray-600 disabled:opacity-30 text-[10px] leading-none" title="Move down">▼</button>
+          </div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${pCls}">${FR_PRIORITY_LABEL[it.priority] || it.priority}</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${sCls}">${FR_STATUS_LABEL[it.status] || it.status}</span>
+          </div>
+          <p class="text-sm font-semibold text-gray-900 break-words">${_esc(it.title)}</p>
+          ${it.description ? `<p class="text-xs text-gray-500 mt-1 whitespace-pre-wrap break-words">${_esc(it.description)}</p>` : ''}
+          <div class="mt-2">${origin}</div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="openRoadmapEdit(${it.id})" class="text-xs font-semibold text-emerald-600 hover:underline">Edit</button>
+          <button onclick="deleteRoadmapItem(${it.id})" class="text-xs font-semibold text-red-500 hover:underline">Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Drag-reorder ──────────────────────────────────────────────────────────────
+function frDragStart(e, id) { _frDragId = id; e.dataTransfer.effectAllowed = 'move'; }
+function frDragOver(e, overId) {
+  e.preventDefault();
+  if (_frDragId == null || _frDragId === overId) return;
+  const from = _frItems.findIndex(x => x.id === _frDragId);
+  const to = _frItems.findIndex(x => x.id === overId);
+  if (from < 0 || to < 0) return;
+  const [moved] = _frItems.splice(from, 1);
+  _frItems.splice(to, 0, moved);
+  renderRoadmapBoard();
+}
+function frDragEnd() {
+  if (_frDragId == null) return;
+  _frDragId = null;
+  persistRoadmapOrder();
+}
+
+function moveRoadmapItem(id, dir) {
+  const i = _frItems.findIndex(x => x.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= _frItems.length) return;
+  [_frItems[i], _frItems[j]] = [_frItems[j], _frItems[i]];
+  renderRoadmapBoard();
+  persistRoadmapOrder();
+}
+
+async function persistRoadmapOrder() {
+  try {
+    await api(`${FR_API}?action=reorder`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: _frItems.map(x => x.id) }),
+    });
+  } catch (e) { alert(e.message); loadFeatureRoadmap(); }
+}
+
+// ── Add / edit form ───────────────────────────────────────────────────────────
+function _frFillSelect(el, opts, labels, val) {
+  if (!el) return;
+  el.innerHTML = opts.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${labels[o]}</option>`).join('');
+}
+function openRoadmapAdd() {
+  document.getElementById('fr-form-id').value = '';
+  document.getElementById('fr-form-title').textContent = 'Add roadmap item';
+  document.getElementById('fr-form-title-input').value = '';
+  document.getElementById('fr-form-desc').value = '';
+  _frFillSelect(document.getElementById('fr-form-priority'), FR_PRIORITIES, FR_PRIORITY_LABEL, 'medium');
+  document.getElementById('fr-form-status-wrap').classList.add('hidden');
+  document.getElementById('fr-form').classList.remove('hidden');
+  document.getElementById('fr-form-title-input').focus();
+}
+function openRoadmapEdit(id) {
+  const it = _frItems.find(x => x.id === id);
+  if (!it) return;
+  document.getElementById('fr-form-id').value = String(id);
+  document.getElementById('fr-form-title').textContent = `Edit item #${id}`;
+  document.getElementById('fr-form-title-input').value = it.title || '';
+  document.getElementById('fr-form-desc').value = it.description || '';
+  _frFillSelect(document.getElementById('fr-form-priority'), FR_PRIORITIES, FR_PRIORITY_LABEL, it.priority);
+  _frFillSelect(document.getElementById('fr-form-status'), FR_STATUSES, FR_STATUS_LABEL, it.status);
+  document.getElementById('fr-form-status-wrap').classList.remove('hidden');
+  document.getElementById('fr-form').classList.remove('hidden');
+  document.getElementById('fr-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function closeRoadmapForm() { document.getElementById('fr-form').classList.add('hidden'); }
+
+async function submitRoadmapForm() {
+  const id = document.getElementById('fr-form-id').value;
+  const title = document.getElementById('fr-form-title-input').value.trim();
+  if (!title) { alert('Title is required.'); return; }
+  const description = document.getElementById('fr-form-desc').value.trim();
+  const priority = document.getElementById('fr-form-priority').value;
+  try {
+    if (id) {
+      const status = document.getElementById('fr-form-status').value;
+      await api(`${FR_API}?id=${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description, priority, status }),
+      });
+    } else {
+      await api(FR_API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description, priority }),
+      });
+    }
+    closeRoadmapForm();
+    loadFeatureRoadmap();
+  } catch (e) { alert(e.message); }
+}
+
+async function deleteRoadmapItem(id) {
+  if (!confirm('Remove this item from the roadmap?')) return;
+  try {
+    await api(`${FR_API}?id=${id}`, { method: 'DELETE' });
+    loadFeatureRoadmap();
+  } catch (e) { alert(e.message); }
 }
 
 // ── Epic: Superadmin Environment Management — US4/US5: Sandbox panel ──────────

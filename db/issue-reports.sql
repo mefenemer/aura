@@ -9,6 +9,7 @@
 --
 -- Lifecycle (status): reported → fix_in_progress → fixed_ready_to_test → closed
 --                     ↘ more_info_required (admin asks the user for detail) ↗
+--                     ↘ roadmap (feature request promoted to the Feature Roadmap; see db/feature-roadmap.sql)
 -- The threaded back-and-forth (admin status messages + user replies) lives in
 -- issue_report_messages.
 --
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS issue_reports (
   image_data       TEXT,
   image_mime       TEXT,
 
-  -- reported | fix_in_progress | fixed_ready_to_test | more_info_required | closed
+  -- reported | fix_in_progress | fixed_ready_to_test | more_info_required | closed | roadmap
   status           TEXT NOT NULL DEFAULT 'reported',
 
   created_at       TIMESTAMP NOT NULL DEFAULT now(),
@@ -51,7 +52,7 @@ BEGIN
   ) THEN
     ALTER TABLE issue_reports
       ADD CONSTRAINT issue_reports_status_check
-      CHECK (status IN ('reported', 'fix_in_progress', 'fixed_ready_to_test', 'more_info_required', 'closed'));
+      CHECK (status IN ('reported', 'fix_in_progress', 'fixed_ready_to_test', 'more_info_required', 'closed', 'roadmap'));
   END IF;
 END $$;
 

@@ -18,6 +18,7 @@ import { getDb } from '../../db/client';
 import { issueReports, issueReportMessages, users } from '../../db/schema';
 import { isAdminRole, hasPermission } from '../../src/utils/rbac';
 import { ISSUE_STATUS_LABEL, isIssueStatus, notifyIssueUser, maybeAdvanceToReadyToTest, type IssueStatus } from '../../src/utils/issue-reports';
+import { createRoadmapItemFromIssue, isRoadmapPriority, type RoadmapPriority } from '../../src/utils/feature-roadmap';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -267,13 +268,30 @@ export const handler: Handler = async (event) => {
         const finalStatus = newStatus || (issue.status as IssueStatus);
 
         if (newStatus) {
+            // 'roadmap' is a terminal state like 'closed' from the reporter's point of view —
+            // stamp resolvedAt so it leaves the open-issue triage queue.
+            const isTerminal = newStatus === 'closed' || newStatus === 'roadmap';
             await db.update(issueReports)
                 .set({
                     status: newStatus,
                     updatedAt: new Date(),
-                    resolvedAt: newStatus === 'closed' ? new Date() : issue.resolvedAt,
+                    resolvedAt: isTerminal ? new Date() : issue.resolvedAt,
                 })
                 .where(eq(issueReports.id, id));
+        }
+
+        // Promoting to the roadmap creates (or refreshes) a Feature Roadmap item carrying the
+        // chosen priority. Idempotent — re-promoting the same issue won't duplicate it.
+        if (newStatus === 'roadmap') {
+            const priority: RoadmapPriority | undefined = isRoadmapPriority(body.priority) ? body.priority : undefined;
+            const firstLine = (issue.description || '').split('\n')[0].trim();
+            await createRoadmapItemFromIssue(db, {
+                issueId: id,
+                title: firstLine || `Feature request from issue #${id}`,
+                description: issue.description,
+                priority,
+                createdBy: admin.id,
+            }).catch((e) => console.error('[admin-issue-reports] roadmap promote failed:', e?.message || e));
         }
 
         // Record the supporting message / status change in the thread.

@@ -1075,6 +1075,31 @@ export const issueReportMessages = pgTable("issue_report_messages", {
   index("issue_report_messages_issue_idx").on(t.issueId, t.createdAt),
 ]);
 
+// Feature Roadmap Table — admin-only delivery backlog (see db/feature-roadmap.sql).
+// Items are created when a feature-request issue is promoted (source='issue', issue_id set)
+// or added directly by an admin (source='manual'). Prioritised by `priority` + manual drag
+// `sortOrder` (lower = higher on the board).
+export const featureRoadmap = pgTable("feature_roadmap", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  // 'critical' | 'high' | 'medium' | 'low'
+  priority: text("priority").notNull().default("medium"),
+  // 'planned' | 'in_progress' | 'shipped' | 'declined'
+  status: text("status").notNull().default("planned"),
+  // Manual drag-rank within the board; lower sorts higher.
+  sortOrder: integer("sort_order").notNull().default(0),
+  // 'manual' | 'issue'
+  source: text("source").notNull().default("manual"),
+  issueId: integer("issue_id").references(() => issueReports.id, { onDelete: "set null" }),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("feature_roadmap_order_idx").on(t.status, t.sortOrder),
+  index("feature_roadmap_issue_idx").on(t.issueId),
+]);
+
 // AI Model Config Table — runtime routing rules; admin-editable without deploys (US13)
 export const aiModelConfig = pgTable("ai_model_config", {
   id: serial("id").primaryKey(),

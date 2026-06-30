@@ -15,12 +15,15 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
+import { computeOnboardingProgress } from '../../src/utils/onboarding-progress';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = 'claude-haiku-4-5-20251001';
 
 // The workspace views the bar is allowed to route to (mirrors workspace.html routes).
-const VIEWS = ['dashboard', 'assistants', 'review-queue', 'calendar', 'my-content', 'catalog', 'billing', 'settings', 'notifications', 'help', 'referral'] as const;
+// `assets` (Business Information) is included so the bar can route a user to the setup
+// step that lives there when they ask about their onboarding progress.
+const VIEWS = ['dashboard', 'assistants', 'review-queue', 'calendar', 'my-content', 'catalog', 'billing', 'settings', 'notifications', 'help', 'referral', 'assets'] as const;
 
 // Light per-instance rate limit to keep the bar cheap (matches social-troubleshoot-chat style).
 const RATE_WINDOW_MS = 60 * 1000;
@@ -52,15 +55,35 @@ export const handler: Handler = async (event) => {
     if (!command) return { statusCode: 400, body: JSON.stringify({ error: 'command is required' }) };
     if (command.length > 600) return { statusCode: 400, body: JSON.stringify({ type: 'answer', reply: 'That is a bit long for the command bar — try a shorter instruction.' }) };
 
-    // Active assistants for routing/delegation context.
-    const assistants = await db
-        .select({ id: aiAssistants.id, name: aiAssistants.name, role: aiAssistants.aiAssistantJobRole })
-        .from(aiAssistants)
-        .where(and(eq(aiAssistants.organisationId, orgId), inArray(aiAssistants.lifecycleStatus, ['working', 'ready_for_work', 'paused'])));
+    // Active assistants for routing/delegation context, plus the user's live onboarding
+    // progress so the bar understands how far they are through setup (and can point them at
+    // the right next step) instead of treating every user as fully set up.
+    const [assistants, progress] = await Promise.all([
+        db.select({ id: aiAssistants.id, name: aiAssistants.name, role: aiAssistants.aiAssistantJobRole })
+            .from(aiAssistants)
+            .where(and(eq(aiAssistants.organisationId, orgId), inArray(aiAssistants.lifecycleStatus, ['working', 'ready_for_work', 'paused']))),
+        computeOnboardingProgress(db, orgId, userId),
+    ]);
 
     const assistantList = assistants.length
         ? assistants.map(a => `  - id ${a.id}: "${a.name}" (${a.role || 'assistant'})`).join('\n')
         : '  (none active yet)';
+
+    // A compact, LLM-readable view of where the user is in the 9-step setup journey. Each
+    // step shows whether it's done, and the next incomplete step (if any) names the view the
+    // user should be routed to — so "what's left?" / "what next?" get accurate, actionable
+    // answers rather than a generic guess.
+    const nextStep = progress.allDone ? null : progress.steps[progress.currentStep - 1];
+    const setupSummary = progress.allDone
+        ? 'The user has COMPLETED all setup steps — onboarding is finished. Do not nudge them through setup.'
+        : [
+            `The user is part-way through setup: ${progress.completedCount} of ${progress.total} steps done (currently on step ${progress.currentStep}).`,
+            'Steps:',
+            ...progress.steps.map((s, i) => `  ${i + 1}. [${s.done ? 'x' : ' '}] ${s.label}${s.view ? ` (view: ${s.view})` : ''}`),
+            nextStep
+                ? `Next incomplete step: "${nextStep.label}" — ${nextStep.benefit}${nextStep.view ? ` The view that handles it is "${nextStep.view}".` : ''}`
+                : '',
+        ].filter(Boolean).join('\n');
 
     const system = `You are the command interpreter for "Be More Swan", a digital-assistant platform for small businesses.
 The user typed a quick command into a Spotlight-style command bar. Decide the single best action and reply in JSON only.

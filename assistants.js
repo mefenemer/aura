@@ -2042,6 +2042,9 @@ const RULE_CATEGORIES = [
     { id: 'target_audience',     title: 'Target Audience Context',      placeholder: 'e.g. Speak to busy small-business owners aged 30–50.' },
 ];
 const RULE_CATEGORY_TITLES = Object.fromEntries(RULE_CATEGORIES.map(c => [c.id, c.title]));
+// Map rule categories to jargon-explainer slugs (see explainers.js GLOSSARY).
+// Only categories with a glossary entry get a ⓘ; others are left plain.
+const RULE_CATEGORY_EXPLAIN = { tone_of_voice: 'tone-of-voice', target_audience: 'target-audience' };
 
 let _rulesAssistantId = null;
 const RULES_API = '/.netlify/functions/content-rules';
@@ -2112,7 +2115,7 @@ function _buildRuleCategoryCard(catId, title, placeholder, rules, readOnlyAdd) {
     card.className = 'border border-gray-200 rounded-xl overflow-hidden';
     card.innerHTML = `
         <div class="px-4 py-3 bg-gray-50/60 border-b border-gray-100 flex items-center justify-between">
-            <h4 class="text-sm font-bold text-gray-800">${_escapeHtml(title)}</h4>
+            <h4 class="text-sm font-bold text-gray-800"${RULE_CATEGORY_EXPLAIN[catId] ? ` data-explain="${RULE_CATEGORY_EXPLAIN[catId]}"` : ''}>${_escapeHtml(title)}</h4>
             ${readOnlyAdd ? '' : `<button type="button" data-cat="${catId}" class="ar-add-btn text-sm font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-md transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>Add Rule</button>`}
         </div>
