@@ -7,6 +7,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Workspace | Be More Swan</title>
   <link href="./style.css" rel="stylesheet">
+  <!-- Markdown rendering for the in-workspace Help Center article reader (merged from help.html) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
   <script src="./explainers.js?v=20260630-1" defer></script>
   <link rel="icon" href="/favicon/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
@@ -2223,7 +2226,6 @@ function formatCurrency(amount, currency) {
       const link = navLinks[key];
       if (link) {
         link.addEventListener('click', async (e) => {
-          if (key === 'help') return; // opens /help.html in new tab via href
           e.preventDefault();
           // AC1.3: clicking a locked item does NOT navigate — just toasts.
           if (link.dataset.onboardingLocked === '1') {
@@ -3641,7 +3643,7 @@ function formatCurrency(amount, currency) {
           </li>`;
         }).join('')}
       </ul>
-      <a href="/help.html" target="_blank" rel="noopener noreferrer"
+      <a href="#" onclick="event.preventDefault(); window.loadView && window.loadView('help');"
          class="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline">
         Read the getting-started guide &rarr;
       </a>`;
@@ -6104,7 +6106,7 @@ async function gpSubmitReject() {
   <!-- Step list / go-live state (filled by the controller) -->
   <div id="setup-wizard-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
   <div class="px-5 py-3 border-t border-gray-100">
-    <a href="/help.html" target="_blank" rel="noopener noreferrer"
+    <a href="#" onclick="event.preventDefault(); window.loadView && window.loadView('help');"
        class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">Need a hand? Read the setup guide &rarr;</a>
   </div>
 </aside>
@@ -6559,8 +6561,12 @@ async function gpSubmitReject() {
       open();
       return;
     }
-    // Otherwise reflect current open/collapsed state without forcing anything open.
-    if (!isOpen) showFab(!data.allDone && !data.dismissed && collapsedPref, remaining);
+    // Otherwise reflect current state without forcing anything open. The pill means
+    // "onboarding still pending but the drawer is closed", so show it whenever work
+    // remains and the drawer isn't open — not only after an explicit collapse. This is
+    // what makes the pill survive full-page reloads and landings on non-dashboard views,
+    // where the drawer was never auto-opened (auto-open only fires from initDashboard).
+    if (!isOpen) showFab(!data.allDone && !data.dismissed, remaining);
   }
 
   function open() {
@@ -6582,7 +6588,14 @@ async function gpSubmitReject() {
   // completed on the page just visited ticks (and celebrates) when the user returns,
   // but never force-opens a collapsed/finished drawer.
   function onNavigate() {
-    if (isOpen || collapseStore.getItem(COLLAPSE_KEY) === '1') refresh();
+    // Re-sync after every SPA navigation so the Resume pill (or open drawer) stays correct no
+    // matter where the user landed — previously this only ran when the drawer was already open
+    // or explicitly collapsed, so a closed-but-not-collapsed wizard (e.g. after a full-page
+    // reload, or landing on a non-dashboard view) never resurfaced its pill. refresh() carries
+    // no autoOpen, so it never force-opens; it just shows the pill when work remains. Skip only
+    // once onboarding is finished/dismissed (no pill needed) to avoid re-fetching on every nav.
+    if (lastData && (lastData.allDone || lastData.dismissed) && !isOpen) return;
+    refresh();
   }
 
   // US8 AC3 — secondary onboarding. An existing user adding another assistant re-opens the

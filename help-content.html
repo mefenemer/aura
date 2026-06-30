@@ -14,6 +14,9 @@
   </div>
 
   <div id="tab-content-docs" class="tab-content block">
+
+    <!-- Article-list mode: search + filters + grid -->
+    <div id="help-list-mode">
     <div class="mb-8 max-w-2xl">
       <div class="relative">
         <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -32,6 +35,29 @@
       </div>
     </div>
     <div id="help-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </div><!-- /#help-list-mode -->
+
+    <!-- Single-article reader mode (merged from help.html so articles open in-workspace, not a new tab) -->
+    <article id="help-article-view" class="hidden max-w-4xl">
+      <button id="help-article-back" class="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 hover:text-emerald-800 mb-5">
+        &larr; Back to Help Center
+      </button>
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+        <p id="help-article-category" class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2"></p>
+        <h1 id="help-article-title" class="text-2xl font-extrabold text-gray-900 mb-6"></h1>
+        <div id="help-article-body"
+          class="prose prose-sm sm:prose max-w-none
+                 prose-headings:font-bold prose-headings:text-gray-900
+                 prose-a:text-emerald-700 prose-a:no-underline hover:prose-a:underline
+                 prose-table:text-sm prose-th:bg-gray-50 prose-th:font-semibold
+                 prose-blockquote:border-emerald-400 prose-blockquote:text-gray-600
+                 prose-code:bg-gray-100 prose-code:rounded prose-code:px-1">
+        </div>
+      </div>
+      <div class="mt-6 flex items-center justify-end text-sm text-gray-500">
+        <a href="mailto:hello@bemoreswan.com?subject=Help%20Article%20Feedback" class="hover:text-gray-700">Was this helpful? Contact us &rarr;</a>
+      </div>
+    </article>
   </div>
 
   <div id="tab-content-tickets" class="tab-content hidden">
