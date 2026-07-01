@@ -6380,8 +6380,11 @@ async function gpSubmitReject() {
         return;
       }
 
-      // answer (with optional suggested view)
-      if (d.suggestView && window.loadView) {
+      // answer (with an optional "Take me there" or "Report an issue" follow-up)
+      if (d.suggestReportIssue && window.openReportIssue) {
+        showReply(`${reply}<div class="cmdbar-followup"><button type="button" class="cmdbar-go">Report an issue →</button></div>`);
+        result.querySelector('.cmdbar-go').onclick = () => { window.openReportIssue('new'); close(); };
+      } else if (d.suggestView && window.loadView) {
         showReply(`${reply}<div class="cmdbar-followup"><button type="button" class="cmdbar-go">Take me there →</button></div>`);
         result.querySelector('.cmdbar-go').onclick = () => { window.loadView(d.suggestView); close(); };
       } else {
