@@ -120,7 +120,7 @@ window.generateAssistantCardHTML = function(assistant) {
         ${metricsHtml}
         <div class="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
             ${reviewBtn || '<span></span>'}
-            <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">Board Room &rarr;</span>
+            <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">View Details &rarr;</span>
         </div>
     </div>`;
 };
