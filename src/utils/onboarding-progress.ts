@@ -14,7 +14,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { getDb } from '../../db/client';
 import {
-    organisations, userProfiles, plans, aiAssistants, onboardingDrafts,
+    organisations, userProfiles, plans, aiAssistants, onboardingDrafts, users,
 } from '../../db/schema';
 
 type Db = ReturnType<typeof getDb>;
@@ -27,6 +27,19 @@ export interface OnboardingStep {
     /** Contextual "why" benefit shown beneath the step. */
     benefit: string;
     done: boolean;
+    /**
+     * "Onboard your assistant" stays incomplete for as long as ANY org member has an open
+     * onboarding draft (org-wide gate — see draftInProgress below). Without this, the step
+     * can look permanently stuck with no way to tell why. Populated only while the step is
+     * incomplete and at least one draft is blocking it.
+     */
+    blockingDrafts?: {
+        id: number;
+        label: string;
+        ownerName: string;
+        isMine: boolean;
+        updatedAt: string;
+    }[];
 }
 
 export interface OnboardingProgress {
@@ -102,7 +115,17 @@ export async function computeOnboardingProgress(
         db.select({ id: aiAssistants.id, provisioningStatus: aiAssistants.provisioningStatus, isActive: aiAssistants.isActive })
             .from(aiAssistants).where(eq(aiAssistants.organisationId, orgId)),
         // Open onboarding drafts (one exists only while an assistant wizard is in progress).
-        db.select({ id: onboardingDrafts.id }).from(onboardingDrafts)
+        db.select({
+            id: onboardingDrafts.id,
+            userId: onboardingDrafts.userId,
+            roleKey: onboardingDrafts.roleKey,
+            displayName: onboardingDrafts.displayName,
+            updatedAt: onboardingDrafts.updatedAt,
+            ownerFirstName: users.firstName,
+            ownerLastName: users.lastName,
+            ownerEmail: users.email,
+        }).from(onboardingDrafts)
+            .leftJoin(users, eq(users.id, onboardingDrafts.userId))
             .where(eq(onboardingDrafts.organisationId, orgId)),
     ]);
 
@@ -149,7 +172,24 @@ export async function computeOnboardingProgress(
         go_live:              live,
     };
 
-    const steps = STEP_DEFS.map(d => ({ ...d, done: doneByKey[d.key] === true }));
+    const steps: OnboardingStep[] = STEP_DEFS.map(d => ({ ...d, done: doneByKey[d.key] === true }));
+
+    // Surface exactly which open draft(s) are keeping "Onboard your assistant" from ticking —
+    // otherwise a stale/abandoned draft (the user's own, or a colleague's elsewhere in the org)
+    // leaves the step stuck forever with no clue why.
+    const assistantOnboardingStep = steps.find(s => s.key === 'assistant_onboarding');
+    if (assistantOnboardingStep && !assistantOnboardingStep.done && scopedDrafts.length) {
+        assistantOnboardingStep.blockingDrafts = scopedDrafts.map(d => {
+            const ownerName = [d.ownerFirstName, d.ownerLastName].filter(Boolean).join(' ') || d.ownerEmail || 'a team member';
+            return {
+                id: Number(d.id),
+                label: d.displayName || (d.roleKey ? `Unnamed ${d.roleKey}` : 'Unnamed assistant'),
+                ownerName,
+                isMine: Number(d.userId) === Number(userId),
+                updatedAt: new Date(d.updatedAt).toISOString(),
+            };
+        });
+    }
     const allDone = steps.every(s => s.done);
     // 1-based number of the first incomplete step; steps.length+1 when everything is done.
     const firstIncomplete = steps.findIndex(s => !s.done);

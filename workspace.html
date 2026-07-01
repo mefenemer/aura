@@ -6531,6 +6531,31 @@ async function gpSubmitReject() {
     return `<div class="mt-2 ml-10 mr-1 space-y-2 border-l border-gray-200 pl-3">${items}${footer}</div>`;
   }
 
+  // "Onboard your assistant" is org-wide gated on every open onboarding draft (see
+  // computeOnboardingProgress) — surface exactly which draft(s) are still open, whose they are,
+  // and (for the caller's own) let them jump straight back in or cancel it, so the step never
+  // looks stuck with no explanation.
+  function renderBlockingDraftsSubSteps(step) {
+    const items = (step.blockingDrafts || []).map(bd => {
+      const when = new Date(bd.updatedAt).toLocaleDateString();
+      const actions = bd.isMine
+        ? `<div class="mt-1 flex items-center gap-3">
+             <button type="button" class="setup-wizard-draft-resume text-xs font-semibold text-emerald-600 hover:underline cursor-pointer" data-draft-id="${bd.id}">Resume setup &rarr;</button>
+             <button type="button" class="setup-wizard-draft-cancel text-xs font-semibold text-red-600 hover:underline cursor-pointer" data-draft-id="${bd.id}">Cancel setup</button>
+           </div>`
+        : `<span class="block text-xs text-gray-400 mt-0.5">Ask them to finish or cancel it, or manage it from My Team.</span>`;
+      return `
+        <div class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-gray-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>
+          <div class="min-w-0 flex-1">
+            <span class="block text-xs font-semibold text-gray-700">${bd.label} — started by ${bd.isMine ? 'you' : bd.ownerName} (${when})</span>
+            ${actions}
+          </div>
+        </div>`;
+    }).join('');
+    return `<div class="mt-2 ml-10 mr-1 space-y-2 border-l border-gray-200 pl-3">${items}</div>`;
+  }
+
   function render(data) {
     const steps = data.steps || [];
     const done = data.completedCount ?? steps.filter(s => s.done).length;
@@ -6568,8 +6593,13 @@ async function gpSubmitReject() {
       // sub-tasks while it's the current step — so every outstanding kick-off item is visible
       // here (no surprises at the Board Room) and the inline Kick Off can fire once all required
       // sub-tasks are green.
+      // "Onboard your assistant" can look permanently stuck when a draft — the user's own or a
+      // colleague's — is still open somewhere in the org; break it down the same way so it's
+      // never a dead end.
       const subHtml = (s.key === 'preparing' && isCurrent && !s.done && Array.isArray(s.subSteps) && s.subSteps.length)
         ? renderPreparingSubSteps(s)
+        : (s.key === 'assistant_onboarding' && isCurrent && !s.done && Array.isArray(s.blockingDrafts) && s.blockingDrafts.length)
+        ? renderBlockingDraftsSubSteps(s)
         : '';
       return `
         <li>
@@ -6636,6 +6666,32 @@ async function gpSubmitReject() {
         if (subkey === 'connections') window._assistantDetailInitialTab = 'platforms';
         else if (subkey === 'disclosure' || subkey === 'guardrails') window._assistantDetailInitialTab = 'guardrails';
         window.routeToAssistantDetail(data.primaryAssistantId);
+      });
+    });
+
+    // Blocking-draft actions ("Onboard your assistant" sub-tasks) — only ever offered for the
+    // caller's own draft (onboarding-draft.ts scopes both GET-by-id and DELETE to the caller's
+    // userId), so these can't silently no-op against a colleague's draft.
+    body.querySelectorAll('.setup-wizard-draft-resume').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const draftId = Number(btn.getAttribute('data-draft-id'));
+        try {
+          const r = await fetch(`/.netlify/functions/onboarding-draft?id=${draftId}`);
+          const d = r.ok ? (await r.json()).draft : null;
+          if (d) await window.loadView?.('assistant-setup', { kind: 'draft', draftId: d.id, onboardingPath: d.onboardingPath, displayName: d.displayName, currentStep: d.currentStep });
+        } catch { window.showToast?.('Could not open that setup. Please try again.'); }
+      });
+    });
+    body.querySelectorAll('.setup-wizard-draft-cancel').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const draftId = Number(btn.getAttribute('data-draft-id'));
+        window.showConfirmModal?.('Are you sure you want to cancel this setup? All progress will be lost.', async () => {
+          try {
+            const res = await fetch(`/.netlify/functions/onboarding-draft?id=${draftId}`, { method: 'DELETE' });
+            if (res.ok) { window.showToast?.('Setup cancelled.', { icon: '🗑️' }); refresh(); }
+            else window.showToast?.('Could not cancel setup. Please try again.');
+          } catch { window.showToast?.('Could not cancel setup. Please try again.'); }
+        });
       });
     });
 
