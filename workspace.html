@@ -825,6 +825,19 @@ window.showComplianceModals = function showComplianceModals(force) {
 
     <!-- My reports list -->
     <div id="ri-panel-mine" class="hidden p-6 overflow-y-auto">
+      <div class="flex items-center justify-between mb-3">
+        <label for="ri-status-filter" class="text-xs font-semibold text-gray-500">Filter by status</label>
+        <select id="ri-status-filter" onchange="window.riFilterReports(this.value)"
+          class="border border-gray-200 rounded-lg px-2 py-1 text-xs font-semibold text-gray-700 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+          <option value="all">All statuses</option>
+          <option value="fixed_ready_to_test">Fixed & Ready to Test</option>
+          <option value="reported">Reported</option>
+          <option value="fix_in_progress">Fix In Progress</option>
+          <option value="more_info_required">More Info Required</option>
+          <option value="roadmap">On Roadmap</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
       <div id="ri-my-list" class="space-y-3 text-sm text-gray-500">Loading…</div>
     </div>
   </div>
@@ -5896,6 +5909,8 @@ async function gpSubmitReject() {
 (function () {
   const modal = () => document.getElementById('modal-report-issue');
   let _pendingImage = null; // data URL of the attached screenshot
+  let _myReports = []; // last-fetched list, re-filtered client-side
+  let _myReportsFilter = 'fixed_ready_to_test'; // default: surface tickets ready for the user to re-test
 
   function show(el) { el.classList.remove('hidden'); el.classList.add('flex'); }
   function hide(el) { el.classList.add('hidden'); el.classList.remove('flex'); }
@@ -5996,17 +6011,38 @@ async function gpSubmitReject() {
     const list = document.getElementById('ri-my-list');
     if (!list) return;
     list.innerHTML = '<div class="text-gray-400 animate-pulse">Loading…</div>';
+    const select = document.getElementById('ri-status-filter');
+    if (select) select.value = _myReportsFilter;
     try {
       const res = await fetch('/.netlify/functions/issue-reports');
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { list.innerHTML = `<p class="text-red-600">${esc(d.error || 'Failed to load.')}</p>`; return; }
-      const issues = d.issues || [];
-      if (!issues.length) { list.innerHTML = '<p class="text-gray-400">You haven\'t reported any issues yet.</p>'; return; }
-      list.innerHTML = issues.map(renderIssueCard).join('');
+      _myReports = d.issues || [];
+      if (!_myReports.length) { list.innerHTML = '<p class="text-gray-400">You haven\'t reported any issues yet.</p>'; return; }
+      renderMyReportsList();
     } catch {
       list.innerHTML = '<p class="text-red-600">Network error — please try again.</p>';
     }
   }
+
+  function renderMyReportsList() {
+    const list = document.getElementById('ri-my-list');
+    if (!list) return;
+    const issues = _myReportsFilter === 'all'
+      ? _myReports
+      : _myReports.filter((i) => i.status === _myReportsFilter);
+    if (!issues.length) {
+      const [label] = STATUS_BADGE[_myReportsFilter] || [];
+      list.innerHTML = `<p class="text-gray-400">No reports with status "${esc(label || _myReportsFilter)}".</p>`;
+      return;
+    }
+    list.innerHTML = issues.map(renderIssueCard).join('');
+  }
+
+  window.riFilterReports = function (status) {
+    _myReportsFilter = status;
+    renderMyReportsList();
+  };
 
   function renderIssueCard(i) {
     const [label, cls] = STATUS_BADGE[i.status] || [i.statusLabel || i.status, 'bg-gray-100 text-gray-700'];
