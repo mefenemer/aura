@@ -2922,11 +2922,17 @@ window._saveGoal = async function () {
 };
 
 window._deleteGoal = async function (id) {
-    if (!confirm('Delete this goal? This cannot be undone.')) return;
-    try {
-        const res = await fetch(`${GOALS_API}?id=${id}`, { method: 'DELETE' });
-        if (res.ok) await _fetchAndRenderGoals(_goalsAssistantId);
-    } catch { /* no-op */ }
+    const doDelete = async () => {
+        try {
+            const res = await fetch(`${GOALS_API}?id=${id}`, { method: 'DELETE' });
+            if (res.ok) await _fetchAndRenderGoals(_goalsAssistantId);
+        } catch { /* no-op */ }
+    };
+    if (window.showConfirmModal) {
+        window.showConfirmModal('Delete this goal? This cannot be undone.', doDelete, { title: 'Delete goal?', confirmLabel: 'Yes, delete goal', cancelLabel: 'Keep goal' });
+    } else if (confirm('Delete this goal? This cannot be undone.')) {
+        await doDelete();
+    }
 };
 
 // ── Review Progress (US2.2) — trendline vs trajectory chart + base-tier manual path ──
