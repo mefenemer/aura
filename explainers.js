@@ -145,6 +145,12 @@
       plain: "The “yeah, but…” reasons people hesitate to buy — too pricey, no time, not sure it works. Jot down how you'd answer each, and your assistant can handle them in replies for you.",
       example: 'e.g. "\'Too expensive\' → break it down to cost-per-day."'
     },
+    'facebook-strategy': {
+      term: 'Facebook Strategy',
+      emoji: '👍',
+      plain: "Your game plan for Facebook — what you post, how often, and whether you also want versions tailored for niche Facebook Groups, which often get more engagement than your main Page.",
+      example: 'e.g. "Share updates on the Page, plus a friendlier version for local community groups."'
+    },
     'instagram-strategy': {
       term: 'Instagram Strategy',
       emoji: '📱',
