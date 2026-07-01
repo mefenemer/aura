@@ -33,9 +33,9 @@ export const handler: Handler = async (event) => {
     const aId = parseInt(assistantId);
     const limit = Math.min(parseInt(event.queryStringParameters?.limit ?? '50'), 100);
 
-    const timeframe = event.queryStringParameters?.timeframe ?? '30d';
+    const timeframe = event.queryStringParameters?.timeframe ?? '1d';
     const cutoffDate = (() => {
-        const days = timeframe === '7d' ? 7 : timeframe === '90d' ? 90 : timeframe === 'all' ? null : 30;
+        const days = timeframe === '1d' ? 1 : timeframe === '7d' ? 7 : timeframe === '90d' ? 90 : timeframe === 'all' ? null : 30;
         if (days === null) return null;
         const d = new Date();
         d.setDate(d.getDate() - days);

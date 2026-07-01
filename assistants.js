@@ -1472,7 +1472,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── Recent Activity ───────────────────────────────────────────
     const activityList = document.getElementById('recent-activity-list');
     if (activityList) {
-        const loadActivity = async (timeframe = '30d') => {
+        const loadActivity = async (timeframe = '1d') => {
         // update button styles
         document.querySelectorAll('.activity-tf-btn').forEach(btn => {
             const active = btn.dataset.tf === timeframe;
@@ -1588,7 +1588,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         document.querySelectorAll('.activity-tf-btn').forEach(btn => {
             btn.addEventListener('click', () => loadActivity(btn.dataset.tf));
         });
-        await loadActivity('30d');
+        await loadActivity('1d');
     }
 
     // ── Performance Metrics (post_insights aggregation) ───────────
