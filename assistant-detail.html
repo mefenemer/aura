@@ -112,6 +112,21 @@
   <!-- ── MAIN TAB: Overview ─────────────────────────────────────────── -->
   <div id="maintab-overview" class="main-tab-content">
 
+  <!-- Primary action bar (Epic 2.1) — the two most common intents, front and centre. -->
+  <div class="flex flex-col sm:flex-row gap-3 mb-6">
+    <button type="button" onclick="window.openGeneratePostSheet && window.openGeneratePostSheet()"
+      class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-2xl shadow-md transition-colors cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Assign New Task
+    </button>
+    <button type="button" id="btn-review-pending" onclick="window._activateMainTab('review-queue')"
+      class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-extrabold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-2xl shadow-sm transition-colors cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      Review Pending Items
+      <span id="review-pending-count" class="hidden ml-0.5 min-w-[1.5rem] h-6 px-1.5 inline-flex items-center justify-center rounded-full text-xs font-black bg-amber-100 text-amber-700"></span>
+    </button>
+  </div>
+
   <!-- Kick Off CTA — shown when assistant hasn't been kicked off yet -->
   <div id="meetings-kickoff-cta" class="hidden bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 mb-6 flex items-center justify-between gap-4">
     <div class="flex items-center gap-3 min-w-0">
@@ -122,20 +137,6 @@
       </div>
     </div>
     <button onclick="window._activateMainTab('meetings')" class="shrink-0 px-4 py-2 text-sm font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-sm cursor-pointer">Go to Meetings</button>
-  </div>
-
-  <!-- Action Required strip — drafts awaiting approval -->
-  <div id="action-required-strip" class="hidden bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-6 flex items-center justify-between gap-4">
-    <div class="flex items-center gap-3 min-w-0">
-      <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-      </div>
-      <div>
-        <p class="text-sm font-bold text-amber-900">Awaiting Your Approval</p>
-        <p id="action-required-desc" class="text-xs text-amber-700 mt-0.5">Your assistant has drafts ready for review before they publish.</p>
-      </div>
-    </div>
-    <button onclick="window._activateMainTab('review-queue')" class="shrink-0 px-4 py-2 text-sm font-extrabold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition shadow-sm cursor-pointer">Review Now</button>
   </div>
 
   <!-- Impact & ROI — elevated to top of Overview (most important executive metric) -->
@@ -178,10 +179,10 @@
     <div id="metrics-by-platform" class="space-y-2"></div>
   </div>
 
-  <!-- Completed Tasks strip (was "Recent Activity") -->
+  <!-- Unified Activity feed (Epic 2.2) — chronological, with Failed/Needs-Input pinned on top. -->
   <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Completed Tasks</h3>
+      <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Activity</h3>
       <div id="activity-timeframe-btns" class="flex gap-1">
         <button data-tf="7d"  class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">7d</button>
         <button data-tf="30d" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-indigo-500 bg-indigo-50 text-indigo-700 font-semibold">30d</button>

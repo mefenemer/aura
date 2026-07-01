@@ -448,7 +448,8 @@ async function _detailRqRenderGroups(statusKey) {
         if (colBadge) { colBadge.textContent = posts.length || ''; colBadge.classList.toggle('hidden', !posts.length); }
         const tabBadge = document.getElementById('detail-rq-pending-badge');
         if (tabBadge) { tabBadge.textContent = posts.length || ''; tabBadge.classList.toggle('hidden', !posts.length); }
-        // Keep the operational status pill in sync as the queue changes (e.g. after approving).
+        // Keep the Overview action-bar badge + status pill in sync as the queue changes (e.g. after approving).
+        window._setReviewPendingBadge?.(posts.length);
         window._updateOpSignals?.({ pendingReview: posts.length });
     }
 
@@ -597,6 +598,15 @@ window._renderStatusPill = function(data) {
 window._updateOpSignals = function(patch) {
     window._detailOpSignals = { ...window._detailOpSignals, ...patch };
     window._renderStatusPill();
+};
+
+// Action bar (Epic 2.1): reflect the pending-review count on the "Review Pending Items"
+// button — hidden at 0, amber pill otherwise. Replaces the retired amber strip.
+window._setReviewPendingBadge = function(count) {
+    const badge = document.getElementById('review-pending-count');
+    if (!badge) return;
+    badge.textContent = count || '';
+    badge.classList.toggle('hidden', !count);
 };
 
 document.addEventListener('keydown', (e) => {
@@ -1283,14 +1293,45 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
                         };
                         return map[icon] || 'bg-gray-100 text-gray-500';
                     };
-                    activityList.innerHTML = logs.map(log => `
-                        <div class="flex items-start gap-3 py-2.5 border-b border-gray-100 last:border-0">
+                    // Status tag (Epic 2.2). Info/neutral rows get no tag to keep the history clean.
+                    const statusTag = (s) => {
+                        const tags = {
+                            success:     ['Success',     'bg-emerald-100 text-emerald-700'],
+                            failed:      ['Failed',      'bg-red-100 text-red-700'],
+                            needs_input: ['Needs Input', 'bg-amber-100 text-amber-700'],
+                            in_progress: ['In Progress', 'bg-blue-100 text-blue-700'],
+                        };
+                        const t = tags[s];
+                        return t ? `<span class="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold ${t[1]}">${t[0]}</span>` : '';
+                    };
+                    // Attention rows (failed / needs_input) get an inline tint + coloured left edge
+                    // (inline style avoids the prebuilt-CSS arbitrary-class gotcha).
+                    const rowHtml = (log, attention) => {
+                        const tint = log.status === 'failed' ? 'background:#fef2f2;border-left:3px solid #f87171'
+                                   : log.status === 'needs_input' ? 'background:#fffbeb;border-left:3px solid #fbbf24' : '';
+                        return `
+                        <div class="flex items-start gap-3 py-2.5 px-2 rounded-lg border-b border-gray-100 last:border-0"${attention ? ` style="${tint}"` : ''}>
                             <div class="w-6 h-6 rounded-full ${iconBg(log.icon)} flex items-center justify-center shrink-0 mt-0.5">${iconSvg(log.icon)}</div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm text-gray-700">${log.description || log.actionType}</p>
+                                <div class="flex items-start justify-between gap-2">
+                                    <p class="text-sm text-gray-700">${log.description || log.actionType}</p>
+                                    ${statusTag(log.status)}
+                                </div>
                                 <p class="text-xs text-gray-400 mt-0.5">${log.createdAt ? new Date(log.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
                             </div>
-                        </div>`).join('');
+                        </div>`;
+                    };
+                    const sectionLabel = (txt) => `<p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">${txt}</p>`;
+                    // Pin Failed + Needs-Input into a "Needs attention" group above the chronological list.
+                    const attention = logs.filter(l => l.status === 'failed' || l.status === 'needs_input');
+                    const rest = logs.filter(l => l.status !== 'failed' && l.status !== 'needs_input');
+                    let html = '';
+                    if (attention.length) html += sectionLabel('Needs attention') + attention.map(l => rowHtml(l, true)).join('');
+                    if (rest.length) {
+                        if (attention.length) html += '<div class="h-4"></div>';
+                        html += sectionLabel('Recent') + rest.map(l => rowHtml(l, false)).join('');
+                    }
+                    activityList.innerHTML = html || '<p class="text-sm text-gray-400 text-center py-3">No activity yet.</p>';
                 } else {
                     activityList.innerHTML = '<p class="text-sm text-gray-400 text-center py-3">No activity yet — your assistant is ready to get to work.</p>';
                 }
@@ -1342,9 +1383,8 @@ async function _prefetchDetailRqBadge(assistantId) {
         const count = (drafts || []).length;
         const tabBadge = document.getElementById('detail-rq-pending-badge');
         if (tabBadge) { tabBadge.textContent = count || ''; tabBadge.classList.toggle('hidden', !count); }
-        // Also update the action-required strip on the Overview tab.
-        const strip = document.getElementById('action-required-strip');
-        if (strip) strip.classList.toggle('hidden', !count);
+        // Action bar (Epic 2.1): "Review Pending Items" count badge — amber when there's work waiting.
+        window._setReviewPendingBadge?.(count);
         // Feed the operational status pill (Epic 1 AC1.1.2): pending drafts → "Awaiting Human Review".
         window._updateOpSignals?.({ pendingReview: count });
     } catch { /* non-critical */ }

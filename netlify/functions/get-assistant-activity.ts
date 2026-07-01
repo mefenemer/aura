@@ -200,12 +200,16 @@ export const handler: Handler = async (event) => {
         ]);
 
         // Map each source to a common shape { id, type, icon, description, createdAt }
+        type ActivityStatus = 'success' | 'failed' | 'needs_input' | 'in_progress' | 'info';
         type ActivityItem = {
             id: string;
             type: string;
             icon: string;
             description: string;
             createdAt: Date;
+            // Operational outcome for the unified Activity feed (Epic 2.2). Failed + needs_input
+            // items are pinned into a "Needs attention" group on the assistant-detail Overview.
+            status: ActivityStatus;
         };
 
         const items: ActivityItem[] = [];
@@ -215,20 +219,25 @@ export const handler: Handler = async (event) => {
             const contextHint = j.contextPrompt ? ` based on: "${j.contextPrompt.slice(0, 60)}${j.contextPrompt.length > 60 ? '…' : ''}"` : '';
             let description: string;
             let icon: string;
+            let status: ActivityStatus;
             if (j.status === 'completed') {
                 description = `Generated a post draft${platformLabel}${contextHint}.`;
                 icon = 'sparkles';
+                status = 'success';
             } else if (j.status === 'failed') {
                 description = `Post generation attempt failed${platformLabel}.`;
                 icon = 'alert';
+                status = 'failed';
             } else if (j.status === 'processing') {
                 description = `Writing a post${platformLabel}…`;
                 icon = 'sparkles';
+                status = 'in_progress';
             } else {
                 description = `Queued a post for generation${platformLabel}.`;
                 icon = 'sparkles';
+                status = 'in_progress';
             }
-            items.push({ id: `gen-${j.id}`, type: 'content_generation', icon, description, createdAt: j.createdAt });
+            items.push({ id: `gen-${j.id}`, type: 'content_generation', icon, description, createdAt: j.createdAt, status });
         }
 
         for (const p of posts) {
@@ -236,58 +245,71 @@ export const handler: Handler = async (event) => {
             const dateLabel = p.publishDate ? ` on ${new Date(p.publishDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : '';
             let description: string;
             let icon: string;
+            let status: ActivityStatus;
             switch (p.status) {
                 case 'published':
                     description = `Published a ${p.postFormat} post to ${platformLabel}${dateLabel}.`;
                     icon = 'check-circle';
+                    status = 'success';
                     break;
                 case 'scheduled':
                     description = `Scheduled a ${p.postFormat} post to ${platformLabel}${dateLabel}.`;
                     icon = 'calendar';
+                    status = 'info';
                     break;
                 case 'approved':
                     description = `Post for ${platformLabel} approved${dateLabel} — ready to publish.`;
                     icon = 'check';
+                    status = 'success';
                     break;
                 case 'pending_approval':
                 case 'in_review':
                     description = `Post for ${platformLabel} sent for review${dateLabel}.`;
                     icon = 'clock';
+                    status = 'needs_input';
                     break;
                 case 'failed':
                     description = `Post publish to ${platformLabel} failed${dateLabel}.`;
                     icon = 'alert';
+                    status = 'failed';
                     break;
                 case 'cancelled':
                     description = `Scheduled ${platformLabel} post cancelled.`;
                     icon = 'x';
+                    status = 'info';
                     break;
                 default:
                     description = `${p.postFormat} draft created for ${platformLabel}${dateLabel}.`;
                     icon = 'edit';
+                    status = 'info';
             }
-            items.push({ id: `post-${p.id}`, type: 'scheduled_post', icon, description, createdAt: p.createdAt });
+            items.push({ id: `post-${p.id}`, type: 'scheduled_post', icon, description, createdAt: p.createdAt, status });
         }
 
         for (const idea of ideas) {
             const platformLabel = idea.platform ? ` for ${idea.platform.split(',').map(_platformName).join(', ')}` : '';
             const snippet = idea.idea ? ` — "${idea.idea.slice(0, 70)}${idea.idea.length > 70 ? '…' : ''}"` : '';
             let description: string;
+            let status: ActivityStatus;
             switch (idea.status) {
                 case 'delivered':
                     description = `Post idea delivered${platformLabel}${snippet}.`;
+                    status = 'info';
                     break;
                 case 'in_review':
                 case 'used':
                     description = `Post idea woven into a draft${platformLabel}${snippet}.`;
+                    status = 'success';
                     break;
                 case 'discarded':
                     description = `Post idea discarded${platformLabel}.`;
+                    status = 'info';
                     break;
                 default:
                     description = `New post idea generated${platformLabel}${snippet}.`;
+                    status = 'needs_input';
             }
-            items.push({ id: `idea-${idea.id}`, type: 'post_idea', icon: 'lightbulb', description, createdAt: idea.createdAt });
+            items.push({ id: `idea-${idea.id}`, type: 'post_idea', icon: 'lightbulb', description, createdAt: idea.createdAt, status });
         }
 
         for (const m of mediaJobs) {
@@ -295,23 +317,27 @@ export const handler: Handler = async (event) => {
             const promptSnippet = m.prompt ? ` — "${m.prompt.slice(0, 60)}${m.prompt.length > 60 ? '…' : ''}"` : '';
             let description: string;
             let icon: string;
+            let status: ActivityStatus;
             if (m.status === 'completed') {
                 description = `AI ${typeLabel} generated${promptSnippet}.`;
                 icon = m.mediaType === 'video' ? 'video' : 'image';
+                status = 'success';
             } else if (m.status === 'failed') {
                 description = `AI ${typeLabel} generation failed.`;
                 icon = 'alert';
+                status = 'failed';
             } else {
                 description = `Generating AI ${typeLabel}${promptSnippet}.`;
                 icon = m.mediaType === 'video' ? 'video' : 'image';
+                status = 'in_progress';
             }
-            items.push({ id: `media-${m.id}`, type: 'media_generation', icon, description, createdAt: m.createdAt });
+            items.push({ id: `media-${m.id}`, type: 'media_generation', icon, description, createdAt: m.createdAt, status });
         }
 
         for (const log of auditRows) {
             const description = _describeAudit(log.actionType, log.newState as Record<string, any> | null);
             const icon = _auditIcon(log.actionType);
-            items.push({ id: `audit-${log.id}`, type: 'audit', icon, description, createdAt: log.createdAt });
+            items.push({ id: `audit-${log.id}`, type: 'audit', icon, description, createdAt: log.createdAt, status: 'info' });
         }
 
         // ── Kick Off meeting milestones ────────────────────────────────────────
@@ -322,6 +348,7 @@ export const handler: Handler = async (event) => {
                 icon: 'check-circle',
                 description: `Terms of Service accepted (v${t.version}) — Kick Off meeting prerequisite met.`,
                 createdAt: t.acceptedAt,
+                status: 'info',
             });
         }
 
@@ -332,6 +359,7 @@ export const handler: Handler = async (event) => {
                 icon: 'check-circle',
                 description: `Data Processing Agreement accepted (v${d.version})${d.email ? ` by ${d.email}` : ''} — Kick Off meeting prerequisite met.`,
                 createdAt: d.createdAt,
+                status: 'info',
             });
         }
 
@@ -345,6 +373,7 @@ export const handler: Handler = async (event) => {
                 icon: 'shield',
                 description: `Guardrail added${catLabel}${origin}${snippet}.`,
                 createdAt: r.createdAt,
+                status: 'info',
             });
         }
 
