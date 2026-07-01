@@ -1536,7 +1536,10 @@
     const hourlyRateRaw = parseFloat(document.getElementById('val_hourly_rate')?.value);
     const payload = {
       clientName: sessionStorage.getItem('aura_client_name') || 'User',
-      businessName: sessionStorage.getItem('aura_business_name') || 'Business',
+      // Business Name is optional on the previous step — leave it blank (not a fabricated
+      // literal) when unset, so the backend's `businessName?.trim()` guard correctly skips
+      // overwriting the organisation's real name (set at registration) with a placeholder.
+      businessName: sessionStorage.getItem('aura_business_name') || '',
       assistantName: sessionStorage.getItem('aura_assistant_name') || 'Social Media Manager',
       customAssistantName: document.getElementById('val_assistant_name')?.value || 'Digital Assistant',
       tier: currentTierKey,
