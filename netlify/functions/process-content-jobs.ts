@@ -26,7 +26,12 @@ const AI_IMAGE_MODEL = process.env.FAL_IMAGE_MODEL ?? 'fal-ai/flux-pro/v1.1';
 
 const BACKOFF_SECS = [10, 30, 90];
 
-export const handler: Handler = async () => {
+// Core queue drain: reset stuck jobs, claim up to 20 queued jobs, generate each. Returns the
+// number of jobs claimed this pass. Extracted from the handler so it can be driven both by the
+// native Netlify schedule (this file's `handler`) AND by an on-demand HTTP trigger
+// (run-content-jobs.ts) — the latter is how staging/branch deploys drain their queue, since
+// Netlify only runs scheduled functions on the production deploy.
+export async function drainContentJobs(): Promise<number> {
     const db = getDb();
     const now = new Date();
 
@@ -52,11 +57,16 @@ export const handler: Handler = async () => {
          FOR UPDATE SKIP LOCKED`
     );
 
-    if (!jobs.length) return { statusCode: 200, body: 'no jobs' };
+    if (!jobs.length) return 0;
 
     await Promise.allSettled(jobs.map(job => processJob(db, job, now)));
 
-    return { statusCode: 200, body: `processed ${jobs.length} jobs` };
+    return jobs.length;
+}
+
+export const handler: Handler = async () => {
+    const processed = await drainContentJobs();
+    return { statusCode: 200, body: processed ? `processed ${processed} jobs` : 'no jobs' };
 };
 
 async function processJob(db: ReturnType<typeof getDb>, job: {

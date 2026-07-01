@@ -12,11 +12,12 @@
 // Schedule: "0 7 * * *" (07:00 UTC daily — just after draft-horizon-fill at 06:00).
 
 import { Handler } from '@netlify/functions';
-import { and, eq, desc, sql } from 'drizzle-orm';
+import { and, eq, desc, sql, inArray } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../db/client';
 import { aiAssistants, masterAssistants, aiBlueprints, contentGenerationJobs, notifications } from '../../db/schema';
 import { postsPerWeekFor } from '../../src/config/posting-cadence';
+import { SMM_ROLE_KEYS } from '../../src/constants/roles';
 
 // At most one scheduled conversion post per assistant per this many days. Tunable; a conversion
 // post is a direct ask, so it should stay infrequent relative to value-first content.
@@ -45,7 +46,7 @@ export const handler: Handler = async (event) => {
         .innerJoin(masterAssistants, eq(aiAssistants.masterAssistantId, masterAssistants.id))
         .where(and(
             eq(aiAssistants.isActive, true),
-            eq(masterAssistants.roleKey, 'social_media_manager'),
+            inArray(masterAssistants.roleKey, SMM_ROLE_KEYS),
         ));
 
     let enqueued = 0;
