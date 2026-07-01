@@ -1472,7 +1472,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // ── Recent Activity ───────────────────────────────────────────
     const activityList = document.getElementById('recent-activity-list');
     if (activityList) {
-        const loadActivity = async (timeframe = '30d') => {
+        const loadActivity = async (timeframe = '1d') => {
         // update button styles
         document.querySelectorAll('.activity-tf-btn').forEach(btn => {
             const active = btn.dataset.tf === timeframe;
@@ -1588,7 +1588,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         document.querySelectorAll('.activity-tf-btn').forEach(btn => {
             btn.addEventListener('click', () => loadActivity(btn.dataset.tf));
         });
-        await loadActivity('30d');
+        await loadActivity('1d');
     }
 
     // ── Performance Metrics (post_insights aggregation) ───────────
@@ -2397,7 +2397,12 @@ const RULE_CATEGORIES = [
 const RULE_CATEGORY_TITLES = Object.fromEntries(RULE_CATEGORIES.map(c => [c.id, c.title]));
 // Map rule categories to jargon-explainer slugs (see explainers.js GLOSSARY).
 // Only categories with a glossary entry get a ⓘ; others are left plain.
-const RULE_CATEGORY_EXPLAIN = { tone_of_voice: 'tone-of-voice', target_audience: 'target-audience' };
+const RULE_CATEGORY_EXPLAIN = {
+    tone_of_voice: 'tone-of-voice',
+    response_formatting: 'response-formatting',
+    core_knowledge: 'core-business-facts',
+    target_audience: 'target-audience',
+};
 
 let _rulesAssistantId = null;
 const RULES_API = '/.netlify/functions/content-rules';
@@ -2922,11 +2927,17 @@ window._saveGoal = async function () {
 };
 
 window._deleteGoal = async function (id) {
-    if (!confirm('Delete this goal? This cannot be undone.')) return;
-    try {
-        const res = await fetch(`${GOALS_API}?id=${id}`, { method: 'DELETE' });
-        if (res.ok) await _fetchAndRenderGoals(_goalsAssistantId);
-    } catch { /* no-op */ }
+    const doDelete = async () => {
+        try {
+            const res = await fetch(`${GOALS_API}?id=${id}`, { method: 'DELETE' });
+            if (res.ok) await _fetchAndRenderGoals(_goalsAssistantId);
+        } catch { /* no-op */ }
+    };
+    if (window.showConfirmModal) {
+        window.showConfirmModal('Delete this goal? This cannot be undone.', doDelete, { title: 'Delete goal?', confirmLabel: 'Yes, delete goal', cancelLabel: 'Keep goal' });
+    } else if (confirm('Delete this goal? This cannot be undone.')) {
+        await doDelete();
+    }
 };
 
 // ── Review Progress (US2.2) — trendline vs trajectory chart + base-tier manual path ──
@@ -3203,7 +3214,7 @@ function _applyMediaSourcesUi() {
           ${badge}
           ${arrows}
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-bold ${on ? 'text-gray-900' : 'text-gray-500'}">${meta.label}</p>
+            <p class="text-sm font-bold ${on ? 'text-gray-900' : 'text-gray-500'} inline-flex items-center" data-explain="media-source-${src}">${meta.label}</p>
             <p class="text-xs text-gray-400">${meta.desc}</p>
           </div>
           <button type="button" role="switch" aria-checked="${on}" aria-label="${on ? 'Disable' : 'Enable'} ${meta.label}"

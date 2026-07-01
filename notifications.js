@@ -111,7 +111,10 @@ window.initNotifications = async function() {
     const getNotificationAction = (notif) => {
         const meta = notif.metadata || {};
         // US2 AC2.3: a workspace owner invites the person who hit a connection collision.
+        // If the owner's plan has no free seat, the server already flagged this in metadata —
+        // point them at billing instead of an invite that would just fail on seat limit.
         if (notif.type === 'workspace_access_request') {
+            if (meta.seatLimitReached) return { label: 'Upgrade plan', run: routeToBilling };
             return { label: 'Invite User', run: () => window._inviteFromAccessRequest?.(meta.requestingEmail, notif.id) };
         }
         // AI media ready — deep-link straight to the generated asset in My Content.

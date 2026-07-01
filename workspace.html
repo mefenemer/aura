@@ -10,7 +10,7 @@
   <!-- Markdown rendering for the in-workspace Help Center article reader (merged from help.html) -->
   <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
-  <script src="./explainers.js?v=20260630-2" defer></script>
+  <script src="./explainers.js?v=20260701-media-sources" defer></script>
   <link rel="icon" href="/favicon/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
   <link rel="manifest" href="/favicon/manifest.json">
@@ -724,16 +724,21 @@ window.showComplianceModals = function showComplianceModals(force) {
   // US2 AC2.3: workspace owner invites the requester into their org (reuses the member-invite
   // flow, so billing stays consolidated). Triggered from the suggested_action notification CTA.
   window._inviteFromAccessRequest = async function (email, notifId) {
-    if (!email) { alert('Could not determine which user to invite.'); return; }
-    if (!confirm(`Invite ${email} to your workspace? They'll join your team and your billing stays consolidated.`)) return;
-    try {
-      const r = await fetch('/.netlify/functions/invite-member', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) { alert(d.error || 'Could not send the invite.'); return; }
-      window.showToast?.(`Invite sent to ${email}.`);
-    } catch { alert('Network error — please try again.'); }
+    if (!email) { window.showToast?.('Could not determine which user to invite.', { icon: '⚠️' }); return; }
+    window.showConfirmModal(
+      `Invite ${email} to your workspace? They'll join your team and your billing stays consolidated.`,
+      async () => {
+        try {
+          const r = await fetch('/.netlify/functions/invite-member', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { window.showToast?.(d.error || 'Could not send the invite.', { icon: '⚠️' }); return; }
+          window.showToast?.(`Invite sent to ${email}.`, { icon: '✅' });
+        } catch { window.showToast?.('Network error — please try again.', { icon: '⚠️' }); }
+      },
+      { title: 'Invite to workspace?', confirmLabel: 'Yes, send invite', cancelLabel: 'Cancel' }
+    );
   };
 </script>
 
@@ -825,6 +830,19 @@ window.showComplianceModals = function showComplianceModals(force) {
 
     <!-- My reports list -->
     <div id="ri-panel-mine" class="hidden p-6 overflow-y-auto">
+      <div class="flex items-center justify-between mb-3">
+        <label for="ri-status-filter" class="text-xs font-semibold text-gray-500">Filter by status</label>
+        <select id="ri-status-filter" onchange="window.riFilterReports(this.value)"
+          class="border border-gray-200 rounded-lg px-2 py-1 text-xs font-semibold text-gray-700 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+          <option value="all">All statuses</option>
+          <option value="fixed_ready_to_test">Fixed & Ready to Test</option>
+          <option value="reported">Reported</option>
+          <option value="fix_in_progress">Fix In Progress</option>
+          <option value="more_info_required">More Info Required</option>
+          <option value="roadmap">On Roadmap</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
       <div id="ri-my-list" class="space-y-3 text-sm text-gray-500">Loading…</div>
     </div>
   </div>
@@ -5896,6 +5914,8 @@ async function gpSubmitReject() {
 (function () {
   const modal = () => document.getElementById('modal-report-issue');
   let _pendingImage = null; // data URL of the attached screenshot
+  let _myReports = []; // last-fetched list, re-filtered client-side
+  let _myReportsFilter = 'fixed_ready_to_test'; // default: surface tickets ready for the user to re-test
 
   function show(el) { el.classList.remove('hidden'); el.classList.add('flex'); }
   function hide(el) { el.classList.add('hidden'); el.classList.remove('flex'); }
@@ -5996,17 +6016,38 @@ async function gpSubmitReject() {
     const list = document.getElementById('ri-my-list');
     if (!list) return;
     list.innerHTML = '<div class="text-gray-400 animate-pulse">Loading…</div>';
+    const select = document.getElementById('ri-status-filter');
+    if (select) select.value = _myReportsFilter;
     try {
       const res = await fetch('/.netlify/functions/issue-reports');
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { list.innerHTML = `<p class="text-red-600">${esc(d.error || 'Failed to load.')}</p>`; return; }
-      const issues = d.issues || [];
-      if (!issues.length) { list.innerHTML = '<p class="text-gray-400">You haven\'t reported any issues yet.</p>'; return; }
-      list.innerHTML = issues.map(renderIssueCard).join('');
+      _myReports = d.issues || [];
+      if (!_myReports.length) { list.innerHTML = '<p class="text-gray-400">You haven\'t reported any issues yet.</p>'; return; }
+      renderMyReportsList();
     } catch {
       list.innerHTML = '<p class="text-red-600">Network error — please try again.</p>';
     }
   }
+
+  function renderMyReportsList() {
+    const list = document.getElementById('ri-my-list');
+    if (!list) return;
+    const issues = _myReportsFilter === 'all'
+      ? _myReports
+      : _myReports.filter((i) => i.status === _myReportsFilter);
+    if (!issues.length) {
+      const [label] = STATUS_BADGE[_myReportsFilter] || [];
+      list.innerHTML = `<p class="text-gray-400">No reports with status "${esc(label || _myReportsFilter)}".</p>`;
+      return;
+    }
+    list.innerHTML = issues.map(renderIssueCard).join('');
+  }
+
+  window.riFilterReports = function (status) {
+    _myReportsFilter = status;
+    renderMyReportsList();
+  };
 
   function renderIssueCard(i) {
     const [label, cls] = STATUS_BADGE[i.status] || [i.statusLabel || i.status, 'bg-gray-100 text-gray-700'];
@@ -6344,8 +6385,11 @@ async function gpSubmitReject() {
         return;
       }
 
-      // answer (with optional suggested view)
-      if (d.suggestView && window.loadView) {
+      // answer (with an optional "Take me there" or "Report an issue" follow-up)
+      if (d.suggestReportIssue && window.openReportIssue) {
+        showReply(`${reply}<div class="cmdbar-followup"><button type="button" class="cmdbar-go">Report an issue →</button></div>`);
+        result.querySelector('.cmdbar-go').onclick = () => { window.openReportIssue('new'); close(); };
+      } else if (d.suggestView && window.loadView) {
         showReply(`${reply}<div class="cmdbar-followup"><button type="button" class="cmdbar-go">Take me there →</button></div>`);
         result.querySelector('.cmdbar-go').onclick = () => { window.loadView(d.suggestView); close(); };
       } else {

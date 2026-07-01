@@ -33,9 +33,9 @@ export const handler: Handler = async (event) => {
     const aId = parseInt(assistantId);
     const limit = Math.min(parseInt(event.queryStringParameters?.limit ?? '50'), 100);
 
-    const timeframe = event.queryStringParameters?.timeframe ?? '30d';
+    const timeframe = event.queryStringParameters?.timeframe ?? '1d';
     const cutoffDate = (() => {
-        const days = timeframe === '7d' ? 7 : timeframe === '90d' ? 90 : timeframe === 'all' ? null : 30;
+        const days = timeframe === '1d' ? 1 : timeframe === '7d' ? 7 : timeframe === '90d' ? 90 : timeframe === 'all' ? null : 30;
         if (days === null) return null;
         const d = new Date();
         d.setDate(d.getDate() - days);
@@ -436,7 +436,7 @@ function _describeAudit(actionType: string, newState: Record<string, any> | null
             paused: 'paused',
             system_paused: 'system paused',
             archived: 'archived',
-            provisioning: 'provisioning',
+            provisioning: 'being set up',
         };
         if (to === 'working' && (from === 'ready_for_work' || state.reason === 'kick_off')) {
             return 'Kick Off meeting completed — assistant started working.';
@@ -445,6 +445,7 @@ function _describeAudit(actionType: string, newState: Record<string, any> | null
         if (to === 'paused') return 'Assistant paused.';
         if (to === 'system_paused') return `Assistant automatically paused${state.reason ? ` (${state.reason})` : ''}.`;
         if (to === 'archived') return 'Assistant archived.';
+        if (to === 'provisioning') return "Assistant setup started — we're getting it ready to work.";
         return `Assistant status changed to ${labels[to] ?? to}.`;
     }
     switch (actionType) {
