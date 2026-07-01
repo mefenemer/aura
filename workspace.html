@@ -1356,6 +1356,13 @@ function formatCurrency(amount, currency) {
       const route = routes[routeKey];
       if (!route) return;
 
+      // Issue #43: Orchestrations is a future feature — block navigation entirely
+      // (deep links, command bar, "Manage in Orchestrations" CTA, etc.), not just the nav link.
+      if (routeKey === 'orchestrations') {
+        window.showToast('Orchestrations is coming soon!');
+        return;
+      }
+
       // ── US2 (AC2.1/2.2/2.3): Onboarding route guard (anti-snooping) ──
       // Catches deep links (?view=calendar) and any programmatic navigation into a
       // restricted area before onboarding is complete. Nav-link clicks are handled
@@ -2260,19 +2267,6 @@ function formatCurrency(amount, currency) {
         });
       }
     });
-
-    // Epic 4: reveal the global "Orchestrations" nav only when the org has 2+ active
-    // assistants (a single-assistant workspace has nothing to orchestrate). Mirrors the
-    // admin-portal reveal — the item ships hidden in the sidebar and we un-hide it here.
-    (async () => {
-      try {
-        const res = await fetch('/.netlify/functions/get-assistants');
-        if (!res.ok) return;
-        const { assistants = [] } = await res.json();
-        const active = assistants.filter(a => a && a.lifecycleStatus !== 'archived' && a.status !== 'cancelled');
-        if (active.length >= 2) document.getElementById('nav-orchestrations')?.classList.remove('hidden');
-      } catch { /* non-fatal — nav simply stays hidden */ }
-    })();
 
     // Render locks ASAP on boot (non-blocking).
     refreshOnboardingLock();
