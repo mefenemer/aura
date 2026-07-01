@@ -306,8 +306,12 @@ export const handler: Handler = async (event) => {
                     status = 'info';
                     break;
                 default:
-                    description = `New post idea generated${platformLabel}${snippet}.`;
-                    status = 'needs_input';
+                    // 'pending' is a normal waiting state — process-content-jobs.ts will pick it up
+                    // FIFO and weave it into a future draft automatically. No user action is possible
+                    // or required, so this must not be tagged 'needs_input' (there is nowhere to
+                    // click through to and nothing to input).
+                    description = `New post idea queued${platformLabel}${snippet} — it'll be woven into an upcoming draft automatically.`;
+                    status = 'info';
             }
             items.push({ id: `idea-${idea.id}`, type: 'post_idea', icon: 'lightbulb', description, createdAt: idea.createdAt, status });
         }
