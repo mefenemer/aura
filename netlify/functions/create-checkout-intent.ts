@@ -21,6 +21,7 @@ import {
   planPrices,
 } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
+import { formatPlatformStrategyBrief } from '../../src/utils/platform-strategy-brief';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
 if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
@@ -61,6 +62,9 @@ Source: ${inputs.sourceText?.trim() || missing}
 PUBLISHING DESTINATIONS
 Platforms:
 ${fmt(inputs.platforms, missing)}
+
+PLATFORM ALGORITHM STRATEGY
+${formatPlatformStrategyBrief(inputs.platform_strategy) || missing}
 
 GENERAL PREFERENCES & STRATEGY
 ${fmt(inputs.generalPreferences, missing)}

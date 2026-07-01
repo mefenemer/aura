@@ -43,7 +43,7 @@ function ymd(d: Date): string {
 }
 
 /** The active plan's monthly AI credit allowance for an org (0 if none / not configured). */
-async function monthlyAllowance(db: Db, orgId: number): Promise<number> {
+export async function monthlyAllowance(db: Db, orgId: number): Promise<number> {
     const rows = await db.execute<{ monthly_ai_credits: unknown }>(sql`
         SELECT mp.features ->> 'monthly_ai_credits' AS monthly_ai_credits
         FROM plans p

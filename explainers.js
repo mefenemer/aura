@@ -97,6 +97,12 @@
       plain: "The tags and search words that help the right strangers stumble onto your posts. Think of them as little signposts telling the app “show this to people interested in X.”",
       example: 'e.g. "#smallbusinessuk, #founderlife, sustainable skincare"'
     },
+    'ai-disclosure': {
+      term: 'AI Disclosure',
+      emoji: '🤖',
+      plain: "A short, honest note letting people know some of this content was made with AI. New rules (like the EU AI Act) ask for it, and being upfront builds trust rather than eroding it.",
+      example: 'e.g. "Some content on this account is created with the help of Be More Swan AI."'
+    },
     'posting-schedule': {
       term: 'Posting Schedule',
       emoji: '📅',

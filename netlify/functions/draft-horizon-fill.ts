@@ -31,6 +31,7 @@ export const handler: Handler = async (event) => {
             name: aiAssistants.name,
             onboardingContext: aiAssistants.onboardingContext,
             draftHorizonDays: aiAssistants.draftHorizonDays,
+            configuration: aiAssistants.configuration,
         })
         .from(aiAssistants)
         .innerJoin(masterAssistants, eq(aiAssistants.masterAssistantId, masterAssistants.id))
@@ -41,7 +42,7 @@ export const handler: Handler = async (event) => {
 
     const now = new Date();
     let jobsEnqueued = 0;
-    const skipped: Record<string, number> = { on_demand: 0, no_blueprint: 0, blocking_gaps: 0, fully_covered: 0 };
+    const skipped: Record<string, number> = { on_demand: 0, no_blueprint: 0, blocking_gaps: 0, fully_covered: 0, empty_library_skipped: 0 };
 
     for (const assistant of smmAssistants) {
         try {

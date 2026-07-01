@@ -630,6 +630,30 @@
               You will be notified by email the moment a new request is ready for your review.
             </p>
           </div>
+
+          <!-- AI Disclosure (EU AI Act Art. 50) — captured here so the assistant ships with a
+               disclosure already set, removing the Kick Off Meeting blocker. Editable later in the
+               Assistant Profile → Brand Safety & Legal. -->
+          <div class="mt-8 border-t border-gray-200 pt-6">
+            <label class="block text-sm font-bold text-gray-700 mb-1" for="onboarding_ai_disclosure" data-explain="ai-disclosure">AI Disclosure</label>
+            <p class="text-xs text-gray-500 mb-3">How your assistant labels its output as AI-generated, as required by the EU AI Act's transparency rules. You can fine-tune this any time in your Assistant Profile.</p>
+
+            <div class="mb-3 flex flex-col gap-2">
+              <button type="button" onclick="applyDisclosureSuggestion('Some content on this account is created with the help of Be More Swan AI.')" class="text-left text-sm bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg p-3 hover:bg-emerald-100 hover:border-emerald-300 transition shadow-sm cursor-pointer">
+                <span class="font-bold block mb-0.5">General (recommended)</span>
+                "Some content on this account is created with the help of Be More Swan AI."
+              </button>
+              <button type="button" onclick="applyDisclosureSuggestion('Some images and videos on this account are AI-generated using Be More Swan AI.')" class="text-left text-sm bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg p-3 hover:bg-emerald-100 hover:border-emerald-300 transition shadow-sm cursor-pointer">
+                <span class="font-bold block mb-0.5">For AI images &amp; video</span>
+                "Some images and videos on this account are AI-generated using Be More Swan AI."
+              </button>
+            </div>
+
+            <textarea id="onboarding_ai_disclosure" maxlength="500"
+                      class="auto-expand-textarea w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none"
+                      placeholder="Click a suggestion above, or write your own — e.g. Some content on this account is created with the help of Be More Swan AI."></textarea>
+            <p class="text-xs text-gray-400 mt-1">Leave blank to set it later — you'll be prompted before your assistant can be activated.</p>
+          </div>
         </div>
 
         <div id="step-7" class="step-hidden">
@@ -1319,16 +1343,11 @@
     if (hasValue(document.getElementById('val_pillars')?.value)) generalPreferences.push(`- Core Topics: ${document.getElementById('val_pillars').value}`);
     if (hasValue(document.getElementById('val_tone')?.value)) generalPreferences.push(`- Preferred Tone: ${document.getElementById('val_tone').value}`);
 
-    ['fb', 'ig', 'li', 'x'].forEach(p => {
-      if (document.getElementById(`chk_${p}`)?.checked) {
-        const customTags = document.getElementById(`algo_custom_tags_${p}`)?.value;
-        if (document.querySelector(`input[name="algo_strategy_${p}"]:checked`)?.value === 'strict_custom' && hasValue(customTags)) {
-          strictRules.push(`- MUST DO (${document.getElementById(`chk_${p}`).value}): ONLY use exactly these tags: ${customTags}.`);
-        }
-        if (p === 'fb' && document.getElementById('fb_opt_groups')?.checked) strictRules.push(`- MUST DO (Facebook): Draft version optimized for Facebook Groups.`);
-        if (p === 'li' && document.getElementById('li_opt_links')?.checked) strictRules.push(`- NEVER DO (LinkedIn): External URLs in first comment only.`);
-      }
-    });
+    // Per-platform hashtag/algorithm choices are no longer flattened into strict rules here — they
+    // flow through as the structured rawInputs.platform_strategy object below and the server renders
+    // them as a dedicated PLATFORM ALGORITHM STRATEGY brief section (formatPlatformStrategyBrief).
+    const extractedPlatformCodes = ['fb', 'ig', 'li', 'x'].filter(p => document.getElementById(`chk_${p}`)?.checked);
+    const platformStrategy = collectOnboardingPlatformStrategy(extractedPlatformCodes);
 
     const userRules = document.getElementById('acceptance_criteria_rules')?.value;
     if (hasValue(userRules)) {
@@ -1366,6 +1385,7 @@
       triggerText,
       sourceText,
       platforms,
+      platform_strategy: platformStrategy,
       generalPreferences,
       workflowText,
       strictRules
@@ -1489,7 +1509,11 @@
       tone_of_voice: document.getElementById('val_tone')?.value || null,
       posting_frequency: document.getElementById('schedule_frequency')?.value || 'On Demand',
       primary_platforms: extractedPlatforms,
-      problem_statement: document.getElementById('user_story_problem')?.value || null
+      problem_statement: document.getElementById('user_story_problem')?.value || null,
+      // Reference style link + per-platform hashtag/algorithm strategy — stored structurally so
+      // they surface (and stay editable) in the Assistant Profile, not just compiled into rules.
+      reference_style_url: document.getElementById('val_reference')?.value || null,
+      platform_strategy: collectOnboardingPlatformStrategy(extractedPlatforms)
     };
 
     // 2. Safe Consent Handling: Use optional chaining or fallback to false
@@ -1520,6 +1544,10 @@
       rawInputs: window.globalRawInputs,
       mediaSources,
       onboardingContext: structuredContext,
+      // EU AI Act Art. 50 disclosure — persisted on the assistant so it's pre-set at Kick Off.
+      ...(document.getElementById('onboarding_ai_disclosure')?.value?.trim()
+        ? { aiDisclosure: document.getElementById('onboarding_ai_disclosure').value.trim() }
+        : {}),
       ...(hourlyRateRaw > 0 ? { hourlyRateGbp: hourlyRateRaw } : {}),
       consents: {
         legal: getConsent('legal_consent'),
@@ -1583,6 +1611,23 @@
   // --- 8. UI HELPERS ---
   function loadComponent(id, file) { fetch(file).then(r => r.ok && r.text().then(t => document.getElementById(id).innerHTML = t)); }
   function populateProblem(t) { const el = document.getElementById('user_story_problem'); el.value = t; autoExpandTextareas(); triggerAutoSave(); }
+  function applyDisclosureSuggestion(t) { const el = document.getElementById('onboarding_ai_disclosure'); if (!el) return; el.value = t; autoExpandTextareas(); triggerAutoSave(); }
+
+  // Snapshot the Platform Algorithm Helper toggles into a structured object (keyed by platform
+  // code) for the selected platforms only. Mirrors the shape read back in the Assistant Profile
+  // (_hydratePlatformStrategy in assistants.js), so hashtags/format prefs stay editable post-setup.
+  function collectOnboardingPlatformStrategy(selected) {
+    const val = (id) => document.getElementById(id)?.value || '';
+    const on  = (id) => !!document.getElementById(id)?.checked;
+    const ps = {};
+    (selected || []).forEach(p => {
+      if (p === 'fb') ps.fb = { tags: val('algo_custom_tags_fb'), strategy: document.querySelector('input[name="algo_strategy_fb"]:checked')?.value || 'strict_custom', groups: on('fb_opt_groups') };
+      if (p === 'ig') ps.ig = { tags: val('algo_custom_tags_ig'), format: val('ig_opt_format') || 'mix', audio: on('ig_opt_audio') };
+      if (p === 'li') ps.li = { tags: '', links_first_comment: on('li_opt_links'), sliders: on('li_opt_sliders') };
+      if (p === 'x')  ps.x  = { tags: '', length: val('x_opt_length') || 'mix', media: on('x_opt_media') };
+    });
+    return ps;
+  }
 
   function showUpsellModal(m) { document.getElementById('upsell-message').innerHTML = m; document.getElementById('upsell-modal').classList.remove('hidden', 'opacity-0'); }
   function closeUpsellModal() { document.getElementById('upsell-modal').classList.add('hidden', 'opacity-0'); }

@@ -618,6 +618,85 @@
         </div>
       </div>
     </div>
+
+    <!-- Reference / Visual Style — parity with onboarding "Link to Reference Style / Visual Assets" -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-5">
+        <h3 class="text-lg font-bold text-gray-900">Reference &amp; Visual Style</h3>
+        <p class="text-sm text-gray-500 mt-1">A link to a post you love or a folder of brand guidelines. Your assistant studies it to match your look and voice.</p>
+      </div>
+      <div>
+        <label for="edit_reference_url" class="block text-sm font-bold text-gray-700 mb-1">Reference Style / Visual Assets Link</label>
+        <input type="url" id="edit_reference_url" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm" placeholder="https://…">
+        <p class="text-xs text-gray-400 mt-1">A past post, a Drive folder of brand guidelines, or a moodboard.</p>
+      </div>
+    </div>
+
+    <!-- Hashtags & Platform Strategy — parity with onboarding "Platform Algorithm Helpers".
+         Blocks are shown per connected platform by _hydratePlatformStrategy(); values round-trip
+         through context.platform_strategy. -->
+    <div id="platform-strategy-card" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-5">
+        <h3 class="text-lg font-bold text-gray-900" data-explain="hashtags-keywords">Hashtags &amp; Platform Strategy</h3>
+        <p class="text-sm text-gray-500 mt-1">Fine-tune how your assistant formats posts and uses hashtags on each platform.</p>
+      </div>
+
+      <p id="platform-strategy-empty" class="hidden text-sm text-gray-400 italic">Connect a social platform first — strategy options appear here for each one you use.</p>
+
+      <div class="space-y-4">
+        <!-- Facebook -->
+        <div id="edit_algo_block_fb" class="hidden algo-block space-y-3 border border-gray-200 rounded-xl p-4">
+          <h4 class="font-bold text-gray-800 text-sm">Facebook Strategy</h4>
+          <div>
+            <label for="edit_algo_strategy_fb" class="block text-xs font-semibold text-gray-600 mb-1">Hashtag approach</label>
+            <select id="edit_algo_strategy_fb" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition">
+              <option value="strict_custom">Only use my specific tags</option>
+              <option value="hybrid">Use mine, and add relevant ones</option>
+              <option value="ai_decide">Let the assistant decide</option>
+            </select>
+          </div>
+          <input type="text" id="edit_algo_tags_fb" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #FacebookTips #Community">
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700"><input type="checkbox" id="edit_fb_opt_groups" class="rounded text-emerald-700 focus:ring-emerald-700"> Draft versions for niche Facebook Groups</label>
+        </div>
+
+        <!-- Instagram -->
+        <div id="edit_algo_block_ig" class="hidden algo-block space-y-3 border border-gray-200 rounded-xl p-4">
+          <h4 class="font-bold text-gray-800 text-sm" data-explain="instagram-strategy">Instagram Strategy</h4>
+          <input type="text" id="edit_algo_tags_ig" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #InstaGood">
+          <div>
+            <label for="edit_ig_opt_format" class="block text-xs font-semibold text-gray-600 mb-1" data-explain="content-formats">Content format</label>
+            <select id="edit_ig_opt_format" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition">
+              <option value="mix">Optimize for a Mix (Reels, Carousels, Static)</option>
+              <option value="reels">Prioritize Reels</option>
+            </select>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700"><input type="checkbox" id="edit_ig_opt_audio" class="rounded text-emerald-700 focus:ring-emerald-700"> <span data-explain="trending-audio">Suggest trending audio concepts</span></label>
+        </div>
+
+        <!-- LinkedIn -->
+        <div id="edit_algo_block_li" class="hidden algo-block space-y-3 border border-gray-200 rounded-xl p-4">
+          <h4 class="font-bold text-gray-800 text-sm" data-explain="linkedin-strategy">LinkedIn Strategy</h4>
+          <input type="text" id="edit_algo_tags_li" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #Leadership #B2B">
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700"><input type="checkbox" id="edit_li_opt_links" class="rounded text-emerald-700 focus:ring-emerald-700"> <span data-explain="link-first-comment">Anti-Penalty: URLs in first comment</span></label>
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700"><input type="checkbox" id="edit_li_opt_sliders" class="rounded text-emerald-700 focus:ring-emerald-700"> <span data-explain="pdf-carousel">PDF Slider/Carousel outlines</span></label>
+        </div>
+
+        <!-- X -->
+        <div id="edit_algo_block_x" class="hidden algo-block space-y-3 border border-gray-200 rounded-xl p-4">
+          <h4 class="font-bold text-gray-800 text-sm" data-explain="x-strategy">X (Twitter) Strategy</h4>
+          <input type="text" id="edit_algo_tags_x" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #BuildInPublic">
+          <div>
+            <label for="edit_x_opt_length" class="block text-xs font-semibold text-gray-600 mb-1">Post length</label>
+            <select id="edit_x_opt_length" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition">
+              <option value="mix">Mix of Threads and Single Posts</option>
+              <option value="single">Single Posts only</option>
+              <option value="threads">Prioritize Threads</option>
+            </select>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700"><input type="checkbox" id="edit_x_opt_media" class="rounded text-emerald-700 focus:ring-emerald-700"> <span data-explain="media-placeholders">Include placeholders for media</span></label>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ── TAB: Connections (full connect/manage, scoped to this assistant) ── -->
@@ -718,8 +797,8 @@
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <h3 class="text-lg font-bold text-gray-900">Autonomous Posting Fallback</h3>
-          <p class="text-sm text-gray-500 mt-1">When <strong>My Content</strong> has no pending assets, should this assistant continue posting independently?</p>
+          <h3 class="text-lg font-bold text-gray-900">Empty-Library Draft Fallback</h3>
+          <p class="text-sm text-gray-500 mt-1">When <strong>My Content</strong> has no pending assets, should this assistant still create draft posts (using AI or stock media) for you to review? Nothing is ever published without your approval.</p>
         </div>
         <button id="toggle-autonomous" type="button" role="switch" aria-checked="false"
           onclick="window._toggleAutonomous()"
@@ -729,11 +808,11 @@
       </div>
       <div id="autonomous-on-msg" class="hidden mt-4 flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
         <svg class="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-        <span>This assistant will generate autonomous posts (text-only or AI-assisted media) when your content hub is empty. Autonomous posts are visually flagged as <strong>"100% AI-Generated"</strong> in your upcoming posts dashboard.</span>
+        <span>When your content hub is empty, this assistant will still prepare <strong>draft posts</strong> (text-only or AI-assisted media) and send them to your <strong>Review Queue</strong> for approval — they are never published on their own. AI-media drafts are flagged <strong>"100% AI-Generated"</strong> so you can spot them at a glance.</span>
       </div>
       <div id="autonomous-off-msg" class="mt-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
         <svg class="w-4 h-4 shrink-0 mt-0.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-        <span>If My Content is empty, this assistant will <strong>pause</strong> for that scheduled slot and send you an in-app notification to upload new media.</span>
+        <span>If My Content is empty, this assistant will <strong>skip</strong> that scheduled slot instead of drafting a post, and send you an in-app notification to upload new media.</span>
       </div>
     </div>
 

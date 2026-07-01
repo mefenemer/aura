@@ -68,6 +68,8 @@ const TYPE_CATEGORY: Record<string, NotificationCategory> = {
     instagram_token_refresh_failed: 'suggested_action', instagram_rate_limited: 'suggested_action',
     integration_alert: 'suggested_action', post_publish_failed: 'suggested_action',
     post_missed: 'suggested_action', post_generation_failed: 'suggested_action',
+    // Empty-Library Draft Fallback (off) — scheduled drafts were skipped; user must upload media.
+    content_library_empty: 'suggested_action',
     risk_assessment_submitted: 'suggested_action', billing_renewal_due: 'suggested_action',
     billing_alert: 'suggested_action', action_rejected: 'suggested_action', action_expired: 'suggested_action',
     // state_change — completed / changed confirmations

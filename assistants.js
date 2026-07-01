@@ -988,6 +988,9 @@ function _detailHydrate(data) {
     // Sales context — feeds the auto-responder objection playbook (P4) and DM drafting.
     _detailSetVal('edit_offerings', ctx.service_offerings || '');
     _detailSetVal('edit_objections', ctx.sales_objections || '');
+    // Reference style link + per-platform hashtag/algorithm strategy (parity with onboarding).
+    _detailSetVal('edit_reference_url', ctx.reference_style_url || '');
+    _hydratePlatformStrategy(data);
     // workflowText is Be More Swan IP — not displayed to the user
 
     // Radios — trigger / source.
@@ -1132,6 +1135,62 @@ function _renderDisclosureHelp(data) {
     }
 }
 
+// Which of fb/ig/li/x this assistant actually uses. Platforms are stored inconsistently across
+// versions — context.primary_platforms as short codes (["fb","ig"]) OR configuration.inputs.platforms
+// as labels ("Facebook (https://…)") — so scan both and match on known tokens.
+function _platformCodes(data) {
+    const ctx = data.context || {};
+    const raw = []
+        .concat(Array.isArray(ctx.primary_platforms) ? ctx.primary_platforms : [])
+        .concat(Array.isArray(data.configuration?.inputs?.platforms) ? data.configuration.inputs.platforms : [])
+        .map(p => String(p).toLowerCase());
+    const codes = new Set();
+    raw.forEach(p => {
+        if (p === 'fb' || p.includes('facebook')) codes.add('fb');
+        if (p === 'ig' || p.includes('instagram')) codes.add('ig');
+        if (p === 'li' || p.includes('linkedin')) codes.add('li');
+        if (p === 'x' || p.includes('twitter') || /(^|\W)x(\W|$)/.test(p)) codes.add('x');
+    });
+    return codes;
+}
+
+// Show a per-platform strategy block only for the platforms in use, and fill it from
+// context.platform_strategy (written by both onboarding and this form).
+function _hydratePlatformStrategy(data) {
+    const codes = _platformCodes(data);
+    const ps = (data.context && typeof data.context.platform_strategy === 'object' && data.context.platform_strategy) || {};
+    const emptyEl = document.getElementById('platform-strategy-empty');
+    if (emptyEl) emptyEl.classList.toggle('hidden', codes.size > 0);
+
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+        const block = document.getElementById(`edit_algo_block_${p}`);
+        if (block) block.classList.toggle('hidden', !codes.has(p));
+        const s = ps[p] || {};
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+        const check = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+        set(`edit_algo_tags_${p}`, s.tags || '');
+        if (p === 'fb') { set('edit_algo_strategy_fb', s.strategy || 'strict_custom'); check('edit_fb_opt_groups', s.groups); }
+        if (p === 'ig') { set('edit_ig_opt_format', s.format || 'mix'); check('edit_ig_opt_audio', s.audio); }
+        if (p === 'li') { check('edit_li_opt_links', s.links_first_comment); check('edit_li_opt_sliders', s.sliders); }
+        if (p === 'x')  { set('edit_x_opt_length', s.length || 'mix'); check('edit_x_opt_media', s.media); }
+    });
+}
+
+// Read the strategy blocks back into a structured object for context.platform_strategy. Only
+// visible (in-use) blocks are read; hidden platforms keep their previously stored strategy so a
+// save never wipes settings for a platform that isn't currently surfaced.
+function _collectPlatformStrategy(prior) {
+    const val = (id) => document.getElementById(id)?.value || '';
+    const on  = (id) => !!document.getElementById(id)?.checked;
+    const visible = (p) => !document.getElementById(`edit_algo_block_${p}`)?.classList.contains('hidden');
+    const out = { ...(prior && typeof prior === 'object' ? prior : {}) };
+    if (visible('fb')) out.fb = { tags: val('edit_algo_tags_fb'), strategy: val('edit_algo_strategy_fb'), groups: on('edit_fb_opt_groups') };
+    if (visible('ig')) out.ig = { tags: val('edit_algo_tags_ig'), format: val('edit_ig_opt_format'), audio: on('edit_ig_opt_audio') };
+    if (visible('li')) out.li = { tags: val('edit_algo_tags_li'), links_first_comment: on('edit_li_opt_links'), sliders: on('edit_li_opt_sliders') };
+    if (visible('x'))  out.x  = { tags: val('edit_algo_tags_x'), length: val('edit_x_opt_length'), media: on('edit_x_opt_media') };
+    return out;
+}
+
 function _detailCollect(currentData) {
     // Platforms are managed via the dynamic platforms tab — preserve existing values
     const platforms = currentData.context?.primary_platforms || [];
@@ -1161,6 +1220,8 @@ function _detailCollect(currentData) {
         content_pillars: _parsePillars(document.getElementById('edit_pillars')?.value),
         service_offerings: document.getElementById('edit_offerings')?.value || '',
         sales_objections: document.getElementById('edit_objections')?.value || '',
+        reference_style_url: document.getElementById('edit_reference_url')?.value || '',
+        platform_strategy: _collectPlatformStrategy(currentData.context?.platform_strategy),
         primary_platforms: platforms,
     };
 
@@ -3561,7 +3622,9 @@ window._submitSafetyFeedback = async function () {
 
 // ── Autonomous Posting Fallback toggle (US5) ─────────────────────
 function _hydrateAutonomousToggle(data) {
-    const isOn = data.configuration?.appliedDefaults?.autonomousFallback === true;
+    // Default ON when unset: the backend gap-fill treats a missing flag as "fallback enabled"
+    // (assistant keeps drafting with AI/stock media), so the switch must reflect that same default.
+    const isOn = data.configuration?.appliedDefaults?.autonomousFallback !== false;
     _applyAutonomousToggleState(isOn);
 }
 
