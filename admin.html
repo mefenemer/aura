@@ -1506,8 +1506,8 @@
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5" onclick="event.stopPropagation()">
             <div class="flex items-center justify-between">
               <div>
-                <h3 class="text-base font-extrabold text-gray-900">AI Auto-Fix Runner</h3>
-                <p class="text-xs text-gray-500 mt-0.5">The runner is a local process on your developer machine.</p>
+                <h3 class="text-base font-extrabold text-gray-900">AI Auto-Fix Runners</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Each runner is a local process on a developer machine. Start several — they share the queue and never grab the same issue.</p>
               </div>
               <button onclick="closeRunnerModal()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
             </div>
@@ -1526,6 +1526,7 @@
               <p class="font-bold">Required env vars (set in <code class="bg-amber-100 px-1 rounded">scripts/.env</code> or your shell)</p>
               <p><code class="font-mono">AURA_BASE_URL</code> — staging URL, e.g. <code class="font-mono">https://staging--bemoreswan.netlify.app</code></p>
               <p><code class="font-mono">DEV_HANDOFF_TOKEN</code> — must match the Netlify env var of the same name</p>
+              <p><code class="font-mono">RUNNER_ID</code> <span class="text-amber-700/70">(optional)</span> — a name for this runner shown against the issue it's fixing; defaults to <code class="font-mono">host:pid</code></p>
             </div>
 
             <button onclick="closeRunnerModal()" class="w-full py-2.5 text-sm font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition">Close</button>
@@ -3421,6 +3422,36 @@ function _irHandoffBadge(i) {
 }
 function _irFmt(d) { return d ? new Date(d).toLocaleString() : ''; }
 
+// ── Runner attribution ───────────────────────────────────────────────────────
+// Several runners can drain the AI auto-fix queue at once. When one has claimed an
+// issue (a fix or a merge), devRunnerId/devRunnerHeartbeat tell us who and since when.
+const IR_RUNNER_STALL_MS = 15 * 60 * 1000; // a fix normally finishes in minutes
+function _irRunnerActive(i) {
+  return !!i.devRunnerId && (i.devHandoffStatus === 'in_progress' || i.devMergeStatus === 'merging');
+}
+function _irRunnerElapsed(i) {
+  if (!i.devRunnerHeartbeat) return '';
+  const mins = Math.floor((Date.now() - new Date(i.devRunnerHeartbeat).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+function _irRunnerStalled(i) {
+  return !!i.devRunnerHeartbeat && (Date.now() - new Date(i.devRunnerHeartbeat).getTime()) > IR_RUNNER_STALL_MS;
+}
+// Small chip for the list: which runner holds this issue, and for how long. Turns red
+// once the claim has outlived a normal fix — a hint the runner may have died.
+function _irRunnerChip(i) {
+  if (!_irRunnerActive(i)) return '';
+  const stalled = _irRunnerStalled(i);
+  const el = _irRunnerElapsed(i);
+  const cls = stalled ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700';
+  const title = stalled
+    ? 'This runner has been working far longer than a normal fix — it may have stopped. Re-queue the issue with “Pass to Developer”.'
+    : 'Runner currently working this issue';
+  return `<span title="${title}" class="text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}">🖥 ${_esc(i.devRunnerId)}${el ? ` · ${el}` : ''}${stalled ? ' ⚠' : ''}</span>`;
+}
+
 async function loadIssueReports() {
   const tbody = document.getElementById('ir-tbody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="px-5 py-8 text-center text-gray-400 animate-pulse">Loading…</td></tr>';
@@ -3442,7 +3473,7 @@ async function loadIssueReports() {
         <td class="px-5 py-3 max-w-xs truncate" title="${(i.description||'').replace(/"/g,'&quot;')}">${i.description || ''}${i.hasImage ? ' 📎' : ''}</td>
         <td class="px-5 py-3 text-xs text-gray-500">${i.reporterEmail || i.reporterName || ''}</td>
         <td class="px-5 py-3 text-xs text-gray-500">${i.sourceLocation || '—'}</td>
-        <td class="px-5 py-3"><div class="flex items-center gap-1.5 flex-wrap">${_irBadge(i.status)}${_irHandoffBadge(i)}</div></td>
+        <td class="px-5 py-3"><div class="flex items-center gap-1.5 flex-wrap">${_irBadge(i.status)}${_irHandoffBadge(i)}${_irRunnerChip(i)}</div></td>
         <td class="px-5 py-3 text-xs text-gray-400">${_irFmt(i.createdAt)}</td>
         <td class="px-5 py-3"><button onclick="openIssuePanel(${i.id})" class="text-xs text-emerald-600 font-semibold hover:underline">Manage →</button></td>
       </tr>`).join('') || '<tr><td colspan="7" class="px-5 py-8 text-center text-gray-400">No issues found.</td></tr>';
@@ -3583,7 +3614,15 @@ function _irHandoffCard(i) {
   if (s === 'queued') {
     inner = `<div class="flex items-center gap-2 text-sm font-semibold text-violet-700"><span class="animate-pulse">●</span> Queued for AI auto-fix… a developer runner will pick this up.</div>`;
   } else if (s === 'in_progress') {
-    inner = `<div class="flex items-center gap-2 text-sm font-semibold text-violet-700"><span class="animate-pulse">●</span> The AI developer is working on a fix…</div>`;
+    const stalled = _irRunnerStalled(i);
+    const who = i.devRunnerId
+      ? `<div class="text-xs ${stalled ? 'text-red-700' : 'text-violet-600'}">🖥 Runner <b>${_esc(i.devRunnerId)}</b> · working for ${_irRunnerElapsed(i) || 'a moment'}</div>` : '';
+    const stall = stalled
+      ? `<div class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">⚠ This is far longer than a normal fix — the runner may have stopped. Re-queue with “Pass to Developer”.</div>${passBtn('Re-queue for another runner')}` : '';
+    inner = `<div class="space-y-2">
+        <div class="flex items-center gap-2 text-sm font-semibold text-violet-700"><span class="animate-pulse">●</span> The AI developer is working on a fix…</div>
+        ${who}${stall}
+      </div>`;
   } else if (s === 'completed') {
     inner = `<div class="space-y-2">
         <div class="flex items-center gap-2 text-sm font-semibold text-emerald-700">✅ AI auto-fix completed.</div>
@@ -3638,13 +3677,23 @@ function _updateRunnerQueueStatus() {
     .then(d => {
       const issues = d.issues || [];
       const queued = issues.filter(i => i.devHandoffStatus === 'queued').length;
-      const inProg = issues.filter(i => i.devHandoffStatus === 'in_progress').length;
+      const active = issues.filter(_irRunnerActive);
+      const inProg = active.length;
+      // One line per distinct runner that's currently holding an issue.
+      const byRunner = {};
+      active.forEach(i => { (byRunner[i.devRunnerId] = byRunner[i.devRunnerId] || []).push(i); });
+      const runnerLines = Object.keys(byRunner).sort().map(rid => {
+        const list = byRunner[rid];
+        const ids = list.map(i => `#${i.id}`).join(', ');
+        const stalled = list.some(_irRunnerStalled);
+        return `<div class="flex items-center gap-1.5 mt-1${stalled ? ' text-red-700' : ''}">🖥 <b>${_esc(rid)}</b> — ${ids}${stalled ? ' ⚠ possibly stalled' : ''}</div>`;
+      }).join('');
       if (queued > 0) {
         el.className = 'rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800';
-        el.innerHTML = `<span class="font-bold">⚠️ ${queued} issue${queued > 1 ? 's' : ''} queued</span> — waiting for the runner to pick ${queued > 1 ? 'them' : 'it'} up. Start the runner below to process ${queued > 1 ? 'them' : 'it'}.`;
+        el.innerHTML = `<span class="font-bold">⚠️ ${queued} issue${queued > 1 ? 's' : ''} queued</span> — waiting for a runner to pick ${queued > 1 ? 'them' : 'it'} up. Start a runner below to process ${queued > 1 ? 'them' : 'it'}.${runnerLines ? `<div class="mt-2 pt-2 border-t border-amber-200/60 text-xs">Currently working:${runnerLines}</div>` : ''}`;
       } else if (inProg > 0) {
         el.className = 'rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-800';
-        el.innerHTML = `<span class="animate-pulse font-bold">●</span> <span class="font-bold">${inProg} issue${inProg > 1 ? 's' : ''} in progress</span> — the runner has claimed ${inProg > 1 ? 'them' : 'it'} and is working on a fix.`;
+        el.innerHTML = `<span class="animate-pulse font-bold">●</span> <span class="font-bold">${inProg} issue${inProg > 1 ? 's' : ''} in progress</span> across ${Object.keys(byRunner).length} runner${Object.keys(byRunner).length > 1 ? 's' : ''}.<div class="mt-1 text-xs">${runnerLines}</div>`;
       } else {
         el.className = 'rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800';
         el.innerHTML = `<span class="font-bold">✓ No issues queued</span> — nothing waiting for the runner right now.`;
@@ -3774,7 +3823,8 @@ function _irMergeCard(i) {
     inner = `<div class="flex items-center gap-2 text-sm font-semibold text-indigo-700"><span class="animate-pulse">●</span> Merge requested — the developer runner will merge this within ~15s…</div>${prLink}`;
   } else if (ms === 'merging') {
     chip = ['bg-indigo-100 text-indigo-700', 'Merging…'];
-    inner = `<div class="flex items-center gap-2 text-sm font-semibold text-indigo-700"><span class="animate-pulse">●</span> Merging to staging…</div>${prLink}`;
+    const who = i.devRunnerId ? `<div class="text-xs text-indigo-600">🖥 Runner <b>${_esc(i.devRunnerId)}</b> is merging${_irRunnerElapsed(i) ? ` · ${_irRunnerElapsed(i)}` : ''}</div>` : '';
+    inner = `<div class="flex items-center gap-2 text-sm font-semibold text-indigo-700"><span class="animate-pulse">●</span> Merging to staging…</div>${who}${prLink}`;
   } else if (ms === 'merged') {
     chip = ['bg-emerald-100 text-emerald-700', 'Merged ✓'];
     inner = `<div class="flex items-center gap-2 text-sm font-semibold text-emerald-700">✅ Merged to staging${i.devMergedAt ? ` · ${_irFmt(i.devMergedAt)}` : ''}.</div>${prLink}${resultBlock}`;

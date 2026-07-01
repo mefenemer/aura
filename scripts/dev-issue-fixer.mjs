@@ -35,7 +35,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, hostname } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -46,6 +46,10 @@ const BASE_BRANCH = process.env.BASE_BRANCH || 'staging';
 const POLL_MS = Number(process.env.POLL_INTERVAL_MS || 15000);
 const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
 const ONCE = process.env.ONCE === '1';
+// A human-readable identity for this runner, sent on every claim so the admin portal can
+// show which of several concurrent runners is working which issue. Override with RUNNER_ID
+// (e.g. "alice-laptop") when the default host:pid isn't distinctive enough.
+const RUNNER_ID = (process.env.RUNNER_ID || `${hostname()}:${process.pid}`).slice(0, 120);
 
 const ENDPOINT = `${BASE_URL}/.netlify/functions/admin-issue-handoff`;
 
@@ -103,7 +107,7 @@ async function apiFetch(url, init = {}, { tries = 3, label = 'request' } = {}) {
 
 async function claimNext() {
   const res = await apiFetch(`${ENDPOINT}?action=claim`, {
-    headers: { 'x-handoff-token': TOKEN },
+    headers: { 'x-handoff-token': TOKEN, 'x-runner-id': RUNNER_ID },
   }, { label: 'claim' });
   if (!res.ok) throw new Error(`claim failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
@@ -122,7 +126,7 @@ async function report(id, payload) {
 
 async function claimMerge() {
   const res = await apiFetch(`${ENDPOINT}?action=claim-merge`, {
-    headers: { 'x-handoff-token': TOKEN },
+    headers: { 'x-handoff-token': TOKEN, 'x-runner-id': RUNNER_ID },
   }, { label: 'claim-merge' });
   if (!res.ok) throw new Error(`claim-merge failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
@@ -278,7 +282,7 @@ async function processMerge(job) {
 
 async function main() {
   log(`dev-issue-fixer watching ${ENDPOINT}`);
-  log(`repo=${REPO} base=${BASE_BRANCH} poll=${POLL_MS}ms${ONCE ? ' once' : ''}`);
+  log(`runner=${RUNNER_ID} repo=${REPO} base=${BASE_BRANCH} poll=${POLL_MS}ms${ONCE ? ' once' : ''}`);
   let stop = false;
   process.on('SIGINT', () => { log('shutting down…'); stop = true; });
 

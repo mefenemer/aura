@@ -31,6 +31,15 @@ const json = (statusCode: number, body: unknown) => ({
     body: JSON.stringify(body),
 });
 
+// Identity the runner sends about itself (default in the script is `${hostname}:${pid}`).
+// Purely informational — it's shown in the admin portal so you can tell which of several
+// concurrent runners is working which issue. Bounded so a rogue value can't bloat the row.
+function runnerId(event: any): string | null {
+    const h = event.headers || {};
+    const v = (h['x-runner-id'] || h['X-Runner-Id'] || '').toString().trim();
+    return v ? v.slice(0, 120) : null;
+}
+
 function authOk(event: any): boolean {
     const expected = process.env.DEV_HANDOFF_TOKEN;
     if (!expected) return false; // disabled
@@ -62,9 +71,10 @@ export const handler: Handler = async (event) => {
             .limit(1);
         if (!next) return json(200, { issue: null });
 
-        // Compare-and-swap so two runners can't grab the same issue.
+        // Compare-and-swap so two runners can't grab the same issue. The winner stamps its
+        // identity + a claim timestamp so the admin portal can show who's fixing what.
         const claimed = await db.update(issueReports)
-            .set({ devHandoffStatus: 'in_progress', updatedAt: new Date() })
+            .set({ devHandoffStatus: 'in_progress', devRunnerId: runnerId(event), devRunnerHeartbeat: new Date(), updatedAt: new Date() })
             .where(and(eq(issueReports.id, next.id), eq(issueReports.devHandoffStatus, 'queued')))
             .returning({ id: issueReports.id });
         if (claimed.length === 0) return json(200, { issue: null }); // lost the race; runner will poll again
@@ -103,7 +113,7 @@ export const handler: Handler = async (event) => {
         if (!next) return json(200, { issue: null });
 
         const claimed = await db.update(issueReports)
-            .set({ devMergeStatus: 'merging', updatedAt: new Date() })
+            .set({ devMergeStatus: 'merging', devRunnerId: runnerId(event), devRunnerHeartbeat: new Date(), updatedAt: new Date() })
             .where(and(eq(issueReports.id, next.id), eq(issueReports.devMergeStatus, 'queued')))
             .returning({ id: issueReports.id });
         if (claimed.length === 0) return json(200, { issue: null }); // lost the race
@@ -128,6 +138,8 @@ export const handler: Handler = async (event) => {
                 devMergeStatus: 'merged',
                 devMergedAt: new Date(),
                 devMergeResult: outcome || 'Merged to staging.',
+                devRunnerId: null,
+                devRunnerHeartbeat: null,
                 updatedAt: new Date(),
             }).where(eq(issueReports.id, id));
 
@@ -148,6 +160,8 @@ export const handler: Handler = async (event) => {
         await db.update(issueReports).set({
             devMergeStatus: 'failed',
             devMergeResult: outcome || 'The merge could not be completed.',
+            devRunnerId: null,
+            devRunnerHeartbeat: null,
             updatedAt: new Date(),
         }).where(eq(issueReports.id, id));
 
@@ -195,6 +209,8 @@ export const handler: Handler = async (event) => {
                 devMergeStatus: 'ready',
                 devMergedAt: null,
                 devMergeResult: null,
+                devRunnerId: null,
+                devRunnerHeartbeat: null,
                 status: 'fix_in_progress',
                 updatedAt: new Date(),
             }).where(eq(issueReports.id, id));
@@ -224,6 +240,8 @@ export const handler: Handler = async (event) => {
         await db.update(issueReports).set({
             devHandoffStatus: 'failed',
             devResult: summary || 'The AI runner could not produce a fix.',
+            devRunnerId: null,
+            devRunnerHeartbeat: null,
             updatedAt: new Date(),
         }).where(eq(issueReports.id, id));
 

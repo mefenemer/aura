@@ -103,6 +103,20 @@ ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_branch         TEXT;
 ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_pr_url         TEXT;
 ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_result         TEXT;
 
+-- ── Which runner is working this issue ───────────────────────────────────────
+-- Several runners (scripts/dev-issue-fixer.mjs) can drain the queue at once — the
+-- claim is a compare-and-swap so they never grab the same issue. These two columns
+-- let the admin portal show WHO is fixing WHAT:
+--   dev_runner_id        — identity of the runner that currently holds this issue
+--                          (a fix claim OR a merge claim); e.g. "mac-studio:48213".
+--                          Stamped on claim, cleared when the runner reports a result.
+--   dev_runner_heartbeat — when that runner claimed the issue ("working since"). The
+--                          fix runs Claude synchronously so there's no mid-fix ping;
+--                          a claim far older than a normal fix flags a dead/stalled
+--                          runner in the UI so the issue can be re-queued.
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_runner_id        TEXT;
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_runner_heartbeat TIMESTAMP;
+
 -- When a fix needs a database migration, the runner returns the (idempotent) SQL here
 -- instead of moving the issue straight to "Fixed & Ready to Test". A super-admin reviews
 -- and runs it against the staging Neon DB from inside the ticket; only a successful run

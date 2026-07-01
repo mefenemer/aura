@@ -1080,6 +1080,12 @@ export const issueReports = pgTable("issue_reports", {
   devPrUrl: text("dev_pr_url"),              // PR opened by the runner
   devResult: text("dev_result"),             // AI summary of the fix (or failure reason)
 
+  // Which runner currently holds this issue (fix or merge claim), and when it claimed it.
+  // Multiple runners drain the queue concurrently; these let the admin portal show who is
+  // working what, and flag a claim that's outlived a normal fix as a possibly-dead runner.
+  devRunnerId: text("dev_runner_id"),
+  devRunnerHeartbeat: timestamp("dev_runner_heartbeat"),
+
   // DB migration the fix needs, run from the ticket against staging Neon (see SQL file).
   devSql: text("dev_sql"),                   // idempotent SQL the AI proposed
   devSqlStatus: text("dev_sql_status"),      // null | 'pending' | 'applied' | 'failed'
