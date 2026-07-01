@@ -2397,7 +2397,12 @@ const RULE_CATEGORIES = [
 const RULE_CATEGORY_TITLES = Object.fromEntries(RULE_CATEGORIES.map(c => [c.id, c.title]));
 // Map rule categories to jargon-explainer slugs (see explainers.js GLOSSARY).
 // Only categories with a glossary entry get a ⓘ; others are left plain.
-const RULE_CATEGORY_EXPLAIN = { tone_of_voice: 'tone-of-voice', target_audience: 'target-audience' };
+const RULE_CATEGORY_EXPLAIN = {
+    tone_of_voice: 'tone-of-voice',
+    response_formatting: 'response-formatting',
+    core_knowledge: 'core-business-facts',
+    target_audience: 'target-audience',
+};
 
 let _rulesAssistantId = null;
 const RULES_API = '/.netlify/functions/content-rules';

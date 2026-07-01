@@ -240,6 +240,18 @@
       emoji: '✅',
       plain: "Your inbox of posts the assistant has drafted and is waiting on your thumbs-up. Nothing goes live without you — skim, tweak if needed, and approve.",
       example: 'e.g. "5 posts ready for Monday — approve the batch in one click."'
+    },
+    'response-formatting': {
+      term: 'Response Formatting',
+      emoji: '📝',
+      plain: "How your assistant lays out what it writes — short paragraphs or long ones, emoji or none, bullet points or plain prose. This is the shape of the message, separate from the tone.",
+      example: 'e.g. "Always use short paragraphs; never use technical jargon."'
+    },
+    'core-business-facts': {
+      term: 'Core Business Facts',
+      emoji: '📌',
+      plain: "The must-get-right details about your business that your assistant should always have straight — what you sell, when you launched, prices, hours. Get these wrong once and it looks careless.",
+      example: 'e.g. "Our flagship service is X, launched in 2024."'
     }
   };
 
