@@ -1655,6 +1655,10 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         await loadActivity('1d');
     }
 
+    // ── Impact & ROI metrics card — fire immediately so it appears at the top of
+    // Overview without waiting behind connections/integrations/goals fetches ──────
+    _fetchAndRenderAssistantMetrics(assistantId);
+
     // ── Performance Metrics (post_insights aggregation) ───────────
     await _loadAssistantMetrics(assistantId);
 
