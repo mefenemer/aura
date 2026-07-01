@@ -9,10 +9,11 @@
 // generation queue so the user always has content N days ahead.
 
 import { Handler } from '@netlify/functions';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants, masterAssistants } from '../../db/schema';
 import { enqueueScheduleGapFill } from '../../src/utils/schedule-gap-fill';
+import { SMM_ROLE_KEYS } from '../../src/constants/roles';
 
 export const handler: Handler = async (event) => {
     // Allow both scheduled invocations and manual POST for testing
@@ -37,7 +38,7 @@ export const handler: Handler = async (event) => {
         .innerJoin(masterAssistants, eq(aiAssistants.masterAssistantId, masterAssistants.id))
         .where(and(
             eq(aiAssistants.isActive, true),
-            eq(masterAssistants.roleKey, 'social_media_manager'),
+            inArray(masterAssistants.roleKey, SMM_ROLE_KEYS),
         ));
 
     const now = new Date();
