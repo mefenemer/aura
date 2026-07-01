@@ -3214,7 +3214,7 @@ function _applyMediaSourcesUi() {
           ${badge}
           ${arrows}
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-bold ${on ? 'text-gray-900' : 'text-gray-500'}">${meta.label}</p>
+            <p class="text-sm font-bold ${on ? 'text-gray-900' : 'text-gray-500'} inline-flex items-center" data-explain="media-source-${src}">${meta.label}</p>
             <p class="text-xs text-gray-400">${meta.desc}</p>
           </div>
           <button type="button" role="switch" aria-checked="${on}" aria-label="${on ? 'Disable' : 'Enable'} ${meta.label}"

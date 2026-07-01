@@ -252,6 +252,21 @@
       emoji: '📌',
       plain: "The must-get-right details about your business that your assistant should always have straight — what you sell, when you launched, prices, hours. Get these wrong once and it looks careless.",
       example: 'e.g. "Our flagship service is X, launched in 2024."'
+    },
+    'media-source-manual': {
+      term: 'Manual Upload',
+      emoji: '📤',
+      plain: "Free — pulls from photos and videos you've already uploaded to your content library. This never uses your AI credits.",
+    },
+    'media-source-stock': {
+      term: 'AI Stock Search',
+      emoji: '🔍',
+      plain: "Free — searches Pexels for a ready-made stock photo or video that fits the post. This never uses your AI credits.",
+    },
+    'media-source-ai': {
+      term: 'AI Generation',
+      emoji: '🎨',
+      plain: "Uses your AI credits — a generated image typically costs 1 credit and a generated video costs 5 credits. You'll be notified of how many credits you have left, and unused credits roll over month to month.",
     }
   };
 
