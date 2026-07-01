@@ -185,3 +185,45 @@ BEGIN
              OR dev_merge_status IN ('ready', 'queued', 'merging', 'merged', 'failed'));
   END IF;
 END $$;
+
+-- ── AI auto-fix runner health / session-limit recovery ───────────────────────
+-- The "Pass to Developer" runner (scripts/dev-issue-fixer.mjs) fixes issues by shelling out
+-- to the Claude Code CLI on a developer machine. That CLI has its own usage/session limit —
+-- when it's exhausted the runner can't produce ANY fix, so re-queueing an issue just fails
+-- again immediately. This table lets a runner report that block, park itself, and be resumed
+-- from the admin portal once a Claude account with credit is logged in on the runner machine.
+--
+--   state: 'ok'              → runner healthy / working normally
+--          'session_limited' → CLI hit its limit; runner has paused and stopped claiming
+--
+-- On a block the runner re-queues the issue it was on (dev_handoff_status → 'queued') and
+-- records it as blocked_issue_id. A super-admin logs into a funded Claude account on the
+-- runner machine and presses "Resume" (sets resume_requested = true); the runner verifies the
+-- new login with a cheap probe call and, only on success, flips back to 'ok' and resumes —
+-- the re-queued issue is then re-claimed automatically. No Claude credential is ever stored
+-- here; this row only coordinates the human-in-the-loop re-login.
+--
+-- Idempotent: safe to re-run. Apply manually as the DB owner (no drizzle-kit push).
+CREATE TABLE IF NOT EXISTS dev_runner_status (
+  runner_id         TEXT PRIMARY KEY,                 -- matches scripts/dev-issue-fixer.mjs RUNNER_ID (default host:pid)
+  state             TEXT NOT NULL DEFAULT 'ok',       -- 'ok' | 'session_limited'
+  message           TEXT,                             -- raw CLI error text
+  reset_hint        TEXT,                             -- parsed reset time for display, e.g. '12:30pm (Europe/London)'
+  blocked_issue_id  INTEGER REFERENCES issue_reports(id) ON DELETE SET NULL,
+  resume_requested  BOOLEAN NOT NULL DEFAULT false,   -- admin pressed "Resume" after re-logging in
+  last_probe_result TEXT,                             -- outcome of the last verification probe after a Resume
+  blocked_at        TIMESTAMP,
+  last_seen_at      TIMESTAMP NOT NULL DEFAULT now(), -- updated on every runner poll (liveness)
+  updated_at        TIMESTAMP NOT NULL DEFAULT now()
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'dev_runner_status_state_check'
+  ) THEN
+    ALTER TABLE dev_runner_status
+      ADD CONSTRAINT dev_runner_status_state_check
+      CHECK (state IN ('ok', 'session_limited'));
+  END IF;
+END $$;

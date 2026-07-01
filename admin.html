@@ -1501,6 +1501,9 @@
           </div>
         </div>
 
+        <!-- Runner paused (Claude session limit) alert — populated by loadRunnerStatus() -->
+        <div id="ir-runner-alert" class="hidden mb-5 space-y-3"></div>
+
         <!-- Runner modal -->
         <div id="ir-runner-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5" onclick="event.stopPropagation()">
@@ -3467,6 +3470,7 @@ async function loadIssueReports() {
 
     const issues = d.issues || [];
     _updateRunnerBtnBadge(issues);
+    loadRunnerStatus();
     if (tbody) tbody.innerHTML = issues.map(i => `
       <tr class="border-t border-gray-50 hover:bg-gray-50 transition">
         <td class="px-5 py-3 font-mono text-xs text-gray-500">#${i.id}</td>
@@ -3490,6 +3494,9 @@ async function openIssuePanel(id) {
   body.innerHTML = '<div class="text-gray-400 animate-pulse">Loading…</div>';
   try {
     const d = await api(`${IR_API}?id=${id}`);
+    // Refresh runner-blocked state so the handoff buttons render disabled if a runner is
+    // paused (the panel covers the Resume banner, so re-queuing here would just re-fail).
+    await loadRunnerStatus();
     const i = d.issue;
     document.getElementById('ir-panel-title').textContent = `Issue #${i.id}`;
     const messages = (d.messages || []).map(m => `
@@ -3601,8 +3608,12 @@ async function submitIssueDescription(id) {
 function _esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function _irHandoffCard(i) {
   const s = i.devHandoffStatus || null;
-  const passBtn = (label) =>
-    `<button onclick="passToDeveloper(${i.id})" class="w-full px-4 py-2.5 bg-violet-600 text-white text-sm font-bold rounded-lg hover:bg-violet-700 transition flex items-center justify-center gap-2">
+  const passBtn = (label) => _irRunnerBlocked
+    ? `<div class="w-full px-4 py-2.5 bg-violet-100 text-violet-400 text-sm font-bold rounded-lg flex items-center justify-center gap-2 cursor-not-allowed select-none" aria-disabled="true">
+         <span>🤖</span> ${label}
+       </div>
+       <p class="text-xs text-amber-700 mt-1.5">⏸️ The AI developer runner is paused (Claude session limit). Close this panel and use the <b>“Resume runner”</b> banner at the top of the Issues list, then try again.</p>`
+    : `<button onclick="passToDeveloper(${i.id})" class="w-full px-4 py-2.5 bg-violet-600 text-white text-sm font-bold rounded-lg hover:bg-violet-700 transition flex items-center justify-center gap-2">
        <span>🤖</span> ${label}
      </button>`;
   const resultBlock = i.devResult
@@ -3730,6 +3741,76 @@ function _updateRunnerBtnBadge(issues) {
     btn.classList.remove('border-amber-400', 'bg-amber-50', 'text-amber-800');
     btn.classList.add('border-violet-300', 'bg-violet-50', 'text-violet-700');
   }
+}
+
+// ── Runner session-limit recovery ────────────────────────────────────────────
+// When a runner's Claude account hits its usage limit the runner pauses and reports it.
+// Show a prominent banner with the reset time and a Resume button: the admin logs into a
+// funded Claude account ON THE RUNNER MACHINE, presses Resume, and the runner verifies the
+// new login and continues. Re-queued issues are then picked up automatically.
+let _irRunnerStatusTimer = null;
+// True while any runner is paused (session limit). Consumed by _irHandoffCard so the
+// "Pass to Developer" / "Try again" buttons disable and point at the Resume banner —
+// the open detail panel covers the banner, so re-queuing from here would just re-fail.
+let _irRunnerBlocked = false;
+async function loadRunnerStatus() {
+  const el = document.getElementById('ir-runner-alert');
+  if (!el) return;
+  let blocked = [];
+  try {
+    const d = await api(`${IR_API}?action=runner-status`);
+    blocked = d.blocked || [];
+  } catch { blocked = []; }
+  _irRunnerBlocked = blocked.length > 0;
+
+  if (!blocked.length) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    if (_irRunnerStatusTimer) { clearInterval(_irRunnerStatusTimer); _irRunnerStatusTimer = null; }
+    return;
+  }
+
+  const canResume = (typeof _adminRole !== 'undefined') && _adminRole === 'super_admin';
+  el.classList.remove('hidden');
+  el.innerHTML = blocked.map(r => {
+    const reset = r.resetHint ? ` — resets <b>${_esc(r.resetHint)}</b>` : '';
+    const probe = r.lastProbeResult
+      ? `<div class="mt-2 text-xs text-amber-900/80 bg-amber-100/60 rounded-lg p-2">Last resume attempt: ${_esc(r.lastProbeResult)}</div>` : '';
+    const action = r.resumeRequested
+      ? `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700"><span class="animate-pulse">●</span> verifying the new login on the runner…</span>`
+      : (canResume
+          ? `<button onclick="resumeRunner('${_esc(r.runnerId)}', this)" class="px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition">I've logged in — Resume runner</button>`
+          : `<span class="text-xs text-amber-700 font-semibold">A super-admin must resume the runner.</span>`);
+    return `<div class="border border-amber-300 bg-amber-50 rounded-xl p-4">
+      <div class="flex items-start gap-3">
+        <span class="text-xl leading-none">⏸️</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold text-amber-900">AI auto-fix runner paused — Claude session limit${reset}</p>
+          <p class="text-xs text-amber-800 mt-1">Runner <b class="font-mono">${_esc(r.runnerId)}</b> ran out of Claude usage. On the runner machine, log into a Claude account with credit (run <code class="font-mono bg-amber-100 px-1 rounded">claude</code> then <code class="font-mono bg-amber-100 px-1 rounded">/login</code>), then press Resume. Queued issues are retried automatically once it resumes — you don't need to re-submit them.</p>
+          ${probe}
+          <div class="mt-3">${action}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // While something is blocked, refresh so "verifying…" clears and the probe result appears
+  // without a manual reload. Cleared once nothing is blocked (above).
+  if (!_irRunnerStatusTimer) _irRunnerStatusTimer = setInterval(loadRunnerStatus, 5000);
+}
+
+async function resumeRunner(runnerId, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Requesting…'; }
+  try {
+    const d = await api(`${IR_API}?action=resume-runner`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ runnerId }),
+    });
+    if (!d.resumed) alert(d.message || 'No paused runner to resume — check the runner process is running.');
+  } catch (e) {
+    alert(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "I've logged in — Resume runner"; }
+  } finally { await loadRunnerStatus(); }
 }
 
 async function passToDeveloper(id) {

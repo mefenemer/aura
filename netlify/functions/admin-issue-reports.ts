@@ -15,7 +15,7 @@ import jwt from 'jsonwebtoken';
 import postgres from 'postgres';
 import { and, eq, desc, asc, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { issueReports, issueReportMessages, users } from '../../db/schema';
+import { issueReports, issueReportMessages, users, devRunnerStatus } from '../../db/schema';
 import { isAdminRole, hasPermission } from '../../src/utils/rbac';
 import { ISSUE_STATUS_LABEL, isIssueStatus, notifyIssueUser, maybeAdvanceToReadyToTest, type IssueStatus } from '../../src/utils/issue-reports';
 import { createRoadmapItemFromIssue, isRoadmapPriority, type RoadmapPriority } from '../../src/utils/feature-roadmap';
@@ -161,6 +161,53 @@ export const handler: Handler = async (event) => {
         });
 
         return json(200, { ok: true, devMergeStatus: 'queued' });
+    }
+
+    // ── GET ?action=runner-status: AI auto-fix runner health ─────────────────────
+    // Powers the "runner paused — Claude session limit" prompt + Resume button. Returns every
+    // runner's current state so the portal can surface a block and show how to recover it.
+    if (event.httpMethod === 'GET' && action === 'runner-status') {
+        const rows = await db.select().from(devRunnerStatus).orderBy(desc(devRunnerStatus.updatedAt));
+        const runners = rows.map((r) => ({
+            runnerId: r.runnerId,
+            state: r.state,
+            message: r.message,
+            resetHint: r.resetHint,
+            blockedIssueId: r.blockedIssueId,
+            resumeRequested: r.resumeRequested,
+            lastProbeResult: r.lastProbeResult,
+            blockedAt: r.blockedAt,
+            lastSeenAt: r.lastSeenAt,
+        }));
+        return json(200, { runners, blocked: runners.filter((r) => r.state === 'session_limited') });
+    }
+
+    // ── POST ?action=resume-runner: ask a paused runner to re-verify + resume ─────
+    // Super-admin only. The admin logs into a funded Claude account ON THE RUNNER MACHINE, then
+    // presses Resume. This only flags resume_requested — the runner (the sole thing that can
+    // reach the CLI) verifies the new login with a probe and flips itself back to 'ok'. Optionally
+    // scope to one runnerId; default resumes every currently-blocked runner.
+    if (event.httpMethod === 'POST' && action === 'resume-runner') {
+        if (admin.role !== 'super_admin') {
+            return json(403, { error: 'Resuming the runner requires super-admin privilege.' });
+        }
+        let body: any = {};
+        try { body = JSON.parse(event.body || '{}'); } catch { /* empty body is fine */ }
+        const rid = typeof body.runnerId === 'string' && body.runnerId.trim() ? body.runnerId.trim() : null;
+
+        const whereBlocked = rid
+            ? and(eq(devRunnerStatus.runnerId, rid), eq(devRunnerStatus.state, 'session_limited'))
+            : eq(devRunnerStatus.state, 'session_limited');
+
+        const updated = await db.update(devRunnerStatus)
+            .set({ resumeRequested: true, lastProbeResult: null, updatedAt: new Date() })
+            .where(whereBlocked)
+            .returning({ runnerId: devRunnerStatus.runnerId });
+
+        if (updated.length === 0) {
+            return json(200, { ok: true, resumed: 0, message: 'No paused runner to resume. Make sure the runner process is running and has reported a session limit.' });
+        }
+        return json(200, { ok: true, resumed: updated.length, runners: updated.map((u) => u.runnerId) });
     }
 
     // ── GET single issue (with thread + screenshot) ──────────────────────────────

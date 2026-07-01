@@ -52,6 +52,15 @@ const ONCE = process.env.ONCE === '1';
 const RUNNER_ID = (process.env.RUNNER_ID || `${hostname()}:${process.pid}`).slice(0, 120);
 
 const ENDPOINT = `${BASE_URL}/.netlify/functions/admin-issue-handoff`;
+// Idle cadence while paused on a session limit, waiting for the admin to press "Resume runner".
+const RESUME_POLL_MS = Number(process.env.RESUME_POLL_INTERVAL_MS || 10000);
+// The Claude Code CLI prints one of these when the account's usage/session limit is exhausted.
+const SESSION_LIMIT_RE = /session limit|usage limit|hit your (?:usage|session|rate) limit|rate limit/i;
+
+// Shared control flags. `stopping` is set on SIGINT (main + resume-wait loops watch it);
+// `paused` is set when a fix hits a Claude session limit so main pauses instead of claiming more.
+let stopping = false;
+let paused = false;
 
 if (!BASE_URL || !TOKEN) {
   console.error('✖ AURA_BASE_URL and DEV_HANDOFF_TOKEN are required.');
@@ -143,6 +152,39 @@ async function reportMerge(id, payload) {
   return res.json();
 }
 
+// ── Session-limit block / resume protocol ────────────────────────────────────
+// Tell the portal this runner is rate-limited (it re-queues the issue + prompts the admin).
+async function reportBlocked(id, payload) {
+  const res = await apiFetch(`${ENDPOINT}?action=report-blocked&id=${id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-handoff-token': TOKEN, 'x-runner-id': RUNNER_ID },
+    body: JSON.stringify(payload),
+  }, { label: 'report-blocked' });
+  if (!res.ok) throw new Error(`report-blocked failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+// While paused, poll whether an admin has pressed "Resume runner". Doubles as a liveness ping.
+async function checkResume() {
+  const res = await apiFetch(`${ENDPOINT}?action=resume-check`, {
+    headers: { 'x-handoff-token': TOKEN, 'x-runner-id': RUNNER_ID },
+  }, { label: 'resume-check' });
+  if (!res.ok) throw new Error(`resume-check failed: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return data.resume === true;
+}
+
+// Report the result of the post-Resume login probe: ok:true clears the block server-side.
+async function ackResume(ok, message) {
+  const res = await apiFetch(`${ENDPOINT}?action=resume-ack`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-handoff-token': TOKEN, 'x-runner-id': RUNNER_ID },
+    body: JSON.stringify({ ok, message }),
+  }, { label: 'resume-ack' });
+  if (!res.ok) throw new Error(`resume-ack failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
 const SQL_START = '---SQL-MIGRATION-START---';
 const SQL_END = '---SQL-MIGRATION-END---';
 
@@ -210,7 +252,21 @@ async function processIssue(issue) {
       input: buildPrompt(issue),
     });
     const rawOut = claude.stdout || claude.stderr || 'No output from the AI runner.';
-    if (!claude.ok) throw new Error(`Claude Code exited ${claude.code}: ${claude.stderr || claude.stdout}`);
+    if (!claude.ok) {
+      const errText = `${claude.stderr || ''}\n${claude.stdout || ''}`;
+      // A session/usage limit isn't this issue's fault — EVERY fix will fail until a Claude
+      // account with credit is logged in. Park the whole runner and let the admin resume it,
+      // rather than burning the issue as a normal failure (which just re-fails on re-queue).
+      if (SESSION_LIMIT_RE.test(errText)) {
+        const resetHint = (errText.match(/resets?\s+([^\n·]+?(?:\([^)]*\))?)\s*(?:[·\n]|$)/i) || [])[1]?.trim() || null;
+        const message = (errText.match(/[^\n]*(?:session|usage|rate)\s+limit[^\n]*/i) || [errText.trim()])[0].trim().slice(0, 500);
+        log(`#${id} ⏸ Claude session limit hit — pausing runner${resetHint ? ` (resets ${resetHint})` : ''}`);
+        await reportBlocked(id, { message, resetHint }).catch((e) => log(`#${id} ✖ could not report block: ${e.message}`));
+        paused = true;
+        return; // the finally block cleans up the worktree; the issue was re-queued server-side
+      }
+      throw new Error(`Claude Code exited ${claude.code}: ${claude.stderr || claude.stdout}`);
+    }
 
     // Pull out the migration SQL (if any) and keep it out of the human summary.
     const { sql: migrationSql, summary } = extractMigrationSql(rawOut);
@@ -280,19 +336,69 @@ async function processMerge(job) {
   }
 }
 
+// Run a cheap Claude call to confirm the CLI is authenticated to an account with credit.
+// Uses a throwaway cwd so the model can't touch the repo. Returns { ok, out, limited }.
+function probeClaude() {
+  const dir = mkdtempSync(join(tmpdir(), 'aura-claude-probe-'));
+  try {
+    const r = run(CLAUDE_BIN, ['-p', '--permission-mode', 'acceptEdits'], {
+      cwd: dir,
+      input: 'Reply with exactly the two characters: ok',
+    });
+    const out = `${r.stdout || ''}\n${r.stderr || ''}`.trim();
+    const limited = SESSION_LIMIT_RE.test(out);
+    return { ok: r.ok && !limited, out, limited };
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+}
+
+// Paused after a session limit: poll the portal until an admin presses "Resume runner", then
+// verify the (hopefully re-logged-in) Claude account with a probe. Only a passing probe ends
+// the pause; a still-limited probe reports back and keeps waiting for the next Resume.
+async function waitForResume() {
+  log('⏸ runner paused — Claude session limit. Log into an account with credit on THIS machine, then press "Resume runner" in the admin portal.');
+  while (!stopping) {
+    await sleep(RESUME_POLL_MS);
+    let resume = false;
+    try { resume = await checkResume(); }
+    catch (e) { log(`  resume-check error: ${e.message}`); continue; }
+    if (!resume) continue;
+
+    log('▶ resume requested — verifying the Claude login…');
+    const probe = probeClaude();
+    if (probe.ok) {
+      log('✓ Claude login verified — resuming normal operation.');
+      await ackResume(true, 'Claude login verified; runner resumed.').catch((e) => log(`  resume-ack error: ${e.message}`));
+      return;
+    }
+    const why = probe.limited
+      ? (probe.out.match(/[^\n]*(?:session|usage|rate)\s+limit[^\n]*/i) || ['The Claude account is still rate-limited.'])[0].trim()
+      : `Probe call failed: ${probe.out.slice(0, 200) || 'no output'}`;
+    log(`✗ still not usable — ${why}. Waiting for another Resume.`);
+    await ackResume(false, why).catch((e) => log(`  resume-ack error: ${e.message}`));
+  }
+}
+
 async function main() {
   log(`dev-issue-fixer watching ${ENDPOINT}`);
   log(`runner=${RUNNER_ID} repo=${REPO} base=${BASE_BRANCH} poll=${POLL_MS}ms${ONCE ? ' once' : ''}`);
-  let stop = false;
-  process.on('SIGINT', () => { log('shutting down…'); stop = true; });
+  process.on('SIGINT', () => { log('shutting down…'); stopping = true; });
 
-  while (!stop) {
+  while (!stopping) {
     // 1) A fix to produce takes priority.
     let issue = null;
     try { issue = await claimNext(); }
     catch (e) { log(`poll error: ${e.message}`); }
     if (issue) {
       await processIssue(issue);
+      // A session limit during the fix pauses the whole runner: no point claiming more work
+      // while the CLI is rate-limited. Wait for the admin to re-login and press Resume.
+      if (paused) {
+        if (ONCE) { log('paused on session limit; exiting (ONCE).'); break; }
+        await waitForResume();
+        paused = false;
+      }
       if (ONCE) break;
       continue; // immediately check for more
     }
