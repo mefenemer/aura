@@ -132,8 +132,8 @@
       <!-- AC3: proactive suggestions -->
       <div id="as-suggest-wrap" class="hidden">
         <div class="as-head">
-          <h3 class="as-h3">Ideas from your team</h3>
-          <span class="as-sub">One tap and they'll get started</span>
+          <h3 class="as-h3">Ideas suggested by your team</h3>
+          <span class="as-sub">One tap and your assistant will get started</span>
         </div>
         <div id="as-suggest" class="as-suggest-row"></div>
       </div>
@@ -574,7 +574,7 @@
     function suggestCard(item) {
       const card = document.createElement('div'); card.className = 'as-sg';
       card.innerHTML = `
-        <div class="as-sg-top">💡 ${esc(item.assistantName)}${item.platformLabel ? ` · ${esc(item.platformLabel)}` : ''}</div>
+        <div class="as-sg-top">💡 Suggested by ${esc(item.suggestedByName)} for ${esc(item.assistantName)}${item.platformLabel ? ` · ${esc(item.platformLabel)}` : ''}</div>
         <p class="as-sg-idea">${esc(item.idea)}</p>
         <div class="as-sg-actions">
           <button class="as-btn as-btn-yes">Yes, please</button>
