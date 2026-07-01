@@ -436,7 +436,7 @@ function _describeAudit(actionType: string, newState: Record<string, any> | null
             paused: 'paused',
             system_paused: 'system paused',
             archived: 'archived',
-            provisioning: 'provisioning',
+            provisioning: 'being set up',
         };
         if (to === 'working' && (from === 'ready_for_work' || state.reason === 'kick_off')) {
             return 'Kick Off meeting completed — assistant started working.';
@@ -445,6 +445,7 @@ function _describeAudit(actionType: string, newState: Record<string, any> | null
         if (to === 'paused') return 'Assistant paused.';
         if (to === 'system_paused') return `Assistant automatically paused${state.reason ? ` (${state.reason})` : ''}.`;
         if (to === 'archived') return 'Assistant archived.';
+        if (to === 'provisioning') return "Assistant setup started — we're getting it ready to work.";
         return `Assistant status changed to ${labels[to] ?? to}.`;
     }
     switch (actionType) {
