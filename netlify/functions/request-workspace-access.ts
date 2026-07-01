@@ -8,9 +8,9 @@
 // billing consolidated. The caller never learns who owns the existing workspace (AC2.1).
 
 import { Handler } from '@netlify/functions';
-import { and, eq, desc } from 'drizzle-orm';
+import { and, eq, desc, count } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { connectionCollisionAttempts, userOrganisations, users, notifications } from '../../db/schema';
+import { connectionCollisionAttempts, userOrganisations, users, notifications, plans, masterPlans } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 import { sendEmail } from '../../src/utils/email';
 
@@ -58,13 +58,34 @@ export const handler: Handler = async (event) => {
     const label = LABELS[platform] || platform;
 
     if (owner && requester) {
+        // Only offer to invite if the owner's plan actually has a free seat — otherwise the
+        // one-click "Invite" in the notification would just fail against invite-member.ts's
+        // own SEAT_LIMIT_REACHED check. Mirrors the seat-limit logic in invite-member.ts.
+        const [ownerPlan] = await db
+            .select({ seatLimit: masterPlans.seatLimit })
+            .from(plans)
+            .leftJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
+            .where(and(eq(plans.userId, owner.userId), eq(plans.status, 'active')))
+            .limit(1);
+        const seatLimit = ownerPlan?.seatLimit ?? 1;
+        const [{ value: activeSeats }] = await db
+            .select({ value: count() })
+            .from(userOrganisations)
+            .where(eq(userOrganisations.organisationId, attempt.existingOrgId));
+        const effectiveLimit = seatLimit === null ? 1 : seatLimit;
+        const canInvite = effectiveLimit === 0 || activeSeats < effectiveLimit;
+
+        const message = canInvite
+            ? `Someone (${requester.email}) is trying to connect your ${label} account to Be More Swan. Invite them to your team?`
+            : `Someone (${requester.email}) is trying to connect your ${label} account to Be More Swan. Your plan doesn't have a free seat to invite them — upgrade to add team members.`;
+
         await db.insert(notifications).values({
             userId: owner.userId,
             type: 'workspace_access_request',
             category: 'suggested_action',
-            title: 'Connection access request',
-            message: `Someone (${requester.email}) is trying to connect your ${label} account to Be More Swan. Invite them to your team?`,
-            metadata: { requestingEmail: requester.email, serviceName: platform },
+            title: canInvite ? 'Connection access request' : 'Connection access request — upgrade needed',
+            message,
+            metadata: { requestingEmail: requester.email, serviceName: platform, seatLimitReached: !canInvite },
         });
 
         await sendEmail({
@@ -72,7 +93,9 @@ export const handler: Handler = async (event) => {
             subject: `Someone wants to connect your ${label} account`,
             html: `<p>Hi ${owner.firstName || 'there'},</p>
                    <p><strong>${requester.email}</strong> tried to connect your ${label} account to Be More Swan, but it's already linked to your workspace.</p>
-                   <p>If this is a colleague, invite them to your workspace so you share one account and billing stays consolidated. Log in and open your notifications to invite them with one click.</p>
+                   ${canInvite
+                       ? `<p>If this is a colleague, invite them to your workspace so you share one account and billing stays consolidated. Log in and open your notifications to invite them with one click.</p>`
+                       : `<p>If this is a colleague, you'll need to upgrade your plan to add them as a team member — your current plan has no free seats left. Log in and open your notifications to upgrade.</p>`}
                    <p>If you don't recognise this person, you can safely ignore this email.</p>`,
         }).catch(() => {/* non-blocking */});
     }
