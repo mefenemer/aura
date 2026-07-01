@@ -133,8 +133,11 @@ export const handler: Handler = async (event) => {
         const message = typeof body.message === 'string' ? body.message.trim() : '';
         if (!message) return json(400, { error: 'A message is required.' });
 
-        // A user reply on a "more info" request re-opens it for the developer.
-        const newStatus = issue.status === 'more_info_required' ? 'reported' : issue.status;
+        // A user reply on a "more info" request, or on a fix they've found still broken,
+        // re-opens the issue so it lands back in the developer's queue with the reply visible.
+        const newStatus = (issue.status === 'more_info_required' || issue.status === 'fixed_ready_to_test')
+            ? 'reported'
+            : issue.status;
         await db.insert(issueReportMessages).values({
             issueId: issue.id, authorType: 'user', authorId: userId, body: message, status: null,
         });
