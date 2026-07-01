@@ -391,6 +391,8 @@ window._activateMainTab = function(name) {
     _resizeBriefAutoGrow();
     // Load the assistant-scoped review queue when the tab is first opened.
     if (name === 'review-queue') detailRqOpenStatus('review');
+    // Refresh the Runbook's Learned Directives when the (renamed) Runbook tab opens.
+    if (name === 'meetings') window._renderRunbookDirectives?.();
 };
 
 // ── Assistant-detail scoped Review Queue ─────────────────────────────────────
@@ -607,6 +609,188 @@ window._setReviewPendingBadge = function(count) {
     if (!badge) return;
     badge.textContent = count || '';
     badge.classList.toggle('hidden', !count);
+};
+
+// ══ Epic 3 — Continuous Improvement Loop (Tuning Sessions + Runbook) ═══════════
+
+// ── Runbook: Learned Directives changelog (Feature 3.2) ───────────────────────
+// Renders content_rules for the current assistant as a chronological, toggleable
+// audit trail. Shares the content-rules CRUD with the Guardrails panel; provenance
+// (manual / feedback / tuning) is foregrounded here.
+const _RUNBOOK_ORIGIN = {
+    manual:             ['Manual',        'bg-gray-100 text-gray-600'],
+    rejection_feedback: ['From feedback', 'bg-amber-100 text-amber-700'],
+    tuning:             ['From tuning',   'bg-indigo-100 text-indigo-700'],
+};
+
+window._renderRunbookDirectives = async function(assistantId) {
+    const host = document.getElementById('runbook-directives');
+    if (!host) return;
+    const aid = assistantId || window._currentAssistantId;
+    if (!aid) return;
+    let rules = [];
+    try {
+        const res = await fetch(`/.netlify/functions/content-rules?assistantId=${aid}`);
+        if (res.ok) rules = (await res.json()).rules || [];
+    } catch { /* non-critical */ }
+    rules.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    if (!rules.length) {
+        host.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">No directives yet. Start a Tuning Session to teach your assistant its first rule.</p>';
+        return;
+    }
+    host.innerHTML = rules.map(r => {
+        const active = r.isActive !== false;
+        const o = _RUNBOOK_ORIGIN[r.origin] || _RUNBOOK_ORIGIN.manual;
+        const when = r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+        const cap = r.originPost && r.originPost.caption ? String(r.originPost.caption) : '';
+        const originPost = cap ? `<p class="text-xs text-gray-400 mt-1 italic">from post: “${_escapeHtml(cap.slice(0, 80))}${cap.length > 80 ? '…' : ''}”</p>` : '';
+        return `<div class="flex items-start gap-3 px-3 py-3 rounded-xl border border-gray-100 ${active ? '' : 'bg-gray-50'}" data-rule-id="${r.id}">
+            <div class="flex-1 min-w-0">
+                <p class="text-sm ${active ? 'text-gray-800' : 'text-gray-400 line-through'}">${_escapeHtml(r.ruleText || '')}</p>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="px-2 py-0.5 rounded-full text-xs font-bold ${o[1]}">${o[0]}</span>
+                    <span class="text-xs text-gray-400">${when}</span>
+                </div>
+                ${originPost}
+            </div>
+            <button type="button" aria-checked="${active}" onclick="window._toggleDirective(${r.id}, this)" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors mt-0.5 ${active ? 'bg-emerald-500' : 'bg-gray-300'}">
+                <span class="${active ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition"></span>
+            </button>
+            <button type="button" onclick="window._deleteDirective(${r.id})" class="text-gray-400 hover:text-red-500 transition mt-1" aria-label="Delete directive">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+        </div>`;
+    }).join('');
+};
+
+window._toggleDirective = async function(id, btn) {
+    const nowActive = btn.getAttribute('aria-checked') !== 'true';
+    try {
+        await fetch('/.netlify/functions/content-rules', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, isActive: nowActive }) });
+    } catch { /* non-critical */ }
+    window._renderRunbookDirectives();
+};
+
+window._deleteDirective = async function(id) {
+    if (!confirm('Delete this directive? Your assistant will no longer follow it.')) return;
+    try { await fetch(`/.netlify/functions/content-rules?id=${id}`, { method: 'DELETE' }); } catch { /* non-critical */ }
+    window._renderRunbookDirectives();
+};
+
+// ── Tuning Session (Feature 3.1) — correct an output → learned directive ──────
+let _tuningCtx = null;
+
+window._openTuningSession = async function(ctx) {
+    ctx = ctx || {};
+    _tuningCtx = { postId: ctx.postId || null, output: ctx.output || '', meta: ctx.meta || '', platform: ctx.platform || null };
+    const modal = document.getElementById('modal-tuning');
+    if (!modal) return;
+    const outEl = document.getElementById('tuning-output');
+    const metaEl = document.getElementById('tuning-output-meta');
+    const corr = document.getElementById('tuning-correction');
+    // Reset to the "collect correction" state.
+    document.getElementById('tuning-result').classList.add('hidden');
+    document.getElementById('tuning-error').classList.add('hidden');
+    document.getElementById('tuning-submit-btn').classList.remove('hidden');
+    document.getElementById('tuning-cancel-btn').classList.remove('hidden');
+    document.getElementById('tuning-revise-btn').classList.add('hidden');
+    document.getElementById('tuning-done-btn').classList.add('hidden');
+    if (corr) { corr.value = ''; corr.disabled = false; }
+    if (outEl) outEl.textContent = _tuningCtx.output || 'Loading…';
+    if (metaEl) metaEl.textContent = _tuningCtx.meta || '';
+    modal.classList.remove('hidden');
+    // Seed the output caption when only a postId was supplied (e.g. from an activity row).
+    if (!_tuningCtx.output && _tuningCtx.postId) {
+        try {
+            const res = await fetch(`/.netlify/functions/scheduled-posts?id=${_tuningCtx.postId}`);
+            if (res.ok) {
+                const { post } = await res.json();
+                if (post) {
+                    _tuningCtx.output = post.caption || '(No caption)';
+                    _tuningCtx.platform = _tuningCtx.platform || post.platform || null;
+                    if (outEl) outEl.textContent = _tuningCtx.output;
+                    if (metaEl) metaEl.textContent = [post.platform, post.publishDate ? new Date(post.publishDate).toLocaleDateString('en-GB') : ''].filter(Boolean).join(' · ');
+                }
+            } else if (outEl) outEl.textContent = '(Could not load the post.)';
+        } catch { if (outEl) outEl.textContent = '(Could not load the post.)'; }
+    }
+    corr?.focus();
+};
+
+window._closeTuningSession = function() {
+    document.getElementById('modal-tuning')?.classList.add('hidden');
+    _tuningCtx = null;
+};
+
+window._submitTuning = async function() {
+    if (!_tuningCtx) return;
+    const corr = document.getElementById('tuning-correction');
+    const errEl = document.getElementById('tuning-error');
+    const text = (corr?.value || '').trim();
+    errEl.classList.add('hidden');
+    if (!text) { errEl.textContent = 'Tell your assistant what should be different.'; errEl.classList.remove('hidden'); return; }
+    const submitBtn = document.getElementById('tuning-submit-btn');
+    submitBtn.disabled = true; submitBtn.textContent = 'Working…';
+    try {
+        const res = await fetch('/.netlify/functions/tune-assistant', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assistantId: window._currentAssistantId, postId: _tuningCtx.postId, output: _tuningCtx.output, correction: text, platform: _tuningCtx.platform }),
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed to save the directive.'); }
+        const { directive } = await res.json();
+        document.getElementById('tuning-directive').textContent = directive;
+        document.getElementById('tuning-result').classList.remove('hidden');
+        if (corr) corr.disabled = true;
+        submitBtn.classList.add('hidden');
+        document.getElementById('tuning-cancel-btn').classList.add('hidden');
+        document.getElementById('tuning-revise-btn').classList.toggle('hidden', !_tuningCtx.postId);
+        document.getElementById('tuning-done-btn').classList.remove('hidden');
+        window._renderRunbookDirectives();
+        window.showToast?.('Directive added to the Runbook.');
+    } catch (e) {
+        errEl.textContent = e.message || 'Something went wrong.'; errEl.classList.remove('hidden');
+    } finally {
+        submitBtn.disabled = false; submitBtn.textContent = 'Submit correction';
+    }
+};
+
+window._tuningRevisePost = async function() {
+    if (!_tuningCtx?.postId) { window._closeTuningSession(); return; }
+    const correction = (document.getElementById('tuning-correction')?.value || '').trim();
+    const btn = document.getElementById('tuning-revise-btn');
+    btn.disabled = true; btn.textContent = 'Revising…';
+    try {
+        await fetch('/.netlify/functions/reject-post', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: _tuningCtx.postId, feedbackText: correction, applyAsRule: false }),
+        });
+        window.showToast?.('Revised draft on the way — check your Review Queue.');
+    } catch { /* non-critical */ }
+    window._closeTuningSession();
+};
+
+// Action-bar / Runbook entry: pick a recent post to tune (each row seeds a session by id).
+window._openTuningPicker = async function() {
+    const modal = document.getElementById('modal-tuning-picker');
+    const list = document.getElementById('tuning-picker-list');
+    if (!modal || !list) return;
+    list.innerHTML = '<div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading recent posts…</div>';
+    modal.classList.remove('hidden');
+    let drafts = [];
+    try {
+        const res = await fetch(`/.netlify/functions/get-social-drafts?status=pending_approval&assistantId=${window._currentAssistantId}`);
+        if (res.ok) drafts = (await res.json()).drafts || [];
+    } catch { /* non-critical */ }
+    if (!drafts.length) {
+        list.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">No recent posts to tune. Posts appear here once your assistant drafts them.</p>';
+        return;
+    }
+    list.innerHTML = drafts.slice(0, 15).map(d => `
+        <button type="button" onclick="document.getElementById('modal-tuning-picker').classList.add('hidden'); window._openTuningSession({ postId:${Number(d.id)} })"
+            class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50/40 transition cursor-pointer">
+            <p class="text-xs text-gray-400 mb-0.5">${_escapeHtml(d.platform || '')}</p>
+            <p class="text-sm text-gray-800">${_escapeHtml(String(d.caption || '(No caption)').slice(0, 120))}</p>
+        </button>`).join('');
 };
 
 document.addEventListener('keydown', (e) => {
@@ -1309,6 +1493,12 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
                     const rowHtml = (log, attention) => {
                         const tint = log.status === 'failed' ? 'background:#fef2f2;border-left:3px solid #f87171'
                                    : log.status === 'needs_input' ? 'background:#fffbeb;border-left:3px solid #fbbf24' : '';
+                        // Epic 3.1 entry point: attention rows tied to a post get a "Tune" affordance.
+                        const postMatch = log.type === 'scheduled_post' && /^post-(\d+)$/.exec(log.id || '');
+                        const tuneBtn = (attention && postMatch)
+                            ? `<button type="button" onclick="window._openTuningSession({ postId:${Number(postMatch[1])} })" class="mt-1 inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition cursor-pointer">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>Tune</button>`
+                            : '';
                         return `
                         <div class="flex items-start gap-3 py-2.5 px-2 rounded-lg border-b border-gray-100 last:border-0"${attention ? ` style="${tint}"` : ''}>
                             <div class="w-6 h-6 rounded-full ${iconBg(log.icon)} flex items-center justify-center shrink-0 mt-0.5">${iconSvg(log.icon)}</div>
@@ -1318,6 +1508,7 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
                                     ${statusTag(log.status)}
                                 </div>
                                 <p class="text-xs text-gray-400 mt-0.5">${log.createdAt ? new Date(log.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                                ${tuneBtn}
                             </div>
                         </div>`;
                     };

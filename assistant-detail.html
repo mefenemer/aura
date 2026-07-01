@@ -103,7 +103,7 @@
       </button>
       <button type="button" data-maintab="goals"         class="main-tab-btn">Goals</button>
       <button type="button" data-maintab="automation"    class="main-tab-btn">Automation</button>
-      <button type="button" data-maintab="meetings"      class="main-tab-btn">Meetings
+      <button type="button" data-maintab="meetings"      class="main-tab-btn">Runbook
         <span id="meetings-kickoff-badge" class="hidden ml-1 min-w-[1.25rem] h-4 px-1 bg-blue-100 text-blue-700 text-[10px] font-black rounded-full inline-flex items-center justify-center">!</span>
       </button>
     </nav>
@@ -998,15 +998,31 @@
       </div>
     </div>
 
-    <!-- 2. Review Meetings — periodic governance check-ins -->
+    <!-- Learned Directives changelog (Epic 3.2) — the assistant's evolving Runbook -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-      <div class="flex items-start justify-between gap-4 mb-5">
+      <div class="flex items-start justify-between gap-4 mb-4">
         <div>
-          <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Review Meetings</h3>
-          <p class="text-xs text-gray-400 mt-1">Periodic check-ins to assess performance and refine your assistant's direction.</p>
+          <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Learned Directives</h3>
+          <p class="text-xs text-gray-400 mt-1">Rules your assistant has learned from your corrections. Toggle one off to pause it, or delete it for good.</p>
         </div>
-        <button id="btn-log-review" onclick="window._openReviewForm()" class="px-3.5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition cursor-pointer">Log a Review</button>
+        <button type="button" onclick="window._openTuningPicker && window._openTuningPicker()" class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+          Start Tuning Session
+        </button>
       </div>
+      <div id="runbook-directives" class="space-y-2">
+        <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading directives…</div>
+      </div>
+    </div>
+
+    <!-- Governance review history — the former "Review Meetings" section, preserved & de-emphasised -->
+    <details class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+      <summary class="px-6 py-4 cursor-pointer text-sm font-bold text-gray-700 uppercase tracking-wide select-none flex items-center justify-between gap-4">
+        <span>Governance review history</span>
+        <button id="btn-log-review" type="button" onclick="event.preventDefault(); window._openReviewForm()" class="px-3.5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition cursor-pointer">Log a Review</button>
+      </summary>
+      <div class="px-6 pb-6 pt-1">
+        <p class="text-xs text-gray-400 mb-4">Periodic check-ins to assess performance and refine your assistant's direction.</p>
 
       <!-- Review entry form -->
       <div id="review-form" class="hidden mb-6 border border-emerald-100 bg-emerald-50/40 rounded-xl p-5 space-y-4">
@@ -1052,7 +1068,8 @@
       <div id="review-history">
         <p class="text-sm text-gray-400 text-center py-8">No review meetings logged yet.<br>Log your first review to track your assistant's progress over time.</p>
       </div>
-    </div>
+      </div>
+    </details>
 
   </div><!-- /maintab-meetings -->
 
@@ -1096,6 +1113,73 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
         Copy rules
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Tuning Session (Epic 3.1) — correct an output → learned directive ─── -->
+<div id="modal-tuning" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-indigo-50">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+        </div>
+        <div>
+          <h3 class="font-extrabold text-gray-900">Tuning Session</h3>
+          <p class="text-xs text-indigo-600 mt-0.5">Correct this output — your assistant learns a rule for every future post</p>
+        </div>
+      </div>
+      <button onclick="window._closeTuningSession()" type="button"
+        class="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <!-- Split screen: output (left) | correction (right) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-0 flex-1 overflow-hidden">
+      <div class="p-6 border-b md:border-b-0 md:border-r border-gray-100 overflow-y-auto bg-gray-50/40">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">The output</p>
+        <p id="tuning-output-meta" class="text-xs text-gray-500 mb-3"></p>
+        <div id="tuning-output" class="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">Loading…</div>
+      </div>
+      <div class="p-6 overflow-y-auto flex flex-col">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Your correction</p>
+        <textarea id="tuning-correction" rows="5" placeholder="What should be different? e.g. “Don’t open with a question — lead with the benefit.”"
+          class="w-full border border-gray-300 rounded-lg p-3 text-sm resize-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"></textarea>
+        <!-- Result: the learned directive + follow-up actions (hidden until submit) -->
+        <div id="tuning-result" class="hidden mt-4 p-4 rounded-xl bg-indigo-50 border border-indigo-100">
+          <p class="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-1">Learned directive</p>
+          <p id="tuning-directive" class="text-sm font-semibold text-gray-800"></p>
+        </div>
+        <p id="tuning-error" class="hidden mt-3 text-sm text-red-600 font-medium"></p>
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-gray-50/50">
+      <button id="tuning-cancel-btn" onclick="window._closeTuningSession()" type="button"
+        class="px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition cursor-pointer">Cancel</button>
+      <button id="tuning-submit-btn" onclick="window._submitTuning()" type="button"
+        class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer">Submit correction</button>
+      <!-- Post-submit actions (hidden until a directive is created) -->
+      <button id="tuning-revise-btn" onclick="window._tuningRevisePost()" type="button"
+        class="hidden px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer">Revise this post now</button>
+      <button id="tuning-done-btn" onclick="window._closeTuningSession()" type="button"
+        class="hidden px-6 py-2.5 bg-gray-800 hover:bg-gray-900 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer">Just save the directive</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Tuning post picker (Epic 3.1 — action-bar / Runbook entry) ─── -->
+<div id="modal-tuning-picker" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-indigo-50">
+      <h3 class="font-extrabold text-gray-900">Choose a post to tune</h3>
+      <button onclick="document.getElementById('modal-tuning-picker').classList.add('hidden')" type="button"
+        class="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="tuning-picker-list" class="px-6 py-5 space-y-2 max-h-[60vh] overflow-y-auto">
+      <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading recent posts…</div>
     </div>
   </div>
 </div>

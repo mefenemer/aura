@@ -49,9 +49,9 @@ export const handler: Handler = async (event) => {
             ))
             .orderBy(contentRules.createdAt);
 
-        // Enrich rejection_feedback rules with originPost caption snippet
+        // Enrich rules that trace back to a post (rejection feedback + tuning) with its caption snippet.
         const enriched = await Promise.all(rows.map(async (rule) => {
-            if (rule.origin !== 'rejection_feedback' || !rule.originPostId) return rule;
+            if ((rule.origin !== 'rejection_feedback' && rule.origin !== 'tuning') || !rule.originPostId) return rule;
             const [originPost] = await db
                 .select({ id: scheduledPosts.id, caption: scheduledPosts.caption, platform: scheduledPosts.platform })
                 .from(scheduledPosts)
