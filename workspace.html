@@ -4236,7 +4236,12 @@ function rqRenderIdeaCard(idea) {
 
     let progress = '';
     if (idea.status === 'pending') {
-        progress = `<p class="text-xs text-gray-500">Waiting to be woven into an upcoming draft.</p>`;
+        progress = `<p class="text-xs text-gray-500">Waiting to be woven into an upcoming draft.</p>
+          <button onclick="ideaToggleEdit(${idea.id})" class="mt-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline cursor-pointer">Edit</button>
+          <div class="rq-idea-edit-${idea.id} hidden mt-2">
+            <textarea id="rq-idea-input-${idea.id}" rows="2" maxlength="500" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300">${_rqEsc(idea.idea)}</textarea>
+            <div class="flex gap-2 mt-1"><button onclick="ideaSaveEdit(${idea.id})" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-lg cursor-pointer">Save</button><button onclick="ideaToggleEdit(${idea.id})" class="px-3 py-1.5 text-xs font-bold text-gray-500 cursor-pointer">Cancel</button></div>
+          </div>`;
     } else if (idea.status === 'in_review') {
         const cap = idea.postCaption ? `<p class="text-xs text-gray-600 mt-1 line-clamp-2 italic">"${_rqEsc(idea.postCaption)}"</p>` : '';
         progress = `<p class="text-xs text-gray-500">Built into a post — now awaiting your review.${cap ? '' : ''}</p>${cap}
@@ -4260,6 +4265,25 @@ function rqRenderIdeaCard(idea) {
       </div>
       ${progress}
     </div>`;
+}
+
+function ideaToggleEdit(id) {
+    document.querySelector(`.rq-idea-edit-${id}`)?.classList.toggle('hidden');
+}
+
+async function ideaSaveEdit(id) {
+    const idea = (document.getElementById(`rq-idea-input-${id}`) || {}).value?.trim();
+    if (!idea) { alert('Please describe your post idea.'); return; }
+    try {
+        const res = await fetch('/.netlify/functions/update-post-idea', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, idea }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(d.error || 'Could not save your idea.'); return; }
+        rqLoadItems();
+    } catch { alert('Network error — please try again.'); }
 }
 
 async function sdApprove(postId, action) {
