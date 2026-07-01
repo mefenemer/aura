@@ -368,6 +368,9 @@ function _initBriefAutoGrow() {
 
 function _resizeBriefAutoGrow() {
     _AUTOGROW_FIELDS.forEach(id => _autoGrowField(document.getElementById(id)));
+    // Per-assistant Assistant Rules rows (#tab-guardrails) are built dynamically and hit the
+    // same display:none / scrollHeight:0 problem — recompute their height too.
+    document.querySelectorAll('#assistant-rules-editor .ar-input').forEach(_autoGrowField);
 }
 
 // ── Assistant-detail tab switching (event delegation) ─────────────────────────
