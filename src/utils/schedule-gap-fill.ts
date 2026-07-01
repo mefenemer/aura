@@ -13,6 +13,7 @@ import { randomUUID } from 'crypto';
 import type { getDb } from '../../db/client';
 import { aiBlueprints, scheduledPosts, contentGenerationJobs } from '../../db/schema';
 import { resolvePostingSchedule, computeScheduleSlots } from '../config/posting-cadence';
+import { assembleBlueprint } from './blueprint';
 
 type Db = ReturnType<typeof getDb>;
 
@@ -50,14 +51,27 @@ export async function enqueueScheduleGapFill(
     const slots = computeScheduleSlots({ schedule, horizonDays, now });
     if (!slots.length) return { enqueued: 0, reason: 'on_demand' };
 
-    // Resolve the latest blueprint; skip if missing or it has blocking gaps (mirror generate-post).
-    const [bp] = await db
+    // Resolve the latest blueprint; skip if it has blocking gaps (mirror generate-post).
+    let [bp] = await db
         .select({ id: aiBlueprints.id, missingFields: aiBlueprints.missingFields })
         .from(aiBlueprints)
         .where(and(eq(aiBlueprints.assistantId, assistant.id), eq(aiBlueprints.organisationId, assistant.organisationId)))
         .orderBy(desc(aiBlueprints.compiledAt))
         .limit(1);
-    if (!bp) return { enqueued: 0, reason: 'no_blueprint' };
+
+    // Self-serve assistants are never compiled by the admin Blueprint tool. Unlike generate-post
+    // (an on-demand user click), this cron runs unattended — if we just skip here, an assistant that
+    // was activated without ever having "Generate Post" clicked manually will silently never produce
+    // a draft. Compile the blueprint now instead of leaving the assistant stuck.
+    if (!bp) {
+        try {
+            const result = await assembleBlueprint(assistant.id, 'system-cron', 'auto-scheduled');
+            bp = { id: result.blueprint.id, missingFields: result.blueprint.missingFields };
+        } catch (err) {
+            console.error(`enqueueScheduleGapFill: auto-compile blueprint failed for assistant ${assistant.id}`, err);
+            return { enqueued: 0, reason: 'no_blueprint' };
+        }
+    }
     const blockingGaps = ((bp.missingFields as Array<{ severity: string }>) || []).filter(f => f.severity === 'blocking');
     if (blockingGaps.length > 0) return { enqueued: 0, reason: 'blocking_gaps' };
 
