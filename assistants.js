@@ -773,6 +773,20 @@ window._tuningRevisePost = async function() {
 // Shows how this assistant hands off to / receives from other assistants. Reads the
 // same orchestration_links the global Orchestrations hub manages; card stays hidden
 // when this assistant has no links.
+
+// Compact "fired …" relative time (Phase 5). Defined here too so the assistant page
+// doesn't depend on the Orchestrations hub view being loaded.
+function _orchRelTime(iso) {
+    if (!iso) return '';
+    const then = new Date(iso).getTime();
+    if (isNaN(then)) return '';
+    const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24); return `${d}d ago`;
+}
+
 window._renderActiveWorkflows = async function(assistantId) {
     const card = document.getElementById('active-workflows-card');
     const list = document.getElementById('active-workflows-list');
@@ -795,10 +809,12 @@ window._renderActiveWorkflows = async function(assistantId) {
         const left = outbound
             ? `<span class="font-bold text-gray-800">This assistant</span> ${arrow} <span class="font-bold text-gray-800">${_escapeHtml(other)}</span>`
             : `<span class="font-bold text-gray-800">${_escapeHtml(other)}</span> ${arrow} <span class="font-bold text-gray-800">This assistant</span>`;
+        const fired = l.lastFiredAt ? `<span class="shrink-0 text-xs text-gray-400">fired ${_orchRelTime(l.lastFiredAt)}</span>` : '';
         return `<div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-100 text-sm ${dim}">
             <span class="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold ${outbound ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">${outbound ? 'Sends to' : 'Receives from'}</span>
             <span class="flex items-center gap-1.5 min-w-0">${left}</span>
-            <span class="text-gray-500 truncate">— ${_escapeHtml(l.targetAction)}</span>
+            <span class="text-gray-500 truncate flex-1">— ${_escapeHtml(l.targetAction)}</span>
+            ${fired}
         </div>`;
     }).join('');
     card.classList.remove('hidden');

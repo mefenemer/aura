@@ -849,6 +849,26 @@ export const orchestrationLinks = pgTable("orchestration_links", {
   uniqueIndex("orchestration_links_unique").on(t.sourceAssistantId, t.sourceEvent, t.targetAssistantId, t.targetAction),
 ]);
 
+// ── Orchestration runtime (Phase 5) — audit log of fired hand-offs ──
+// One row per firing. UNIQUE(link_id, source_post_id) makes hand-off firing idempotent.
+// See db/orchestration-runs.sql.
+export const orchestrationRuns = pgTable("orchestration_runs", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  linkId: integer("link_id").references(() => orchestrationLinks.id, { onDelete: "set null" }),
+  sourceAssistantId: integer("source_assistant_id"),
+  targetAssistantId: integer("target_assistant_id"),
+  sourceEvent: text("source_event").notNull(),
+  sourcePostId: integer("source_post_id"),               // the post whose draft/publish triggered the hand-off
+  targetJobId: text("target_job_id"),                    // content_generation_jobs.job_id enqueued for the target
+  status: text("status").notNull().default("handed_off"), // 'handed_off' | 'skipped'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("orchestration_runs_org_idx").on(t.organisationId),
+  index("orchestration_runs_link_idx").on(t.linkId, t.createdAt),
+  uniqueIndex("orchestration_runs_unique").on(t.linkId, t.sourcePostId),
+]);
+
 // ── Reward Redemptions — Referral Program Expansion ──────────────────────────
 // Audit trail + double-spend guard for the referral token vault. Each row records
 // a redemption: 'credit_10' (1 token → £10 Stripe credit) or 'free_assistant'

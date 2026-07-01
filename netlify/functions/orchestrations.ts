@@ -11,9 +11,9 @@
 // Tenant isolation: requireTenant (owner-path + manual org filter, no RLS) — same as content-rules.ts.
 
 import { Handler } from '@netlify/functions';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { orchestrationLinks, aiAssistants } from '../../db/schema';
+import { orchestrationLinks, orchestrationRuns, aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 
 const SOURCE_EVENTS = ['drafts_a_post', 'publishes_a_post', 'completes_a_task'];
@@ -43,10 +43,21 @@ export const handler: Handler = async (event) => {
             : [];
         const nameById = new Map(names.map(n => [n.id, n.name]));
 
+        // Latest firing per link (Phase 5) → powers the "· fired …" hint on the hub + assistant page.
+        const linkIds = rows.map(r => r.id);
+        const runAgg = linkIds.length
+            ? await db.select({ linkId: orchestrationRuns.linkId, lastFiredAt: sql<string>`max(${orchestrationRuns.createdAt})` })
+                .from(orchestrationRuns)
+                .where(inArray(orchestrationRuns.linkId, linkIds))
+                .groupBy(orchestrationRuns.linkId)
+            : [];
+        const lastFiredByLink = new Map(runAgg.map(r => [r.linkId, r.lastFiredAt]));
+
         const links = rows.map(r => ({
             ...r,
             sourceAssistantName: nameById.get(r.sourceAssistantId) ?? 'Unknown',
             targetAssistantName: nameById.get(r.targetAssistantId) ?? 'Unknown',
+            lastFiredAt: lastFiredByLink.get(r.id) ?? null,
         }));
 
         return {

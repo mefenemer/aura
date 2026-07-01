@@ -14,6 +14,7 @@ import { gatewayGenerate } from '../../src/lib/ai-gateway';
 import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
 import { searchUniqueImages, attachPexelsImageToPost, creditLine } from '../../src/utils/pexels';
 import { DISCLOSURE } from '../../src/config/compliance';
+import { fireOrchestrations } from '../../src/utils/orchestration';
 
 const BACKOFF_SECS = [10, 30, 90];
 
@@ -251,6 +252,20 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
                 `UPDATE post_idea_suggestions SET status = 'in_review', used_post_id = ${post.id}, used_at = now()
                  WHERE id = ${consumedIdeaId} AND status = 'pending'`
             ).catch(() => {});
+        }
+
+        // Orchestration (Phase 5): this assistant just drafted a post — hand off to any linked
+        // assistants. Skip admin-test drafts, and skip drafts that were THEMSELVES produced by an
+        // orchestration hand-off (loop guard — chains stay depth-1). Best-effort; never throws.
+        if (!isAdminTest && job.trigger_type !== 'orchestration') {
+            await fireOrchestrations(db, {
+                sourceAssistantId: job.assistant_id,
+                orgId: job.organisation_id,
+                userId: job.user_id,
+                event: 'drafts_a_post',
+                sourcePostId: post.id,
+                sourceCaption: generated.caption ?? null,
+            });
         }
 
         // Best-effort: source a unique Pexels image and attach it (US1/US2/US3).
