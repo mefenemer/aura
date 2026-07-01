@@ -1,6 +1,8 @@
-// BMS favicon cursor — shows while hovering a button, not just the mousedown/mouseup flash
+// BMS favicon cursor — pointer stays standard on hover, only flashes to the
+// BMS favicon for the duration of a click on a link or button.
 (function () {
   const CURSOR_VALUE = 'url("/favicon/favicon-32x32.png") 16 16, pointer';
+  const SELECTOR = 'button, [type="button"], [type="submit"], [role="button"], a[href]';
 
   function showFavicon(el) {
     el.style.cursor = CURSOR_VALUE;
@@ -11,24 +13,22 @@
   }
 
   function attachSwanCursor(btn) {
-    btn.addEventListener('mouseenter', () => showFavicon(btn));
+    btn.addEventListener('mousedown', () => showFavicon(btn));
+    btn.addEventListener('mouseup', () => hideFavicon(btn));
     btn.addEventListener('mouseleave', () => hideFavicon(btn));
   }
 
   function initSwanCursor() {
-    document.querySelectorAll('button, [type="button"], [type="submit"], [role="button"]')
-      .forEach(attachSwanCursor);
+    document.querySelectorAll(SELECTOR).forEach(attachSwanCursor);
 
-    // Watch for dynamically added buttons (modals etc.)
+    // Watch for dynamically added buttons/links (modals etc.)
     new MutationObserver(mutations => {
       mutations.forEach(m => m.addedNodes.forEach(node => {
         if (node.nodeType !== 1) return;
-        if (node.matches('button, [type="button"], [type="submit"], [role="button"]')) {
+        if (node.matches(SELECTOR)) {
           attachSwanCursor(node);
         }
-        node.querySelectorAll && node.querySelectorAll(
-          'button, [type="button"], [type="submit"], [role="button"]'
-        ).forEach(attachSwanCursor);
+        node.querySelectorAll && node.querySelectorAll(SELECTOR).forEach(attachSwanCursor);
       }));
     }).observe(document.body, { childList: true, subtree: true });
   }
