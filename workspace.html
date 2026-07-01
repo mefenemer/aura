@@ -1300,6 +1300,7 @@ function formatCurrency(amount, currency) {
     const routes = {
       'dashboard': { file: 'dashboard-content.html', title: '| Workspace Overview' },
       'assistants': { file: 'assistants-directory.html', title: '| My Assistants' },
+      'orchestrations': { file: 'orchestrations-content.html', title: '| Orchestrations' },
       'assistant-detail': { file: 'assistant-detail.html', title: '| Board Room' },
       'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
       'assets': { file: 'assets.html', title: '| Business Information' },
@@ -1320,6 +1321,7 @@ function formatCurrency(amount, currency) {
     const navLinks = {
       'dashboard': document.getElementById('nav-dashboard'),
       'assistants': document.getElementById('nav-assistants'),
+      'orchestrations': document.getElementById('nav-orchestrations'),
       'catalog': document.getElementById('nav-catalog'),
       'assets': document.getElementById('nav-assets'),
       'notifications': document.getElementById('nav-notifications'),
@@ -1509,6 +1511,10 @@ function formatCurrency(amount, currency) {
 
         if (routeKey === 'feature-requests' && typeof window.initFeatureRequests === 'function') {
           await window.initFeatureRequests();
+        }
+
+        if (routeKey === 'orchestrations' && typeof window.initOrchestrations === 'function') {
+          await window.initOrchestrations(loadView);
         }
 
         // Onboarding Wizard companion — refresh progress after any view loads so a step
@@ -2236,6 +2242,19 @@ function formatCurrency(amount, currency) {
         });
       }
     });
+
+    // Epic 4: reveal the global "Orchestrations" nav only when the org has 2+ active
+    // assistants (a single-assistant workspace has nothing to orchestrate). Mirrors the
+    // admin-portal reveal — the item ships hidden in the sidebar and we un-hide it here.
+    (async () => {
+      try {
+        const res = await fetch('/.netlify/functions/get-assistants');
+        if (!res.ok) return;
+        const { assistants = [] } = await res.json();
+        const active = assistants.filter(a => a && a.lifecycleStatus !== 'archived' && a.status !== 'cancelled');
+        if (active.length >= 2) document.getElementById('nav-orchestrations')?.classList.remove('hidden');
+      } catch { /* non-fatal — nav simply stays hidden */ }
+    })();
 
     // Render locks ASAP on boot (non-blocking).
     refreshOnboardingLock();

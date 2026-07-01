@@ -769,6 +769,41 @@ window._tuningRevisePost = async function() {
     window._closeTuningSession();
 };
 
+// ── Active Workflows dependency map (Epic 4.2) ────────────────────────────────
+// Shows how this assistant hands off to / receives from other assistants. Reads the
+// same orchestration_links the global Orchestrations hub manages; card stays hidden
+// when this assistant has no links.
+window._renderActiveWorkflows = async function(assistantId) {
+    const card = document.getElementById('active-workflows-card');
+    const list = document.getElementById('active-workflows-list');
+    if (!card || !list) return;
+    const aid = Number(assistantId || window._currentAssistantId);
+    if (!aid) return;
+    let links = [];
+    try {
+        const res = await fetch('/.netlify/functions/orchestrations');
+        if (res.ok) links = (await res.json()).links || [];
+    } catch { /* non-critical */ }
+    const mine = links.filter(l => l.sourceAssistantId === aid || l.targetAssistantId === aid);
+    if (!mine.length) { card.classList.add('hidden'); return; }
+
+    const arrow = '<svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>';
+    list.innerHTML = mine.map(l => {
+        const outbound = l.sourceAssistantId === aid;
+        const other = outbound ? l.targetAssistantName : l.sourceAssistantName;
+        const dim = l.isActive === false ? 'opacity-60' : '';
+        const left = outbound
+            ? `<span class="font-bold text-gray-800">This assistant</span> ${arrow} <span class="font-bold text-gray-800">${_escapeHtml(other)}</span>`
+            : `<span class="font-bold text-gray-800">${_escapeHtml(other)}</span> ${arrow} <span class="font-bold text-gray-800">This assistant</span>`;
+        return `<div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-100 text-sm ${dim}">
+            <span class="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold ${outbound ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">${outbound ? 'Sends to' : 'Receives from'}</span>
+            <span class="flex items-center gap-1.5 min-w-0">${left}</span>
+            <span class="text-gray-500 truncate">— ${_escapeHtml(l.targetAction)}</span>
+        </div>`;
+    }).join('');
+    card.classList.remove('hidden');
+};
+
 // Action-bar / Runbook entry: pick a recent post to tune (each row seeds a session by id).
 window._openTuningPicker = async function() {
     const modal = document.getElementById('modal-tuning-picker');
@@ -1564,6 +1599,9 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
 
     // ── Review Queue tab — prefetch pending count so the badge shows without opening the tab ──
     _prefetchDetailRqBadge(assistantId);
+
+    // ── Epic 4.2 — Active Workflows dependency map (self-hides when this assistant has no links) ──
+    window._renderActiveWorkflows?.(assistantId);
 };
 
 async function _prefetchDetailRqBadge(assistantId) {

@@ -828,6 +828,27 @@ export const relationshipBuildingTasks = pgTable("relationship_building_tasks", 
   uniqueIndex("relationship_building_tasks_unique").on(t.assistantId, t.taskDate, t.title),
 ]);
 
+// ── Multi-Agent Orchestration (Epic 4) — cross-assistant workflow links ──
+// One directed hand-off rule: when source_assistant fires source_event, hand off to
+// target_assistant to do target_action. Definition + visualisation only for now (no runtime
+// consumer yet). Owner-path + manual org filter (no RLS) — same as content_rules. See db/orchestrations.sql.
+export const orchestrationLinks = pgTable("orchestration_links", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  sourceAssistantId: integer("source_assistant_id").notNull().references(() => aiAssistants.id, { onDelete: "cascade" }),
+  sourceEvent: text("source_event").notNull(),           // 'drafts_a_post' | 'publishes_a_post' | 'completes_a_task'
+  targetAssistantId: integer("target_assistant_id").notNull().references(() => aiAssistants.id, { onDelete: "cascade" }),
+  targetAction: text("target_action").notNull(),         // freeform, e.g. "design the visual"
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("orchestration_links_org_idx").on(t.organisationId),
+  index("orchestration_links_source_idx").on(t.sourceAssistantId),
+  index("orchestration_links_target_idx").on(t.targetAssistantId),
+  uniqueIndex("orchestration_links_unique").on(t.sourceAssistantId, t.sourceEvent, t.targetAssistantId, t.targetAction),
+]);
+
 // ── Reward Redemptions — Referral Program Expansion ──────────────────────────
 // Audit trail + double-spend guard for the referral token vault. Each row records
 // a redemption: 'credit_10' (1 token → £10 Stripe credit) or 'free_assistant'
