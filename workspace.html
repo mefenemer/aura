@@ -1043,7 +1043,11 @@ function formatCurrency(amount, currency) {
     const paths = ["./components/sidebar.html", "./sidebar.html"];
     for (let path of paths) {
       try {
-        const response = await fetch(path);
+        // Same stale-cache trap as view partials (see VIEW_VERSION below): browsers
+        // cache this raw fetch aggressively, so a deploy that edits the sidebar can
+        // leave users on an old cached copy (e.g. #45 — a removed nav link kept
+        // showing up) until the cache-buster changes.
+        const response = await fetch(`${path}?v=${VIEW_VERSION}`);
         if (response.ok) {
           const container = document.getElementById(placeholderId);
           container.innerHTML = await response.text();
