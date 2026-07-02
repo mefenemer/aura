@@ -23,6 +23,8 @@ import { checkRateLimit } from '../../src/utils/rate-limit';
 import { resolveBaseUrl } from '../../src/utils/base-url';
 import { requireTenant } from '../../src/utils/tenant';
 import { isEuCountry } from '../../src/config/compliance';
+import { normalizeMediaSources, type MediaSource } from '../../src/utils/media-sources';
+import { formatPlatformStrategyBrief } from '../../src/utils/platform-strategy-brief';
 
 const connectionString = process.env.NETLIFY_DATABASE_URL;
 if (!connectionString) throw new Error('CRITICAL: NETLIFY_DATABASE_URL is missing.');
@@ -92,6 +94,9 @@ PUBLISHING DESTINATIONS
 Platforms:
 ${fmt(inputs.platforms, missing)}
 
+PLATFORM ALGORITHM STRATEGY
+${formatPlatformStrategyBrief(inputs.platform_strategy, s) || missing}
+
 GENERAL PREFERENCES & STRATEGY
 ${fmt(inputs.generalPreferences, missing)}
 
@@ -148,7 +153,7 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
     }
 
     const body = JSON.parse(event.body || '{}');
-    const { clientName, businessName, assistantName, customAssistantName, rawInputs, onboardingContext, consents, hourlyRateGbp, draftId } = body;
+    const { clientName, businessName, assistantName, customAssistantName, rawInputs, onboardingContext, consents, hourlyRateGbp, draftId, mediaSources, aiDisclosure } = body;
 
     if (assistantName === 'Social Media Manager') {
       if (!onboardingContext?.target_audience || !onboardingContext?.content_pillars || !onboardingContext?.tone_of_voice || !onboardingContext?.primary_platforms?.length) {
@@ -209,6 +214,12 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
       .where(eq(masterAssistants.name, assistantName || 'Social Media Manager'))
       .limit(1);
 
+    // Resolve the Visual Strategy → Media Source priority list. Validate/de-dupe what the
+    // client sent; null when nothing was sent so the resolver applies its DEFAULT_ORDER.
+    const resolvedMediaSources: MediaSource[] | null = Array.isArray(mediaSources)
+      ? normalizeMediaSources(mediaSources)
+      : null;
+
     // 6. CREATE AI ASSISTANT (subscription already paid — activate immediately)
     // The DB has a unique constraint on (userId, name) to prevent duplicate provisioning
     // from race conditions. We catch PostgreSQL error 23505 (unique_violation) and return 409.
@@ -228,6 +239,12 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
           inputs: rawInputs || {},
         },
         onboardingContext: onboardingContext || {},
+        // EU AI Act Art. 50: persist the disclosure captured at onboarding so the assistant ships
+        // with it set (Kick Off "AI disclosure acknowledged" pre-satisfied). Optional — null if skipped.
+        disclosureText: typeof aiDisclosure === 'string' && aiDisclosure.trim() ? aiDisclosure.trim().slice(0, 500) : null,
+        // Persist the Visual Strategy chosen at onboarding as the assistant's Media Source
+        // priority list; null leaves the resolver on its DEFAULT_ORDER matrix.
+        mediaSources: resolvedMediaSources,
         isActive: true,
         provisioningStatus: 'pending', // Ready for async provisioning
       }).returning();

@@ -8,16 +8,30 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     contentGenerationJobs, aiBlueprints, aiAssistants,
-    scheduledPosts, notifications, auditLogs, organisations,
+    scheduledPosts, scheduledPostAssets, contentAssets, mediaGenerationJobs,
+    notifications, auditLogs, organisations,
 } from '../../db/schema';
 import { gatewayGenerate } from '../../src/lib/ai-gateway';
 import { AURA_SAFE_CONTENT_BENCHMARK } from '../../src/constants/safety-benchmark';
-import { searchUniqueImages, attachPexelsImageToPost, creditLine } from '../../src/utils/pexels';
+import { creditLine } from '../../src/utils/pexels';
+import { resolveMediaForPost } from '../../src/utils/media-resolver';
+import { holdCredits, settleHold, IMAGE_CREDIT_COST } from '../../src/utils/ai-credits';
+import { generateAndPersistImage } from '../../src/lib/media-persist';
+import { FalContentPolicyError } from '../../src/lib/fal-gateway';
 import { DISCLOSURE } from '../../src/config/compliance';
+import { fireOrchestrations } from '../../src/utils/orchestration';
+
+// Fal image model for inline AI generation (matches the autonomous suggestions path).
+const AI_IMAGE_MODEL = process.env.FAL_IMAGE_MODEL ?? 'fal-ai/flux-pro/v1.1';
 
 const BACKOFF_SECS = [10, 30, 90];
 
-export const handler: Handler = async () => {
+// Core queue drain: reset stuck jobs, claim up to 20 queued jobs, generate each. Returns the
+// number of jobs claimed this pass. Extracted from the handler so it can be driven both by the
+// native Netlify schedule (this file's `handler`) AND by an on-demand HTTP trigger
+// (run-content-jobs.ts) — the latter is how staging/branch deploys drain their queue, since
+// Netlify only runs scheduled functions on the production deploy.
+export async function drainContentJobs(): Promise<number> {
     const db = getDb();
     const now = new Date();
 
@@ -43,11 +57,16 @@ export const handler: Handler = async () => {
          FOR UPDATE SKIP LOCKED`
     );
 
-    if (!jobs.length) return { statusCode: 200, body: 'no jobs' };
+    if (!jobs.length) return 0;
 
     await Promise.allSettled(jobs.map(job => processJob(db, job, now)));
 
-    return { statusCode: 200, body: `processed ${jobs.length} jobs` };
+    return jobs.length;
+}
+
+export const handler: Handler = async () => {
+    const processed = await drainContentJobs();
+    return { statusCode: 200, body: processed ? `processed ${processed} jobs` : 'no jobs' };
 };
 
 async function processJob(db: ReturnType<typeof getDb>, job: {
@@ -253,29 +272,103 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
             ).catch(() => {});
         }
 
-        // Best-effort: source a unique Pexels image and attach it (US1/US2/US3).
-        // Wrapped so any failure — including a Pexels 429 — never fails the generation job.
+        // Orchestration (Phase 5): this assistant just drafted a post — hand off to any linked
+        // assistants. Skip admin-test drafts, and skip drafts that were THEMSELVES produced by an
+        // orchestration hand-off (loop guard — chains stay depth-1). Best-effort; never throws.
+        if (!isAdminTest && job.trigger_type !== 'orchestration') {
+            await fireOrchestrations(db, {
+                sourceAssistantId: job.assistant_id,
+                orgId: job.organisation_id,
+                userId: job.user_id,
+                event: 'drafts_a_post',
+                sourcePostId: post.id,
+                sourceCaption: generated.caption ?? null,
+            });
+        }
+
+        // Best-effort: source media through the per-assistant Media Source resolver (Manual Library →
+        // AI Stock → AI Generation, in the assistant's configured order). This replaces the old direct
+        // Pexels call, so an assistant with uploaded assets and stock fallback Off now gets its OWN
+        // media rather than stock imagery. Wrapped so any failure — a Pexels 429, an empty library, an
+        // exhausted credit balance — never fails the generation job.
+        // When every enabled source comes back empty this stays set so the review notification can tell
+        // the user their draft has no media (and whether AI credits were the blocker).
+        let mediaExhaustedReason: 'ai_credits_exhausted' | 'media_exhausted' | null = null;
         try {
-            const imageContext = (generated.suggestedMediaDescription || generated.caption || '').trim();
-            if (imageContext) {
-                const { candidates } = await searchUniqueImages(db, job.organisation_id, imageContext);
-                const chosen = candidates[0];
-                if (chosen) {
-                    await attachPexelsImageToPost(db, {
-                        postId: post.id, userId: job.user_id, orgId: job.organisation_id, candidate: chosen,
-                    });
-                    // US3 AC3.3: append the credit line to the draft only when the org opts in.
-                    const [org] = await db.select({ enabled: organisations.pexelsAttributionEnabled })
-                        .from(organisations).where(eq(organisations.id, job.organisation_id)).limit(1);
-                    if (org?.enabled && generated.caption) {
-                        await db.update(scheduledPosts)
-                            .set({ caption: `${generated.caption}${creditLine(chosen.photographer)}`, updatedAt: now })
-                            .where(eq(scheduledPosts.id, post.id));
+            const mediaContext = (generated.suggestedMediaDescription || generated.caption || '').trim();
+            if (mediaContext) {
+                const [asst] = await db.select({ mediaSources: aiAssistants.mediaSources })
+                    .from(aiAssistants).where(eq(aiAssistants.id, job.assistant_id)).limit(1);
+
+                // AI-image source: charged against the org's STANDARD AI-credit balance (not the
+                // autonomous cap). holdCredits refuses when the balance is short — the throw makes the
+                // resolver treat AI as unavailable and fall through (or report exhausted → no media).
+                // Only fires for image posts: the resolver skips 'ai' for video (async gen path).
+                const aspect = format === 'story' ? '9:16' : '4:5';
+                const generateAi = async (): Promise<number> => {
+                    const hold = await holdCredits(db, { orgId: job.organisation_id, amount: IMAGE_CREDIT_COST });
+                    if (!hold.ok) throw new Error('insufficient_ai_credits');
+
+                    const [genJob] = await db.insert(mediaGenerationJobs).values({
+                        organisationId: job.organisation_id, userId: job.user_id, assistantId: job.assistant_id,
+                        mediaType: 'image', prompt: mediaContext, aspectRatio: aspect,
+                        model: AI_IMAGE_MODEL, creditCost: IMAGE_CREDIT_COST, isAutonomous: false, status: 'processing',
+                    }).returning({ id: mediaGenerationJobs.id });
+
+                    try {
+                        const assetId = await generateAndPersistImage(db, {
+                            orgId: job.organisation_id, userId: job.user_id,
+                            prompt: mediaContext, aspectRatio: aspect, generationJobId: genJob.id,
+                        });
+                        await settleHold(db, { orgId: job.organisation_id, amount: IMAGE_CREDIT_COST, success: true, mediaType: 'image', userId: job.user_id, jobId: genJob.id });
+                        await db.update(mediaGenerationJobs).set({ status: 'completed', resultAssetIds: [assetId], updatedAt: new Date() }).where(eq(mediaGenerationJobs.id, genJob.id));
+                        return assetId;
+                    } catch (genErr) {
+                        // Refund the hold (never charge on failure) and record why the job died.
+                        await settleHold(db, { orgId: job.organisation_id, amount: IMAGE_CREDIT_COST, success: false, mediaType: 'image', userId: job.user_id });
+                        const flagged = genErr instanceof FalContentPolicyError;
+                        await db.update(mediaGenerationJobs)
+                            .set({ status: flagged ? 'flagged' : 'failed', errorMessage: genErr instanceof Error ? genErr.message : 'generation failed', updatedAt: new Date() })
+                            .where(eq(mediaGenerationJobs.id, genJob.id));
+                        throw genErr;
                     }
+                };
+
+                const resolved = await resolveMediaForPost(db, {
+                    assistant: { mediaSources: asst?.mediaSources },
+                    orgId: job.organisation_id,
+                    userId: job.user_id,
+                    context: mediaContext,
+                    mediaType: isVideo ? 'video' : 'image',
+                    generateAi,
+                });
+                if (resolved.ok) {
+                    await attachAssetToPost(db, post.id, resolved.assetId);
+                    // US3 AC3.3: credit line only for stock (Pexels) media, and only when the org opts in.
+                    if (resolved.source === 'stock' && generated.caption) {
+                        const [org] = await db.select({ enabled: organisations.pexelsAttributionEnabled })
+                            .from(organisations).where(eq(organisations.id, job.organisation_id)).limit(1);
+                        if (org?.enabled) {
+                            const [creditAsset] = await db.select({ photographer: contentAssets.attributionName })
+                                .from(contentAssets).where(eq(contentAssets.id, resolved.assetId)).limit(1);
+                            if (creditAsset?.photographer) {
+                                await db.update(scheduledPosts)
+                                    .set({ caption: `${generated.caption}${creditLine(creditAsset.photographer)}`, updatedAt: now })
+                                    .where(eq(scheduledPosts.id, post.id));
+                            }
+                        }
+                    }
+                } else {
+                    // Every enabled media source came back empty (empty library, no stock results, or no
+                    // AI credits). The draft still exists — flag it so the review notification tells the
+                    // user to add media (parity with the autonomous path). lastError surfaces the credit
+                    // case: holdCredits threw 'insufficient_ai_credits' when the balance was short.
+                    mediaExhaustedReason = resolved.lastError === 'insufficient_ai_credits'
+                        ? 'ai_credits_exhausted' : 'media_exhausted';
                 }
             }
         } catch (imgErr) {
-            console.warn(`[process-content-jobs] job ${job.job_id} image sourcing skipped:`, imgErr instanceof Error ? imgErr.message : imgErr);
+            console.warn(`[process-content-jobs] job ${job.job_id} media sourcing skipped:`, imgErr instanceof Error ? imgErr.message : imgErr);
         }
 
         const tokenCols = tokensInput != null ? `, tokens_input = ${tokensInput}, tokens_output = ${tokensOutput ?? 0}` : '';
@@ -286,16 +379,35 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
         // Admin test jobs do not notify the consumer
         if (!isAdminTest) {
             const [asst] = await db.select({ name: aiAssistants.name }).from(aiAssistants).where(eq(aiAssistants.id, job.assistant_id)).limit(1);
+            const assistantLabel = asst?.name ?? 'Your assistant';
             const platformLabel = platform.charAt(0).toUpperCase() + platform.slice(1);
-            await db.insert(notifications).values({
-                userId: job.user_id,
-                type: 'post_draft_ready',
-                title: `${asst?.name ?? 'Your assistant'}: ${platformLabel} post draft ready`,
-                message: job.trigger_type === 'on_demand'
-                    ? 'Your on-demand post draft is ready to review.'
-                    : `Your ${platformLabel} post draft is ready to review.`,
-                metadata: { jobId: job.job_id, postId: post.id },
-            });
+
+            if (mediaExhaustedReason) {
+                // The draft is ready but has no media. Send ONE actionable notice instead of the generic
+                // "draft ready", flagging the AI-credit case explicitly so the fix (top up) is obvious.
+                const outOfCredits = mediaExhaustedReason === 'ai_credits_exhausted';
+                await db.insert(notifications).values({
+                    userId: job.user_id,
+                    type: 'ai_review',
+                    title: outOfCredits
+                        ? `${assistantLabel}: draft ready — out of AI credits`
+                        : `${assistantLabel}: draft ready — media needed`,
+                    message: outOfCredits
+                        ? `Your ${platformLabel} post draft is ready to review, but we couldn't generate an AI image — your AI credit balance is empty. Top up credits or add media in the Review Queue.`
+                        : `Your ${platformLabel} post draft is ready to review, but we couldn't source any media for it. Check the assistant's Media Sources settings or add media in the Review Queue.`,
+                    metadata: { jobId: job.job_id, postId: post.id, reason: mediaExhaustedReason },
+                });
+            } else {
+                await db.insert(notifications).values({
+                    userId: job.user_id,
+                    type: 'post_draft_ready',
+                    title: `${assistantLabel}: ${platformLabel} post draft ready`,
+                    message: job.trigger_type === 'on_demand'
+                        ? 'Your on-demand post draft is ready to review.'
+                        : `Your ${platformLabel} post draft is ready to review.`,
+                    metadata: { jobId: job.job_id, postId: post.id },
+                });
+            }
         }
 
     } catch (err) {
@@ -322,5 +434,23 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
                 `UPDATE content_generation_jobs SET status = 'queued', next_retry_at = '${nextRetryAt}', error_message = '${errorMessage.replace(/'/g, "''")}', updated_at = now() WHERE id = ${job.id}`
             );
         }
+    }
+}
+
+// Attach an already-created/selected content asset to a draft via the scheduledPostAssets junction,
+// keeping the deprecated contentAssetIds array in sync (resolvePostImage still reads it during the
+// migration window). Mirrors attachPexelsImageToPost, but for an asset the resolver already produced.
+async function attachAssetToPost(db: ReturnType<typeof getDb>, postId: number, assetId: number): Promise<void> {
+    await db.insert(scheduledPostAssets)
+        .values({ scheduledPostId: postId, contentAssetId: assetId, position: 0 })
+        .onConflictDoNothing();
+
+    const [post] = await db.select({ ids: scheduledPosts.contentAssetIds })
+        .from(scheduledPosts).where(eq(scheduledPosts.id, postId)).limit(1);
+    const existing = Array.isArray(post?.ids) ? (post!.ids as number[]) : [];
+    if (!existing.includes(assetId)) {
+        await db.update(scheduledPosts)
+            .set({ contentAssetIds: [...existing, assetId], updatedAt: new Date() })
+            .where(eq(scheduledPosts.id, postId));
     }
 }

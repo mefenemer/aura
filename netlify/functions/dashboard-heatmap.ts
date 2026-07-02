@@ -5,8 +5,9 @@
 //   → { grid: number[7][24], maxCount, totalTasks, peak: { dow, hour, count } | null,
 //       weeks, tz }
 //
-// grid[dayOfWeek][hour] = count of completed task runs that landed in that
-// weekday/hour bucket over the trailing window. dayOfWeek: 0=Sun … 6=Sat (Postgres DOW).
+// grid[dayOfWeek][hour] = count of completed work (task_runs + scheduled_posts)
+// that landed in that weekday/hour bucket over the trailing window.
+// dayOfWeek: 0=Sun … 6=Sat (Postgres DOW).
 // User-scoped via the aura_session cookie, mirroring roi-stats.ts.
 
 import { HandlerEvent } from '@netlify/functions';
@@ -47,18 +48,32 @@ export const handler = async (event: HandlerEvent) => {
     const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
 
     try {
-        // Bucket completed task runs by weekday × hour over the window. EXTRACT(DOW)
-        // returns 0=Sun … 6=Sat. We aggregate completedAt when present (when the work
-        // actually finished), falling back to createdAt for older rows.
+        // Bucket completed work by weekday × hour over the window. EXTRACT(DOW)
+        // returns 0=Sun … 6=Sat. Two sources feed "work completed": the generic
+        // task_runs governance queue (completedAt, falling back to createdAt), and
+        // scheduled_posts — the table the live content pipeline (SMM draft/publish
+        // flow) actually writes to. Without the latter this heatmap stayed empty for
+        // every org whose only activity is content drafting/publishing (issue #57),
+        // even though roi-stats.ts / get-time-saved.ts already count scheduled_posts
+        // as completed work for the "Hours Saved" / "Tasks Handled" tiles above it.
         const rows = await db.execute(sql`
+            WITH activity AS (
+                SELECT COALESCE(completed_at, created_at) AS ts
+                FROM task_runs
+                WHERE user_id = ${userId}
+                  AND status = 'completed'
+                  AND COALESCE(completed_at, created_at) >= NOW() - (${weeks} * INTERVAL '1 week')
+                UNION ALL
+                SELECT created_at AS ts
+                FROM scheduled_posts
+                WHERE user_id = ${userId}
+                  AND created_at >= NOW() - (${weeks} * INTERVAL '1 week')
+            )
             SELECT
-                EXTRACT(DOW  FROM COALESCE(completed_at, created_at))::int AS dow,
-                EXTRACT(HOUR FROM COALESCE(completed_at, created_at))::int AS hour,
+                EXTRACT(DOW  FROM ts)::int AS dow,
+                EXTRACT(HOUR FROM ts)::int AS hour,
                 COUNT(*)::int AS cnt
-            FROM task_runs
-            WHERE user_id = ${userId}
-              AND status = 'completed'
-              AND COALESCE(completed_at, created_at) >= NOW() - (${weeks} * INTERVAL '1 week')
+            FROM activity
             GROUP BY 1, 2
         `);
 

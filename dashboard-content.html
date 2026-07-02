@@ -40,8 +40,8 @@
     </div>
 
     <div>
-      <h1 id="dashboard-welcome-heading" class="text-3xl font-extrabold text-gray-900">Welcome back.</h1>
-      <p id="dashboard-welcome-subtext" class="text-gray-500 mt-1">Here is what your digital team has been up to while you were away.</p>
+      <h1 id="dash-welcome-heading" class="text-3xl font-extrabold text-gray-900">Welcome back.</h1>
+      <p class="text-gray-500 mt-1">Here is what your digital team has been up to while you were away.</p>
     </div>
   </header>
 
@@ -132,8 +132,8 @@
       <!-- AC3: proactive suggestions -->
       <div id="as-suggest-wrap" class="hidden">
         <div class="as-head">
-          <h3 class="as-h3">Ideas from your team</h3>
-          <span class="as-sub">One tap and they'll get started</span>
+          <h3 class="as-h3">Your Ideas & Suggestions</h3>
+          <span class="as-sub">One tap and your assistant will get started</span>
         </div>
         <div id="as-suggest" class="as-suggest-row"></div>
       </div>
@@ -574,7 +574,7 @@
     function suggestCard(item) {
       const card = document.createElement('div'); card.className = 'as-sg';
       card.innerHTML = `
-        <div class="as-sg-top">💡 ${esc(item.assistantName)}${item.platformLabel ? ` · ${esc(item.platformLabel)}` : ''}</div>
+        <div class="as-sg-top">💡 Suggested by ${esc(item.suggestedByName)} for ${esc(item.assistantName)}${item.platformLabel ? ` · ${esc(item.platformLabel)}` : ''}</div>
         <p class="as-sg-idea">${esc(item.idea)}</p>
         <div class="as-sg-actions">
           <button class="as-btn as-btn-yes">Yes, please</button>
@@ -854,6 +854,15 @@
       renderGrid();
     }
     init();
+
+    // Issue #58: the "Latest updates" widget was only ever fetched once at load, so a
+    // notification created while the user is sitting on the dashboard (e.g. "issue fixed")
+    // never showed up until a manual refresh. Re-render it periodically, same cadence as
+    // the sidebar notification badge poll in workspace.html.
+    setInterval(() => {
+      const body = grid.querySelector('.dw-card[data-key="notifications"] .dw-card-body');
+      if (body) { try { renderNotifications(body); } catch (_) {} }
+    }, 60_000);
   })();
 </script>
 

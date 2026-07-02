@@ -78,6 +78,7 @@ export const handler: Handler = async (event) => {
                 draftHorizonDays: aiAssistants.draftHorizonDays,
                 name: aiAssistants.name,
                 onboardingContext: aiAssistants.onboardingContext,
+                configuration: aiAssistants.configuration,
             })
             .from(aiAssistants)
             .where(and(eq(aiAssistants.id, assistantId), eq(aiAssistants.organisationId, orgId)))
@@ -108,6 +109,7 @@ export const handler: Handler = async (event) => {
             name: assistant.name,
             onboardingContext: assistant.onboardingContext,
             draftHorizonDays: days,
+            configuration: assistant.configuration,
         });
         gapFillEnqueued = result.enqueued;
 

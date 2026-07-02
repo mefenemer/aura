@@ -22,7 +22,7 @@
 import { Handler } from '@netlify/functions';
 import { and, eq, asc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { issueReports, issueReportMessages, users } from '../../db/schema';
+import { issueReports, issueReportMessages, users, devRunnerStatus } from '../../db/schema';
 import { ISSUE_STATUS_LABEL, maybeAdvanceToReadyToTest } from '../../src/utils/issue-reports';
 
 const json = (statusCode: number, body: unknown) => ({
@@ -30,6 +30,15 @@ const json = (statusCode: number, body: unknown) => ({
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
 });
+
+// Identity the runner sends about itself (default in the script is `${hostname}:${pid}`).
+// Purely informational — it's shown in the admin portal so you can tell which of several
+// concurrent runners is working which issue. Bounded so a rogue value can't bloat the row.
+function runnerId(event: any): string | null {
+    const h = event.headers || {};
+    const v = (h['x-runner-id'] || h['X-Runner-Id'] || '').toString().trim();
+    return v ? v.slice(0, 120) : null;
+}
 
 function authOk(event: any): boolean {
     const expected = process.env.DEV_HANDOFF_TOKEN;
@@ -62,9 +71,10 @@ export const handler: Handler = async (event) => {
             .limit(1);
         if (!next) return json(200, { issue: null });
 
-        // Compare-and-swap so two runners can't grab the same issue.
+        // Compare-and-swap so two runners can't grab the same issue. The winner stamps its
+        // identity + a claim timestamp so the admin portal can show who's fixing what.
         const claimed = await db.update(issueReports)
-            .set({ devHandoffStatus: 'in_progress', updatedAt: new Date() })
+            .set({ devHandoffStatus: 'in_progress', devRunnerId: runnerId(event), devRunnerHeartbeat: new Date(), updatedAt: new Date() })
             .where(and(eq(issueReports.id, next.id), eq(issueReports.devHandoffStatus, 'queued')))
             .returning({ id: issueReports.id });
         if (claimed.length === 0) return json(200, { issue: null }); // lost the race; runner will poll again
@@ -103,7 +113,7 @@ export const handler: Handler = async (event) => {
         if (!next) return json(200, { issue: null });
 
         const claimed = await db.update(issueReports)
-            .set({ devMergeStatus: 'merging', updatedAt: new Date() })
+            .set({ devMergeStatus: 'merging', devRunnerId: runnerId(event), devRunnerHeartbeat: new Date(), updatedAt: new Date() })
             .where(and(eq(issueReports.id, next.id), eq(issueReports.devMergeStatus, 'queued')))
             .returning({ id: issueReports.id });
         if (claimed.length === 0) return json(200, { issue: null }); // lost the race
@@ -128,6 +138,8 @@ export const handler: Handler = async (event) => {
                 devMergeStatus: 'merged',
                 devMergedAt: new Date(),
                 devMergeResult: outcome || 'Merged to staging.',
+                devRunnerId: null,
+                devRunnerHeartbeat: null,
                 updatedAt: new Date(),
             }).where(eq(issueReports.id, id));
 
@@ -148,6 +160,8 @@ export const handler: Handler = async (event) => {
         await db.update(issueReports).set({
             devMergeStatus: 'failed',
             devMergeResult: outcome || 'The merge could not be completed.',
+            devRunnerId: null,
+            devRunnerHeartbeat: null,
             updatedAt: new Date(),
         }).where(eq(issueReports.id, id));
 
@@ -160,6 +174,113 @@ export const handler: Handler = async (event) => {
         });
 
         return json(200, { ok: true, devMergeStatus: 'failed' });
+    }
+
+    // ── Runner hit its Claude session/usage limit ────────────────────────────────
+    // The runner can't produce ANY fix while its Claude Code CLI is rate-limited, so instead
+    // of burning the issue as 'failed' (which just fails again on re-queue), it reports the
+    // block here. We: (1) park the runner as 'session_limited'; (2) re-queue the issue so it's
+    // retried once a funded Claude account is logged in and the runner resumes; (3) thread a
+    // clear "log in with credit, then Resume" instruction for the admin. The runner then polls
+    // ?action=resume-check and waits — it does NOT keep claiming.
+    if (event.httpMethod === 'POST' && action === 'report-blocked' && id) {
+        let body: any;
+        try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON.' }); }
+        const rid = runnerId(event) || 'unknown-runner';
+        const message = (typeof body.message === 'string' ? body.message : '').trim().slice(0, 1000) || 'Claude session/usage limit reached.';
+        const resetHint = (typeof body.resetHint === 'string' ? body.resetHint : '').trim().slice(0, 200) || null;
+        const now = new Date();
+
+        await db.insert(devRunnerStatus).values({
+            runnerId: rid, state: 'session_limited', message, resetHint,
+            blockedIssueId: id, resumeRequested: false, lastProbeResult: null,
+            blockedAt: now, lastSeenAt: now, updatedAt: now,
+        }).onConflictDoUpdate({
+            target: devRunnerStatus.runnerId,
+            set: {
+                state: 'session_limited', message, resetHint, blockedIssueId: id,
+                resumeRequested: false, lastProbeResult: null, blockedAt: now, lastSeenAt: now, updatedAt: now,
+            },
+        });
+
+        // Re-queue the issue so it isn't lost; clear the (now paused) runner's claim.
+        const [issue] = await db.select().from(issueReports).where(eq(issueReports.id, id)).limit(1);
+        if (issue) {
+            await db.update(issueReports).set({
+                devHandoffStatus: 'queued', devRunnerId: null, devRunnerHeartbeat: null, updatedAt: now,
+            }).where(eq(issueReports.id, id));
+
+            await db.insert(issueReportMessages).values({
+                issueId: id,
+                authorType: 'admin',
+                authorId: null,
+                body: `⏸️ AI auto-fix paused — the runner's Claude account hit its session limit${resetHint ? ` (resets ${resetHint})` : ''}.\n\nLog into a Claude account with credit on the runner machine, then press "Resume runner" in the Runner panel. This issue is queued and will be retried automatically once the runner resumes — no need to re-submit it.`,
+                status: null,
+            });
+        }
+
+        return json(200, { ok: true, state: 'session_limited', runnerId: rid });
+    }
+
+    // ── Runner asks whether it may resume (polled while paused) ───────────────────
+    // Doubles as a liveness ping (updates last_seen_at). Returns resume:true once a super-admin
+    // has pressed "Resume runner" in the portal after re-logging in on the runner machine.
+    if (event.httpMethod === 'GET' && action === 'resume-check') {
+        const rid = runnerId(event) || 'unknown-runner';
+        const now = new Date();
+        const [row] = await db.select().from(devRunnerStatus).where(eq(devRunnerStatus.runnerId, rid)).limit(1);
+        if (row) {
+            await db.update(devRunnerStatus).set({ lastSeenAt: now }).where(eq(devRunnerStatus.runnerId, rid));
+        }
+        return json(200, { resume: !!row?.resumeRequested, state: row?.state || 'ok' });
+    }
+
+    // ── Runner reports the result of verifying the new login ──────────────────────
+    // After the admin presses Resume, the runner runs a cheap probe against Claude. ok:true →
+    // the new account works, so we clear the block (the re-queued issue gets re-claimed). ok:false
+    // → the login didn't actually switch / still limited; we consume the resume request and record
+    // why, so the admin can log in properly and press Resume again.
+    if (event.httpMethod === 'POST' && action === 'resume-ack') {
+        let body: any;
+        try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON.' }); }
+        const rid = runnerId(event) || 'unknown-runner';
+        const ok = body.ok === true;
+        const probeMsg = (typeof body.message === 'string' ? body.message : '').trim().slice(0, 1000) || (ok ? 'Claude login verified — runner resumed.' : 'The Claude account is still rate-limited.');
+        const now = new Date();
+
+        const [row] = await db.select().from(devRunnerStatus).where(eq(devRunnerStatus.runnerId, rid)).limit(1);
+
+        await db.insert(devRunnerStatus).values({
+            runnerId: rid,
+            state: ok ? 'ok' : 'session_limited',
+            message: ok ? null : (row?.message || null),
+            resetHint: ok ? null : (row?.resetHint || null),
+            blockedIssueId: ok ? null : (row?.blockedIssueId ?? null),
+            resumeRequested: false, lastProbeResult: probeMsg, lastSeenAt: now, updatedAt: now,
+        }).onConflictDoUpdate({
+            target: devRunnerStatus.runnerId,
+            set: {
+                state: ok ? 'ok' : 'session_limited',
+                ...(ok ? { message: null, resetHint: null, blockedIssueId: null, blockedAt: null } : {}),
+                resumeRequested: false, lastProbeResult: probeMsg, lastSeenAt: now, updatedAt: now,
+            },
+        });
+
+        // Thread the probe outcome on the issue the runner was blocked on, so the admin sees it.
+        const blockedId = row?.blockedIssueId ?? null;
+        if (blockedId) {
+            await db.insert(issueReportMessages).values({
+                issueId: blockedId,
+                authorType: 'admin',
+                authorId: null,
+                body: ok
+                    ? `▶️ Runner resumed — the new Claude login was verified. This issue will be picked up again shortly.`
+                    : `⚠️ Resume failed — the Claude account is still rate-limited or the login didn't switch on the runner machine.\n\n${probeMsg}\n\nLog into a Claude account with credit on the runner machine, then press "Resume runner" again.`,
+                status: null,
+            });
+        }
+
+        return json(200, { ok: true, state: ok ? 'ok' : 'session_limited' });
     }
 
     // ── Report the outcome of a fix attempt ──────────────────────────────────────
@@ -195,6 +316,8 @@ export const handler: Handler = async (event) => {
                 devMergeStatus: 'ready',
                 devMergedAt: null,
                 devMergeResult: null,
+                devRunnerId: null,
+                devRunnerHeartbeat: null,
                 status: 'fix_in_progress',
                 updatedAt: new Date(),
             }).where(eq(issueReports.id, id));
@@ -224,6 +347,8 @@ export const handler: Handler = async (event) => {
         await db.update(issueReports).set({
             devHandoffStatus: 'failed',
             devResult: summary || 'The AI runner could not produce a fix.',
+            devRunnerId: null,
+            devRunnerHeartbeat: null,
             updatedAt: new Date(),
         }).where(eq(issueReports.id, id));
 

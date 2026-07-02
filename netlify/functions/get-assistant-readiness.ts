@@ -18,21 +18,16 @@ const json = (statusCode: number, body: unknown) => ({
     statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
 });
 
-export const handler: Handler = async (event) => {
-    if (event.httpMethod !== 'GET') return json(405, { error: 'Method Not Allowed' });
+type Db = ReturnType<typeof getDb>;
 
-    const idParam = event.queryStringParameters?.id;
-    const assistantId = idParam ? parseInt(idParam, 10) : NaN;
-    if (!assistantId || Number.isNaN(assistantId)) {
-        return json(400, { error: 'id parameter is required.' });
-    }
-
-    const db = getDb();
-    const ctx = await requireTenant(event, db);
-    if ('error' in ctx) return ctx.error;
-    const orgId = ctx.organisationId;
-
-    try {
+/**
+ * Compute the Kick Off Meeting readiness checklist for one assistant — the items the user
+ * confirms before it starts working (Board Room). Shared between this endpoint's handler and
+ * the Setup Wizard (get-wizard-state), where the same items render as the sub-tasks of the
+ * "Preparing your assistant" step. Returns the full payload, or null if the assistant doesn't
+ * belong to the org (IDOR-guarded). Throws on DB errors — callers degrade as they see fit.
+ */
+export async function computeAssistantReadiness(db: Db, orgId: number, assistantId: number) {
         const result = await withTenant(orgId, async (tx) => {
             // ── IDOR guard: assistant must belong to the caller's organisation ──
             const [assistant] = await tx.select({
@@ -89,7 +84,7 @@ export const handler: Handler = async (event) => {
             return { assistant, hasHealthyConnection, hasRule, connections, brokenConnections };
         });
 
-        if (!result) return json(404, { error: 'Assistant not found.' });
+        if (!result) return null;
         const { assistant, hasHealthyConnection, hasRule, connections, brokenConnections } = result;
 
         // US5 AC5.2: when system_paused, surface WHY + which fix the user needs. Derived on read
@@ -172,7 +167,7 @@ export const handler: Handler = async (event) => {
             { key: 'connections', label: 'Tools connected', done: hasHealthyConnection, required: true,
               hint: 'Connect at least one account — and reconnect any expired ones — so your assistant can do its work.' },
             { key: 'disclosure', label: 'AI disclosure acknowledged', done: disclosureDone, required: true,
-              hint: 'Add the AI disclosure text (required by EU AI Act Art. 52) before activation.' },
+              hint: 'Enter the disclosure caption in the Guardrails tab — the text appended to every post to declare AI-generated content (this is separate from the general AI disclaimer you may have already accepted).' },
             { key: 'tos', label: 'Terms of Service accepted', done: tosDone, required: true,
               hint: 'Accept the current Terms of Service before this assistant can be activated.' },
             { key: 'dpa', label: 'Data Processing Agreement accepted', done: dpaDone, required: true,
@@ -197,7 +192,7 @@ export const handler: Handler = async (event) => {
             ? { reason: assistant.provisioningBlockedReason, ...provisioningBlockInfo(assistant.provisioningBlockedReason) }
             : null;
 
-        return json(200, {
+        return {
             assistantId,
             status: assistant.provisioningStatus,
             isActive: assistant.isActive,
@@ -216,8 +211,26 @@ export const handler: Handler = async (event) => {
             },
             items,
             allRequiredDone,
-        });
+        };
+}
 
+export const handler: Handler = async (event) => {
+    if (event.httpMethod !== 'GET') return json(405, { error: 'Method Not Allowed' });
+
+    const idParam = event.queryStringParameters?.id;
+    const assistantId = idParam ? parseInt(idParam, 10) : NaN;
+    if (!assistantId || Number.isNaN(assistantId)) {
+        return json(400, { error: 'id parameter is required.' });
+    }
+
+    const db = getDb();
+    const ctx = await requireTenant(event, db);
+    if ('error' in ctx) return ctx.error;
+
+    try {
+        const result = await computeAssistantReadiness(db, ctx.organisationId, assistantId);
+        if (!result) return json(404, { error: 'Assistant not found.' });
+        return json(200, result);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : '';
         // Table not yet migrated — degrade gracefully rather than 500.

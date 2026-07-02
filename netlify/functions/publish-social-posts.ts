@@ -16,6 +16,7 @@ import { scheduledPosts, systemConnections, rateLimitStates, publishCronLog, not
 import { getSecret } from '../../src/utils/vault';
 import { resolvePostImage, refreshXToken, fetchImageBytes, type PostImage } from '../../src/utils/social-publish';
 import { recordPostedAssets } from '../../src/utils/pexels';
+import { fireOrchestrations } from '../../src/utils/orchestration';
 
 const BATCH = 100;
 const BACKOFF_MINS = [2, 8, 30];
@@ -30,6 +31,7 @@ type PostRow = {
     id: number; user_id: number; organisation_id: number; caption: string | null;
     hashtags: string | null; connection_id: number | null; attempt_count: number;
     publish_date: string; platform: string; content_asset_ids: unknown;
+    assistant_id: number | null;
 };
 type DriverResult = { ok: true; id: string } | { ok: false; status: number | null; error: string };
 
@@ -52,7 +54,7 @@ export const handler: Handler = async () => {
 
     const posts = await db.execute<PostRow>(
         `SELECT id, user_id, organisation_id, caption, hashtags, connection_id,
-                attempt_count, publish_date, platform, content_asset_ids
+                attempt_count, publish_date, platform, content_asset_ids, assistant_id
          FROM scheduled_posts
          WHERE status = 'scheduled'
            AND platform IN ('linkedin','x')
@@ -131,6 +133,18 @@ export const handler: Handler = async () => {
                 message: `Your post has been published to ${LABEL[post.platform]}.`,
                 metadata: { postId: post.id, platform: post.platform, platformPostId: result.id },
             });
+            // Orchestration (Phase 5): this assistant just published — hand off to any linked
+            // assistants. Best-effort; never throws. Each downstream draft still needs approval.
+            if (post.assistant_id) {
+                await fireOrchestrations(db, {
+                    sourceAssistantId: post.assistant_id,
+                    orgId: post.organisation_id,
+                    userId: post.user_id,
+                    event: 'publishes_a_post',
+                    sourcePostId: post.id,
+                    sourceCaption: post.caption ?? null,
+                });
+            }
             succeeded++;
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);

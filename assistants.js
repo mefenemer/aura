@@ -120,7 +120,7 @@ window.generateAssistantCardHTML = function(assistant) {
         ${metricsHtml}
         <div class="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
             ${reviewBtn || '<span></span>'}
-            <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">Board Room &rarr;</span>
+            <span class="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">View Details &rarr;</span>
         </div>
     </div>`;
 };
@@ -368,6 +368,9 @@ function _initBriefAutoGrow() {
 
 function _resizeBriefAutoGrow() {
     _AUTOGROW_FIELDS.forEach(id => _autoGrowField(document.getElementById(id)));
+    // Per-assistant Assistant Rules rows (#tab-guardrails) are built dynamically and hit the
+    // same display:none / scrollHeight:0 problem — recompute their height too.
+    document.querySelectorAll('#assistant-rules-editor .ar-input').forEach(_autoGrowField);
 }
 
 // ── Assistant-detail tab switching (event delegation) ─────────────────────────
@@ -391,6 +394,8 @@ window._activateMainTab = function(name) {
     _resizeBriefAutoGrow();
     // Load the assistant-scoped review queue when the tab is first opened.
     if (name === 'review-queue') detailRqOpenStatus('review');
+    // Refresh the Runbook's Learned Directives when the (renamed) Runbook tab opens.
+    if (name === 'meetings') window._renderRunbookDirectives?.();
 };
 
 // ── Assistant-detail scoped Review Queue ─────────────────────────────────────
@@ -448,6 +453,9 @@ async function _detailRqRenderGroups(statusKey) {
         if (colBadge) { colBadge.textContent = posts.length || ''; colBadge.classList.toggle('hidden', !posts.length); }
         const tabBadge = document.getElementById('detail-rq-pending-badge');
         if (tabBadge) { tabBadge.textContent = posts.length || ''; tabBadge.classList.toggle('hidden', !posts.length); }
+        // Keep the Overview action-bar badge + status pill in sync as the queue changes (e.g. after approving).
+        window._setReviewPendingBadge?.(posts.length);
+        window._updateOpSignals?.({ pendingReview: posts.length });
     }
 
     // Reuse the global render helpers from workspace.html (rqRenderSocialCard, rqRenderIdeaCard, etc.)
@@ -485,29 +493,55 @@ window._detailRqToggleGroup = function(key) {
     if (chev) chev.classList.toggle('rotate-90', !wasOpen);
 };
 
-// Open the right-hand brief drawer for a given tab key
-window._openBriefDrawer = function(tabKey) {
+// ── Right-hand persona / config slide-over (Epic 1) ───────────────────────────
+// The drawer has a "home" panel (#tab-profile-home: onboarding answers + Operating
+// File card index) and one panel per section (#tab-problem, #tab-operation, …).
+// _openProfileDrawer lands on home; clicking a card calls _openBriefDrawer(section),
+// which swaps panels in place and reveals a back arrow. It is reached from the header
+// "Assistant Profile" button — there is no longer a setup tab in the main nav.
+
+// Show exactly one drawer panel by element id (CSS hides all .detail-tab-content
+// unless they carry .active-drawer-tab while the drawer is open).
+function _briefShowPanel(panelId) {
+    document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.remove('active-drawer-tab'));
+    const panel = document.getElementById(panelId);
+    if (panel) panel.classList.add('active-drawer-tab');
+}
+
+// Run the open animation/backdrop/scroll-lock. Idempotent: safe to call when the
+// drawer is already open (so cards can swap panels without re-triggering anything odd).
+function _briefOpenChrome() {
     const drawer = document.getElementById('brief-drawer');
     const backdrop = document.getElementById('brief-drawer-backdrop');
     if (!drawer) return;
-
-    // Show the correct panel inside the drawer
-    document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.remove('active-drawer-tab'));
-    const panel = document.getElementById('tab-' + tabKey);
-    if (panel) panel.classList.add('active-drawer-tab');
-
-    // Set drawer title
-    const titles = { problem: 'Mandate', operation: 'Operational Setup', strategy: 'Creative Brief', platforms: 'Connections', guardrails: 'Brand Safety & Legal' };
-    const titleEl = document.getElementById('brief-drawer-title');
-    if (titleEl) titleEl.textContent = titles[tabKey] || tabKey;
-
-    // Open
     document.body.classList.add('brief-drawer-open');
     if (backdrop) { backdrop.style.display = 'block'; setTimeout(() => backdrop.style.opacity = '1', 10); }
     drawer.style.transform = 'translateX(0)';
     document.body.style.overflow = 'hidden';
-
+    const body = document.getElementById('brief-drawer-body');
+    if (body) body.scrollTop = 0;
     _resizeBriefAutoGrow();
+}
+
+// Entry point from the header — opens the drawer to the profile "home" card index.
+window._openProfileDrawer = function() {
+    _briefShowPanel('tab-profile-home');
+    const titleEl = document.getElementById('brief-drawer-title');
+    if (titleEl) titleEl.textContent = window._assistantProfileTitle || 'Assistant Profile';
+    const backBtn = document.getElementById('brief-drawer-back');
+    if (backBtn) backBtn.hidden = true;
+    _briefOpenChrome();
+};
+
+// Open (or swap to) a specific section panel, with a back arrow to the home index.
+window._openBriefDrawer = function(tabKey) {
+    _briefShowPanel('tab-' + tabKey);
+    const titles = { problem: 'Mandate', operation: 'Operational Setup', strategy: 'Creative Brief', platforms: 'Connections', guardrails: 'Brand Safety & Legal' };
+    const titleEl = document.getElementById('brief-drawer-title');
+    if (titleEl) titleEl.textContent = titles[tabKey] || tabKey;
+    const backBtn = document.getElementById('brief-drawer-back');
+    if (backBtn) backBtn.hidden = false;
+    _briefOpenChrome();
 };
 
 window._closeBriefDrawer = function() {
@@ -517,6 +551,300 @@ window._closeBriefDrawer = function() {
     if (backdrop) { backdrop.style.opacity = '0'; setTimeout(() => { backdrop.style.display = 'none'; }, 250); }
     document.body.classList.remove('brief-drawer-open');
     document.body.style.overflow = '';
+};
+
+// ── Operational status pill (Epic 1 AC1.1.2) ──────────────────────────────────
+// The header pill keeps the lifecycle vocabulary for every non-active state
+// (Setup in Progress / Paused / Archived …). For an actively *working* assistant it
+// refines into an operational sub-state from live signals: a mid-flight job →
+// "Executing Task"; else drafts awaiting the user → "Awaiting Human Review"; else
+// "Idle". Signals are cached so the pill re-renders as activity/review data lands.
+window._detailOpSignals = { activeJobCount: 0, pendingReview: 0 };
+
+const _STATUS_PILL = {
+    blocked:        { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500',                 label: 'Action Required',    toggle: 'Initiate Kick-Off' },
+    provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Setup in Progress',  toggle: 'Pause Assistant' },
+    ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work',     toggle: 'Initiate Kick-Off' },
+    working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Working',            toggle: 'Pause Assistant' },
+    paused:         { cls: 'bg-gray-100 text-gray-600 border-gray-200',         dot: 'bg-gray-400',                  label: 'Paused',             toggle: 'Resume Assistant' },
+    system_paused:  { cls: 'bg-red-50 text-red-700 border-red-200',             dot: 'bg-red-500 animate-pulse',     label: 'Attention Required', toggle: 'Resume Assistant' },
+    archived:       { cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-300',                  label: 'Archived',           toggle: 'Resume Assistant' },
+};
+
+window._renderStatusPill = function(data) {
+    data = data || window._detailCurrentData;
+    const statusEl = document.getElementById('detail-status');
+    if (!statusEl || !data) return;
+    const toggleBtn = document.getElementById('btn-toggle-status');
+
+    // Lifecycle state machine (assistant-lifecycle-epic). Fall back to legacy fields.
+    // Gate-blocked assistants read as lifecycle 'provisioning' but need action → own pill.
+    const lifecycle = data.status === 'blocked' ? 'blocked' : (data.lifecycleStatus
+      || (data.status === 'pending' ? 'provisioning' : (data.isActive === false ? 'paused' : 'working')));
+    let p = _STATUS_PILL[lifecycle] || _STATUS_PILL.working;
+
+    if (lifecycle === 'working') {
+        const sig = window._detailOpSignals || {};
+        if (sig.activeJobCount > 0) {
+            p = { ...p, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Executing Task' };
+        } else if (sig.pendingReview > 0) {
+            p = { ...p, cls: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', label: 'Awaiting Human Review' };
+        } else {
+            p = { ...p, cls: 'bg-gray-100 text-gray-600 border-gray-200', dot: 'bg-gray-400', label: 'Idle' };
+        }
+    }
+
+    statusEl.className = `inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold border ${p.cls}`;
+    statusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${p.dot}"></span> ${p.label}`;
+    if (toggleBtn) toggleBtn.textContent = p.toggle;
+};
+
+// Update one or more operational signals and re-render the pill in place.
+window._updateOpSignals = function(patch) {
+    window._detailOpSignals = { ...window._detailOpSignals, ...patch };
+    window._renderStatusPill();
+};
+
+// Action bar (Epic 2.1): reflect the pending-review count on the "Review Pending Items"
+// button — hidden at 0, amber pill otherwise. Replaces the retired amber strip.
+window._setReviewPendingBadge = function(count) {
+    const badge = document.getElementById('review-pending-count');
+    if (!badge) return;
+    badge.textContent = count || '';
+    badge.classList.toggle('hidden', !count);
+};
+
+// ══ Epic 3 — Continuous Improvement Loop (Tuning Sessions + Runbook) ═══════════
+
+// ── Runbook: Learned Directives changelog (Feature 3.2) ───────────────────────
+// Renders content_rules for the current assistant as a chronological, toggleable
+// audit trail. Shares the content-rules CRUD with the Guardrails panel; provenance
+// (manual / feedback / tuning) is foregrounded here.
+const _RUNBOOK_ORIGIN = {
+    manual:             ['Manual',        'bg-gray-100 text-gray-600'],
+    rejection_feedback: ['From feedback', 'bg-amber-100 text-amber-700'],
+    tuning:             ['From tuning',   'bg-indigo-100 text-indigo-700'],
+};
+
+window._renderRunbookDirectives = async function(assistantId) {
+    const host = document.getElementById('runbook-directives');
+    if (!host) return;
+    const aid = assistantId || window._currentAssistantId;
+    if (!aid) return;
+    let rules = [];
+    try {
+        const res = await fetch(`/.netlify/functions/content-rules?assistantId=${aid}`);
+        if (res.ok) rules = (await res.json()).rules || [];
+    } catch { /* non-critical */ }
+    rules.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    if (!rules.length) {
+        host.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">No directives yet. Start a Tuning Session to teach your assistant its first rule.</p>';
+        return;
+    }
+    host.innerHTML = rules.map(r => {
+        const active = r.isActive !== false;
+        const o = _RUNBOOK_ORIGIN[r.origin] || _RUNBOOK_ORIGIN.manual;
+        const when = r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+        const cap = r.originPost && r.originPost.caption ? String(r.originPost.caption) : '';
+        const originPost = cap ? `<p class="text-xs text-gray-400 mt-1 italic">from post: “${_escapeHtml(cap.slice(0, 80))}${cap.length > 80 ? '…' : ''}”</p>` : '';
+        return `<div class="flex items-start gap-3 px-3 py-3 rounded-xl border border-gray-100 ${active ? '' : 'bg-gray-50'}" data-rule-id="${r.id}">
+            <div class="flex-1 min-w-0">
+                <p class="text-sm ${active ? 'text-gray-800' : 'text-gray-400 line-through'}">${_escapeHtml(r.ruleText || '')}</p>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="px-2 py-0.5 rounded-full text-xs font-bold ${o[1]}">${o[0]}</span>
+                    <span class="text-xs text-gray-400">${when}</span>
+                </div>
+                ${originPost}
+            </div>
+            <button type="button" aria-checked="${active}" onclick="window._toggleDirective(${r.id}, this)" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors mt-0.5 ${active ? 'bg-emerald-500' : 'bg-gray-300'}">
+                <span class="${active ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition"></span>
+            </button>
+            <button type="button" onclick="window._deleteDirective(${r.id})" class="text-gray-400 hover:text-red-500 transition mt-1" aria-label="Delete directive">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+        </div>`;
+    }).join('');
+};
+
+window._toggleDirective = async function(id, btn) {
+    const nowActive = btn.getAttribute('aria-checked') !== 'true';
+    try {
+        await fetch('/.netlify/functions/content-rules', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, isActive: nowActive }) });
+    } catch { /* non-critical */ }
+    window._renderRunbookDirectives();
+};
+
+window._deleteDirective = async function(id) {
+    if (!confirm('Delete this directive? Your assistant will no longer follow it.')) return;
+    try { await fetch(`/.netlify/functions/content-rules?id=${id}`, { method: 'DELETE' }); } catch { /* non-critical */ }
+    window._renderRunbookDirectives();
+};
+
+// ── Tuning Session (Feature 3.1) — correct an output → learned directive ──────
+let _tuningCtx = null;
+
+window._openTuningSession = async function(ctx) {
+    ctx = ctx || {};
+    _tuningCtx = { postId: ctx.postId || null, output: ctx.output || '', meta: ctx.meta || '', platform: ctx.platform || null };
+    const modal = document.getElementById('modal-tuning');
+    if (!modal) return;
+    const outEl = document.getElementById('tuning-output');
+    const metaEl = document.getElementById('tuning-output-meta');
+    const corr = document.getElementById('tuning-correction');
+    // Reset to the "collect correction" state.
+    document.getElementById('tuning-result').classList.add('hidden');
+    document.getElementById('tuning-error').classList.add('hidden');
+    document.getElementById('tuning-submit-btn').classList.remove('hidden');
+    document.getElementById('tuning-cancel-btn').classList.remove('hidden');
+    document.getElementById('tuning-revise-btn').classList.add('hidden');
+    document.getElementById('tuning-done-btn').classList.add('hidden');
+    if (corr) { corr.value = ''; corr.disabled = false; }
+    if (outEl) outEl.textContent = _tuningCtx.output || 'Loading…';
+    if (metaEl) metaEl.textContent = _tuningCtx.meta || '';
+    modal.classList.remove('hidden');
+    // Seed the output caption when only a postId was supplied (e.g. from an activity row).
+    if (!_tuningCtx.output && _tuningCtx.postId) {
+        try {
+            const res = await fetch(`/.netlify/functions/scheduled-posts?id=${_tuningCtx.postId}`);
+            if (res.ok) {
+                const { post } = await res.json();
+                if (post) {
+                    _tuningCtx.output = post.caption || '(No caption)';
+                    _tuningCtx.platform = _tuningCtx.platform || post.platform || null;
+                    if (outEl) outEl.textContent = _tuningCtx.output;
+                    if (metaEl) metaEl.textContent = [post.platform, post.publishDate ? new Date(post.publishDate).toLocaleDateString('en-GB') : ''].filter(Boolean).join(' · ');
+                }
+            } else if (outEl) outEl.textContent = '(Could not load the post.)';
+        } catch { if (outEl) outEl.textContent = '(Could not load the post.)'; }
+    }
+    corr?.focus();
+};
+
+window._closeTuningSession = function() {
+    document.getElementById('modal-tuning')?.classList.add('hidden');
+    _tuningCtx = null;
+};
+
+window._submitTuning = async function() {
+    if (!_tuningCtx) return;
+    const corr = document.getElementById('tuning-correction');
+    const errEl = document.getElementById('tuning-error');
+    const text = (corr?.value || '').trim();
+    errEl.classList.add('hidden');
+    if (!text) { errEl.textContent = 'Tell your assistant what should be different.'; errEl.classList.remove('hidden'); return; }
+    const submitBtn = document.getElementById('tuning-submit-btn');
+    submitBtn.disabled = true; submitBtn.textContent = 'Working…';
+    try {
+        const res = await fetch('/.netlify/functions/tune-assistant', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assistantId: window._currentAssistantId, postId: _tuningCtx.postId, output: _tuningCtx.output, correction: text, platform: _tuningCtx.platform }),
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed to save the directive.'); }
+        const { directive } = await res.json();
+        document.getElementById('tuning-directive').textContent = directive;
+        document.getElementById('tuning-result').classList.remove('hidden');
+        if (corr) corr.disabled = true;
+        submitBtn.classList.add('hidden');
+        document.getElementById('tuning-cancel-btn').classList.add('hidden');
+        document.getElementById('tuning-revise-btn').classList.toggle('hidden', !_tuningCtx.postId);
+        document.getElementById('tuning-done-btn').classList.remove('hidden');
+        window._renderRunbookDirectives();
+        window.showToast?.('Directive added to the Runbook.');
+    } catch (e) {
+        errEl.textContent = e.message || 'Something went wrong.'; errEl.classList.remove('hidden');
+    } finally {
+        submitBtn.disabled = false; submitBtn.textContent = 'Submit correction';
+    }
+};
+
+window._tuningRevisePost = async function() {
+    if (!_tuningCtx?.postId) { window._closeTuningSession(); return; }
+    const correction = (document.getElementById('tuning-correction')?.value || '').trim();
+    const btn = document.getElementById('tuning-revise-btn');
+    btn.disabled = true; btn.textContent = 'Revising…';
+    try {
+        await fetch('/.netlify/functions/reject-post', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: _tuningCtx.postId, feedbackText: correction, applyAsRule: false }),
+        });
+        window.showToast?.('Revised draft on the way — check your Review Queue.');
+    } catch { /* non-critical */ }
+    window._closeTuningSession();
+};
+
+// ── Active Workflows dependency map (Epic 4.2) ────────────────────────────────
+// Shows how this assistant hands off to / receives from other assistants. Reads the
+// same orchestration_links the global Orchestrations hub manages; card stays hidden
+// when this assistant has no links.
+
+// Compact "fired …" relative time (Phase 5). Defined here too so the assistant page
+// doesn't depend on the Orchestrations hub view being loaded.
+function _orchRelTime(iso) {
+    if (!iso) return '';
+    const then = new Date(iso).getTime();
+    if (isNaN(then)) return '';
+    const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24); return `${d}d ago`;
+}
+
+window._renderActiveWorkflows = async function(assistantId) {
+    const card = document.getElementById('active-workflows-card');
+    const list = document.getElementById('active-workflows-list');
+    if (!card || !list) return;
+    const aid = Number(assistantId || window._currentAssistantId);
+    if (!aid) return;
+    let links = [];
+    try {
+        const res = await fetch('/.netlify/functions/orchestrations');
+        if (res.ok) links = (await res.json()).links || [];
+    } catch { /* non-critical */ }
+    const mine = links.filter(l => l.sourceAssistantId === aid || l.targetAssistantId === aid);
+    if (!mine.length) { card.classList.add('hidden'); return; }
+
+    const arrow = '<svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>';
+    list.innerHTML = mine.map(l => {
+        const outbound = l.sourceAssistantId === aid;
+        const other = outbound ? l.targetAssistantName : l.sourceAssistantName;
+        const dim = l.isActive === false ? 'opacity-60' : '';
+        const left = outbound
+            ? `<span class="font-bold text-gray-800">This assistant</span> ${arrow} <span class="font-bold text-gray-800">${_escapeHtml(other)}</span>`
+            : `<span class="font-bold text-gray-800">${_escapeHtml(other)}</span> ${arrow} <span class="font-bold text-gray-800">This assistant</span>`;
+        const fired = l.lastFiredAt ? `<span class="shrink-0 text-xs text-gray-400">fired ${_orchRelTime(l.lastFiredAt)}</span>` : '';
+        return `<div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-100 text-sm ${dim}">
+            <span class="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold ${outbound ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">${outbound ? 'Sends to' : 'Receives from'}</span>
+            <span class="flex items-center gap-1.5 min-w-0">${left}</span>
+            <span class="text-gray-500 truncate flex-1">— ${_escapeHtml(l.targetAction)}</span>
+            ${fired}
+        </div>`;
+    }).join('');
+    card.classList.remove('hidden');
+};
+
+// Action-bar / Runbook entry: pick a recent post to tune (each row seeds a session by id).
+window._openTuningPicker = async function() {
+    const modal = document.getElementById('modal-tuning-picker');
+    const list = document.getElementById('tuning-picker-list');
+    if (!modal || !list) return;
+    list.innerHTML = '<div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading recent posts…</div>';
+    modal.classList.remove('hidden');
+    let drafts = [];
+    try {
+        const res = await fetch(`/.netlify/functions/get-social-drafts?status=pending_approval&assistantId=${window._currentAssistantId}`);
+        if (res.ok) drafts = (await res.json()).drafts || [];
+    } catch { /* non-critical */ }
+    if (!drafts.length) {
+        list.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">No recent posts to tune. Posts appear here once your assistant drafts them.</p>';
+        return;
+    }
+    list.innerHTML = drafts.slice(0, 15).map(d => `
+        <button type="button" onclick="document.getElementById('modal-tuning-picker').classList.add('hidden'); window._openTuningSession({ postId:${Number(d.id)} })"
+            class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50/40 transition cursor-pointer">
+            <p class="text-xs text-gray-400 mb-0.5">${_escapeHtml(d.platform || '')}</p>
+            <p class="text-sm text-gray-800">${_escapeHtml(String(d.caption || '(No caption)').slice(0, 120))}</p>
+        </button>`).join('');
 };
 
 document.addEventListener('keydown', (e) => {
@@ -532,10 +860,9 @@ if (!window._detailTabsDelegated) {
         const mainBtn = e.target.closest('.main-tab-btn');
         if (mainBtn) { window._activateMainTab(mainBtn.dataset.maintab); return; }
 
-        // Child-level (Operating File) tabs — open the slide-in drawer
+        // Child-level (Operating File) cards — swap to that section inside the open drawer.
         const btn = e.target.closest('.detail-tab-btn');
         if (!btn) return;
-        window._activateMainTab('config');
         window._openBriefDrawer(btn.dataset.tab);
     });
 }
@@ -664,6 +991,9 @@ function _detailHydrate(data) {
     // Sales context — feeds the auto-responder objection playbook (P4) and DM drafting.
     _detailSetVal('edit_offerings', ctx.service_offerings || '');
     _detailSetVal('edit_objections', ctx.sales_objections || '');
+    // Reference style link + per-platform hashtag/algorithm strategy (parity with onboarding).
+    _detailSetVal('edit_reference_url', ctx.reference_style_url || '');
+    _hydratePlatformStrategy(data);
     // workflowText is Be More Swan IP — not displayed to the user
 
     // Radios — trigger / source.
@@ -808,6 +1138,62 @@ function _renderDisclosureHelp(data) {
     }
 }
 
+// Which of fb/ig/li/x this assistant actually uses. Platforms are stored inconsistently across
+// versions — context.primary_platforms as short codes (["fb","ig"]) OR configuration.inputs.platforms
+// as labels ("Facebook (https://…)") — so scan both and match on known tokens.
+function _platformCodes(data) {
+    const ctx = data.context || {};
+    const raw = []
+        .concat(Array.isArray(ctx.primary_platforms) ? ctx.primary_platforms : [])
+        .concat(Array.isArray(data.configuration?.inputs?.platforms) ? data.configuration.inputs.platforms : [])
+        .map(p => String(p).toLowerCase());
+    const codes = new Set();
+    raw.forEach(p => {
+        if (p === 'fb' || p.includes('facebook')) codes.add('fb');
+        if (p === 'ig' || p.includes('instagram')) codes.add('ig');
+        if (p === 'li' || p.includes('linkedin')) codes.add('li');
+        if (p === 'x' || p.includes('twitter') || /(^|\W)x(\W|$)/.test(p)) codes.add('x');
+    });
+    return codes;
+}
+
+// Show a per-platform strategy block only for the platforms in use, and fill it from
+// context.platform_strategy (written by both onboarding and this form).
+function _hydratePlatformStrategy(data) {
+    const codes = _platformCodes(data);
+    const ps = (data.context && typeof data.context.platform_strategy === 'object' && data.context.platform_strategy) || {};
+    const emptyEl = document.getElementById('platform-strategy-empty');
+    if (emptyEl) emptyEl.classList.toggle('hidden', codes.size > 0);
+
+    ['fb', 'ig', 'li', 'x'].forEach(p => {
+        const block = document.getElementById(`edit_algo_block_${p}`);
+        if (block) block.classList.toggle('hidden', !codes.has(p));
+        const s = ps[p] || {};
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+        const check = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+        set(`edit_algo_tags_${p}`, s.tags || '');
+        if (p === 'fb') { set('edit_algo_strategy_fb', s.strategy || 'strict_custom'); check('edit_fb_opt_groups', s.groups); }
+        if (p === 'ig') { set('edit_ig_opt_format', s.format || 'mix'); check('edit_ig_opt_audio', s.audio); }
+        if (p === 'li') { check('edit_li_opt_links', s.links_first_comment); check('edit_li_opt_sliders', s.sliders); }
+        if (p === 'x')  { set('edit_x_opt_length', s.length || 'mix'); check('edit_x_opt_media', s.media); }
+    });
+}
+
+// Read the strategy blocks back into a structured object for context.platform_strategy. Only
+// visible (in-use) blocks are read; hidden platforms keep their previously stored strategy so a
+// save never wipes settings for a platform that isn't currently surfaced.
+function _collectPlatformStrategy(prior) {
+    const val = (id) => document.getElementById(id)?.value || '';
+    const on  = (id) => !!document.getElementById(id)?.checked;
+    const visible = (p) => !document.getElementById(`edit_algo_block_${p}`)?.classList.contains('hidden');
+    const out = { ...(prior && typeof prior === 'object' ? prior : {}) };
+    if (visible('fb')) out.fb = { tags: val('edit_algo_tags_fb'), strategy: val('edit_algo_strategy_fb'), groups: on('edit_fb_opt_groups') };
+    if (visible('ig')) out.ig = { tags: val('edit_algo_tags_ig'), format: val('edit_ig_opt_format'), audio: on('edit_ig_opt_audio') };
+    if (visible('li')) out.li = { tags: val('edit_algo_tags_li'), links_first_comment: on('edit_li_opt_links'), sliders: on('edit_li_opt_sliders') };
+    if (visible('x'))  out.x  = { tags: val('edit_algo_tags_x'), length: val('edit_x_opt_length'), media: on('edit_x_opt_media') };
+    return out;
+}
+
 function _detailCollect(currentData) {
     // Platforms are managed via the dynamic platforms tab — preserve existing values
     const platforms = currentData.context?.primary_platforms || [];
@@ -837,6 +1223,8 @@ function _detailCollect(currentData) {
         content_pillars: _parsePillars(document.getElementById('edit_pillars')?.value),
         service_offerings: document.getElementById('edit_offerings')?.value || '',
         sales_objections: document.getElementById('edit_objections')?.value || '',
+        reference_style_url: document.getElementById('edit_reference_url')?.value || '',
+        platform_strategy: _collectPlatformStrategy(currentData.context?.platform_strategy),
         primary_platforms: platforms,
     };
 
@@ -865,9 +1253,17 @@ function _detailCollect(currentData) {
 
 function _detailSetSaveStatus(msg, colour) {
     const el = document.getElementById('detail-save-status');
-    if (!el) return;
-    el.className = `text-sm font-semibold transition-all ${colour || 'text-emerald-600'}`;
-    el.textContent = msg;
+    if (el) {
+        el.className = `text-sm font-semibold transition-all ${colour || 'text-emerald-600'}`;
+        el.textContent = msg;
+    }
+    // Mirror into the slide-over header — the page header status sits behind the drawer
+    // backdrop, so edits made inside the drawer need their own visible save indicator.
+    const drawerEl = document.getElementById('brief-drawer-save');
+    if (drawerEl) {
+        drawerEl.style.color = /fail|error/i.test(msg) ? '#dc2626' : (/saving/i.test(msg) ? '#9ca3af' : '#059669');
+        drawerEl.textContent = msg;
+    }
 }
 
 window.initAssistantDetail = async function(assistantId, loadViewCb) {
@@ -1043,9 +1439,13 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         const nameInput = document.getElementById('detail-name-input');
         if (nameInput) nameInput.value = currentData.name || 'Your Assistant';
 
-        // Brief tab label — "[Name]'s Brief"
-        const briefLabel = document.getElementById('brief-tab-label');
-        if (briefLabel) briefLabel.textContent = (currentData.name || 'Your Assistant') + "'s Brief";
+        // Assistant Profile slide-over title — "[Name]'s Profile" (header button keeps its
+        // static "Assistant Profile" label; the personalised title shows on the drawer home).
+        window._assistantProfileTitle = (currentData.name || 'Your Assistant') + "'s Profile";
+        const homeTitleEl = document.getElementById('brief-drawer-title');
+        if (homeTitleEl && !document.body.classList.contains('brief-drawer-open')) {
+            homeTitleEl.textContent = window._assistantProfileTitle;
+        }
 
         const avatarEl = document.getElementById('detail-avatar');
         if (avatarEl) avatarEl.textContent = (currentData.name || 'A').charAt(0).toUpperCase();
@@ -1053,27 +1453,10 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         const roleEl = document.getElementById('detail-role');
         if (roleEl) roleEl.textContent = currentData.role || 'Digital Assistant';
 
-        const statusEl = document.getElementById('detail-status');
-        const toggleBtn = document.getElementById('btn-toggle-status');
-        if (statusEl) {
-            // Lifecycle state machine (assistant-lifecycle-epic). Fall back to legacy fields.
-            // Gate-blocked assistants read as lifecycle 'provisioning' but need action → own pill.
-            const lifecycle = currentData.status === 'blocked' ? 'blocked' : (currentData.lifecycleStatus
-              || (currentData.status === 'pending' ? 'provisioning' : (currentData.isActive === false ? 'paused' : 'working')));
-            const PILL = {
-                blocked:        { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500',                 label: 'Action Required',    toggle: 'Initiate Kick-Off' },
-                provisioning:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse',   label: 'Setup in Progress',  toggle: 'Pause Assistant' },
-                ready_for_work: { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',                  label: 'Ready for Work',     toggle: 'Initiate Kick-Off' },
-                working:        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500 animate-pulse', label: 'Working',            toggle: 'Pause Assistant' },
-                paused:         { cls: 'bg-gray-100 text-gray-600 border-gray-200',         dot: 'bg-gray-400',                  label: 'Paused',             toggle: 'Resume Assistant' },
-                system_paused:  { cls: 'bg-red-50 text-red-700 border-red-200',             dot: 'bg-red-500 animate-pulse',     label: 'Attention Required', toggle: 'Resume Assistant' },
-                archived:       { cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-300',                  label: 'Archived',           toggle: 'Resume Assistant' },
-            };
-            const p = PILL[lifecycle] || PILL.working;
-            statusEl.className = `inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold ${p.cls}`;
-            statusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${p.dot}"></span> ${p.label}`;
-            if (toggleBtn) toggleBtn.textContent = p.toggle;
-        }
+        // Status pill (Epic 1 AC1.1.2). Cache the record so the pill can re-render
+        // reactively when operational signals (active jobs / pending reviews) arrive.
+        window._detailCurrentData = currentData;
+        window._renderStatusPill(currentData);
 
         // US6 AC5.1: Archive Assistant — permanent end-of-life, then return to the dashboard.
         const archiveBtn = document.getElementById('btn-archive-assistant');
@@ -1146,10 +1529,14 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         });
     }
 
+    // ── Impact & ROI metrics card — fetched first so the card is visible before
+    //    Completed Tasks loads, preserving the DOM order on first render. ─────
+    await _fetchAndRenderAssistantMetrics(assistantId);
+
     // ── Recent Activity ───────────────────────────────────────────
     const activityList = document.getElementById('recent-activity-list');
     if (activityList) {
-        const loadActivity = async (timeframe = '30d') => {
+        const loadActivity = async (timeframe = '1d') => {
         // update button styles
         document.querySelectorAll('.activity-tf-btn').forEach(btn => {
             const active = btn.dataset.tf === timeframe;
@@ -1159,7 +1546,9 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         try {
             const res = await fetch(`/.netlify/functions/get-assistant-activity?id=${assistantId}&timeframe=${timeframe}`);
             if (res.ok) {
-                const { logs } = await res.json();
+                const { logs, activeJobCount } = await res.json();
+                // Feed the operational status pill (Epic 1 AC1.1.2): mid-flight jobs → "Executing Task".
+                window._updateOpSignals?.({ activeJobCount: activeJobCount || 0 });
                 if (logs && logs.length > 0) {
                     const iconSvg = (icon) => {
                         const icons = {
@@ -1203,14 +1592,52 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
                         };
                         return map[icon] || 'bg-gray-100 text-gray-500';
                     };
-                    activityList.innerHTML = logs.map(log => `
-                        <div class="flex items-start gap-3 py-2.5 border-b border-gray-100 last:border-0">
+                    // Status tag (Epic 2.2). Info/neutral rows get no tag to keep the history clean.
+                    const statusTag = (s) => {
+                        const tags = {
+                            success:     ['Success',     'bg-emerald-100 text-emerald-700'],
+                            failed:      ['Failed',      'bg-red-100 text-red-700'],
+                            needs_input: ['Needs Input', 'bg-amber-100 text-amber-700'],
+                            in_progress: ['In Progress', 'bg-blue-100 text-blue-700'],
+                        };
+                        const t = tags[s];
+                        return t ? `<span class="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold ${t[1]}">${t[0]}</span>` : '';
+                    };
+                    // Attention rows (failed / needs_input) get an inline tint + coloured left edge
+                    // (inline style avoids the prebuilt-CSS arbitrary-class gotcha).
+                    const rowHtml = (log, attention) => {
+                        const tint = log.status === 'failed' ? 'background:#fef2f2;border-left:3px solid #f87171'
+                                   : log.status === 'needs_input' ? 'background:#fffbeb;border-left:3px solid #fbbf24' : '';
+                        // Epic 3.1 entry point: attention rows tied to a post get a "Tune" affordance.
+                        const postMatch = log.type === 'scheduled_post' && /^post-(\d+)$/.exec(log.id || '');
+                        const tuneBtn = (attention && postMatch)
+                            ? `<button type="button" onclick="window._openTuningSession({ postId:${Number(postMatch[1])} })" class="mt-1 inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition cursor-pointer">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>Tune</button>`
+                            : '';
+                        return `
+                        <div class="flex items-start gap-3 py-2.5 px-2 rounded-lg border-b border-gray-100 last:border-0"${attention ? ` style="${tint}"` : ''}>
                             <div class="w-6 h-6 rounded-full ${iconBg(log.icon)} flex items-center justify-center shrink-0 mt-0.5">${iconSvg(log.icon)}</div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm text-gray-700">${log.description || log.actionType}</p>
+                                <div class="flex items-start justify-between gap-2">
+                                    <p class="text-sm text-gray-700">${log.description || log.actionType}</p>
+                                    ${statusTag(log.status)}
+                                </div>
                                 <p class="text-xs text-gray-400 mt-0.5">${log.createdAt ? new Date(log.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                                ${tuneBtn}
                             </div>
-                        </div>`).join('');
+                        </div>`;
+                    };
+                    const sectionLabel = (txt) => `<p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">${txt}</p>`;
+                    // Pin Failed + Needs-Input into a "Needs attention" group above the chronological list.
+                    const attention = logs.filter(l => l.status === 'failed' || l.status === 'needs_input');
+                    const rest = logs.filter(l => l.status !== 'failed' && l.status !== 'needs_input');
+                    let html = '';
+                    if (attention.length) html += sectionLabel('Needs attention') + attention.map(l => rowHtml(l, true)).join('');
+                    if (rest.length) {
+                        if (attention.length) html += '<div class="h-4"></div>';
+                        html += sectionLabel('Recent') + rest.map(l => rowHtml(l, false)).join('');
+                    }
+                    activityList.innerHTML = html || '<p class="text-sm text-gray-400 text-center py-3">No activity yet.</p>';
                 } else {
                     activityList.innerHTML = '<p class="text-sm text-gray-400 text-center py-3">No activity yet — your assistant is ready to get to work.</p>';
                 }
@@ -1225,8 +1652,12 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
         document.querySelectorAll('.activity-tf-btn').forEach(btn => {
             btn.addEventListener('click', () => loadActivity(btn.dataset.tf));
         });
-        await loadActivity('30d');
+        await loadActivity('1d');
     }
+
+    // ── Impact & ROI metrics card — fire immediately so it appears at the top of
+    // Overview without waiting behind connections/integrations/goals fetches ──────
+    _fetchAndRenderAssistantMetrics(assistantId);
 
     // ── Performance Metrics (post_insights aggregation) ───────────
     await _loadAssistantMetrics(assistantId);
@@ -1250,11 +1681,11 @@ window.initAssistantDetail = async function(assistantId, loadViewCb) {
     // Hidden — belongs to a future Engagement/CTA assistant, not SMM.
     // await _fetchAndRenderRelationshipChecklist(assistantId);
 
-    // ── Impact & ROI metrics card ─────────────────────────────────
-    await _fetchAndRenderAssistantMetrics(assistantId);
-
     // ── Review Queue tab — prefetch pending count so the badge shows without opening the tab ──
     _prefetchDetailRqBadge(assistantId);
+
+    // ── Epic 4.2 — Active Workflows dependency map (self-hides when this assistant has no links) ──
+    window._renderActiveWorkflows?.(assistantId);
 };
 
 async function _prefetchDetailRqBadge(assistantId) {
@@ -1265,9 +1696,10 @@ async function _prefetchDetailRqBadge(assistantId) {
         const count = (drafts || []).length;
         const tabBadge = document.getElementById('detail-rq-pending-badge');
         if (tabBadge) { tabBadge.textContent = count || ''; tabBadge.classList.toggle('hidden', !count); }
-        // Also update the action-required strip on the Overview tab.
-        const strip = document.getElementById('action-required-strip');
-        if (strip) strip.classList.toggle('hidden', !count);
+        // Action bar (Epic 2.1): "Review Pending Items" count badge — amber when there's work waiting.
+        window._setReviewPendingBadge?.(count);
+        // Feed the operational status pill (Epic 1 AC1.1.2): pending drafts → "Awaiting Human Review".
+        window._updateOpSignals?.({ pendingReview: count });
     } catch { /* non-critical */ }
 }
 
@@ -1550,7 +1982,7 @@ async function _renderKickOff(assistantId) {
                 ${it.done ? bTick : bCross}
                 <span class="min-w-0">
                     <span class="block text-sm font-semibold ${it.done ? 'text-gray-800' : 'text-red-700'}">${it.label}${it.required ? '' : ' <span class="text-xs font-normal text-gray-400">(recommended)</span>'}</span>
-                    ${it.done ? '' : `<span class="block text-xs text-red-500 mt-0.5">${it.hint || ''}</span>`}
+                    ${it.done ? '' : `<span class="block text-xs text-red-500 mt-0.5">${it.hint || ''}${it.key === 'disclosure' ? ' <button type="button" onclick="window._goToDisclosureField()" class="text-emerald-600 hover:underline cursor-pointer font-semibold">Open Guardrails tab →</button>' : ''}</span>`}
                 </span>
             </li>`).join('') || '';
         btn.classList.add('hidden');
@@ -1562,12 +1994,20 @@ async function _renderKickOff(assistantId) {
     const tick = `<svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`;
     const cross = `<svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>`;
 
+    window._goToDisclosureField = function() {
+        document.querySelector('.detail-tab-btn[data-tab="guardrails"]')?.click();
+        setTimeout(() => {
+            const el = document.getElementById('edit_ai_disclosure');
+            if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+        }, 120);
+    };
+
     listEl.innerHTML = items.map(it => `
         <li class="flex items-start gap-3">
             ${it.done ? tick : cross}
             <span class="min-w-0">
                 <span class="block text-sm font-semibold ${it.done ? 'text-gray-800' : 'text-gray-500'}">${it.label}${it.required ? '' : ' <span class="text-xs font-normal text-gray-400">(recommended)</span>'}</span>
-                ${it.done ? '' : `<span class="block text-xs text-gray-400 mt-0.5">${it.hint || ''}</span>`}
+                ${it.done ? '' : `<span class="block text-xs text-gray-400 mt-0.5">${it.hint || ''}${it.key === 'disclosure' ? ' <button type="button" onclick="window._goToDisclosureField()" class="text-emerald-600 hover:underline cursor-pointer font-semibold">Open Guardrails tab →</button>' : ''}</span>`}
             </span>
         </li>`).join('') || '<li class="text-sm text-gray-400">No checklist items.</li>';
 
@@ -1614,13 +2054,8 @@ async function _renderKickOff(assistantId) {
                 window.showToast?.('Assistant paused.');
                 // Re-render: card flips to the Kick-Off state so the user can confirm to resume (AC4.4).
                 await _renderKickOff(assistantId);
-                const statusEl = document.getElementById('detail-status');
-                if (statusEl) {
-                    statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200';
-                    statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-400"></span> Paused';
-                }
-                const toggleBtn = document.getElementById('btn-toggle-status');
-                if (toggleBtn) toggleBtn.textContent = 'Resume Assistant';
+                if (window._detailCurrentData) { window._detailCurrentData.lifecycleStatus = 'paused'; window._detailCurrentData.isActive = false; }
+                window._renderStatusPill?.();
             } catch { alert('Network error — please try again.'); pauseBtn.disabled = false; }
         };
         // Active/working → start collapsed (the user can expand to review the checklist).
@@ -1670,13 +2105,8 @@ async function _renderKickOff(assistantId) {
             window.showToast?.('Your assistant is now working! 🚀', { icon: '🚀' });
             window.fireConfetti?.();
             await _renderKickOff(assistantId);
-            const statusEl = document.getElementById('detail-status');
-            if (statusEl) {
-                statusEl.className = 'inline-flex items-center gap-1.5 py-1 px-2.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
-                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Working';
-            }
-            const toggleBtn = document.getElementById('btn-toggle-status');
-            if (toggleBtn) toggleBtn.textContent = 'Pause Assistant';
+            if (window._detailCurrentData) { window._detailCurrentData.lifecycleStatus = 'working'; window._detailCurrentData.isActive = true; }
+            window._renderStatusPill?.();
         } catch {
             alert('Network error — please try again.');
             btn.disabled = false;
@@ -2033,6 +2463,14 @@ const RULE_CATEGORIES = [
     { id: 'target_audience',     title: 'Target Audience Context',      placeholder: 'e.g. Speak to busy small-business owners aged 30–50.' },
 ];
 const RULE_CATEGORY_TITLES = Object.fromEntries(RULE_CATEGORIES.map(c => [c.id, c.title]));
+// Map rule categories to jargon-explainer slugs (see explainers.js GLOSSARY).
+// Only categories with a glossary entry get a ⓘ; others are left plain.
+const RULE_CATEGORY_EXPLAIN = {
+    tone_of_voice: 'tone-of-voice',
+    response_formatting: 'response-formatting',
+    core_knowledge: 'core-business-facts',
+    target_audience: 'target-audience',
+};
 
 let _rulesAssistantId = null;
 const RULES_API = '/.netlify/functions/content-rules';
@@ -2103,7 +2541,7 @@ function _buildRuleCategoryCard(catId, title, placeholder, rules, readOnlyAdd) {
     card.className = 'border border-gray-200 rounded-xl overflow-hidden';
     card.innerHTML = `
         <div class="px-4 py-3 bg-gray-50/60 border-b border-gray-100 flex items-center justify-between">
-            <h4 class="text-sm font-bold text-gray-800">${_escapeHtml(title)}</h4>
+            <h4 class="text-sm font-bold text-gray-800"${RULE_CATEGORY_EXPLAIN[catId] ? ` data-explain="${RULE_CATEGORY_EXPLAIN[catId]}"` : ''}>${_escapeHtml(title)}</h4>
             ${readOnlyAdd ? '' : `<button type="button" data-cat="${catId}" class="ar-add-btn text-sm font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-md transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>Add Rule</button>`}
         </div>
@@ -2181,6 +2619,7 @@ function _buildRuleRow(catId, placeholder, rule) {
             try {
                 const r = await fetch(RULES_API, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(tr.dataset.ruleId), isActive: nowActive }) });
                 _setRulesStatus(r.ok ? '✓ Saved' : 'Error saving', !r.ok);
+                if (r.ok) _renderKickOff(_rulesAssistantId);
             } catch { _setRulesStatus('Error saving', true); }
         }
     });
@@ -2193,6 +2632,7 @@ function _buildRuleRow(catId, placeholder, rule) {
                 const r = await fetch(`${RULES_API}?id=${tr.dataset.ruleId}`, { method: 'DELETE' });
                 if (!r.ok) { _setRulesStatus('Error deleting', true); return; }
                 _setRulesStatus('✓ Saved');
+                _renderKickOff(_rulesAssistantId);
             } catch { _setRulesStatus('Error deleting', true); return; }
         }
         const rows = tr.parentElement;
@@ -2231,7 +2671,7 @@ async function _saveRuleRow(tr) {
                 if (data.rule?.id) tr.dataset.ruleId = String(data.rule.id);
             }
         }
-        if (res.ok) { tr.dataset.savedText = text; _setRulesStatus('✓ Saved'); }
+        if (res.ok) { tr.dataset.savedText = text; _setRulesStatus('✓ Saved'); if (!id) _renderKickOff(_rulesAssistantId); }
         else _setRulesStatus('Error saving', true);
     } catch { _setRulesStatus('Error saving', true); }
 }
@@ -2304,6 +2744,7 @@ let _goalEntitlements = { aiRecommendations: false, magicWand: false, autonomous
 let _autonomousGoalSeeking = false;
 let _autonomousMediaEnabled = false;   // Epic 2 US5
 let _autonomousMediaCap = 20;
+let _planMonthlyCredits = 0;           // org's plan-included monthly AI credit allowance (issue #64)
 
 // Media Source Selection — ordered list of enabled sources (priority = order). Default matrix.
 let _mediaSources = ['manual', 'stock', 'ai'];
@@ -2344,6 +2785,7 @@ async function _fetchAndRenderGoals(assistantId) {
             _autonomousGoalSeeking = !!data.autonomousGoalSeeking;
             _autonomousMediaEnabled = !!data.autonomousMediaEnabled;
             _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? 20;
+            _planMonthlyCredits = data.planMonthlyCredits ?? 0;
             _mediaSources = _normalizeMediaSources(data.mediaSources);
         }
     } catch (e) {
@@ -2557,11 +2999,17 @@ window._saveGoal = async function () {
 };
 
 window._deleteGoal = async function (id) {
-    if (!confirm('Delete this goal? This cannot be undone.')) return;
-    try {
-        const res = await fetch(`${GOALS_API}?id=${id}`, { method: 'DELETE' });
-        if (res.ok) await _fetchAndRenderGoals(_goalsAssistantId);
-    } catch { /* no-op */ }
+    const doDelete = async () => {
+        try {
+            const res = await fetch(`${GOALS_API}?id=${id}`, { method: 'DELETE' });
+            if (res.ok) await _fetchAndRenderGoals(_goalsAssistantId);
+        } catch { /* no-op */ }
+    };
+    if (window.showConfirmModal) {
+        window.showConfirmModal('Delete this goal? This cannot be undone.', doDelete, { title: 'Delete goal?', confirmLabel: 'Yes, delete goal', cancelLabel: 'Keep goal' });
+    } else if (confirm('Delete this goal? This cannot be undone.')) {
+        await doDelete();
+    }
 };
 
 // ── Review Progress (US2.2) — trendline vs trajectory chart + base-tier manual path ──
@@ -2759,6 +3207,7 @@ function _applyAutonomousMediaUi() {
     const dot = document.getElementById('toggle-autonomous-media-dot');
     const capRow = document.getElementById('autonomous-media-cap-row');
     const capInput = document.getElementById('autonomous-media-cap');
+    const capHint = document.getElementById('autonomous-media-cap-hint');
     if (tog && dot) {
         const on = _autonomousMediaEnabled;
         tog.setAttribute('aria-checked', on ? 'true' : 'false');
@@ -2769,6 +3218,10 @@ function _applyAutonomousMediaUi() {
     }
     if (capRow) capRow.classList.toggle('hidden', !_autonomousMediaEnabled);
     if (capInput) capInput.value = _autonomousMediaCap;
+    if (capHint) {
+        capHint.textContent = `Your plan includes ${_planMonthlyCredits} credits/month. Raising the cap ` +
+            `above that will need your confirmation, as extra usage is charged.`;
+    }
 }
 
 async function _setAutonomousMedia(patch) {
@@ -2777,7 +3230,13 @@ async function _setAutonomousMedia(patch) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assistantId: _goalsAssistantId, ...patch }),
     });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        const err = new Error(payload.error || res.statusText);
+        err.status = res.status;
+        err.payload = payload;
+        throw err;
+    }
     return res.json();
 }
 
@@ -2791,12 +3250,26 @@ window._toggleAutonomousMedia = async function () {
     } catch (e) { alert('Could not update the setting: ' + e.message); }
 };
 
+// issue #64: the cap is meant to be bounded by the plan's included monthly credits. Raising it
+// above that means the assistant could spend credits the plan doesn't cover, so the user must
+// explicitly confirm they accept being charged for the extra credits before it's saved.
 window._saveAutonomousMediaCap = async function () {
     const input = document.getElementById('autonomous-media-cap');
     const cap = parseInt(input?.value, 10);
     if (!Number.isFinite(cap) || cap < 0) { input.value = _autonomousMediaCap; return; }
+
+    let confirmOverage = false;
+    if (cap > _planMonthlyCredits) {
+        confirmOverage = confirm(
+            `Your plan includes ${_planMonthlyCredits} AI credits per month. Setting this assistant's ` +
+            `cap to ${cap} means it may use up to ${cap - _planMonthlyCredits} credits beyond your plan's ` +
+            `allowance, which will be charged as additional usage. Continue?`
+        );
+        if (!confirmOverage) { input.value = _autonomousMediaCap; return; }
+    }
+
     try {
-        const data = await _setAutonomousMedia({ monthlyCap: cap });
+        const data = await _setAutonomousMedia({ monthlyCap: cap, confirmOverage });
         _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? cap;
         _applyAutonomousMediaUi();
     } catch (e) { alert('Could not update the cap: ' + e.message); input.value = _autonomousMediaCap; }
@@ -2838,7 +3311,7 @@ function _applyMediaSourcesUi() {
           ${badge}
           ${arrows}
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-bold ${on ? 'text-gray-900' : 'text-gray-500'}">${meta.label}</p>
+            <p class="text-sm font-bold ${on ? 'text-gray-900' : 'text-gray-500'} inline-flex items-center" data-explain="media-source-${src}">${meta.label}</p>
             <p class="text-xs text-gray-400">${meta.desc}</p>
           </div>
           <button type="button" role="switch" aria-checked="${on}" aria-label="${on ? 'Disable' : 'Enable'} ${meta.label}"
@@ -3185,7 +3658,9 @@ window._submitSafetyFeedback = async function () {
 
 // ── Autonomous Posting Fallback toggle (US5) ─────────────────────
 function _hydrateAutonomousToggle(data) {
-    const isOn = data.configuration?.appliedDefaults?.autonomousFallback === true;
+    // Default ON when unset: the backend gap-fill treats a missing flag as "fallback enabled"
+    // (assistant keeps drafting with AI/stock media), so the switch must reflect that same default.
+    const isOn = data.configuration?.appliedDefaults?.autonomousFallback !== false;
     _applyAutonomousToggleState(isOn);
 }
 

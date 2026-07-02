@@ -556,9 +556,9 @@
           body: JSON.stringify({ email, resend: true }),
         });
         const data = await res.json();
-        if (!res.ok || data.error) { alert(data.error || 'Failed to resend invite.'); return; }
-        alert(`Invitation resent to ${email}.`);
-      } catch { alert('Network error. Please try again.'); }
+        if (!res.ok || data.error) { window.showToast?.(data.error || 'Failed to resend invite.', { icon: '⚠️' }); return; }
+        window.showToast?.(`Invitation resent to ${email}.`, { icon: '✅' });
+      } catch { window.showToast?.('Network error. Please try again.', { icon: '⚠️' }); }
     };
 
     // ── SC3: Change Role Modal ──────────────────────────────────────────

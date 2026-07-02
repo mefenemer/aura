@@ -9,6 +9,7 @@
 --
 -- Lifecycle (status): reported → fix_in_progress → fixed_ready_to_test → closed
 --                     ↘ more_info_required (admin asks the user for detail) ↗
+--                     ↘ roadmap (feature request promoted to the Feature Roadmap; see db/feature-roadmap.sql)
 -- The threaded back-and-forth (admin status messages + user replies) lives in
 -- issue_report_messages.
 --
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS issue_reports (
   image_data       TEXT,
   image_mime       TEXT,
 
-  -- reported | fix_in_progress | fixed_ready_to_test | more_info_required | closed
+  -- reported | fix_in_progress | fixed_ready_to_test | more_info_required | closed | roadmap
   status           TEXT NOT NULL DEFAULT 'reported',
 
   created_at       TIMESTAMP NOT NULL DEFAULT now(),
@@ -51,7 +52,7 @@ BEGIN
   ) THEN
     ALTER TABLE issue_reports
       ADD CONSTRAINT issue_reports_status_check
-      CHECK (status IN ('reported', 'fix_in_progress', 'fixed_ready_to_test', 'more_info_required', 'closed'));
+      CHECK (status IN ('reported', 'fix_in_progress', 'fixed_ready_to_test', 'more_info_required', 'closed', 'roadmap'));
   END IF;
 END $$;
 
@@ -101,6 +102,20 @@ ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_handoff_at     TIMESTAMP;
 ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_branch         TEXT;
 ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_pr_url         TEXT;
 ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_result         TEXT;
+
+-- ── Which runner is working this issue ───────────────────────────────────────
+-- Several runners (scripts/dev-issue-fixer.mjs) can drain the queue at once — the
+-- claim is a compare-and-swap so they never grab the same issue. These two columns
+-- let the admin portal show WHO is fixing WHAT:
+--   dev_runner_id        — identity of the runner that currently holds this issue
+--                          (a fix claim OR a merge claim); e.g. "mac-studio:48213".
+--                          Stamped on claim, cleared when the runner reports a result.
+--   dev_runner_heartbeat — when that runner claimed the issue ("working since"). The
+--                          fix runs Claude synchronously so there's no mid-fix ping;
+--                          a claim far older than a normal fix flags a dead/stalled
+--                          runner in the UI so the issue can be re-queued.
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_runner_id        TEXT;
+ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS dev_runner_heartbeat TIMESTAMP;
 
 -- When a fix needs a database migration, the runner returns the (idempotent) SQL here
 -- instead of moving the issue straight to "Fixed & Ready to Test". A super-admin reviews
@@ -168,5 +183,47 @@ BEGIN
       ADD CONSTRAINT issue_reports_dev_merge_status_check
       CHECK (dev_merge_status IS NULL
              OR dev_merge_status IN ('ready', 'queued', 'merging', 'merged', 'failed'));
+  END IF;
+END $$;
+
+-- ── AI auto-fix runner health / session-limit recovery ───────────────────────
+-- The "Pass to Developer" runner (scripts/dev-issue-fixer.mjs) fixes issues by shelling out
+-- to the Claude Code CLI on a developer machine. That CLI has its own usage/session limit —
+-- when it's exhausted the runner can't produce ANY fix, so re-queueing an issue just fails
+-- again immediately. This table lets a runner report that block, park itself, and be resumed
+-- from the admin portal once a Claude account with credit is logged in on the runner machine.
+--
+--   state: 'ok'              → runner healthy / working normally
+--          'session_limited' → CLI hit its limit; runner has paused and stopped claiming
+--
+-- On a block the runner re-queues the issue it was on (dev_handoff_status → 'queued') and
+-- records it as blocked_issue_id. A super-admin logs into a funded Claude account on the
+-- runner machine and presses "Resume" (sets resume_requested = true); the runner verifies the
+-- new login with a cheap probe call and, only on success, flips back to 'ok' and resumes —
+-- the re-queued issue is then re-claimed automatically. No Claude credential is ever stored
+-- here; this row only coordinates the human-in-the-loop re-login.
+--
+-- Idempotent: safe to re-run. Apply manually as the DB owner (no drizzle-kit push).
+CREATE TABLE IF NOT EXISTS dev_runner_status (
+  runner_id         TEXT PRIMARY KEY,                 -- matches scripts/dev-issue-fixer.mjs RUNNER_ID (default host:pid)
+  state             TEXT NOT NULL DEFAULT 'ok',       -- 'ok' | 'session_limited'
+  message           TEXT,                             -- raw CLI error text
+  reset_hint        TEXT,                             -- parsed reset time for display, e.g. '12:30pm (Europe/London)'
+  blocked_issue_id  INTEGER REFERENCES issue_reports(id) ON DELETE SET NULL,
+  resume_requested  BOOLEAN NOT NULL DEFAULT false,   -- admin pressed "Resume" after re-logging in
+  last_probe_result TEXT,                             -- outcome of the last verification probe after a Resume
+  blocked_at        TIMESTAMP,
+  last_seen_at      TIMESTAMP NOT NULL DEFAULT now(), -- updated on every runner poll (liveness)
+  updated_at        TIMESTAMP NOT NULL DEFAULT now()
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'dev_runner_status_state_check'
+  ) THEN
+    ALTER TABLE dev_runner_status
+      ADD CONSTRAINT dev_runner_status_state_check
+      CHECK (state IN ('ok', 'session_limited'));
   END IF;
 END $$;

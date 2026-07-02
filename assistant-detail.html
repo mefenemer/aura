@@ -76,6 +76,12 @@
             Review Progress
           </span>
         </button>
+        <!-- Epic 1: contextual persona config — opens the slide-over (no setup tab in the main nav) -->
+        <button id="btn-assistant-profile" onclick="window._openProfileDrawer()" type="button"
+          class="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl transition-colors shadow-sm cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span id="profile-btn-label">Assistant Profile</span>
+        </button>
         <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl transition-colors shadow-sm cursor-pointer" type="button">
           Pause Assistant
         </button>
@@ -97,15 +103,29 @@
       </button>
       <button type="button" data-maintab="goals"         class="main-tab-btn">Goals</button>
       <button type="button" data-maintab="automation"    class="main-tab-btn">Automation</button>
-      <button type="button" data-maintab="meetings"      class="main-tab-btn">Meetings
+      <button type="button" data-maintab="meetings"      class="main-tab-btn">Runbook
         <span id="meetings-kickoff-badge" class="hidden ml-1 min-w-[1.25rem] h-4 px-1 bg-blue-100 text-blue-700 text-[10px] font-black rounded-full inline-flex items-center justify-center">!</span>
       </button>
-      <button type="button" data-maintab="config"        class="main-tab-btn"><span id="brief-tab-label">Brief</span></button>
     </nav>
   </div>
 
   <!-- ── MAIN TAB: Overview ─────────────────────────────────────────── -->
   <div id="maintab-overview" class="main-tab-content">
+
+  <!-- Primary action bar (Epic 2.1) — the two most common intents, front and centre. -->
+  <div class="flex flex-col sm:flex-row gap-3 mb-6">
+    <button type="button" onclick="window.openGeneratePostSheet && window.openGeneratePostSheet()"
+      class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-2xl shadow-md transition-colors cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Assign New Task
+    </button>
+    <button type="button" id="btn-review-pending" onclick="window._activateMainTab('review-queue')"
+      class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-extrabold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-2xl shadow-sm transition-colors cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      Review Pending Items
+      <span id="review-pending-count" class="hidden ml-0.5 min-w-[1.5rem] h-6 px-1.5 inline-flex items-center justify-center rounded-full text-xs font-black bg-amber-100 text-amber-700"></span>
+    </button>
+  </div>
 
   <!-- Kick Off CTA — shown when assistant hasn't been kicked off yet -->
   <div id="meetings-kickoff-cta" class="hidden bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 mb-6 flex items-center justify-between gap-4">
@@ -117,20 +137,6 @@
       </div>
     </div>
     <button onclick="window._activateMainTab('meetings')" class="shrink-0 px-4 py-2 text-sm font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-sm cursor-pointer">Go to Meetings</button>
-  </div>
-
-  <!-- Action Required strip — drafts awaiting approval -->
-  <div id="action-required-strip" class="hidden bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-6 flex items-center justify-between gap-4">
-    <div class="flex items-center gap-3 min-w-0">
-      <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-      </div>
-      <div>
-        <p class="text-sm font-bold text-amber-900">Awaiting Your Approval</p>
-        <p id="action-required-desc" class="text-xs text-amber-700 mt-0.5">Your assistant has drafts ready for review before they publish.</p>
-      </div>
-    </div>
-    <button onclick="window._activateMainTab('review-queue')" class="shrink-0 px-4 py-2 text-sm font-extrabold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition shadow-sm cursor-pointer">Review Now</button>
   </div>
 
   <!-- Impact & ROI — elevated to top of Overview (most important executive metric) -->
@@ -173,13 +179,26 @@
     <div id="metrics-by-platform" class="space-y-2"></div>
   </div>
 
-  <!-- Completed Tasks strip (was "Recent Activity") -->
+  <!-- Active Workflows (Epic 4.2) — how this assistant hands off to / receives from others. Hidden when none. -->
+  <div id="active-workflows-card" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6 hidden">
+    <div class="flex items-center justify-between gap-3 mb-4">
+      <div>
+        <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Active Workflows</h3>
+        <p class="text-xs text-gray-400 mt-1">How this assistant connects to the rest of your team.</p>
+      </div>
+      <button type="button" onclick="window.loadView && window.loadView('orchestrations')" class="shrink-0 text-xs font-bold text-emerald-600 hover:text-emerald-800 transition cursor-pointer">Manage in Orchestrations →</button>
+    </div>
+    <div id="active-workflows-list" class="space-y-2"></div>
+  </div>
+
+  <!-- Unified Activity feed (Epic 2.2) — chronological, with Failed/Needs-Input pinned on top. -->
   <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Completed Tasks</h3>
+      <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Activity</h3>
       <div id="activity-timeframe-btns" class="flex gap-1">
+        <button data-tf="1d"  class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-indigo-500 bg-indigo-50 text-indigo-700 font-semibold">1d</button>
         <button data-tf="7d"  class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">7d</button>
-        <button data-tf="30d" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-indigo-500 bg-indigo-50 text-indigo-700 font-semibold">30d</button>
+        <button data-tf="30d" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">30d</button>
         <button data-tf="90d" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">90d</button>
         <button data-tf="all" class="activity-tf-btn text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">All</button>
       </div>
@@ -246,11 +265,39 @@
 
   </div><!-- /maintab-review-queue -->
 
-  <!-- ── MAIN TAB: [Name]'s Brief ── -->
-  <div id="maintab-config" class="main-tab-content hidden">
+  <!-- ── Persona / config slide-over (Epic 1) ──────────────────────────
+       Opened from the header "Assistant Profile" button (#btn-assistant-profile),
+       no longer a main tab. The Operating File card index is the drawer "home";
+       clicking a card swaps to that section panel with a back arrow. -->
+  <div id="brief-drawer-backdrop" onclick="window._closeBriefDrawer()" style="display:none;opacity:0;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:9000;transition:opacity .2s ease" aria-hidden="true"></div>
+  <aside id="brief-drawer" aria-label="Assistant Profile"
+    style="position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);z-index:9001;display:flex;flex-direction:column;background:#fff;box-shadow:-4px 0 32px rgba(0,0,0,0.12);transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);overflow:hidden">
+    <!-- Drawer header -->
+    <div style="display:flex;align-items:center;gap:0.5rem;padding:1.25rem 1.5rem;border-bottom:1px solid #e5e7eb;flex-shrink:0">
+      <button type="button" id="brief-drawer-back" onclick="window._openProfileDrawer()" aria-label="Back to profile" hidden
+        style="width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;border-radius:0.5rem;border:none;background:none;cursor:pointer;color:#6b7280;transition:background .12s ease;flex-shrink:0"
+        onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h2 id="brief-drawer-title" style="font-size:1.0625rem;font-weight:700;color:#111827;margin:0;flex:1;min-width:0">Assistant Profile</h2>
+      <span id="brief-drawer-save" style="font-size:0.75rem;font-weight:600;color:#059669;flex-shrink:0"></span>
+      <button type="button" onclick="window._closeBriefDrawer()" aria-label="Close"
+        style="width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;border-radius:0.5rem;border:none;background:none;cursor:pointer;color:#6b7280;transition:background .12s ease;flex-shrink:0"
+        onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <!-- Drawer scrollable content -->
+    <div id="brief-drawer-body" style="flex:1;overflow-y:auto;padding:1.5rem">
+
+    <!-- content panels live here (hidden until their tab is active) -->
+    <div style="display:contents">
+
+  <!-- ── HOME: onboarding answers + Operating File card index ─────── -->
+  <div id="tab-profile-home" class="detail-tab-content space-y-6">
 
   <!-- Read-only summary of every answer captured during onboarding (populated by assistants.js) -->
-  <div id="onboarding-summary" class="mb-6"></div>
+  <div id="onboarding-summary"></div>
 
   <!-- Operating File card list -->
   <div class="space-y-3">
@@ -307,24 +354,7 @@
     </button>
   </div>
 
-  <!-- ── Right-hand slide-in drawer ── -->
-  <div id="brief-drawer-backdrop" onclick="window._closeBriefDrawer()" style="display:none;opacity:0;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:9000;transition:opacity .2s ease" aria-hidden="true"></div>
-  <aside id="brief-drawer" aria-label="Operating file detail"
-    style="position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);z-index:9001;display:flex;flex-direction:column;background:#fff;box-shadow:-4px 0 32px rgba(0,0,0,0.12);transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);overflow:hidden">
-    <!-- Drawer header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid #e5e7eb;flex-shrink:0">
-      <h2 id="brief-drawer-title" style="font-size:1.0625rem;font-weight:700;color:#111827;margin:0"></h2>
-      <button type="button" onclick="window._closeBriefDrawer()" aria-label="Close"
-        style="width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;border-radius:0.5rem;border:none;background:none;cursor:pointer;color:#6b7280;transition:background .12s ease"
-        onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
-        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <!-- Drawer scrollable content -->
-    <div id="brief-drawer-body" style="flex:1;overflow-y:auto;padding:1.5rem">
-
-    <!-- content panels live here (hidden until their tab is active) -->
-    <div style="display:contents">
+  </div><!-- /tab-profile-home -->
 
   <!-- ── TAB: Mandate (was "The Problem") ──────────────────────── -->
   <div id="tab-problem" class="detail-tab-content space-y-6">
@@ -398,7 +428,7 @@
           <div class="space-y-5">
             <!-- Frequency -->
             <div>
-              <label for="edit_frequency" class="block text-sm font-bold text-gray-700 mb-1">Posting Frequency</label>
+              <label for="edit_frequency" class="block text-sm font-bold text-gray-700 mb-1" data-explain="posting-schedule">Posting Frequency</label>
               <select id="edit_frequency" class="w-full border border-gray-300 rounded-lg p-3 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition shadow-sm">
                 <option value="Daily">Daily</option>
                 <option value="5 times a week">5 times a week</option>
@@ -508,7 +538,7 @@
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label for="edit_core_message" class="block text-sm font-bold text-gray-700">Core Message</label>
+            <label for="edit_core_message" class="block text-sm font-bold text-gray-700" data-explain="core-message">Core Message</label>
             <button type="button" onclick="window._magicWand('core_message','edit_core_message', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
               <img src="/images/BeMoreSwan_SwanAI.png" alt="Optimise with Be More Swan AI" class="ai-wand-img shrink-0">
             </button>
@@ -533,7 +563,7 @@
       <div class="space-y-5">
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label for="edit_audience" class="block text-sm font-bold text-gray-700">Target Audience</label>
+            <label for="edit_audience" class="block text-sm font-bold text-gray-700" data-explain="target-audience">Target Audience</label>
             <button type="button" onclick="window._magicWand('target_audience','edit_audience', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
               <img src="/images/BeMoreSwan_SwanAI.png" alt="Optimise with Be More Swan AI" class="ai-wand-img shrink-0">
             </button>
@@ -543,7 +573,7 @@
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label for="edit_tone" class="block text-sm font-bold text-gray-700">Brand Voice &amp; Tone</label>
+            <label for="edit_tone" class="block text-sm font-bold text-gray-700" data-explain="brand-voice">Brand Voice &amp; Tone</label>
             <button type="button" onclick="window._magicWand('tone_of_voice','edit_tone', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
               <img src="/images/BeMoreSwan_SwanAI.png" alt="Optimise with Be More Swan AI" class="ai-wand-img shrink-0">
             </button>
@@ -552,7 +582,7 @@
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label for="edit_pillars" class="block text-sm font-bold text-gray-700">Content Pillars / Core Topics</label>
+            <label for="edit_pillars" class="block text-sm font-bold text-gray-700" data-explain="content-pillars">Content Pillars / Core Topics</label>
             <button type="button" onclick="window._magicWand('content_pillars','edit_pillars', this)" title="AI optimize for your goals" class="goal-wand-btn inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
               <img src="/images/BeMoreSwan_SwanAI.png" alt="Optimise with Be More Swan AI" class="ai-wand-img shrink-0">
             </button>
@@ -585,6 +615,85 @@
           <label for="edit_objections" class="block text-sm font-bold text-gray-700 mb-1">Sales Objection Playbook</label>
           <textarea id="edit_objections" rows="4" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm resize-none overflow-hidden" placeholder="One per line — objection, then your preferred response. E.g., &quot;Too expensive&quot; — Emphasise the time saved and the money-back guarantee."></textarea>
           <p class="text-xs text-gray-400 mt-1">One objection per line with your preferred response. The assistant drafts replies from these — it never invents pricing or claims.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reference / Visual Style — parity with onboarding "Link to Reference Style / Visual Assets" -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-5">
+        <h3 class="text-lg font-bold text-gray-900">Reference &amp; Visual Style</h3>
+        <p class="text-sm text-gray-500 mt-1">A link to a post you love or a folder of brand guidelines. Your assistant studies it to match your look and voice.</p>
+      </div>
+      <div>
+        <label for="edit_reference_url" class="block text-sm font-bold text-gray-700 mb-1">Reference Style / Visual Assets Link</label>
+        <input type="url" id="edit_reference_url" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700 transition shadow-sm" placeholder="https://…">
+        <p class="text-xs text-gray-400 mt-1">A past post, a Drive folder of brand guidelines, or a moodboard.</p>
+      </div>
+    </div>
+
+    <!-- Hashtags & Platform Strategy — parity with onboarding "Platform Algorithm Helpers".
+         Blocks are shown per connected platform by _hydratePlatformStrategy(); values round-trip
+         through context.platform_strategy. -->
+    <div id="platform-strategy-card" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="mb-5">
+        <h3 class="text-lg font-bold text-gray-900" data-explain="hashtags-keywords">Hashtags &amp; Platform Strategy</h3>
+        <p class="text-sm text-gray-500 mt-1">Fine-tune how your assistant formats posts and uses hashtags on each platform.</p>
+      </div>
+
+      <p id="platform-strategy-empty" class="hidden text-sm text-gray-400 italic">Connect a social platform first — strategy options appear here for each one you use.</p>
+
+      <div class="space-y-4">
+        <!-- Facebook -->
+        <div id="edit_algo_block_fb" class="hidden algo-block space-y-3 border border-gray-200 rounded-xl p-4">
+          <h4 class="font-bold text-gray-800 text-sm" data-explain="facebook-strategy">Facebook Strategy</h4>
+          <div>
+            <label for="edit_algo_strategy_fb" class="block text-xs font-semibold text-gray-600 mb-1">Hashtag approach</label>
+            <select id="edit_algo_strategy_fb" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition">
+              <option value="strict_custom">Only use my specific tags</option>
+              <option value="hybrid">Use mine, and add relevant ones</option>
+              <option value="ai_decide">Let the assistant decide</option>
+            </select>
+          </div>
+          <input type="text" id="edit_algo_tags_fb" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #FacebookTips #Community">
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700"><input type="checkbox" id="edit_fb_opt_groups" class="rounded text-emerald-700 focus:ring-emerald-700"> Draft versions for niche Facebook Groups</label>
+        </div>
+
+        <!-- Instagram -->
+        <div id="edit_algo_block_ig" class="hidden algo-block space-y-3 border border-gray-200 rounded-xl p-4">
+          <h4 class="font-bold text-gray-800 text-sm" data-explain="instagram-strategy">Instagram Strategy</h4>
+          <input type="text" id="edit_algo_tags_ig" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #InstaGood">
+          <div>
+            <label for="edit_ig_opt_format" class="block text-xs font-semibold text-gray-600 mb-1" data-explain="content-formats">Content format</label>
+            <select id="edit_ig_opt_format" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition">
+              <option value="mix">Optimize for a Mix (Reels, Carousels, Static)</option>
+              <option value="reels">Prioritize Reels</option>
+            </select>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700"><input type="checkbox" id="edit_ig_opt_audio" class="rounded text-emerald-700 focus:ring-emerald-700"> <span data-explain="trending-audio">Suggest trending audio concepts</span></label>
+        </div>
+
+        <!-- LinkedIn -->
+        <div id="edit_algo_block_li" class="hidden algo-block space-y-3 border border-gray-200 rounded-xl p-4">
+          <h4 class="font-bold text-gray-800 text-sm" data-explain="linkedin-strategy">LinkedIn Strategy</h4>
+          <input type="text" id="edit_algo_tags_li" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #Leadership #B2B">
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700"><input type="checkbox" id="edit_li_opt_links" class="rounded text-emerald-700 focus:ring-emerald-700"> <span data-explain="link-first-comment">Anti-Penalty: URLs in first comment</span></label>
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700"><input type="checkbox" id="edit_li_opt_sliders" class="rounded text-emerald-700 focus:ring-emerald-700"> <span data-explain="pdf-carousel">PDF Slider/Carousel outlines</span></label>
+        </div>
+
+        <!-- X -->
+        <div id="edit_algo_block_x" class="hidden algo-block space-y-3 border border-gray-200 rounded-xl p-4">
+          <h4 class="font-bold text-gray-800 text-sm" data-explain="x-strategy">X (Twitter) Strategy</h4>
+          <input type="text" id="edit_algo_tags_x" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-700 transition" placeholder="e.g., #BuildInPublic">
+          <div>
+            <label for="edit_x_opt_length" class="block text-xs font-semibold text-gray-600 mb-1">Post length</label>
+            <select id="edit_x_opt_length" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 transition">
+              <option value="mix">Mix of Threads and Single Posts</option>
+              <option value="single">Single Posts only</option>
+              <option value="threads">Prioritize Threads</option>
+            </select>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700"><input type="checkbox" id="edit_x_opt_media" class="rounded text-emerald-700 focus:ring-emerald-700"> <span data-explain="media-placeholders">Include placeholders for media</span></label>
         </div>
       </div>
     </div>
@@ -688,8 +797,8 @@
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <h3 class="text-lg font-bold text-gray-900">Autonomous Posting Fallback</h3>
-          <p class="text-sm text-gray-500 mt-1">When <strong>My Content</strong> has no pending assets, should this assistant continue posting independently?</p>
+          <h3 class="text-lg font-bold text-gray-900">Empty-Library Draft Fallback</h3>
+          <p class="text-sm text-gray-500 mt-1">When <strong>My Content</strong> has no pending assets, should this assistant still create draft posts (using AI or stock media) for you to review? Nothing is ever published without your approval.</p>
         </div>
         <button id="toggle-autonomous" type="button" role="switch" aria-checked="false"
           onclick="window._toggleAutonomous()"
@@ -699,11 +808,11 @@
       </div>
       <div id="autonomous-on-msg" class="hidden mt-4 flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
         <svg class="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-        <span>This assistant will generate autonomous posts (text-only or AI-assisted media) when your content hub is empty. Autonomous posts are visually flagged as <strong>"100% AI-Generated"</strong> in your upcoming posts dashboard.</span>
+        <span>When your content hub is empty, this assistant will still prepare <strong>draft posts</strong> (text-only or AI-assisted media) and send them to your <strong>Review Queue</strong> for approval — they are never published on their own. AI-media drafts are flagged <strong>"100% AI-Generated"</strong> so you can spot them at a glance.</span>
       </div>
       <div id="autonomous-off-msg" class="mt-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
         <svg class="w-4 h-4 shrink-0 mt-0.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-        <span>If My Content is empty, this assistant will <strong>pause</strong> for that scheduled slot and send you an in-app notification to upload new media.</span>
+        <span>If My Content is empty, this assistant will <strong>skip</strong> that scheduled slot instead of drafting a post, and send you an in-app notification to upload new media.</span>
       </div>
     </div>
 
@@ -737,8 +846,6 @@
     </div><!-- /display:contents -->
     </div><!-- /brief-drawer-body -->
   </aside><!-- /brief-drawer -->
-
-  </div><!-- /maintab-config -->
 
   <!-- ── MAIN TAB: Goals & Automation ───────────────────────────────── -->
   <div id="maintab-goals" class="main-tab-content hidden">
@@ -920,11 +1027,17 @@
           <span id="toggle-autonomous-media-dot" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
         </button>
       </div>
-      <div id="autonomous-media-cap-row" class="hidden mt-4 flex items-center gap-3 border-t border-gray-100 pt-4">
-        <label for="autonomous-media-cap" class="text-sm font-bold text-gray-700">Monthly credit cap</label>
-        <input id="autonomous-media-cap" type="number" min="0" step="1" onchange="window._saveAutonomousMediaCap()"
-          class="w-24 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-        <span class="text-xs text-gray-400">Max AI credits this assistant may spend on auto-suggestions per month.</span>
+      <div id="autonomous-media-cap-row" class="hidden mt-4 border-t border-gray-100 pt-4 space-y-3">
+        <p class="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+          <strong class="text-blue-700">What are AI credits?</strong>
+          Credits are the tokens your plan includes each month for AI media generation — each AI-generated image costs <strong>1 credit</strong> and each AI-generated video costs <strong>5 credits</strong>. Unused credits roll over to the next month. Your monthly allowance is set by your subscription plan.
+        </p>
+        <div class="flex items-center gap-3">
+          <label for="autonomous-media-cap" class="text-sm font-bold text-gray-700">Monthly credit cap</label>
+          <input id="autonomous-media-cap" type="number" min="0" step="1" onchange="window._saveAutonomousMediaCap()"
+            class="w-24 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+          <span id="autonomous-media-cap-hint" class="text-xs text-gray-400">Max credits this assistant may spend on auto-suggestions per month.</span>
+        </div>
       </div>
     </div>
 
@@ -977,15 +1090,34 @@
       </div>
     </div>
 
-    <!-- 2. Review Meetings — periodic governance check-ins -->
+    <!-- Learned Directives changelog (Epic 3.2) — the assistant's evolving Runbook -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-      <div class="flex items-start justify-between gap-4 mb-5">
+      <div class="flex items-start justify-between gap-4 mb-4">
         <div>
-          <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Review Meetings</h3>
-          <p class="text-xs text-gray-400 mt-1">Periodic check-ins to assess performance and refine your assistant's direction.</p>
+          <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Learned Directives</h3>
+          <p class="text-xs text-gray-400 mt-1">Rules your assistant has learned from your corrections. Toggle one off to pause it, or delete it for good.</p>
         </div>
-        <button id="btn-log-review" onclick="window._openReviewForm()" class="px-3.5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition cursor-pointer">Log a Review</button>
+        <button type="button" onclick="window._openTuningPicker && window._openTuningPicker()" class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+          Start Tuning Session
+        </button>
       </div>
+      <div id="runbook-directives" class="space-y-2">
+        <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading directives…</div>
+      </div>
+    </div>
+
+    <!-- Governance review history — the former "Review Meetings" section, preserved & de-emphasised -->
+    <details class="bg-white rounded-2xl border border-gray-200 shadow-sm group">
+      <summary class="px-6 py-4 cursor-pointer text-sm font-bold text-gray-700 uppercase tracking-wide select-none flex items-center justify-between gap-4">
+        <span class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-gray-400 transition-transform duration-200 group-open:rotate-180 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          <span>Governance review history</span>
+        </span>
+        <button id="btn-log-review" type="button" onclick="event.preventDefault(); window._openReviewForm()" class="px-3.5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition cursor-pointer">Log a Review</button>
+      </summary>
+      <div class="px-6 pb-6 pt-1">
+        <p class="text-xs text-gray-400 mb-4">Periodic check-ins to assess performance and refine your assistant's direction.</p>
 
       <!-- Review entry form -->
       <div id="review-form" class="hidden mb-6 border border-emerald-100 bg-emerald-50/40 rounded-xl p-5 space-y-4">
@@ -1031,7 +1163,8 @@
       <div id="review-history">
         <p class="text-sm text-gray-400 text-center py-8">No review meetings logged yet.<br>Log your first review to track your assistant's progress over time.</p>
       </div>
-    </div>
+      </div>
+    </details>
 
   </div><!-- /maintab-meetings -->
 
@@ -1075,6 +1208,73 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
         Copy rules
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Tuning Session (Epic 3.1) — correct an output → learned directive ─── -->
+<div id="modal-tuning" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-indigo-50">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+        </div>
+        <div>
+          <h3 class="font-extrabold text-gray-900">Tuning Session</h3>
+          <p class="text-xs text-indigo-600 mt-0.5">Correct this output — your assistant learns a rule for every future post</p>
+        </div>
+      </div>
+      <button onclick="window._closeTuningSession()" type="button"
+        class="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <!-- Split screen: output (left) | correction (right) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-0 flex-1 overflow-hidden">
+      <div class="p-6 border-b md:border-b-0 md:border-r border-gray-100 overflow-y-auto bg-gray-50/40">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">The output</p>
+        <p id="tuning-output-meta" class="text-xs text-gray-500 mb-3"></p>
+        <div id="tuning-output" class="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">Loading…</div>
+      </div>
+      <div class="p-6 overflow-y-auto flex flex-col">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Your correction</p>
+        <textarea id="tuning-correction" rows="5" placeholder="What should be different? e.g. “Don’t open with a question — lead with the benefit.”"
+          class="w-full border border-gray-300 rounded-lg p-3 text-sm resize-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"></textarea>
+        <!-- Result: the learned directive + follow-up actions (hidden until submit) -->
+        <div id="tuning-result" class="hidden mt-4 p-4 rounded-xl bg-indigo-50 border border-indigo-100">
+          <p class="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-1">Learned directive</p>
+          <p id="tuning-directive" class="text-sm font-semibold text-gray-800"></p>
+        </div>
+        <p id="tuning-error" class="hidden mt-3 text-sm text-red-600 font-medium"></p>
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-gray-50/50">
+      <button id="tuning-cancel-btn" onclick="window._closeTuningSession()" type="button"
+        class="px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition cursor-pointer">Cancel</button>
+      <button id="tuning-submit-btn" onclick="window._submitTuning()" type="button"
+        class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer">Submit correction</button>
+      <!-- Post-submit actions (hidden until a directive is created) -->
+      <button id="tuning-revise-btn" onclick="window._tuningRevisePost()" type="button"
+        class="hidden px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer">Revise this post now</button>
+      <button id="tuning-done-btn" onclick="window._closeTuningSession()" type="button"
+        class="hidden px-6 py-2.5 bg-gray-800 hover:bg-gray-900 text-white text-sm font-bold rounded-lg shadow transition cursor-pointer">Just save the directive</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Tuning post picker (Epic 3.1 — action-bar / Runbook entry) ─── -->
+<div id="modal-tuning-picker" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-indigo-50">
+      <h3 class="font-extrabold text-gray-900">Choose a post to tune</h3>
+      <button onclick="document.getElementById('modal-tuning-picker').classList.add('hidden')" type="button"
+        class="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="tuning-picker-list" class="px-6 py-5 space-y-2 max-h-[60vh] overflow-y-auto">
+      <div class="h-10 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">Loading recent posts…</div>
     </div>
   </div>
 </div>

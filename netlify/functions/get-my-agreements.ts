@@ -14,7 +14,7 @@
 
 import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     tosAcceptances,
@@ -61,27 +61,26 @@ export const handler: Handler = async (event) => {
     const organisationId = org?.organisationId ?? null;
 
     // ── ToS (user-scoped) ─────────────────────────────────────────────
-    const [latestTos] = await db
+    // Pull the FULL acceptance history (every version the user has ever accepted, newest
+    // first) so the My Agreements tab can render an audit log of dates/times, not just the
+    // latest record. The head of the list is the current acceptance.
+    const tosHistory = await db
         .select({ version: tosAcceptances.version, acceptedAt: tosAcceptances.acceptedAt })
         .from(tosAcceptances)
         .where(eq(tosAcceptances.userId, userId))
-        .orderBy(desc(tosAcceptances.acceptedAt))
-        .limit(1);
-    const [currentTos] = await db
-        .select({ id: tosAcceptances.id })
-        .from(tosAcceptances)
-        .where(and(eq(tosAcceptances.userId, userId), eq(tosAcceptances.version, CURRENT_TOS_VERSION)))
-        .limit(1);
+        .orderBy(desc(tosAcceptances.acceptedAt));
+    const latestTos = tosHistory[0];
+    const currentTos = tosHistory.find((t) => t.version === CURRENT_TOS_VERSION);
 
     // ── DPA (org-scoped) ──────────────────────────────────────────────
-    const [latestDpa] = organisationId
+    const dpaHistory = organisationId
         ? await db
               .select({ version: dpaAcceptances.version, acceptedAt: dpaAcceptances.acceptedAt })
               .from(dpaAcceptances)
               .where(eq(dpaAcceptances.organisationId, organisationId))
               .orderBy(desc(dpaAcceptances.acceptedAt))
-              .limit(1)
-        : [undefined];
+        : [];
+    const latestDpa = dpaHistory[0];
 
     // ── Plain-language AI usage & data agreement (org-scoped timestamp) ─
     const [orgRow] = organisationId
@@ -100,6 +99,16 @@ export const handler: Handler = async (event) => {
         .limit(1);
     const consents = (profile?.legalConsents as Record<string, any>) || {};
 
+    // `history` is the full audit trail of acceptances for the agreement (newest first).
+    // For the two single-timestamp agreements (AI usage & data, AI acknowledgement) we only
+    // have the latest acceptance on record, so the trail is a single synthesised entry.
+    const aiDataHistory = orgRow?.acceptedAt
+        ? [{ version: null, acceptedAt: orgRow.acceptedAt }]
+        : [];
+    const aiDisclaimerHistory = consents.aiDisclaimerAcceptedAt
+        ? [{ version: consents.tosVersion ?? null, acceptedAt: consents.aiDisclaimerAcceptedAt }]
+        : [];
+
     const agreements = [
         {
             key: 'tos',
@@ -110,12 +119,14 @@ export const handler: Handler = async (event) => {
             acceptedAt: latestTos?.acceptedAt ?? null,
             upToDate: !!currentTos,
             reviewUrl: '/terms_of_service.html',
+            history: tosHistory,
         },
         {
             key: 'privacy',
             name: 'Privacy Policy',
             scope: 'info',
             reviewUrl: '/privacy.html',
+            history: [],
         },
         {
             key: 'dpa',
@@ -125,15 +136,17 @@ export const handler: Handler = async (event) => {
             currentVersion: CURRENT_DPA_VERSION,
             acceptedAt: latestDpa?.acceptedAt ?? null,
             upToDate: latestDpa?.version === CURRENT_DPA_VERSION,
+            history: dpaHistory,
         },
         {
             key: 'ai_data',
-            name: 'AI usage & data processing agreement',
+            name: 'Responsible AI Use Agreement',
             scope: 'org',
             acceptedVersion: null,
             currentVersion: null,
             acceptedAt: orgRow?.acceptedAt ?? null,
             upToDate: !!orgRow?.acceptedAt,
+            history: aiDataHistory,
         },
         {
             key: 'ai_disclaimer',
@@ -143,6 +156,7 @@ export const handler: Handler = async (event) => {
             currentVersion: CURRENT_AI_DISCLAIMER_VERSION,
             acceptedAt: consents.aiDisclaimerAcceptedAt ?? null,
             upToDate: !!consents.aiDisclaimerAcceptedAt,
+            history: aiDisclaimerHistory,
         },
     ];
 

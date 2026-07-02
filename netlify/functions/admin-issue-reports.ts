@@ -15,9 +15,10 @@ import jwt from 'jsonwebtoken';
 import postgres from 'postgres';
 import { and, eq, desc, asc, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { issueReports, issueReportMessages, users } from '../../db/schema';
+import { issueReports, issueReportMessages, users, devRunnerStatus } from '../../db/schema';
 import { isAdminRole, hasPermission } from '../../src/utils/rbac';
 import { ISSUE_STATUS_LABEL, isIssueStatus, notifyIssueUser, maybeAdvanceToReadyToTest, type IssueStatus } from '../../src/utils/issue-reports';
+import { createRoadmapItemFromIssue, isRoadmapPriority, type RoadmapPriority } from '../../src/utils/feature-roadmap';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -162,6 +163,53 @@ export const handler: Handler = async (event) => {
         return json(200, { ok: true, devMergeStatus: 'queued' });
     }
 
+    // ── GET ?action=runner-status: AI auto-fix runner health ─────────────────────
+    // Powers the "runner paused — Claude session limit" prompt + Resume button. Returns every
+    // runner's current state so the portal can surface a block and show how to recover it.
+    if (event.httpMethod === 'GET' && action === 'runner-status') {
+        const rows = await db.select().from(devRunnerStatus).orderBy(desc(devRunnerStatus.updatedAt));
+        const runners = rows.map((r) => ({
+            runnerId: r.runnerId,
+            state: r.state,
+            message: r.message,
+            resetHint: r.resetHint,
+            blockedIssueId: r.blockedIssueId,
+            resumeRequested: r.resumeRequested,
+            lastProbeResult: r.lastProbeResult,
+            blockedAt: r.blockedAt,
+            lastSeenAt: r.lastSeenAt,
+        }));
+        return json(200, { runners, blocked: runners.filter((r) => r.state === 'session_limited') });
+    }
+
+    // ── POST ?action=resume-runner: ask a paused runner to re-verify + resume ─────
+    // Super-admin only. The admin logs into a funded Claude account ON THE RUNNER MACHINE, then
+    // presses Resume. This only flags resume_requested — the runner (the sole thing that can
+    // reach the CLI) verifies the new login with a probe and flips itself back to 'ok'. Optionally
+    // scope to one runnerId; default resumes every currently-blocked runner.
+    if (event.httpMethod === 'POST' && action === 'resume-runner') {
+        if (admin.role !== 'super_admin') {
+            return json(403, { error: 'Resuming the runner requires super-admin privilege.' });
+        }
+        let body: any = {};
+        try { body = JSON.parse(event.body || '{}'); } catch { /* empty body is fine */ }
+        const rid = typeof body.runnerId === 'string' && body.runnerId.trim() ? body.runnerId.trim() : null;
+
+        const whereBlocked = rid
+            ? and(eq(devRunnerStatus.runnerId, rid), eq(devRunnerStatus.state, 'session_limited'))
+            : eq(devRunnerStatus.state, 'session_limited');
+
+        const updated = await db.update(devRunnerStatus)
+            .set({ resumeRequested: true, lastProbeResult: null, updatedAt: new Date() })
+            .where(whereBlocked)
+            .returning({ runnerId: devRunnerStatus.runnerId });
+
+        if (updated.length === 0) {
+            return json(200, { ok: true, resumed: 0, message: 'No paused runner to resume. Make sure the runner process is running and has reported a session limit.' });
+        }
+        return json(200, { ok: true, resumed: updated.length, runners: updated.map((u) => u.runnerId) });
+    }
+
     // ── GET single issue (with thread + screenshot) ──────────────────────────────
     if (event.httpMethod === 'GET' && id) {
         const [issue] = await db.select().from(issueReports).where(eq(issueReports.id, id)).limit(1);
@@ -201,6 +249,8 @@ export const handler: Handler = async (event) => {
                 devPrUrl: issueReports.devPrUrl,
                 devSqlStatus: issueReports.devSqlStatus,
                 devMergeStatus: issueReports.devMergeStatus,
+                devRunnerId: issueReports.devRunnerId,
+                devRunnerHeartbeat: issueReports.devRunnerHeartbeat,
                 reporterEmail: users.email,
                 reporterFirst: users.firstName,
                 reporterLast: users.lastName,
@@ -231,6 +281,8 @@ export const handler: Handler = async (event) => {
                 devPrUrl: r.devPrUrl,
                 devSqlStatus: r.devSqlStatus,
                 devMergeStatus: r.devMergeStatus,
+                devRunnerId: r.devRunnerId,
+                devRunnerHeartbeat: r.devRunnerHeartbeat,
                 reporterName: [r.reporterFirst, r.reporterLast].filter(Boolean).join(' ') || r.reporterEmail || `User #${r.userId}`,
                 reporterEmail: r.reporterEmail,
             })),
@@ -246,20 +298,51 @@ export const handler: Handler = async (event) => {
         const [issue] = await db.select().from(issueReports).where(eq(issueReports.id, id)).limit(1);
         if (!issue) return json(404, { error: 'Issue not found.' });
 
+        // Admins can correct/clarify the reporter's description. This is an independent
+        // edit — it doesn't change status, thread a message, or notify the reporter.
+        const description = typeof body.description === 'string' ? body.description.trim() : null;
+        if (description !== null) {
+            if (!description) return json(400, { error: 'Description cannot be empty.' });
+            await db.update(issueReports)
+                .set({ description, updatedAt: new Date() })
+                .where(eq(issueReports.id, id));
+        }
+
         const newStatus: IssueStatus | null = isIssueStatus(body.status) ? body.status : null;
         const message = typeof body.message === 'string' ? body.message.trim() : '';
-        if (!newStatus && !message) return json(400, { error: 'Provide a status and/or a message.' });
+        if (!newStatus && !message) {
+            // Description-only edit — nothing left to notify about.
+            if (description !== null) return json(200, { ok: true, description });
+            return json(400, { error: 'Provide a status and/or a message.' });
+        }
 
         const finalStatus = newStatus || (issue.status as IssueStatus);
 
         if (newStatus) {
+            // 'roadmap' is a terminal state like 'closed' from the reporter's point of view —
+            // stamp resolvedAt so it leaves the open-issue triage queue.
+            const isTerminal = newStatus === 'closed' || newStatus === 'roadmap';
             await db.update(issueReports)
                 .set({
                     status: newStatus,
                     updatedAt: new Date(),
-                    resolvedAt: newStatus === 'closed' ? new Date() : issue.resolvedAt,
+                    resolvedAt: isTerminal ? new Date() : issue.resolvedAt,
                 })
                 .where(eq(issueReports.id, id));
+        }
+
+        // Promoting to the roadmap creates (or refreshes) a Feature Roadmap item carrying the
+        // chosen priority. Idempotent — re-promoting the same issue won't duplicate it.
+        if (newStatus === 'roadmap') {
+            const priority: RoadmapPriority | undefined = isRoadmapPriority(body.priority) ? body.priority : undefined;
+            const firstLine = (issue.description || '').split('\n')[0].trim();
+            await createRoadmapItemFromIssue(db, {
+                issueId: id,
+                title: firstLine || `Feature request from issue #${id}`,
+                description: issue.description,
+                priority,
+                createdBy: admin.id,
+            }).catch((e) => console.error('[admin-issue-reports] roadmap promote failed:', e?.message || e));
         }
 
         // Record the supporting message / status change in the thread.

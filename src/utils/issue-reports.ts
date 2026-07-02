@@ -6,6 +6,7 @@ import type { getDb } from '../../db/client';
 import { users, notifications, issueReports, issueReportMessages } from '../../db/schema';
 import { sendEmail } from './email';
 import { resolveBaseUrl } from './base-url';
+import { isEmailAllowedForUser } from './notification-email-gate';
 
 type Db = ReturnType<typeof getDb>;
 
@@ -16,6 +17,7 @@ export const ISSUE_STATUSES = [
     'fixed_ready_to_test',
     'more_info_required',
     'closed',
+    'roadmap',
 ] as const;
 
 export type IssueStatus = (typeof ISSUE_STATUSES)[number];
@@ -31,6 +33,7 @@ export const ISSUE_STATUS_LABEL: Record<IssueStatus, string> = {
     fixed_ready_to_test: 'Fixed & Ready to Test',
     more_info_required: 'More Info Required',
     closed: 'Closed',
+    roadmap: 'On Roadmap',
 };
 
 // Screenshots are stored inline as base64 data URLs. Cap the decoded payload so a stray
@@ -100,12 +103,14 @@ export async function notifyIssueUser(
         status === 'fixed_ready_to_test' ? 'Please re-test and confirm the fix worked.' :
         status === 'more_info_required'  ? 'The team needs more information to proceed.' :
         status === 'fix_in_progress'     ? 'A fix is now in progress.' :
+        status === 'roadmap'             ? "We've added your request to our feature roadmap, where it'll be prioritised and delivered as soon as we can." :
         status === 'closed'              ? 'This issue has been closed.' :
         'Your reported issue has been updated.';
 
     const title =
         status === 'fixed_ready_to_test' ? `✅ Issue #${issueId} fixed — ready to test` :
         status === 'more_info_required'  ? `❓ Issue #${issueId} — more info needed` :
+        status === 'roadmap'             ? `🗺️ Issue #${issueId} added to our roadmap` :
         `🔧 Issue #${issueId} updated: ${label}`;
 
     const messageLine = adminMessage ? ` — “${adminMessage}”` : '';
@@ -120,7 +125,8 @@ export async function notifyIssueUser(
         metadata: { issueId, status },
     }).catch((e) => console.error('[issue-reports] notification insert failed:', e?.message || e));
 
-    // Email the user too.
+    // Email the user too — subject to their notification preferences.
+    if (!(await isEmailAllowedForUser(userId, 'issue_update'))) return;
     const [u] = await db.select({ email: users.email, firstName: users.firstName })
         .from(users).where(eq(users.id, userId)).limit(1);
     if (!u?.email) return;

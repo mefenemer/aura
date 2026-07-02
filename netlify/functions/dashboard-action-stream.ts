@@ -23,6 +23,7 @@ import {
     scheduledPosts,
     pendingActions,
     postIdeaSuggestions,
+    users,
 } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 
@@ -116,17 +117,24 @@ export const handler: Handler = async (event) => {
             .orderBy(desc(pendingActions.createdAt))
             .limit(8),
 
-            // AC3 — proactive post ideas still in the pool (not yet woven into a draft)
+            // AC3 — ideas a teammate suggested that are still in the pool (not yet woven into a draft).
+            // These are always human-submitted (via "Suggest an idea" in Create Post), never
+            // AI-generated, so the suggester's name must be surfaced rather than implying the
+            // assistant came up with them itself.
             db.select({
                 id: postIdeaSuggestions.id,
                 idea: postIdeaSuggestions.idea,
                 platform: postIdeaSuggestions.platform,
                 assistantId: postIdeaSuggestions.assistantId,
                 assistantName: aiAssistants.name,
+                suggestedByFirstName: users.firstName,
+                suggestedByLastName: users.lastName,
+                suggestedByEmail: users.email,
                 createdAt: postIdeaSuggestions.createdAt,
             })
             .from(postIdeaSuggestions)
             .leftJoin(aiAssistants, eq(aiAssistants.id, postIdeaSuggestions.assistantId))
+            .leftJoin(users, eq(users.id, postIdeaSuggestions.userId))
             .where(and(eq(postIdeaSuggestions.organisationId, orgId), eq(postIdeaSuggestions.status, 'pending')))
             .orderBy(desc(postIdeaSuggestions.createdAt))
             .limit(6),
@@ -179,6 +187,7 @@ export const handler: Handler = async (event) => {
             id: i.id,
             assistantId: i.assistantId,
             assistantName: i.assistantName || 'Your assistant',
+            suggestedByName: [i.suggestedByFirstName, i.suggestedByLastName].filter(Boolean).join(' ') || i.suggestedByEmail || 'A teammate',
             platform: i.platform || null,
             platformLabel: i.platform ? i.platform.split(',').map(_platformName).join(', ') : '',
             idea: i.idea || '',

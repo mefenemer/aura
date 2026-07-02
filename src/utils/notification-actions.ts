@@ -68,6 +68,8 @@ const TYPE_CATEGORY: Record<string, NotificationCategory> = {
     instagram_token_refresh_failed: 'suggested_action', instagram_rate_limited: 'suggested_action',
     integration_alert: 'suggested_action', post_publish_failed: 'suggested_action',
     post_missed: 'suggested_action', post_generation_failed: 'suggested_action',
+    // Empty-Library Draft Fallback (off) — scheduled drafts were skipped; user must upload media.
+    content_library_empty: 'suggested_action',
     risk_assessment_submitted: 'suggested_action', billing_renewal_due: 'suggested_action',
     billing_alert: 'suggested_action', action_rejected: 'suggested_action', action_expired: 'suggested_action',
     // state_change — completed / changed confirmations
@@ -81,8 +83,10 @@ const TYPE_CATEGORY: Record<string, NotificationCategory> = {
     risk_assessment_decision: 'state_change', risk_reclassification: 'state_change',
     account_update: 'state_change', assistant_task: 'state_change', assistant_ready: 'state_change',
     goal_autonomous_adjustment: 'state_change', // SMART Goals AC3.3.3 — autonomous brief change FYI
+    feature_status_change: 'state_change', // Feature Requests US06 — a backed request moved status
     // celebratory
     setup_complete: 'celebratory', milestone_unlock: 'celebratory', referral_reward: 'celebratory',
+    feature_released: 'celebratory', // Feature Requests US06 — a backed request shipped
     // informational (explicit; unknown types also fall here)
     welcome: 'informational', invoice_ready: 'informational', ticket_created: 'informational',
     ticket_reply: 'informational', billing: 'informational', new_role_availability: 'informational',
