@@ -4594,6 +4594,12 @@ function openPostReview(postId) {
     const reviewable = ['pending_approval', 'draft', 'in_review'].includes(post.status);
     document.getElementById('post-review-actions').classList.toggle('hidden', !reviewable);
 
+    // The draft already carries a proposed slot (shown above as "planned for …") — approving just
+    // confirms it, it doesn't schedule from scratch. Surface that date on the button itself so it's
+    // not misread as "no time has been picked yet".
+    const approveBtn = document.getElementById('post-review-approve-btn');
+    if (approveBtn) approveBtn.textContent = when ? `Confirm schedule — ${when}` : 'Approve — let the assistant pick a time';
+
     // Status note for non-reviewable states: archived (with countdown), scheduled/approved (when),
     // posted (with a live link if we have one).
     const noteEl = document.getElementById('post-review-archive');
