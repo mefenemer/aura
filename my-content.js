@@ -912,8 +912,22 @@ window._mcSubmitUpload = async function () {
 };
 
 // ── Delete ────────────────────────────────────────────────────────
+// Issue #55: an asset can be attached to a draft/scheduled post (via attach-draft-media /
+// regenerate-post-media) without its own status ever flipping to 'scheduled' — so it can still
+// show the plain Delete button here. Warn before deleting if any active post uses it.
 window._mcPromptDelete = function (assetId) {
     _assetToDelete = assetId;
+    const all = [...(_assets.pending || []), ...(_assets.scheduled || []), ...(_assets.posted || []), ...(_assets.rejected || [])];
+    const asset = all.find(a => a.id === assetId);
+    const warningEl = document.getElementById('delete-warning');
+    const usedIn = asset?.usedInPosts || [];
+    if (usedIn.length > 0) {
+        const postWord = usedIn.length === 1 ? 'post' : 'posts';
+        warningEl.textContent = `This is used in ${usedIn.length} draft/scheduled ${postWord}. Deleting it will flag ${usedIn.length === 1 ? 'that post' : 'those posts'} in the Review Queue so the assistant can source new media.`;
+        warningEl.classList.remove('hidden');
+    } else {
+        warningEl.classList.add('hidden');
+    }
     document.getElementById('modal-delete-asset').classList.remove('hidden');
 };
 
@@ -922,9 +936,15 @@ async function _doDelete() {
     try {
         const res = await fetch(`/.netlify/functions/content-assets?id=${_assetToDelete}`, { method: 'DELETE' });
         if (res.ok) {
+            const d = await res.json().catch(() => ({}));
             document.getElementById('modal-delete-asset').classList.add('hidden');
             _assetToDelete = null;
             await _loadAssets();
+            const affected = d.affectedPosts?.length || 0;
+            if (affected > 0) {
+                const msg = `Deleted. ${affected} ${affected === 1 ? 'post has' : 'posts have'} been flagged in the Review Queue for new media.`;
+                window.showToast ? window.showToast(msg, { icon: '⚠️', duration: 6000 }) : alert(msg);
+            }
         }
     } catch { alert('Could not delete. Please try again.'); }
 }

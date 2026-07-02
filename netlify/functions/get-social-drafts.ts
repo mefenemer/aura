@@ -34,6 +34,8 @@ export const handler: Handler = async (event) => {
                 suggestedMediaDescription: scheduledPosts.suggestedMediaDescription,
                 contentAssetIds: scheduledPosts.contentAssetIds,
                 conflictNotice: scheduledPosts.conflictNotice,
+                mediaMissing: scheduledPosts.mediaMissing,
+                mediaMissingNote: scheduledPosts.mediaMissingNote,
                 status: scheduledPosts.status,
                 triggerType: scheduledPosts.triggerType,
                 publishDate: scheduledPosts.publishDate,

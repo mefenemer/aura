@@ -57,8 +57,9 @@ export const handler: Handler = async (event) => {
     await db.insert(scheduledPostAssets)
         .values({ scheduledPostId: postId, contentAssetId: assetId, position: 0 })
         .onConflictDoNothing();
+    // Issue #55: swapping in new media resolves any "media deleted" flag from the Review Queue.
     await db.update(scheduledPosts)
-        .set({ contentAssetIds: [assetId], updatedAt: new Date() })
+        .set({ contentAssetIds: [assetId], mediaMissing: false, mediaMissingNote: null, updatedAt: new Date() })
         .where(eq(scheduledPosts.id, postId));
 
     let thumbnailUrl: string | null = null;
