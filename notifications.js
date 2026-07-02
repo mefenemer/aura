@@ -365,7 +365,9 @@ window.initNotifications = async function() {
         // AC2.2/AC2.3: sort by priority weight, then newest first. On the action tab, unresolved
         // items stay above resolved ones, so critical_action (priority 1) is pinned to the very
         // top until its completion criteria are met.
-        const byCreated = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
+        // id as tiebreaker: rows can share an identical createdAt (e.g. created in the same
+        // DB transaction), so date alone doesn't reliably keep the newest item first.
+        const byCreated = (a, b) => new Date(b.createdAt) - new Date(a.createdAt) || (b.id - a.id);
         if (activeTab === 'action') {
             list.sort((a, b) => (isResolved(a) ? 1 : 0) - (isResolved(b) ? 1 : 0) || prioOf(a) - prioOf(b) || byCreated(a, b));
         } else {
