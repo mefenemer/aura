@@ -3272,6 +3272,12 @@ window._saveAutonomousMediaCap = async function () {
         const data = await _setAutonomousMedia({ monthlyCap: cap, confirmOverage });
         _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? cap;
         _applyAutonomousMediaUi();
+        // issue #67: saving succeeds silently — the input already shows the value the user just
+        // typed, so with no confirmation the click on "OK" in the dialog above looks like a no-op.
+        window.showToast?.(
+            confirmOverage ? 'Monthly credit cap updated — extra usage above your plan allowance will be billed.'
+                            : 'Monthly credit cap updated.'
+        );
     } catch (e) { alert('Could not update the cap: ' + e.message); input.value = _autonomousMediaCap; }
 };
 
