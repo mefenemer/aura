@@ -1517,6 +1517,9 @@
 
             <div id="ir-runner-queue-status" class="rounded-xl border p-3 text-sm"></div>
 
+            <!-- Paused runner (Claude session limit) — populated by loadRunnerStatus() -->
+            <div id="ir-runner-paused" class="hidden space-y-3"></div>
+
             <div class="space-y-2">
               <p class="text-xs font-bold uppercase text-gray-400">Start the runner — paste in your terminal</p>
               <div class="relative">
@@ -3671,6 +3674,8 @@ function openRunnerModal() {
 
   // Queue status from already-loaded issue data (count queued devHandoffStatus)
   _updateRunnerQueueStatus();
+  // Paused-runner state (Claude session limit) + Resume button, mirrored inside the modal
+  loadRunnerStatus();
 }
 
 function closeRunnerModal() {
@@ -3753,9 +3758,35 @@ let _irRunnerStatusTimer = null;
 // "Pass to Developer" / "Try again" buttons disable and point at the Resume banner —
 // the open detail panel covers the banner, so re-queuing from here would just re-fail.
 let _irRunnerBlocked = false;
+// One paused-runner card (reset hint + last probe result + Resume button). Rendered both in
+// the banner at the top of the Issues list and inside the 🤖 Runner modal.
+function _irRunnerPausedCard(r) {
+  const canResume = (typeof _adminRole !== 'undefined') && _adminRole === 'super_admin';
+  const reset = r.resetHint ? ` — resets <b>${_esc(r.resetHint)}</b>` : '';
+  const probe = r.lastProbeResult
+    ? `<div class="mt-2 text-xs text-amber-900/80 bg-amber-100/60 rounded-lg p-2">Last resume attempt: ${_esc(r.lastProbeResult)}</div>` : '';
+  const action = r.resumeRequested
+    ? `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700"><span class="animate-pulse">●</span> verifying the new login on the runner…</span>`
+    : (canResume
+        ? `<button onclick="resumeRunner('${_esc(r.runnerId)}', this)" class="px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition">I've logged in — Resume runner</button>`
+        : `<span class="text-xs text-amber-700 font-semibold">A super-admin must resume the runner.</span>`);
+  return `<div class="border border-amber-300 bg-amber-50 rounded-xl p-4">
+    <div class="flex items-start gap-3">
+      <span class="text-xl leading-none">⏸️</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-bold text-amber-900">AI auto-fix runner paused — Claude session limit${reset}</p>
+        <p class="text-xs text-amber-800 mt-1">Runner <b class="font-mono">${_esc(r.runnerId)}</b> ran out of Claude usage. On the runner machine, log into a Claude account with credit (run <code class="font-mono bg-amber-100 px-1 rounded">claude</code> then <code class="font-mono bg-amber-100 px-1 rounded">/login</code>), then press Resume. Queued issues are retried automatically once it resumes — you don't need to re-submit them.</p>
+        ${probe}
+        <div class="mt-3">${action}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 async function loadRunnerStatus() {
-  const el = document.getElementById('ir-runner-alert');
-  if (!el) return;
+  const banner = document.getElementById('ir-runner-alert');
+  const modalEl = document.getElementById('ir-runner-paused');
+  if (!banner && !modalEl) return;
   let blocked = [];
   try {
     const d = await api(`${IR_API}?action=runner-status`);
@@ -3763,36 +3794,17 @@ async function loadRunnerStatus() {
   } catch { blocked = []; }
   _irRunnerBlocked = blocked.length > 0;
 
+  const html = blocked.map(_irRunnerPausedCard).join('');
+  for (const el of [banner, modalEl]) {
+    if (!el) continue;
+    el.classList.toggle('hidden', !blocked.length);
+    el.innerHTML = html;
+  }
+
   if (!blocked.length) {
-    el.classList.add('hidden');
-    el.innerHTML = '';
     if (_irRunnerStatusTimer) { clearInterval(_irRunnerStatusTimer); _irRunnerStatusTimer = null; }
     return;
   }
-
-  const canResume = (typeof _adminRole !== 'undefined') && _adminRole === 'super_admin';
-  el.classList.remove('hidden');
-  el.innerHTML = blocked.map(r => {
-    const reset = r.resetHint ? ` — resets <b>${_esc(r.resetHint)}</b>` : '';
-    const probe = r.lastProbeResult
-      ? `<div class="mt-2 text-xs text-amber-900/80 bg-amber-100/60 rounded-lg p-2">Last resume attempt: ${_esc(r.lastProbeResult)}</div>` : '';
-    const action = r.resumeRequested
-      ? `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700"><span class="animate-pulse">●</span> verifying the new login on the runner…</span>`
-      : (canResume
-          ? `<button onclick="resumeRunner('${_esc(r.runnerId)}', this)" class="px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition">I've logged in — Resume runner</button>`
-          : `<span class="text-xs text-amber-700 font-semibold">A super-admin must resume the runner.</span>`);
-    return `<div class="border border-amber-300 bg-amber-50 rounded-xl p-4">
-      <div class="flex items-start gap-3">
-        <span class="text-xl leading-none">⏸️</span>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-bold text-amber-900">AI auto-fix runner paused — Claude session limit${reset}</p>
-          <p class="text-xs text-amber-800 mt-1">Runner <b class="font-mono">${_esc(r.runnerId)}</b> ran out of Claude usage. On the runner machine, log into a Claude account with credit (run <code class="font-mono bg-amber-100 px-1 rounded">claude</code> then <code class="font-mono bg-amber-100 px-1 rounded">/login</code>), then press Resume. Queued issues are retried automatically once it resumes — you don't need to re-submit them.</p>
-          ${probe}
-          <div class="mt-3">${action}</div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
 
   // While something is blocked, refresh so "verifying…" clears and the probe result appears
   // without a manual reload. Cleared once nothing is blocked (above).

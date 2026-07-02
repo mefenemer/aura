@@ -230,7 +230,7 @@ export const handler: Handler = async (event) => {
                 issueId: id,
                 authorType: 'admin',
                 authorId: null,
-                body: `⏸️ AI auto-fix paused — the runner's Claude account hit its session limit${resetHint ? ` (resets ${resetHint})` : ''}.\n\nLog into a Claude account with credit on the runner machine, then press "Resume runner" in the Runner panel. This issue is queued and will be retried automatically once the runner resumes — no need to re-submit it.`,
+                body: `⏸️ AI auto-fix paused — the runner's Claude account hit its session limit${resetHint ? ` (resets ${resetHint})` : ''}.\n\nLog into a Claude account with credit on the runner machine, then press "I've logged in — Resume runner" in the banner at the top of the Issue Reports list (also shown in the 🤖 Runner panel). This issue is queued and will be retried automatically once the runner resumes — no need to re-submit it.`,
                 status: null,
             });
         }
@@ -291,7 +291,7 @@ export const handler: Handler = async (event) => {
                 authorId: null,
                 body: ok
                     ? `▶️ Runner resumed — the new Claude login was verified. This issue will be picked up again shortly.`
-                    : `⚠️ Resume failed — the Claude account is still rate-limited or the login didn't switch on the runner machine.\n\n${probeMsg}\n\nLog into a Claude account with credit on the runner machine, then press "Resume runner" again.`,
+                    : `⚠️ Resume failed — the Claude account is still rate-limited or the login didn't switch on the runner machine.\n\n${probeMsg}\n\nLog into a Claude account with credit on the runner machine, then press "I've logged in — Resume runner" again.`,
                 status: null,
             });
         }
