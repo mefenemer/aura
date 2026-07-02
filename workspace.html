@@ -4237,7 +4237,7 @@ function rqRenderIdeaCard(idea) {
     } else if (idea.status === 'in_review') {
         const cap = idea.postCaption ? `<p class="text-xs text-gray-600 mt-1 line-clamp-2 italic">"${_rqEsc(idea.postCaption)}"</p>` : '';
         progress = `<p class="text-xs text-gray-500">Built into a post — now awaiting your review.${cap ? '' : ''}</p>${cap}
-          <button onclick="rqOpenStatus('review')" class="mt-1.5 text-xs font-semibold text-violet-700 hover:text-violet-800 underline cursor-pointer">View in Review →</button>`;
+          ${idea.usedPostId ? `<button onclick="openPostReview(${idea.usedPostId})" class="mt-1.5 text-xs font-semibold text-violet-700 hover:text-violet-800 underline cursor-pointer">Review this post →</button>` : ''}`;
     } else if (idea.status === 'delivered') {
         const when = idea.postPublishDate ? new Date(idea.postPublishDate).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : null;
         const postState = idea.postStatus === 'published' ? 'Published' : (idea.postStatus === 'scheduled' ? 'Scheduled' : 'Approved');
