@@ -1,10 +1,12 @@
 import { Handler } from '@netlify/functions';
 import { eq, and } from 'drizzle-orm';
 import { getDb, withTenant } from '../../db/client';
-import { aiAssistants, auditLogs } from '../../db/schema';
+import { aiAssistants, auditLogs, organisations, userProfiles } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 import { resolveBaseUrl } from '../../src/utils/base-url';
 import { retryBlockedAssistants } from '../../src/utils/retry-provisioning';
+import { compileServerSideBrief } from '../../src/utils/brief';
+import { SMM_ROLE_KEYS } from '../../src/constants/roles';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'PUT') return { statusCode: 405, body: 'Method Not Allowed' };
@@ -53,6 +55,30 @@ export const handler: Handler = async (event) => {
                     },
                 };
             }
+
+            // Recompile the system prompt so Profile edits (core message, CTA, tone, strict
+            // rules, platform strategy, etc.) actually reach the model instead of drifting from
+            // the frozen brief baked at onboarding. Gated to Social Media Manager assistants —
+            // compileServerSideBrief emits the SMM blueprint, so it must not stamp other roles.
+            const finalConfig = (updatePayload.configuration ?? existingAssistant.configuration) as any;
+            const finalInputs = finalConfig?.inputs;
+            const roleKey = finalConfig?.type;
+            if (finalInputs && typeof finalInputs === 'object' && SMM_ROLE_KEYS.includes(roleKey)) {
+                const [org] = await tx.select({ name: organisations.name })
+                    .from(organisations).where(eq(organisations.id, orgId)).limit(1);
+                const [prof] = await tx.select({ displayName: userProfiles.displayName })
+                    .from(userProfiles).where(eq(userProfiles.userId, existingAssistant.userId)).limit(1);
+                const assistantName = newName?.trim() || existingAssistant.name || 'Digital Assistant';
+                try {
+                    updatePayload.systemPrompt = compileServerSideBrief(
+                        prof?.displayName || '', org?.name || '', assistantName, finalInputs);
+                } catch (e) {
+                    // Never fail the save on a recompile hiccup — the live onboarding_context
+                    // still carries the edit; the brief just stays as-is until the next save.
+                    console.error('[update-assistant-context] brief recompile skipped:', e);
+                }
+            }
+
             await tx.update(aiAssistants)
                 .set(updatePayload)
                 .where(eq(aiAssistants.id, assistantId));

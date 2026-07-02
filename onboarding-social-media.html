@@ -317,9 +317,56 @@
               <div class="ml-4 w-full">
                 <span class="block font-bold text-gray-900">On a Schedule</span>
                 <span class="block text-sm text-gray-500 mb-2">On a specific routine (like every morning at 8:00 AM, or every Friday).</span>
-                <div id="schedule_detail" class="hidden mt-3 space-y-3">
-                  <input type="text" id="schedule_frequency" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="What is the exact frequency? (e.g., 3x a week at 9:00 AM)">
-                  <input type="text" id="schedule_timezone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm" placeholder="What is your Timezone? (e.g., GMT, EST, CET)">
+                <div id="schedule_detail" class="hidden mt-3 space-y-4">
+                  <!-- Frequency — canonical values matching the Assistant Profile Posting Schedule -->
+                  <div>
+                    <label for="schedule_frequency" class="block text-xs font-bold text-gray-700 mb-1">Posting Frequency</label>
+                    <select id="schedule_frequency" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm bg-white">
+                      <option value="Daily">Daily</option>
+                      <option value="5 times a week">5 times a week</option>
+                      <option value="3 times a week" selected>3 times a week</option>
+                      <option value="2 times a week">2 times a week</option>
+                      <option value="Weekly">Weekly</option>
+                      <option value="On demand">On demand (no automatic scheduling)</option>
+                    </select>
+                  </div>
+                  <!-- Preferred days -->
+                  <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-2">Preferred Days</label>
+                    <div class="flex flex-wrap gap-3">
+                      <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" id="sched_day_mon" class="rounded text-emerald-700 focus:ring-emerald-700" checked> Mon</label>
+                      <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" id="sched_day_tue" class="rounded text-emerald-700 focus:ring-emerald-700" checked> Tue</label>
+                      <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" id="sched_day_wed" class="rounded text-emerald-700 focus:ring-emerald-700" checked> Wed</label>
+                      <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" id="sched_day_thu" class="rounded text-emerald-700 focus:ring-emerald-700" checked> Thu</label>
+                      <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" id="sched_day_fri" class="rounded text-emerald-700 focus:ring-emerald-700" checked> Fri</label>
+                      <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" id="sched_day_sat" class="rounded text-emerald-700 focus:ring-emerald-700"> Sat</label>
+                      <label class="inline-flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" id="sched_day_sun" class="rounded text-emerald-700 focus:ring-emerald-700"> Sun</label>
+                    </div>
+                  </div>
+                  <!-- Preferred times (dynamic rows, persisted as posting_times[]) -->
+                  <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-2">Preferred Times</label>
+                    <div id="posting-times-list" class="space-y-2"></div>
+                    <button type="button" onclick="addPostingTime()" class="mt-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition cursor-pointer">+ Add a time</button>
+                  </div>
+                  <!-- Timezone -->
+                  <div>
+                    <label for="schedule_timezone" class="block text-xs font-bold text-gray-700 mb-1">Timezone</label>
+                    <select id="schedule_timezone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm text-sm bg-white">
+                      <option value="Europe/London">London (GMT/BST)</option>
+                      <option value="Europe/Dublin">Dublin</option>
+                      <option value="Europe/Paris">Paris</option>
+                      <option value="Europe/Berlin">Berlin</option>
+                      <option value="Europe/Madrid">Madrid</option>
+                      <option value="America/New_York">New York (Eastern)</option>
+                      <option value="America/Chicago">Chicago (Central)</option>
+                      <option value="America/Denver">Denver (Mountain)</option>
+                      <option value="America/Los_Angeles">Los Angeles (Pacific)</option>
+                      <option value="Asia/Dubai">Dubai</option>
+                      <option value="Asia/Singapore">Singapore</option>
+                      <option value="Australia/Sydney">Sydney</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </label>
@@ -816,6 +863,11 @@
     // Resume existing draft
     await hydrateDraft();
 
+    // Ensure the Preferred Times list always has at least one row (fresh hire, or a resumed
+    // draft that predates structured scheduling). Done before the autosave listeners below so
+    // the row's input is wired up. Rows added later get their own listener via addPostingTime.
+    if (!document.querySelector('.posting-time-input')) renderPostingTimes();
+
     // Single source of truth: prefill social handles from connected accounts
     // (only platforms the draft didn't already set).
     await prefillSocialsFromConnections();
@@ -919,6 +971,9 @@
       if (input.value.trim() !== '') links.push(input.value.trim());
     });
     data['braintrust_links'] = links;
+
+    // Preferred posting times — dynamic rows without unique ids (see addPostingTime).
+    data['posting_times'] = collectPostingTimes();
 
     return data;
   }
@@ -1026,6 +1081,11 @@
                           `);
             });
             toggleTrashIcons();
+          }
+
+          // 2b. Rebuild dynamic Preferred-Time rows (posting_times[] has no fixed ids)
+          if (Array.isArray(data['posting_times'])) {
+            renderPostingTimes(data['posting_times']);
           }
 
           // 3. Hydrate standard fields
@@ -1507,7 +1567,15 @@
       service_offerings: document.getElementById('val_offerings')?.value || null,
       sales_objections: document.getElementById('val_objections')?.value || null,
       tone_of_voice: document.getElementById('val_tone')?.value || null,
-      posting_frequency: document.getElementById('schedule_frequency')?.value || 'On Demand',
+      // Posting Schedule — structured to match the Assistant Profile (frequency/days/times/tz).
+      // When the trigger isn't "On a Schedule", posting is on-demand and the day/time controls
+      // are ignored (the Profile applies its own defaults if these are empty).
+      posting_frequency: (document.querySelector('input[name="trigger_type"]:checked')?.value === 'scheduled')
+        ? (document.getElementById('schedule_frequency')?.value || '3 times a week')
+        : 'On demand',
+      posting_days: collectScheduledDays(),
+      posting_times: collectPostingTimes(),
+      posting_timezone: document.getElementById('schedule_timezone')?.value || 'Europe/London',
       primary_platforms: extractedPlatforms,
       problem_statement: document.getElementById('user_story_problem')?.value || null,
       // Reference style link + per-platform hashtag/algorithm strategy — stored structurally so
@@ -1764,6 +1832,39 @@
   function toggleScheduleDetails() {
     const triggerEl = document.querySelector('input[name="trigger_type"][value="scheduled"]');
     document.getElementById('schedule_detail')?.classList.toggle('hidden', !(triggerEl && triggerEl.checked));
+  }
+
+  // ── Posting Schedule: preferred-times dynamic rows (parity with Assistant Profile) ──
+  // Times have no fixed ids, so they persist via a dedicated posting_times[] key in getFormData
+  // and rebuild in hydrateDraft — mirroring how braintrust_links are handled.
+  function addPostingTime(value) {
+    const list = document.getElementById('posting-times-list');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2 posting-time-row';
+    row.innerHTML = `
+      <input type="time" value="${value || '09:00'}" class="posting-time-input border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white">
+      <button type="button" onclick="this.closest('.posting-time-row').remove(); triggerAutoSave();" class="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition" title="Remove time">🗑️</button>`;
+    list.appendChild(row);
+    row.querySelector('.posting-time-input').addEventListener('change', triggerAutoSave);
+  }
+
+  function renderPostingTimes(times) {
+    const list = document.getElementById('posting-times-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const vals = Array.isArray(times) && times.length ? times : ['09:00'];
+    vals.forEach(t => addPostingTime(t));
+  }
+
+  function collectPostingTimes() {
+    return Array.from(document.querySelectorAll('.posting-time-input'))
+      .map(i => i.value).filter(Boolean);
+  }
+
+  function collectScheduledDays() {
+    const keys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    return keys.filter(d => document.getElementById('sched_day_' + d)?.checked);
   }
 
   function toggleContentSourceDetails() {

@@ -239,10 +239,33 @@ function _detailSetVal(id, val) {
 // Posting Frequency is now a discrete <select>. A legacy/custom stored value (free text like
 // "twice a day", or a key like "3x_week") won't match a built-in option, so inject it as a
 // selectable option to preserve it — the backend cadence parser still understands it.
+// Map free-text / mixed-case posting frequencies captured at onboarding (e.g. "3x a week at
+// 9am", "On Demand") onto the canonical <select> values the Posting Schedule uses — otherwise
+// the value is a no-match, the scheduler can't compute slots, and a junk option is injected.
+function _normaliseFrequency(raw) {
+    const v = (raw || '').toString().trim();
+    if (!v) return _POSTING_DEFAULT_FREQ;
+    const sel = document.getElementById('edit_frequency');
+    // Exact (case-insensitive) match against a real option wins.
+    if (sel) {
+        const hit = Array.from(sel.options).find(o => o.value.toLowerCase() === v.toLowerCase());
+        if (hit) return hit.value;
+    }
+    const l = v.toLowerCase();
+    if (/\bon[\s-]?demand\b|\bmanual\b/.test(l)) return 'On demand';
+    if (/\bdaily\b|every\s*day|7\s*(times|x|days)/.test(l)) return 'Daily';
+    if (/\b5\b|five/.test(l) && /week/.test(l)) return '5 times a week';
+    if (/\b3\b|three/.test(l) && /week/.test(l)) return '3 times a week';
+    if ((/\b2\b|two|twice/.test(l)) && /week/.test(l)) return '2 times a week';
+    if (/\bweekly\b|once\s*a\s*week|\b1\b\s*(x|time).*week/.test(l)) return 'Weekly';
+    return _POSTING_DEFAULT_FREQ;
+}
+
 function _setFrequencySelect(val) {
     const sel = document.getElementById('edit_frequency');
     if (!sel) return;
-    const value = (val || '').toString();
+    const value = _normaliseFrequency(val);
+    // Defensive: if normalisation still yields an unknown value, surface it rather than drop it.
     if (value && !Array.from(sel.options).some(o => o.value === value)) {
         const opt = document.createElement('option');
         opt.value = value;
@@ -1011,15 +1034,26 @@ function _detailHydrate(data) {
 
     // Platforms are rendered dynamically in the Connections tab — see initAssistantConnections()
 
-    // Guardrails — separate knowledge base out of strictRules
+    // Guardrails — lift the knowledge base (brand-context text AND reference links) out of the
+    // strictRules array so it lands in the Knowledge field, not the Strict Rules box. Onboarding
+    // stores both as tagged lines: KNOWLEDGE BASE (TEXT): …"quoted"…  and  KNOWLEDGE BASE (LINKS): …
     const allStrict = inputs.strictRules || [];
-    const kbLine = allStrict.find(r => r.includes('KNOWLEDGE BASE (TEXT)'));
-    const otherRules = allStrict.filter(r => !r.includes('KNOWLEDGE BASE (TEXT)'));
+    const kbTextLine = allStrict.find(r => r.includes('KNOWLEDGE BASE (TEXT)'));
+    const kbLinksLine = allStrict.find(r => r.includes('KNOWLEDGE BASE (LINKS)'));
+    const otherRules = allStrict.filter(r => !/KNOWLEDGE BASE \((TEXT|LINKS)\)/.test(r));
     _detailSetVal('edit_strict_rules', otherRules.join('\n'));
-    if (kbLine) {
-        const m = kbLine.match(/:"([^"]+)"/);
-        _detailSetVal('edit_knowledge', m ? m[1] : '');
+    const kbParts = [];
+    // Match the quoted brand-context (the value sits after "context: " — a plain quoted-segment
+    // match is robust to the surrounding phrasing, unlike the old `:"` pattern which never hit).
+    if (kbTextLine) {
+        const m = kbTextLine.match(/"([^"]+)"/);
+        if (m && m[1].trim()) kbParts.push(m[1].trim());
     }
+    if (kbLinksLine) {
+        const links = kbLinksLine.split(/sources:\s*/i).pop().trim();
+        if (links) kbParts.push(`Reference links: ${links}`);
+    }
+    _detailSetVal('edit_knowledge', kbParts.join('\n'));
 
     // Per-assistant AI disclosure (EU AI Act transparency rules — Art. 50)
     _detailSetVal('edit_ai_disclosure', data.disclosureText || '');
@@ -1198,8 +1232,46 @@ function _detailCollect(currentData) {
 
     const strictLines = (document.getElementById('edit_strict_rules')?.value || '')
         .split('\n').map(l => l.trim()).filter(Boolean);
-    const knowledge = document.getElementById('edit_knowledge')?.value || '';
-    if (knowledge) strictLines.push(`- KNOWLEDGE BASE (TEXT): Consider the following brand stories and context: "${knowledge}"`);
+    // Re-serialise the Knowledge field back into the tagged strictRules lines onboarding uses,
+    // splitting any "Reference links: …" line back out into its own (LINKS) entry so both
+    // round-trip to the correct fields and feed the recompiled brief.
+    const knowledgeRaw = (document.getElementById('edit_knowledge')?.value || '').trim();
+    if (knowledgeRaw) {
+        const kbLines = knowledgeRaw.split('\n');
+        const linkIdx = kbLines.findIndex(l => /^reference links:/i.test(l.trim()));
+        let textPart = knowledgeRaw;
+        if (linkIdx >= 0) {
+            const urls = kbLines[linkIdx].replace(/^reference links:/i, '').trim();
+            textPart = kbLines.filter((_, i) => i !== linkIdx).join('\n').trim();
+            if (urls) strictLines.push(`- KNOWLEDGE BASE (LINKS): MUST DO: Always cross-reference facts and adopt the tone found at these sources: ${urls}`);
+        }
+        if (textPart) strictLines.push(`- KNOWLEDGE BASE (TEXT): Consider the following brand stories and context: "${textPart}"`);
+    }
+
+    // General preferences feed the recompiled server-side brief. Mirror the full set (and order)
+    // onboarding produces — objective, core message, CTA, incentive, audience, topics, tone —
+    // so a Profile save doesn't silently narrow the brief to just audience/topics/tone.
+    const _v = (id) => (document.getElementById(id)?.value || '').trim();
+    const _objLabels = { brand_awareness: 'Brand Awareness', lead_generation: 'Lead Generation', direct_sales: 'Direct Sales', community_engagement: 'Community & Engagement' };
+    const _objVal = document.querySelector('input[name="edit_objective"]:checked')?.value || '';
+    const generalPreferences = [
+        _objVal ? `- Primary Objective: ${_objLabels[_objVal] || _objVal}` : '',
+        _v('edit_core_message') ? `- Core Message: ${_v('edit_core_message')}` : '',
+        _v('edit_cta') ? `- Primary CTA: ${_v('edit_cta')}` : '',
+        _v('edit_incentive') ? `- Incentive: ${_v('edit_incentive')}` : '',
+        _v('edit_audience') ? `- Target Audience: ${_v('edit_audience')}` : '',
+        _v('edit_pillars') ? `- Core Topics: ${_v('edit_pillars')}` : '',
+        _v('edit_tone') ? `- Preferred Tone: ${_v('edit_tone')}` : '',
+    ].filter(Boolean);
+
+    // Human-readable trigger/source labels for the brief (radios store value keys).
+    const _trigLabels = { on_demand: 'On Demand', reactive: 'Reactive', scheduled: 'Scheduled' };
+    const _srcLabels = { client_provided: 'Client Provided', assistant_generated: 'Assistant Generated', hybrid: 'Hybrid' };
+    const _trigVal = document.querySelector('input[name="edit_trigger"]:checked')?.value || '';
+    const _srcVal = document.querySelector('input[name="edit_source"]:checked')?.value || '';
+    // Edited per-platform strategy — kept in sync inside inputs (not just context) so the
+    // recompiled brief's PLATFORM ALGORITHM STRATEGY section reflects Profile edits.
+    const _platformStrategy = _collectPlatformStrategy(currentData.context?.platform_strategy);
 
     // update-assistant-context REPLACES onboarding_context wholesale, so spread the existing
     // context first to preserve fields not surfaced in this form (business_bio/profile_bios,
@@ -1221,7 +1293,7 @@ function _detailCollect(currentData) {
         service_offerings: document.getElementById('edit_offerings')?.value || '',
         sales_objections: document.getElementById('edit_objections')?.value || '',
         reference_style_url: document.getElementById('edit_reference_url')?.value || '',
-        platform_strategy: _collectPlatformStrategy(currentData.context?.platform_strategy),
+        platform_strategy: _platformStrategy,
         primary_platforms: platforms,
     };
 
@@ -1230,16 +1302,13 @@ function _detailCollect(currentData) {
         inputs: {
             ...(currentData.configuration?.inputs || {}),
             problem: document.getElementById('edit_problem')?.value || '',
-            trigger_type: document.querySelector('input[name="edit_trigger"]:checked')?.value || '',
-            triggerText: document.querySelector('input[name="edit_trigger"]:checked')?.value || '',
-            content_source: document.querySelector('input[name="edit_source"]:checked')?.value || '',
-            sourceText: document.querySelector('input[name="edit_source"]:checked')?.value || '',
+            trigger_type: _trigVal,
+            triggerText: _trigLabels[_trigVal] || _trigVal,
+            content_source: _srcVal,
+            sourceText: _srcLabels[_srcVal] || _srcVal,
             platforms: platformsRaw,
-            generalPreferences: [
-                document.getElementById('edit_audience')?.value ? `- Target Audience: ${document.getElementById('edit_audience').value}` : '',
-                document.getElementById('edit_pillars')?.value ? `- Core Topics: ${document.getElementById('edit_pillars').value}` : '',
-                document.getElementById('edit_tone')?.value ? `- Preferred Tone: ${document.getElementById('edit_tone').value}` : '',
-            ].filter(Boolean),
+            platform_strategy: _platformStrategy,
+            generalPreferences,
             workflowText: currentData.configuration?.inputs?.workflowText || '', // preserved, not editable
             strictRules: strictLines,
         }
