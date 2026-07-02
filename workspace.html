@@ -4595,9 +4595,6 @@ function openPostReview(postId) {
     const when = post.publishDate ? new Date(post.publishDate).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
     document.getElementById('post-review-sub').textContent =
         `${(post.assistantName || 'Assistant')}${when ? ' · planned for ' + when : ''}`;
-    const approveBtn = document.getElementById('post-review-approve-btn');
-    if (approveBtn) approveBtn.textContent = `Approve — let ${post.assistantName || 'the assistant'} schedule it`;
-
     // Reviewable drafts get the action footer; archived (rejected) posts are read-only with a countdown.
     const reviewable = ['pending_approval', 'draft', 'in_review'].includes(post.status);
     document.getElementById('post-review-actions').classList.toggle('hidden', !reviewable);
