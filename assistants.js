@@ -2744,6 +2744,7 @@ let _goalEntitlements = { aiRecommendations: false, magicWand: false, autonomous
 let _autonomousGoalSeeking = false;
 let _autonomousMediaEnabled = false;   // Epic 2 US5
 let _autonomousMediaCap = 20;
+let _planMonthlyCredits = 0;           // org's plan-included monthly AI credit allowance (issue #64)
 
 // Media Source Selection — ordered list of enabled sources (priority = order). Default matrix.
 let _mediaSources = ['manual', 'stock', 'ai'];
@@ -2784,6 +2785,7 @@ async function _fetchAndRenderGoals(assistantId) {
             _autonomousGoalSeeking = !!data.autonomousGoalSeeking;
             _autonomousMediaEnabled = !!data.autonomousMediaEnabled;
             _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? 20;
+            _planMonthlyCredits = data.planMonthlyCredits ?? 0;
             _mediaSources = _normalizeMediaSources(data.mediaSources);
         }
     } catch (e) {
@@ -3205,6 +3207,7 @@ function _applyAutonomousMediaUi() {
     const dot = document.getElementById('toggle-autonomous-media-dot');
     const capRow = document.getElementById('autonomous-media-cap-row');
     const capInput = document.getElementById('autonomous-media-cap');
+    const capHint = document.getElementById('autonomous-media-cap-hint');
     if (tog && dot) {
         const on = _autonomousMediaEnabled;
         tog.setAttribute('aria-checked', on ? 'true' : 'false');
@@ -3215,6 +3218,10 @@ function _applyAutonomousMediaUi() {
     }
     if (capRow) capRow.classList.toggle('hidden', !_autonomousMediaEnabled);
     if (capInput) capInput.value = _autonomousMediaCap;
+    if (capHint) {
+        capHint.textContent = `Your plan includes ${_planMonthlyCredits} credits/month. Raising the cap ` +
+            `above that will need your confirmation, as extra usage is charged.`;
+    }
 }
 
 async function _setAutonomousMedia(patch) {
@@ -3223,7 +3230,13 @@ async function _setAutonomousMedia(patch) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assistantId: _goalsAssistantId, ...patch }),
     });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        const err = new Error(payload.error || res.statusText);
+        err.status = res.status;
+        err.payload = payload;
+        throw err;
+    }
     return res.json();
 }
 
@@ -3237,12 +3250,26 @@ window._toggleAutonomousMedia = async function () {
     } catch (e) { alert('Could not update the setting: ' + e.message); }
 };
 
+// issue #64: the cap is meant to be bounded by the plan's included monthly credits. Raising it
+// above that means the assistant could spend credits the plan doesn't cover, so the user must
+// explicitly confirm they accept being charged for the extra credits before it's saved.
 window._saveAutonomousMediaCap = async function () {
     const input = document.getElementById('autonomous-media-cap');
     const cap = parseInt(input?.value, 10);
     if (!Number.isFinite(cap) || cap < 0) { input.value = _autonomousMediaCap; return; }
+
+    let confirmOverage = false;
+    if (cap > _planMonthlyCredits) {
+        confirmOverage = confirm(
+            `Your plan includes ${_planMonthlyCredits} AI credits per month. Setting this assistant's ` +
+            `cap to ${cap} means it may use up to ${cap - _planMonthlyCredits} credits beyond your plan's ` +
+            `allowance, which will be charged as additional usage. Continue?`
+        );
+        if (!confirmOverage) { input.value = _autonomousMediaCap; return; }
+    }
+
     try {
-        const data = await _setAutonomousMedia({ monthlyCap: cap });
+        const data = await _setAutonomousMedia({ monthlyCap: cap, confirmOverage });
         _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? cap;
         _applyAutonomousMediaUi();
     } catch (e) { alert('Could not update the cap: ' + e.message); input.value = _autonomousMediaCap; }
