@@ -4297,18 +4297,19 @@ async function ideaSaveEdit(id) {
     } catch { alert('Network error — please try again.'); }
 }
 
-async function ideaDelete(id) {
-    if (!confirm('Delete this idea? This cannot be undone.')) return;
-    try {
-        const res = await fetch('/.netlify/functions/update-post-idea', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id }),
-        });
-        const d = await res.json().catch(() => ({}));
-        if (!res.ok) { alert(d.error || 'Could not delete this idea.'); return; }
-        rqLoadItems();
-    } catch { alert('Network error — please try again.'); }
+function ideaDelete(id) {
+    window.showConfirmModal('Delete this idea? This cannot be undone.', async () => {
+        try {
+            const res = await fetch('/.netlify/functions/update-post-idea', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id }),
+            });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) { window.showToast?.(d.error || 'Could not delete this idea.'); return; }
+            rqLoadItems();
+        } catch { window.showToast?.('Network error — please try again.'); }
+    }, { title: 'Delete idea?', confirmLabel: 'Yes, delete idea' });
 }
 
 async function sdApprove(postId, action) {
