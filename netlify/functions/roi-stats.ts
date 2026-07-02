@@ -6,36 +6,19 @@
 
 import { HandlerEvent } from '@netlify/functions';
 import { eq, and, gte, count } from 'drizzle-orm';
-import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
-import { users, userProfiles, taskRuns, scheduledPosts, plans, masterPlans, userOrganisations } from '../../db/schema';
+import { userProfiles, taskRuns, scheduledPosts, plans, masterPlans } from '../../db/schema';
 import { getTimeMultipliers } from '../../src/utils/platform-config';
-
-const jwtSecret = process.env.JWT_SECRET;
+import { requireSession } from '../../src/utils/session';
+import { resolveActiveOrg } from '../../src/utils/tenant';
 
 export const handler = async (event: HandlerEvent) => {
     if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method Not Allowed' };
-    if (!jwtSecret) return { statusCode: 500, body: JSON.stringify({ error: 'Server configuration error.' }) };
-
-    const rawCookies = event.headers.cookie || '';
-    const cookies = Object.fromEntries(
-        rawCookies.split(';').map(c => {
-            const [k, ...v] = c.trim().split('=');
-            return [k, decodeURIComponent(v.join('='))];
-        }).filter(([k]) => k !== '')
-    );
-    const sessionToken = cookies['aura_session'];
-    if (!sessionToken) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
-
-    let userId: number;
-    try {
-        const decoded = jwt.verify(sessionToken, jwtSecret) as { userId: number };
-        userId = decoded.userId;
-    } catch {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Invalid or expired session.' }) };
-    }
 
     const db = getDb();
+    const session = requireSession(event);
+    if ('error' in session) return session.error;
+    const userId = session.userId;
     const period = (event.queryStringParameters?.period || 'month') as 'month' | 'week';
 
     // SC6: Date range — current calendar month or week
@@ -51,14 +34,13 @@ export const handler = async (event: HandlerEvent) => {
     }
 
     try {
-        // Resolve the user's organisation once — task/post activity is org-wide
-        // (created by any teammate or by an assistant acting on the org's behalf),
-        // not scoped to the single logged-in user.
-        const [membership] = await db
-            .select({ organisationId: userOrganisations.organisationId })
-            .from(userOrganisations)
-            .where(eq(userOrganisations.userId, userId));
-        const organisationId = membership?.organisationId ?? null;
+        // Resolve the user's ACTIVE organisation (not just any membership) — task/post
+        // activity is org-wide (created by any teammate or by an assistant acting on the
+        // org's behalf), but must be scoped to the org the user is currently working in,
+        // same as get-time-saved.ts, so the "tasks behind this" modal (which uses
+        // requireTenant) always agrees with this widget's count.
+        const org = await resolveActiveOrg(db, userId, session.activeOrganisationId);
+        const organisationId = org?.organisationId ?? null;
 
         // SC6: Count completed task runs and drafted/scheduled posts in the period.
         // Real assistant work (e.g. the social media assistant) is recorded in
