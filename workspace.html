@@ -1219,6 +1219,14 @@ function formatCurrency(amount, currency) {
     if (typeof window.updateNotificationBadge === 'function') {
       window.updateNotificationBadge();
     }
+
+    // Issue #58: notifications (e.g. "issue fixed") are created server-side while the user
+    // is already on a page, but the badge was only ever fetched once at load — so new
+    // notifications never appeared until a manual refresh. Poll periodically, same cadence
+    // as the review-queue pending badge (_rqPollInterval below), to keep it live.
+    setInterval(() => {
+      if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
+    }, 60_000);
 // --- DYNAMIC HEADER HYDRATION ---
     async function loadHeaderProfile() {
       const nameEl = document.getElementById('header-user-name');
