@@ -14,7 +14,7 @@ import { requireTenant } from '../../src/utils/tenant';
 const VALID_PLATFORMS = ['instagram', 'facebook', 'linkedin', 'x'];
 
 export const handler: Handler = async (event) => {
-    if (event.httpMethod !== 'PATCH') return { statusCode: 405, body: 'Method Not Allowed' };
+    if (event.httpMethod !== 'PATCH' && event.httpMethod !== 'DELETE') return { statusCode: 405, body: 'Method Not Allowed' };
 
     const db = getDb();
     const ctx = await requireTenant(event, db);
@@ -24,8 +24,24 @@ export const handler: Handler = async (event) => {
     let body: { id?: number; idea?: string; platforms?: string[]; platform?: string };
     try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
 
-    const id = Number(body.id);
+    const id = Number(body.id ?? event.queryStringParameters?.id);
     if (!id) return { statusCode: 400, body: JSON.stringify({ error: 'id is required.' }) };
+
+    if (event.httpMethod === 'DELETE') {
+        const [existingIdea] = await db
+            .select({ id: postIdeaSuggestions.id, status: postIdeaSuggestions.status })
+            .from(postIdeaSuggestions)
+            .where(and(eq(postIdeaSuggestions.id, id), eq(postIdeaSuggestions.organisationId, organisationId)))
+            .limit(1);
+        if (!existingIdea) return { statusCode: 404, body: JSON.stringify({ error: 'Idea not found.' }) };
+        if (existingIdea.status !== 'pending') {
+            return { statusCode: 409, body: JSON.stringify({ error: 'This idea has already been used and can no longer be deleted.' }) };
+        }
+        await db.update(postIdeaSuggestions)
+            .set({ status: 'discarded' })
+            .where(eq(postIdeaSuggestions.id, id));
+        return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true }) };
+    }
 
     const idea = (body.idea || '').trim();
     if (!idea) return { statusCode: 400, body: JSON.stringify({ error: 'Please describe your post idea.' }) };
