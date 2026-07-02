@@ -25,6 +25,25 @@ export async function presignR2Get(key: string, expiresSec = 600): Promise<strin
     return getSignedUrl(r2Client(), new GetObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key }), { expiresIn: expiresSec });
 }
 
+// Resolve a displayable URL for a visual asset: S3 uploads already carry a public
+// storageUrl; AI-generated images live in the private R2 bucket with only a storageKey,
+// so presign a short-lived GET URL; mock/dev assets (Pexels/picsum hotlinks) fall back
+// to externalUrl. Used anywhere an asset needs to be shown in the UI (not just publishing).
+export async function resolveAssetDisplayUrl(asset: {
+    assetType?: string | null;
+    storageUrl?: string | null;
+    storageKey?: string | null;
+    externalUrl?: string | null;
+}): Promise<string | null> {
+    if (asset.storageUrl) return asset.storageUrl;
+    const isVisual = asset.assetType === 'image' || asset.assetType === 'video';
+    if (!isVisual) return asset.externalUrl || null;
+    if (asset.storageKey) {
+        try { return await presignR2Get(asset.storageKey); } catch { /* fall through to externalUrl */ }
+    }
+    return asset.externalUrl || null;
+}
+
 export interface PostImage { url: string; mimeType: string; }
 
 // First image asset attached to the post → a fetchable URL (presigned R2 or external).
