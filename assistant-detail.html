@@ -35,8 +35,13 @@
   </nav>
 
   <!-- Hero header — condensed for maximum content real estate -->
-  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 mb-6 relative overflow-hidden">
-    <div class="absolute -top-8 -right-8 w-24 h-24 bg-emerald-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 mb-6 relative">
+    <!-- Issue #65 follow-up: overflow-hidden used to live on the card itself, which clipped the
+         "More actions" dropdown when it extended past the card's bottom edge. Scope the clip to
+         just this decorative blur instead, so the card can host overflowing popovers. -->
+    <div class="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+      <div class="absolute -top-8 -right-8 w-24 h-24 bg-emerald-50 rounded-full blur-3xl opacity-60"></div>
+    </div>
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-10 relative">
       <!-- Identity strip -->
       <div class="flex items-center gap-4">

@@ -362,16 +362,18 @@ window.initNotifications = async function() {
         }
 
         let list = (activeTab === 'action' ? actions : updates).filter(matchesSearch).slice();
-        // AC2.2/AC2.3: sort by priority weight, then newest first. On the action tab, unresolved
-        // items stay above resolved ones, so critical_action (priority 1) is pinned to the very
-        // top until its completion criteria are met.
         // id as tiebreaker: rows can share an identical createdAt (e.g. created in the same
         // DB transaction), so date alone doesn't reliably keep the newest item first.
         const byCreated = (a, b) => new Date(b.createdAt) - new Date(a.createdAt) || (b.id - a.id);
         if (activeTab === 'action') {
+            // AC2.2/AC2.3: sort by priority weight, then newest first. Unresolved items stay
+            // above resolved ones, so critical_action (priority 1) is pinned to the very top
+            // until its completion criteria are met — this tab is about urgency, not recency.
             list.sort((a, b) => (isResolved(a) ? 1 : 0) - (isResolved(b) ? 1 : 0) || prioOf(a) - prioOf(b) || byCreated(a, b));
         } else {
-            list.sort((a, b) => prioOf(a) - prioOf(b) || byCreated(a, b));
+            // Updates has no urgency tiers worth burying recency for — the newest update should
+            // always be first, regardless of category (informational vs state_change etc.).
+            list.sort(byCreated);
         }
 
         listEl.innerHTML = '';
