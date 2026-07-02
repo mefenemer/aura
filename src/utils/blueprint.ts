@@ -29,6 +29,12 @@ import {
     workspaceAssets,
 } from '../../db/schema';
 import { checkProhibitedUsePatterns } from './tos-gate';
+import { normalizeMediaSources, MEDIA_SOURCE_LABELS } from './media-sources';
+import {
+    buildStrategyBlock,
+    offeringsDirective,
+    extraContextLines,
+} from './generation-directives';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -176,18 +182,35 @@ export async function assembleBlueprint(assistantId: number, compiledBy: string,
     if (org) hashParts.push({ id: `org:${org.id}`, updatedAt: org.updatedAt });
     if (profile) hashParts.push({ id: `profile:${profile.id}`, updatedAt: null });
 
+    // Social handles the owner captured on Business Information (keyed by platform slug); the
+    // copywriter needs them to self-tag / cross-promote the brand's own accounts.
+    const socialHandles = (org?.socialHandles && Object.keys(org.socialHandles).length > 0)
+        ? Object.entries(org.socialHandles)
+            .filter(([, v]) => v && String(v).trim())
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(', ')
+        : null;
+
+    // Visual (media) strategy the assistant is configured for — resolved from the ordered
+    // mediaSources preference so the model writes on-strategy suggestedMediaDescription instead
+    // of being blind to whether the brand is text-only, stock-led, or AI-visual.
+    const mediaOrder = normalizeMediaSources(asst.mediaSources);
+    const visualMediaStrategy = mediaOrder.map(m => MEDIA_SOURCE_LABELS[m]).join(' → ');
+
     const s5content = {
         businessName: org?.name ?? null,
         displayName: profile?.displayName ?? null,
-        language: profile?.timezone ?? null,
+        timezone: profile?.timezone ?? null,
         // Prefer the normalised Business Information fields on organisations;
         // fall back to onboardingContext for assistants set up before they existed.
         industry: (org?.industry as string | null) ?? (onboardingCtx.industry as string | null) ?? null,
         businessDescription: (org?.businessDescription as string | null) ?? null,
         website: (org?.websiteUrl as string | null) ?? null,
+        socialHandles,
         targetAudience: (org?.targetAudience as string | null) ?? (onboardingCtx.target_audience as string | null) ?? null,
         brandVoice: (onboardingCtx.brand_voice as string | null) ?? (onboardingCtx.tone_of_voice as string | null) ?? null,
         toneOfVoice: (onboardingCtx.tone_of_voice as string | null) ?? null,
+        visualMediaStrategy,
     };
     if (!s5content.businessName) missing.push({ section: '5-org-context', field: 'businessName', sourceTable: 'organisations', sourceColumn: 'name', severity: 'warning' });
     sections['5-org-context'] = {
@@ -196,11 +219,17 @@ export async function assembleBlueprint(assistantId: number, compiledBy: string,
         sources: [
             src('organisations', 'name', org?.id ?? null, org?.updatedAt),
             src('user_profiles', 'display_name', profile?.id ?? null, null),
+            src('organisations', 'social_handles', org?.id ?? null, org?.updatedAt),
+            src('ai_assistants', 'media_sources', asst.id, asst.updatedAt),
         ],
     };
 
     // ── Section 6 — ONBOARDING ANSWERS ───────────────────────────────────────
-    const s6content = { answers: onboardingCtx };
+    // Flattened to discrete, labelled fields (was a single opaque `answers` JSON blob). This lets
+    // the Inspector validate each answer individually and, crucially, makes the generation-time
+    // system-prompt dump emit one labelled line per field — so the model actually weights fields
+    // like reference_style_url / sales_objections instead of skimming a nested JSON object.
+    const s6content = { ...onboardingCtx } as Record<string, unknown>;
     const hasAnswers = Object.keys(onboardingCtx).length > 0;
     if (!hasAnswers) missing.push({ section: '6-onboarding', field: 'onboardingContext', sourceTable: 'ai_assistants', sourceColumn: 'onboarding_context', severity: 'warning' });
     sections['6-onboarding'] = {
@@ -378,12 +407,37 @@ export async function assembleBlueprint(assistantId: number, compiledBy: string,
         sources: knowledgeAssets.map(a => src('workspace_assets', 'extracted_text', a.id, a.updatedAt)),
     };
 
+    // ── Section 12 — GENERATION DIRECTIVES (per-post instruction-layer preview) ─
+    // The generators build a per-post "user instruction" that WEIGHTS specific fields on top of
+    // the system prompt (strategic principles, the chosen content pillar, objective, offerings,
+    // CTA/incentive/core-message). Surfacing the static, blueprint-derivable portion here makes
+    // the Inspector a faithful view of everything the LLM sees. Per-post runtime values (platform,
+    // format, character limit, disclosure directive) are resolved at generation and intentionally
+    // omitted. The generators SKIP this section when serialising the system prompt (it is delivered
+    // via the instruction, not the system prompt), so adding it here does not alter generated output.
+    const s12content = {
+        strategyDirectives: buildStrategyBlock(onboardingCtx),
+        offeringsDirective: offeringsDirective((onboardingCtx.service_offerings as string) || '', {
+            isConversionPost: false,
+            hasIncentive: Boolean(onboardingCtx.incentive),
+        }) || null,
+        contextLines: extraContextLines(onboardingCtx) || null,
+        runtimeNote: 'Platform, post format, character limit, and the AI-disclosure directive are resolved per post at generation time and appended to these directives.',
+    };
+    sections['12-generation-directives'] = {
+        status: 'complete',
+        content: s12content,
+        sources: [src('ai_assistants', 'onboarding_context', asst.id, asst.updatedAt)],
+    };
+
     // ── Compute completeness ──────────────────────────────────────────────────
-    // Business knowledge is optional context, so it does not count toward the required-section total
-    // (numerator or denominator) — exclude it so completeness can't exceed 100%.
+    // Business knowledge (11) and the generation-directives preview (12) are optional/derived
+    // context, so they do not count toward the required-section total (numerator or denominator) —
+    // exclude them so completeness can't exceed 100%.
+    const DERIVED_SECTIONS = new Set(['11-business-knowledge', '12-generation-directives']);
     const totalSections = 10;
     const requiredSections = Object.entries(sections)
-        .filter(([key]) => key !== '11-business-knowledge')
+        .filter(([key]) => !DERIVED_SECTIONS.has(key))
         .map(([, s]) => s);
     const completeSections = requiredSections.filter(s => s.status === 'complete').length;
     const partialSections = requiredSections.filter(s => s.status === 'partial').length;

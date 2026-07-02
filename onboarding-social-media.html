@@ -1448,6 +1448,10 @@
       platform_strategy: platformStrategy,
       generalPreferences,
       workflowText,
+      // Kept in inputs (not just onboarding_context) so the compiled brief renders a dedicated
+      // REFERENCE STYLE / OBJECTION HANDLING section instead of these being silently ignored.
+      reference_style_url: document.getElementById('val_reference')?.value || '',
+      sales_objections: document.getElementById('val_objections')?.value || '',
       strictRules
     };
 
@@ -1577,7 +1581,8 @@
       posting_times: collectPostingTimes(),
       posting_timezone: document.getElementById('schedule_timezone')?.value || 'Europe/London',
       primary_platforms: extractedPlatforms,
-      problem_statement: document.getElementById('user_story_problem')?.value || null,
+      // (The bottleneck lives canonically on configuration.inputs.problem — see rawInputs — so it is
+      // not duplicated here as a stale onboarding_context twin.)
       // Reference style link + per-platform hashtag/algorithm strategy — stored structurally so
       // they surface (and stay editable) in the Assistant Profile, not just compiled into rules.
       reference_style_url: document.getElementById('val_reference')?.value || null,

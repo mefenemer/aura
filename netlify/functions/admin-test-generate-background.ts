@@ -96,7 +96,8 @@ export const handler: Handler = async (event) => {
         const identity    = sections['1-identity']?.content   || {};
         const compliance  = sections['9-compliance']?.content || {};
         const orgContext  = sections['5-org-context']?.content || {};
-        const answers     = (sections['6-onboarding']?.content?.answers ?? {}) as Record<string, unknown>;
+        // Section 6 is now flattened to discrete fields, so its content IS the answers map.
+        const answers     = (sections['6-onboarding']?.content ?? {}) as Record<string, unknown>;
 
         const assistantName  = (identity['assistantName']    as string) ?? 'your assistant';
         const businessName   = (orgContext['businessName']   as string) ?? 'this business';
@@ -132,6 +133,8 @@ export const handler: Handler = async (event) => {
 
         let systemPrompt = 'You are an expert social media copywriter.\n';
         for (const [key, sec] of Object.entries(sections)) {
+            // Section 12 is the Inspector's per-post instruction preview, not part of the system prompt.
+            if (key === '12-generation-directives') continue;
             systemPrompt += `\n--- ${key.toUpperCase()} ---\n`;
             for (const [k, v] of Object.entries(sec.content || {})) {
                 if (v != null) systemPrompt += `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}\n`;

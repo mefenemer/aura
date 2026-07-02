@@ -20,6 +20,9 @@ import { generateAndPersistImage } from '../../src/lib/media-persist';
 import { FalContentPolicyError } from '../../src/lib/fal-gateway';
 import { DISCLOSURE } from '../../src/config/compliance';
 import { fireOrchestrations } from '../../src/utils/orchestration';
+import {
+    parsePillars, buildStrategyBlock, offeringsDirective, extraContextLines,
+} from '../../src/utils/generation-directives';
 
 // Fal image model for inline AI generation (matches the autonomous suggestions path).
 const AI_IMAGE_MODEL = process.env.FAL_IMAGE_MODEL ?? 'fal-ai/flux-pro/v1.1';
@@ -110,7 +113,8 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
         const identity    = sections['1-identity']?.content    || {};
         const compliance  = sections['9-compliance']?.content  || {};
         const onboarding  = sections['5-org-context']?.content || {};
-        const answers     = (sections['6-onboarding']?.content?.answers ?? {}) as Record<string, unknown>;
+        // Section 6 is now flattened to discrete fields, so its content IS the answers map.
+        const answers     = (sections['6-onboarding']?.content ?? {}) as Record<string, unknown>;
 
         const assistantName = (identity['assistantName'] as string) ?? 'your assistant';
         const businessName  = (onboarding['businessName'] as string) ?? 'this business';
@@ -125,38 +129,21 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
 
         const platform      = job.platform || 'instagram';
 
-        const ctaLine         = answers['cta']          ? `Call to action: ${answers['cta']}` : '';
-        const incentiveLine   = answers['incentive']    ? `Incentive/offer: ${answers['incentive']}` : '';
-        const coreMessageLine = answers['core_message'] ? `Core message: ${answers['core_message']}` : '';
-        const extraLines      = [ctaLine, incentiveLine, coreMessageLine].filter(Boolean).join('\n');
+        // CTA / incentive / core-message weighted lines (shared with the Blueprint Inspector's
+        // Section 12 via src/utils/generation-directives.ts so the Inspector shows the same text).
+        const extraLines = extraContextLines(answers);
 
-        // US-SMM (AC2): Content Pillars — the user defines 3–5 themes (stored as a free-text
-        // or array value). Every generated post MUST be categorised under exactly one of them so
-        // the 90-day calendar stays balanced. We parse the captured value into a discrete list and
-        // pass it to the model; the model echoes back the chosen pillar, which we persist on the post.
-        const rawPillars = answers['content_pillars'];
-        const pillarList = (Array.isArray(rawPillars) ? rawPillars : String(rawPillars ?? ''))
-            .toString()
-            .split(/[,;\n]/)
-            .map(p => p.trim())
-            .filter(Boolean)
-            .slice(0, 5);
-        const pillarLine = pillarList.length
-            ? `Content Pillars (categorise this post under EXACTLY ONE, returned verbatim in the "pillar" field): ${pillarList.map(p => `"${p}"`).join(', ')}.`
-            : '';
-
-        const objective = (answers['primary_objective'] as string) || '';
-        const objectiveLine = objective ? `Primary objective for this account: ${objective}.` : '';
+        // US-SMM (AC2): Content Pillars — the model must categorise each post under exactly one, so
+        // parse the captured value into a discrete list and echo the chosen pillar back on the post.
+        const pillarList = parsePillars(answers['content_pillars']);
 
         // US-SMM (AC7): conversion pathways. Offerings are woven in naturally on normal posts;
         // a 'conversion' job produces a direct "path-to-working-with-me" post built around them.
-        const serviceOfferings = (answers['service_offerings'] as string) || '';
         const isConversionPost = job.trigger_type === 'conversion';
-        const conversionBlock = serviceOfferings
-            ? (isConversionPost
-                ? `CONVERSION POST: write a direct "path-to-working-with-me" post. Make one of these offerings the clear next step, paired with the CTA${answers['incentive'] ? ' and incentive' : ''} above. Lead with value/proof, then invite — confident, never pushy. Offerings: ${serviceOfferings}`
-                : `Commercial offerings to weave in NATURALLY where it fits — never force a sell, most posts should give value first: ${serviceOfferings}`)
-            : '';
+        const conversionBlock = offeringsDirective((answers['service_offerings'] as string) || '', {
+            isConversionPost,
+            hasIncentive: Boolean(answers['incentive']),
+        });
 
         // US-SMM (AC5): the requested format drives the creative. Reels/video need a shot-by-shot
         // script and on-screen text overlays, not just a caption. Default to a single image.
@@ -165,17 +152,9 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
         const format = ['image', 'carousel', 'reel', 'video', 'story'].includes(requestedFormat) ? requestedFormat : 'image';
         const isVideo = format === 'reel' || format === 'video';
 
-        // US-SMM (AC4): algorithmic focus on Saves & Shares over vanity Likes.
-        // US-SMM (AC5): steer away from fleeting trends / vanity formats unless explicitly asked.
-        const strategyBlock = [
-            `STRATEGIC PRINCIPLES — apply these to every piece of content:`,
-            `- Optimise for SAVES: make the post genuinely useful — structured educational value, practical tools, step-by-step or list formats the reader will want to keep.`,
-            `- Optimise for SHARES: write relatable, "this is me" perspective content that makes the reader want to send it to someone who needs it.`,
-            `- Do NOT optimise purely for Likes or follower count. Meaningful engagement (saves, shares, comments, DMs) is the goal.`,
-            `- Avoid fleeting trends, viral dances, and vanity gimmicks unless the user's context explicitly asks for them. Favour authentic, on-brand value.`,
-            pillarLine,
-            objectiveLine,
-        ].filter(Boolean).join('\n');
+        // US-SMM (AC4/AC5): Saves & Shares over vanity Likes + the chosen pillar/objective.
+        // Shared with the Blueprint Inspector's Section 12 (generation-directives.ts).
+        const strategyBlock = buildStrategyBlock(answers);
 
         const formatBlock = isVideo
             ? `This is a ${format.toUpperCase()}. In addition to the caption, return a "reelScript" (concise shot-by-shot or beat-by-beat script the user can film with their available assets and comfort on camera) and "textOverlays" (an array of short on-screen text lines). Keep it simple and authentic — talking-to-camera or b-roll, not choreography.`
@@ -202,6 +181,9 @@ async function processJob(db: ReturnType<typeof getDb>, job: {
 
         let systemPrompt = `You are an expert social media copywriter.\n`;
         for (const [key, sec] of Object.entries(sections)) {
+            // Section 12 is the Inspector's preview of THIS instruction layer — it is delivered via
+            // the user instruction above, not the system prompt, so skip it here to avoid duplication.
+            if (key === '12-generation-directives') continue;
             systemPrompt += `\n--- ${key.toUpperCase()} ---\n`;
             for (const [k, v] of Object.entries(sec.content || {})) {
                 if (v != null) systemPrompt += `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}\n`;

@@ -71,6 +71,16 @@ ${fmt(inputs.generalPreferences, missing)}
 WORKFLOW LOGIC
 ${s(inputs.workflowText?.trim()) || missing}
 
+REFERENCE STYLE
+${inputs.reference_style_url?.trim()
+    ? `Study the reference the business owner provided and emulate its structure, pacing, and tone (never copy it verbatim): ${s(inputs.reference_style_url.trim())}`
+    : missing}
+
+OBJECTION HANDLING
+${inputs.sales_objections?.trim()
+    ? `Common objections/hesitations this audience raises — pre-empt and dissolve them naturally within the content where relevant: ${s(inputs.sales_objections.trim())}`
+    : missing}
+
 NON-NEGOTIABLE STRICT RULES
 ${fmt(inputs.strictRules, missing)}
 

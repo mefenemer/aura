@@ -908,7 +908,7 @@ function _renderOnboardingSummary(data) {
         : (Array.isArray(inputs.platforms) ? inputs.platforms : []);
 
     const rows = [
-        ['Your Bottleneck', clean(ctx.problem_statement || inputs.problem)],
+        ['Your Bottleneck', clean(inputs.problem || ctx.problem_statement)],
         ['Primary Objective', objective ? (objectiveLabels[objective] || objective) : ''],
         ['Core Message', clean(ctx.core_message || inputs.core_message)],
         ['Primary CTA', clean(ctx.cta || inputs.cta)],
@@ -968,7 +968,7 @@ function _detailHydrate(data) {
     const cfg = data.configuration || {};
     const inputs = cfg.inputs || {};
 
-    _detailSetVal('edit_problem', ctx.problem_statement || inputs.problem || '');
+    _detailSetVal('edit_problem', inputs.problem || ctx.problem_statement || '');
     _setFrequencySelect(ctx.posting_frequency || _POSTING_DEFAULT_FREQ);
 
     // ── Posting Schedule: days / times / timezone / draft horizon ──
@@ -1278,7 +1278,6 @@ function _detailCollect(currentData) {
     // business_hours, business_category, etc.) — otherwise a save here would wipe them.
     const newContext = {
         ...(currentData.context || {}),
-        problem_statement: document.getElementById('edit_problem')?.value || '',
         primary_objective: document.querySelector('input[name="edit_objective"]:checked')?.value || '',
         core_message: document.getElementById('edit_core_message')?.value || '',
         cta: document.getElementById('edit_cta')?.value || '',
@@ -1310,6 +1309,10 @@ function _detailCollect(currentData) {
             platform_strategy: _platformStrategy,
             generalPreferences,
             workflowText: currentData.configuration?.inputs?.workflowText || '', // preserved, not editable
+            // Mirrored into inputs so the recompiled brief keeps its REFERENCE STYLE / OBJECTION
+            // HANDLING sections in sync with Profile edits (also stored in onboarding_context above).
+            reference_style_url: document.getElementById('edit_reference_url')?.value || '',
+            sales_objections: document.getElementById('edit_objections')?.value || '',
             strictRules: strictLines,
         }
     };
