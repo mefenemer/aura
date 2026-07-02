@@ -4208,7 +4208,7 @@ function rqRenderSocialCard(draft) {
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-0.5">
           <p class="text-sm font-semibold text-gray-900 truncate">${_rqEsc(platformLabel)} post</p>
-          ${isOnDemand && !isArchived ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">On Demand</span>' : ''}
+          ${isOnDemand && !isArchived ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">Requested</span>' : ''}
         </div>
         <p class="text-xs text-gray-500 truncate">${_rqEsc(draft.assistantName || 'AI Assistant')} · ${ago}</p>
         ${draft.caption ? `<p class="text-xs text-gray-600 truncate mt-0.5 ${isArchived ? 'line-through opacity-60' : ''}">${_rqEsc(draft.caption)}</p>` : ''}
