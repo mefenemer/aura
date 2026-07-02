@@ -53,14 +53,17 @@ export const handler = async (event: HandlerEvent) => {
                     .from(notifications)
                     // Hide rows the user has dismissed (US3). isNull also throws pre-migration → fallback.
                     .where(and(eq(notifications.userId, userId), isNull(notifications.dismissedAt)))
-                    .orderBy(desc(notifications.createdAt));
+                    // id as tiebreaker: rows created in the same transaction can share an identical
+                    // createdAt (Postgres now() is transaction-time), so createdAt alone can't
+                    // guarantee the most recently inserted notification sorts first.
+                    .orderBy(desc(notifications.createdAt), desc(notifications.id));
             } catch {
                 allNotes = await db.select({
                     id: notifications.id, userId: notifications.userId, type: notifications.type,
                     title: notifications.title, message: notifications.message, isRead: notifications.isRead,
                     readAt: notifications.readAt, metadata: notifications.metadata, createdAt: notifications.createdAt,
                 }).from(notifications).where(eq(notifications.userId, userId))
-                  .orderBy(desc(notifications.createdAt)) as typeof allNotes;
+                  .orderBy(desc(notifications.createdAt), desc(notifications.id)) as typeof allNotes;
             }
 
             // In-app delivery preferences: hide categories the user has switched off in the

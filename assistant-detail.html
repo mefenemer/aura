@@ -1020,7 +1020,6 @@
         <div>
           <h3 class="text-lg font-bold text-gray-900">Autonomous Content Suggestions</h3>
           <p class="text-sm text-gray-500 mt-1">Let this assistant proactively draft posts — complete with AI-generated images — to fill empty slots in your schedule. Drafts always land in the <strong>AI review queue</strong> for your approval and are never published automatically.</p>
-          <p class="text-xs text-gray-400 mt-2"><strong class="text-gray-500">What are credits?</strong> Credits are used to generate AI images and videos (1 credit per image, 5 per video). Your subscription plan includes a monthly allowance that tops up automatically at the start of each month — unused credits roll over.</p>
         </div>
         <button id="toggle-autonomous-media" type="button" role="switch" aria-checked="false"
           onclick="window._toggleAutonomousMedia()"
@@ -1037,7 +1036,7 @@
           <label for="autonomous-media-cap" class="text-sm font-bold text-gray-700">Monthly credit cap</label>
           <input id="autonomous-media-cap" type="number" min="0" step="1" onchange="window._saveAutonomousMediaCap()"
             class="w-24 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-          <span class="text-xs text-gray-400">Max credits this assistant may spend on auto-suggestions per month.</span>
+          <span id="autonomous-media-cap-hint" class="text-xs text-gray-400">Max credits this assistant may spend on auto-suggestions per month.</span>
         </div>
       </div>
     </div>

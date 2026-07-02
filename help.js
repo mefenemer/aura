@@ -2,7 +2,8 @@
 window.initHelpCenter = async function() {
 
     // --- 1. TAB ROUTING LOGIC ---
-    const tabs = ['docs', 'tickets'];
+    const tabs = ['docs', 'tickets', 'features'];
+    let featureRequestsInitialized = false;
     tabs.forEach(tab => {
         const btn = document.getElementById(`tab-btn-${tab}`);
         const content = document.getElementById(`tab-content-${tab}`);
@@ -19,6 +20,10 @@ window.initHelpCenter = async function() {
             btn.className = 'tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm border-emerald-500 text-emerald-600';
 
             if(tab === 'tickets') fetchTicketHistory();
+            if(tab === 'features' && !featureRequestsInitialized && typeof window.initFeatureRequests === 'function') {
+                featureRequestsInitialized = true;
+                window.initFeatureRequests();
+            }
         });
     });
 

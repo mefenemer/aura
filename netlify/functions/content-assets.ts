@@ -9,7 +9,7 @@ import jwt from 'jsonwebtoken';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { users, contentAssets, userOrganisations, scheduledPosts } from '../../db/schema';
-import { presignR2Get } from '../../src/utils/social-publish';
+import { resolveAssetDisplayUrl } from '../../src/utils/social-publish';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -216,20 +216,9 @@ export const handler: Handler = async (event) => {
                 pending: [], scheduled: [], posted: [], rejected: [],
             };
             // Resolve a displayable URL for visual assets (thumbnails in My Content).
-            // S3 uploads carry a public storageUrl already; AI-generated images live in the
-            // private R2 bucket with only a storageKey, so presign a short-lived GET URL.
-            // Mock/dev assets (Pexels/picsum hotlinks) fall back to externalUrl.
             const enriched = await Promise.all(rows.map(async r => {
                 if (r.purgedAt) return r;
-                const isVisual = r.assetType === 'image' || r.assetType === 'video';
-                if (isVisual && !r.storageUrl) {
-                    if (r.storageKey) {
-                        try { return { ...r, storageUrl: await presignR2Get(r.storageKey) }; }
-                        catch { /* fall through to externalUrl below */ }
-                    }
-                    if (r.externalUrl) return { ...r, storageUrl: r.externalUrl };
-                }
-                return r;
+                return { ...r, storageUrl: await resolveAssetDisplayUrl(r) };
             }));
 
             // Issue #55: tell the client which active drafts/scheduled posts use each asset, so

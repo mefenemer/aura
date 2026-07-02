@@ -616,7 +616,7 @@ window.showComplianceModals = function showComplianceModals(force) {
         </div>
       </div>
       <div id="post-review-buttons" class="grid grid-cols-2 gap-2">
-        <button onclick="rqReviewApprove()" class="col-span-2 py-3 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Approve — let the assistant schedule it</button>
+        <button id="post-review-approve-btn" onclick="rqReviewApprove()" class="col-span-2 py-3 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Approve — let the assistant schedule it</button>
         <button onclick="rqReviewAddMedia()" class="col-span-2 py-2.5 text-xs font-bold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           Add or change image
@@ -1220,6 +1220,14 @@ function formatCurrency(amount, currency) {
     if (typeof window.updateNotificationBadge === 'function') {
       window.updateNotificationBadge();
     }
+
+    // Issue #58: notifications (e.g. "issue fixed") are created server-side while the user
+    // is already on a page, but the badge was only ever fetched once at load — so new
+    // notifications never appeared until a manual refresh. Poll periodically, same cadence
+    // as the review-queue pending badge (_rqPollInterval below), to keep it live.
+    setInterval(() => {
+      if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
+    }, 60_000);
 // --- DYNAMIC HEADER HYDRATION ---
     async function loadHeaderProfile() {
       const nameEl = document.getElementById('header-user-name');
@@ -1330,7 +1338,6 @@ function formatCurrency(amount, currency) {
       'my-content': { file: 'my-content.html', title: '| My Content' },
       'calendar': { file: 'calendar.html', title: '| Content Calendar' },
       'referral': { file: 'referral-content.html', title: '| Refer a Friend' },
-      'feature-requests': { file: 'feature-requests-content.html', title: '| Feature Requests' },
       'review-queue': { file: 'review-queue.html', title: '| Review Queue' },
       'assistant-setup': { file: 'assistant-setup-checklist.html', title: '| Assistant Setup' },
       'getting-started': { file: 'getting-started.html', title: '| Getting Started' }
@@ -1349,7 +1356,6 @@ function formatCurrency(amount, currency) {
       'my-content': document.getElementById('nav-my-content'),
       'calendar': document.getElementById('nav-calendar'),
       'referral': document.getElementById('nav-referral'),
-      'feature-requests': document.getElementById('nav-feature-requests'),
       'review-queue': document.getElementById('nav-review-queue')
     };
 
@@ -1533,10 +1539,6 @@ function formatCurrency(amount, currency) {
 
         if (routeKey === 'getting-started' && typeof window.initGettingStarted === 'function') {
           window.initGettingStarted();
-        }
-
-        if (routeKey === 'feature-requests' && typeof window.initFeatureRequests === 'function') {
-          await window.initFeatureRequests();
         }
 
         if (routeKey === 'orchestrations' && typeof window.initOrchestrations === 'function') {
@@ -2152,6 +2154,10 @@ function formatCurrency(amount, currency) {
     function updateActiveNav(activeKey) {
       Object.values(navLinks).forEach(link => {
         if (!link) return;
+        // Issue #44: leave disabled/"Coming Soon" items (e.g. Orchestrations) alone —
+        // they carry their own permanent gray-400/cursor-not-allowed styling and must
+        // never be reset to the normal enabled nav-item classes.
+        if (link.dataset.comingSoon === '1') return;
         link.classList.remove('bg-emerald-50', 'text-emerald-700', 'font-semibold');
         link.classList.add('text-gray-600', 'hover:bg-gray-100', 'hover:text-gray-900', 'font-medium');
       });
@@ -4234,6 +4240,7 @@ function rqRenderIdeaCard(idea) {
     if (idea.status === 'pending') {
         progress = `<p class="text-xs text-gray-500">Waiting to be woven into an upcoming draft.</p>
           <button onclick="ideaToggleEdit(${idea.id})" class="mt-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline cursor-pointer">Edit</button>
+          <button onclick="ideaDelete(${idea.id})" class="mt-1.5 ml-3 text-xs font-semibold text-red-600 hover:text-red-700 underline cursor-pointer">Delete</button>
           <div class="rq-idea-edit-${idea.id} hidden mt-2">
             <textarea id="rq-idea-input-${idea.id}" rows="2" maxlength="500" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300">${_rqEsc(idea.idea)}</textarea>
             <div class="flex gap-2 mt-1"><button onclick="ideaSaveEdit(${idea.id})" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-lg cursor-pointer">Save</button><button onclick="ideaToggleEdit(${idea.id})" class="px-3 py-1.5 text-xs font-bold text-gray-500 cursor-pointer">Cancel</button></div>
@@ -4241,7 +4248,7 @@ function rqRenderIdeaCard(idea) {
     } else if (idea.status === 'in_review') {
         const cap = idea.postCaption ? `<p class="text-xs text-gray-600 mt-1 line-clamp-2 italic">"${_rqEsc(idea.postCaption)}"</p>` : '';
         progress = `<p class="text-xs text-gray-500">Built into a post — now awaiting your review.${cap ? '' : ''}</p>${cap}
-          <button onclick="rqOpenStatus('review')" class="mt-1.5 text-xs font-semibold text-violet-700 hover:text-violet-800 underline cursor-pointer">View in Review →</button>`;
+          ${idea.usedPostId ? `<button onclick="openPostReview(${idea.usedPostId})" class="mt-1.5 text-xs font-semibold text-violet-700 hover:text-violet-800 underline cursor-pointer">Review this post →</button>` : ''}`;
     } else if (idea.status === 'delivered') {
         const when = idea.postPublishDate ? new Date(idea.postPublishDate).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : null;
         const postState = idea.postStatus === 'published' ? 'Published' : (idea.postStatus === 'scheduled' ? 'Scheduled' : 'Approved');
@@ -4278,6 +4285,20 @@ async function ideaSaveEdit(id) {
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) { alert(d.error || 'Could not save your idea.'); return; }
+        rqLoadItems();
+    } catch { alert('Network error — please try again.'); }
+}
+
+async function ideaDelete(id) {
+    if (!confirm('Delete this idea? This cannot be undone.')) return;
+    try {
+        const res = await fetch('/.netlify/functions/update-post-idea', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(d.error || 'Could not delete this idea.'); return; }
         rqLoadItems();
     } catch { alert('Network error — please try again.'); }
 }
@@ -4566,6 +4587,8 @@ function openPostReview(postId) {
     const when = post.publishDate ? new Date(post.publishDate).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
     document.getElementById('post-review-sub').textContent =
         `${(post.assistantName || 'Assistant')}${when ? ' · planned for ' + when : ''}`;
+    const approveBtn = document.getElementById('post-review-approve-btn');
+    if (approveBtn) approveBtn.textContent = `Approve — let ${post.assistantName || 'the assistant'} schedule it`;
 
     // Reviewable drafts get the action footer; archived (rejected) posts are read-only with a countdown.
     const reviewable = ['pending_approval', 'draft', 'in_review'].includes(post.status);
