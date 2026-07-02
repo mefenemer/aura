@@ -215,6 +215,11 @@ function _getDateRange() {
 
 // ── Master render ─────────────────────────────────────────────────
 function _render() {
+    // Chips are about to be torn down and rebuilt — drop any open hover preview
+    // so it doesn't linger detached from its (now-removed) anchor chip.
+    if (_previewEl) { _previewEl.classList.remove('is-open'); }
+    _previewReqToken++;
+
     // Update title
     const titleEl = document.getElementById('cal-title');
     if (titleEl) {
@@ -426,22 +431,137 @@ function _postChip(post, viewType) {
         marker = `<span class="w-1.5 h-1.5 rounded-full ${sm.dot} shrink-0" title="${sm.label}"></span>`;
     }
 
+    const summary = post.caption || plat.label || post.platform || '';
+
     return `<div
         onclick="window._calOpenPost(${post.id})"
+        onmouseenter="window._calShowPreview(event, ${post.id})"
+        onmouseleave="window._calHidePreview()"
         ${isDraggable ? `draggable="true" ondragstart="window._calDragStart(event, ${post.id})"` : ''}
         data-post-id="${post.id}"
         class="group flex items-center gap-1.5 px-2 py-1 rounded-lg ${chipBg} shadow-sm cursor-pointer transition select-none text-left w-full"
         style="border-left:3px solid ${asstColor}"
-        title="${_escHtml(asstName)} · ${_escHtml(post.caption || post.platform)}${titleSuffix}">
+        aria-label="${_escHtml(asstName)} · ${_escHtml(post.caption || post.platform)}${titleSuffix}">
         ${_platLogo(post.platform, 'sm')}
         <div class="flex-1 min-w-0">
             <p class="text-[11px] font-bold ${timeColor} truncate">${overdue ? '⚠ ' : ''}${time}</p>
-            ${viewType === 'week' ? `<p class="text-[11px] text-gray-500 truncate leading-tight">${_escHtml((post.caption || '').substring(0, 40))}</p>` : ''}
+            <p class="text-[11px] text-gray-500 truncate leading-tight">${_escHtml(summary.substring(0, 40))}</p>
         </div>
         ${revisedBadge}
         ${marker}
     </div>`;
 }
+
+// ── Hover preview popover ────────────────────────────────────────
+// Calendar chips only have room for a time + short title, so hovering a chip
+// pops a small card with the full caption and (if attached) the post image —
+// "quicker to view" than opening the full side panel. Styles are injected at
+// runtime (not added to style.css) because style.css is prebuilt Tailwind output
+// and won't compile new arbitrary classes — same technique as explainers.js.
+const _previewCache = new Map(); // postId -> { post, assets }
+let _previewEl = null;
+let _previewShowTimer = null;
+let _previewHideTimer = null;
+let _previewReqToken = 0;
+
+function _injectPreviewStyles() {
+    if (document.getElementById('cal-preview-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'cal-preview-styles';
+    style.textContent = [
+        '.cal-hover-preview{position:fixed;z-index:100000;width:260px;max-width:calc(100vw - 24px);',
+        '  background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 18px 40px -12px rgba(31,30,27,.28);',
+        '  overflow:hidden;opacity:0;transform:translateY(4px);transition:opacity .12s ease,transform .12s ease;',
+        '  pointer-events:none;}',
+        '.cal-hover-preview.is-open{opacity:1;transform:translateY(0);pointer-events:auto;}',
+        '.cal-hover-preview-img{display:block;width:100%;height:140px;object-fit:cover;background:#f3f4f6;}',
+        '.cal-hover-preview-body{padding:10px 12px;}',
+        '.cal-hover-preview-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px;}',
+        '.cal-hover-preview-caption{font-size:12px;line-height:1.4;color:#4b5563;max-height:110px;overflow:hidden;white-space:pre-wrap;word-break:break-word;}',
+        '@media (prefers-reduced-motion:reduce){.cal-hover-preview{transition:none;}}',
+    ].join('');
+    (document.head || document.documentElement).appendChild(style);
+}
+
+function _ensurePreviewEl() {
+    if (_previewEl) return _previewEl;
+    _previewEl = document.createElement('div');
+    _previewEl.className = 'cal-hover-preview';
+    _previewEl.addEventListener('mouseenter', () => {
+        if (_previewHideTimer) { clearTimeout(_previewHideTimer); _previewHideTimer = null; }
+    });
+    _previewEl.addEventListener('mouseleave', () => window._calHidePreview());
+    document.body.appendChild(_previewEl);
+    return _previewEl;
+}
+
+function _positionPreview(anchorEl) {
+    const el = _previewEl;
+    const r = anchorEl.getBoundingClientRect();
+    const pr = el.getBoundingClientRect();
+    const gap = 8, margin = 8;
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const below = (r.bottom + gap + pr.height) <= vh;
+    const top = below ? r.bottom + gap : Math.max(margin, r.top - gap - pr.height);
+    const left = Math.max(margin, Math.min(r.left, vw - pr.width - margin));
+    el.style.top = `${Math.round(top)}px`;
+    el.style.left = `${Math.round(left)}px`;
+}
+
+function _renderPreviewContent(post, assets) {
+    const plat = PLATFORM_META[post.platform] || { label: post.platform || '' };
+    const img = (assets || []).find(a => a.assetType === 'image' && a.storageUrl);
+    const caption = post.caption || '(No caption)';
+    return `
+        ${img ? `<img src="${img.storageUrl}" alt="" class="cal-hover-preview-img">` : ''}
+        <div class="cal-hover-preview-body">
+            <div class="cal-hover-preview-head">${_platAvatar(post.platform, 18)}<span>${_escHtml(plat.label)}</span></div>
+            <p class="cal-hover-preview-caption">${_escHtml(caption)}</p>
+        </div>`;
+}
+
+// Hover-intent delay avoids firing a fetch for every chip the cursor sweeps past.
+window._calShowPreview = function (event, postId) {
+    const anchorEl = event.currentTarget;
+    if (_previewShowTimer) clearTimeout(_previewShowTimer);
+    if (_previewHideTimer) { clearTimeout(_previewHideTimer); _previewHideTimer = null; }
+    _previewShowTimer = setTimeout(async () => {
+        _injectPreviewStyles();
+        const el = _ensurePreviewEl();
+        const token = ++_previewReqToken;
+        let cached = _previewCache.get(postId);
+        if (!cached) {
+            const localPost = _posts.find(p => p.id === postId) || {};
+            el.innerHTML = _renderPreviewContent(localPost, []);
+            el.classList.add('is-open');
+            _positionPreview(anchorEl);
+            try {
+                const res = await fetch(`/.netlify/functions/scheduled-posts?id=${postId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    cached = { post: data.post, assets: data.assets || [] };
+                    _previewCache.set(postId, cached);
+                }
+            } catch (e) { /* keep the local-data fallback already shown */ }
+        }
+        if (token !== _previewReqToken) return; // hovered away before the fetch resolved
+        if (cached) {
+            el.innerHTML = _renderPreviewContent(cached.post, cached.assets);
+            el.classList.add('is-open');
+            _positionPreview(anchorEl);
+        }
+    }, 180);
+};
+
+window._calHidePreview = function () {
+    if (_previewShowTimer) { clearTimeout(_previewShowTimer); _previewShowTimer = null; }
+    _previewReqToken++; // invalidate any in-flight fetch render
+    if (_previewHideTimer) clearTimeout(_previewHideTimer);
+    _previewHideTimer = setTimeout(() => {
+        if (_previewEl) _previewEl.classList.remove('is-open');
+    }, 100);
+};
 
 // #3: read-only chip for a completed assistant task, coloured by assistant.
 function _activityChip(act, viewType) {
@@ -506,6 +626,7 @@ function _listRow(post) {
 window._calOpenPost = async function (postId) {
     _openPostId = postId;
     _editMode = false;
+    window._calHidePreview();
 
     const panel = document.getElementById('aura-panel');
     panel.classList.remove('hidden');
