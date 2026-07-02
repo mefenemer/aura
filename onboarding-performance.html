@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Performance Marketer Setup | Be More Swan</title>
   <link href="./style.css" rel="stylesheet">
+  <script src="./explainers.js?v=20260630-2" defer></script>
 </head>
 <body class="font-sans text-gray-800 antialiased bg-gray-50 flex flex-col min-h-screen">
 
@@ -280,7 +281,7 @@
               <input type="text" id="val_pillars" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="What specific pain points or hooks should these new ads test?">
             </div>
             <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1">Ad Copy Style & Tone:</label>
+              <label class="block text-sm font-bold text-gray-700 mb-1" data-explain="tone-of-voice">Ad Copy Style & Tone:</label>
               <input type="text" id="val_tone" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm" placeholder="e.g., Direct response, founder story, listicle, urgency-driven.">
             </div>
             <div>
@@ -290,9 +291,9 @@
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Creative Asset Setup:</label>
               <select id="val_visuals" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-700 transition shadow-sm bg-white">
-                <option>I will provide ready-to-post assets in a linked folder</option>
-                <option>Generate AI Images (e.g., Midjourney / DALL-E)</option>
-                <option>Apply my branded templates (Requires Canva/Bannerbear setup)</option>
+                <option>I will provide my own ready-to-post assets</option>
+                <option>Generate AI Images &amp; Video (Flux + Hailuo)</option>
+                <option>Use Free Stock Photos &amp; Videos (Pexels)</option>
               </select>
             </div>
             <div>
@@ -321,7 +322,7 @@
             <span class="text-xl mr-1">+</span> Add Next Step
           </button>
 
-          <label class="block text-sm font-bold text-gray-700 mb-2">Strict Rules & Exceptions: *</label>
+          <label class="block text-sm font-bold text-gray-700 mb-2" data-explain="guardrails">Strict Rules & Exceptions: *</label>
           <div class="relative mb-6">
             <textarea id="acceptance_criteria_rules" rows="3" class="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-emerald-700 transition shadow-sm resize-none" placeholder="e.g., Never bid over the Cost Cap."></textarea>
           </div>

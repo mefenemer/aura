@@ -828,6 +828,47 @@ export const relationshipBuildingTasks = pgTable("relationship_building_tasks", 
   uniqueIndex("relationship_building_tasks_unique").on(t.assistantId, t.taskDate, t.title),
 ]);
 
+// ── Multi-Agent Orchestration (Epic 4) — cross-assistant workflow links ──
+// One directed hand-off rule: when source_assistant fires source_event, hand off to
+// target_assistant to do target_action. Definition + visualisation only for now (no runtime
+// consumer yet). Owner-path + manual org filter (no RLS) — same as content_rules. See db/orchestrations.sql.
+export const orchestrationLinks = pgTable("orchestration_links", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  sourceAssistantId: integer("source_assistant_id").notNull().references(() => aiAssistants.id, { onDelete: "cascade" }),
+  sourceEvent: text("source_event").notNull(),           // 'drafts_a_post' | 'publishes_a_post' | 'completes_a_task'
+  targetAssistantId: integer("target_assistant_id").notNull().references(() => aiAssistants.id, { onDelete: "cascade" }),
+  targetAction: text("target_action").notNull(),         // freeform, e.g. "design the visual"
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("orchestration_links_org_idx").on(t.organisationId),
+  index("orchestration_links_source_idx").on(t.sourceAssistantId),
+  index("orchestration_links_target_idx").on(t.targetAssistantId),
+  uniqueIndex("orchestration_links_unique").on(t.sourceAssistantId, t.sourceEvent, t.targetAssistantId, t.targetAction),
+]);
+
+// ── Orchestration runtime (Phase 5) — audit log of fired hand-offs ──
+// One row per firing. UNIQUE(link_id, source_post_id) makes hand-off firing idempotent.
+// See db/orchestration-runs.sql.
+export const orchestrationRuns = pgTable("orchestration_runs", {
+  id: serial().primaryKey(),
+  organisationId: integer("organisation_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+  linkId: integer("link_id").references(() => orchestrationLinks.id, { onDelete: "set null" }),
+  sourceAssistantId: integer("source_assistant_id"),
+  targetAssistantId: integer("target_assistant_id"),
+  sourceEvent: text("source_event").notNull(),
+  sourcePostId: integer("source_post_id"),               // the post whose draft/publish triggered the hand-off
+  targetJobId: text("target_job_id"),                    // content_generation_jobs.job_id enqueued for the target
+  status: text("status").notNull().default("handed_off"), // 'handed_off' | 'skipped'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("orchestration_runs_org_idx").on(t.organisationId),
+  index("orchestration_runs_link_idx").on(t.linkId, t.createdAt),
+  uniqueIndex("orchestration_runs_unique").on(t.linkId, t.sourcePostId),
+]);
+
 // ── Reward Redemptions — Referral Program Expansion ──────────────────────────
 // Audit trail + double-spend guard for the referral token vault. Each row records
 // a redemption: 'credit_10' (1 token → £10 Stripe credit) or 'free_assistant'
@@ -1039,6 +1080,12 @@ export const issueReports = pgTable("issue_reports", {
   devPrUrl: text("dev_pr_url"),              // PR opened by the runner
   devResult: text("dev_result"),             // AI summary of the fix (or failure reason)
 
+  // Which runner currently holds this issue (fix or merge claim), and when it claimed it.
+  // Multiple runners drain the queue concurrently; these let the admin portal show who is
+  // working what, and flag a claim that's outlived a normal fix as a possibly-dead runner.
+  devRunnerId: text("dev_runner_id"),
+  devRunnerHeartbeat: timestamp("dev_runner_heartbeat"),
+
   // DB migration the fix needs, run from the ticket against staging Neon (see SQL file).
   devSql: text("dev_sql"),                   // idempotent SQL the AI proposed
   devSqlStatus: text("dev_sql_status"),      // null | 'pending' | 'applied' | 'failed'
@@ -1073,6 +1120,113 @@ export const issueReportMessages = pgTable("issue_report_messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   index("issue_report_messages_issue_idx").on(t.issueId, t.createdAt),
+]);
+
+// AI auto-fix runner health (see db/issue-reports.sql, scripts/dev-issue-fixer.mjs).
+// One row per runner. When a runner's Claude Code CLI hits its usage/session limit it can't
+// produce fixes, so it parks here as 'session_limited', re-queues the issue it was on, and
+// stops claiming. The admin portal shows a "log into a Claude account with credit on the
+// runner machine, then resume" prompt; pressing Resume sets resumeRequested, the runner
+// verifies the new login with a probe call and — only if it succeeds — flips back to 'ok'
+// and resumes. Nothing here can authenticate Claude; this row is coordination only.
+export const devRunnerStatus = pgTable("dev_runner_status", {
+  runnerId: text("runner_id").primaryKey(),
+  // 'ok' | 'session_limited'
+  state: text("state").notNull().default("ok"),
+  message: text("message"),                 // raw CLI error, e.g. "You've hit your session limit · resets 12:30pm"
+  resetHint: text("reset_hint"),            // parsed reset time for display, e.g. "12:30pm (Europe/London)"
+  blockedIssueId: integer("blocked_issue_id").references(() => issueReports.id, { onDelete: "set null" }),
+  resumeRequested: boolean("resume_requested").notNull().default(false),
+  lastProbeResult: text("last_probe_result"), // outcome of the last verification probe after a Resume
+  blockedAt: timestamp("blocked_at"),
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Feature Roadmap Table — admin-only delivery backlog (see db/feature-roadmap.sql).
+// Items are created when a feature-request issue is promoted (source='issue', issue_id set)
+// or added directly by an admin (source='manual'). Prioritised by `priority` + manual drag
+// `sortOrder` (lower = higher on the board).
+export const featureRoadmap = pgTable("feature_roadmap", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  // 'critical' | 'high' | 'medium' | 'low'
+  priority: text("priority").notNull().default("medium"),
+  // 'planned' | 'in_progress' | 'shipped' | 'declined'
+  status: text("status").notNull().default("planned"),
+  // Manual drag-rank within the board; lower sorts higher.
+  sortOrder: integer("sort_order").notNull().default(0),
+  // 'manual' | 'issue'
+  source: text("source").notNull().default("manual"),
+  issueId: integer("issue_id").references(() => issueReports.id, { onDelete: "set null" }),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("feature_roadmap_order_idx").on(t.status, t.sortOrder),
+  index("feature_roadmap_issue_idx").on(t.issueId),
+]);
+
+// Feature Requests & Roadmap — unified, user-facing feature voting + admin roadmap.
+// See db/feature-requests.sql. Supersedes feature_roadmap (which it migrates in): adds
+// public submission, a moderation queue, voting, LLM-enhanced admin workflow and a
+// Year/Quarter Gantt. Status/category/priority/source are mirrored by SQL CHECK constraints
+// and the SoT in src/utils/feature-requests.ts.
+export const featureRequests = pgTable("feature_requests", {
+  id: serial("id").primaryKey(),
+  // Who raised it. NULL for purely admin/issue-originated items.
+  submittedBy: integer("submitted_by").references(() => users.id, { onDelete: "set null" }),
+  // Submitter's org for context (the board is global/cross-tenant).
+  organisationId: integer("organisation_id").references(() => organisations.id, { onDelete: "set null" }),
+  // Live (admin-editable) text shown on the public board.
+  title: text("title").notNull(),
+  description: text("description"),
+  // The submitter's raw original text, preserved so "Enhance with AI" works from their words.
+  submitterDescription: text("submitter_description"),
+  // 'app_core' | 'existing_assistant' | 'new_assistant'
+  category: text("category").notNull().default("app_core"),
+  // CATALOGUE ROLE slug when category='existing_assistant' (not a tenant instance).
+  assistantRef: text("assistant_ref"),
+  // pending_review | under_review | open | planned | in_progress | released | declined | duplicate
+  status: text("status").notNull().default("pending_review"),
+  // 'critical' | 'high' | 'medium' | 'low'
+  priority: text("priority").notNull().default("medium"),
+  // Gantt placement, e.g. '2026-Q3'.
+  targetQuarter: text("target_quarter"),
+  // Manual drag-rank within the admin board; lower sorts higher.
+  sortOrder: integer("sort_order").notNull().default(0),
+  // Denormalised vote tally (feature_request_votes is the source of truth).
+  voteCount: integer("vote_count").notNull().default(0),
+  // 'user' (moderated) | 'manual' (admin) | 'issue' (promoted bug report)
+  source: text("source").notNull().default("user"),
+  issueId: integer("issue_id").references(() => issueReports.id, { onDelete: "set null" }),
+  // Duplicate handling: the request this one was merged into (status='duplicate').
+  mergedIntoId: integer("merged_into_id").references((): AnyPgColumn => featureRequests.id, { onDelete: "set null" }),
+  reviewedBy: integer("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at"),
+  // Set when status first becomes 'released'; powers the avg-wait metric.
+  releasedAt: timestamp("released_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("feature_requests_status_idx").on(t.status, t.voteCount),
+  index("feature_requests_board_idx").on(t.status, t.sortOrder),
+  index("feature_requests_submitter_idx").on(t.submittedBy, t.createdAt),
+  index("feature_requests_quarter_idx").on(t.targetQuarter),
+  index("feature_requests_issue_idx").on(t.issueId),
+]);
+
+// One row per (feature, user). UNIQUE enforces "one upvote per user"; toggling deletes the row.
+export const featureRequestVotes = pgTable("feature_request_votes", {
+  id: serial("id").primaryKey(),
+  featureId: integer("feature_id").notNull().references(() => featureRequests.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  unique("feature_request_votes_unique").on(t.featureId, t.userId),
+  index("feature_request_votes_user_idx").on(t.userId),
+  index("feature_request_votes_feature_idx").on(t.featureId),
 ]);
 
 // AI Model Config Table — runtime routing rules; admin-editable without deploys (US13)

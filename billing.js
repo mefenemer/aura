@@ -39,6 +39,9 @@
 
             _render(_subscriptions, paymentHistory || [], invoicesData.invoices || [], _billingInfo, storage || null);
 
+            // Live AI-credit balance (non-blocking — never fails the billing render)
+            _loadAiCreditBalance();
+
             // If navigated here via notification deep-link
             if (window.location.hash === '#invoice-history') {
                 setTimeout(() => {
@@ -53,6 +56,44 @@
             _showState('error');
         }
     };
+
+    // ── Live AI-credit balance ────────────────────────────────────
+    async function _loadAiCreditBalance() {
+        const valueEl = document.getElementById('ai-credit-balance-value');
+        const heldEl  = document.getElementById('ai-credit-held-note');
+        if (!valueEl) return;
+        try {
+            const res = await fetch('/.netlify/functions/get-ai-credit-balance');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const { balance, held, monthlyCredits } = await res.json();
+            const bal = Number(balance) || 0;
+            valueEl.textContent = `${bal.toLocaleString()} credit${bal === 1 ? '' : 's'} available`;
+
+            const monthlyEl = document.getElementById('ai-credit-monthly-note');
+            const monthlyNum = Number(monthlyCredits) || 0;
+            if (monthlyEl) {
+                if (monthlyNum > 0) {
+                    monthlyEl.textContent = `Your plan includes ${monthlyNum.toLocaleString()} credit${monthlyNum === 1 ? '' : 's'} each month.`;
+                    monthlyEl.classList.remove('hidden');
+                } else {
+                    monthlyEl.classList.add('hidden');
+                }
+            }
+
+            const heldNum = Number(held) || 0;
+            if (heldEl) {
+                if (heldNum > 0) {
+                    heldEl.textContent = `${heldNum.toLocaleString()} credit${heldNum === 1 ? '' : 's'} reserved by in-progress generations.`;
+                    heldEl.classList.remove('hidden');
+                } else {
+                    heldEl.classList.add('hidden');
+                }
+            }
+        } catch (e) {
+            console.warn('[billing] Unable to load AI credit balance:', e);
+            valueEl.textContent = 'Balance unavailable';
+        }
+    }
 
     // ── Card Modal ────────────────────────────────────────────────
     window._billingOpenCardModal = async function () {

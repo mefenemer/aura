@@ -25,13 +25,13 @@
         .settings-tab:hover { color: #374151; border-bottom-color: #d1d5db; }
         .settings-tab.active { color: #059669; border-bottom-color: #10b981; }
     </style>
-    <div class="mb-8 border-b border-gray-200 overflow-x-auto">
-        <nav id="settings-tabs" class="-mb-px flex gap-x-6" aria-label="Account settings tabs">
+    <div class="mb-8 border-b border-gray-200">
+        <nav id="settings-tabs" class="-mb-px flex flex-wrap gap-x-6 gap-y-3" aria-label="Account settings tabs">
             <button type="button" class="settings-tab active" data-tab="profile">Profile Information</button>
             <button type="button" class="settings-tab" data-tab="notifications">Notification Preferences</button>
             <button type="button" class="settings-tab" data-tab="sounds">Sounds</button>
             <button type="button" class="settings-tab" data-tab="agreements">My Agreements</button>
-            <button type="button" class="settings-tab" data-tab="agency">Agency Attribution</button>
+            <button type="button" class="settings-tab" data-tab="agency">Branding &amp; AI Notices</button>
             <button type="button" class="settings-tab" data-tab="billing">Billing &amp; Subscription</button>
         </nav>
     </div>
@@ -238,12 +238,12 @@
             </div>
         </div>
 
-        <!-- Plain-language AI usage & data processing agreement (org-scoped acceptance toggle).
+        <!-- Plain-language Responsible AI Use Agreement (org-scoped acceptance toggle).
              Moved here from the Profile tab; keeps its original element IDs so the existing
              initComplianceToggle() wiring in workspace.html works unchanged. -->
         <div id="compliance-card" class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
-                <h3 class="text-lg font-bold text-gray-900">AI usage &amp; data processing agreement</h3>
+                <h3 class="text-lg font-bold text-gray-900">Responsible AI Use Agreement</h3>
                 <p class="text-sm text-gray-500">Your acceptance of how Be More Swan uses AI and processes your business data to run your assistants.</p>
             </div>
             <div class="p-6">
@@ -253,7 +253,7 @@
                         <span aria-hidden="true" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
                     </button>
                     <div class="flex-1">
-                        <p class="text-sm font-semibold text-gray-900">I accept the AI usage &amp; data processing agreement</p>
+                        <p class="text-sm font-semibold text-gray-900">I accept the Responsible AI Use Agreement</p>
                         <p class="text-xs text-gray-500 mt-1">
                             I understand my assistant is powered by AI and I agree to how Be More Swan processes my
                             business data to deliver this service. This keeps your company's data safe and your
@@ -441,10 +441,15 @@
         const tabs = Array.from(document.querySelectorAll('#settings-tabs .settings-tab'));
         const panels = Array.from(document.querySelectorAll('.settings-tab-panel'));
         function activate(name) {
+            if (!name || !panels.some(p => p.dataset.panel === name)) return;
             tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
             panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== name));
         }
         tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
+        // Exposed so other parts of the workspace can deep-link to a specific tab — notably
+        // the Setup Wizard's "Compliance & data use" step, which routes here and opens the
+        // "My Agreements" panel (not the default Profile Information one).
+        window.activateSettingsTab = activate;
     })();
     </script>
 

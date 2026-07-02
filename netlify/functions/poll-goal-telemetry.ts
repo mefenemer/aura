@@ -150,7 +150,7 @@ async function fetchMetric(
     }
 }
 
-export const handler: Handler = async () => {
+export async function pollGoalTelemetry(): Promise<{ goals: number; polled: number; skipped: number; disconnected: number }> {
     const db = getDb();
     const now = new Date();
 
@@ -160,7 +160,7 @@ export const handler: Handler = async () => {
         .where(eq(goals.isActive, true))
         .limit(BATCH);
 
-    if (!activeGoals.length) return { statusCode: 200, body: JSON.stringify({ polled: 0 }) };
+    if (!activeGoals.length) return { goals: 0, polled: 0, skipped: 0, disconnected: 0 };
 
     // Per-org polling cadence (AC4.1.1) — one tier lookup per org.
     const orgIds = [...new Set(activeGoals.map(g => g.organisationId))];
@@ -266,5 +266,10 @@ export const handler: Handler = async () => {
         }
     }));
 
-    return { statusCode: 200, body: JSON.stringify({ goals: activeGoals.length, polled, skipped, disconnected: disconnectedCount }) };
+    return { goals: activeGoals.length, polled, skipped, disconnected: disconnectedCount };
+}
+
+export const handler: Handler = async () => {
+    const result = await pollGoalTelemetry();
+    return { statusCode: 200, body: JSON.stringify(result) };
 };

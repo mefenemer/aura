@@ -111,7 +111,10 @@ window.initNotifications = async function() {
     const getNotificationAction = (notif) => {
         const meta = notif.metadata || {};
         // US2 AC2.3: a workspace owner invites the person who hit a connection collision.
+        // If the owner's plan has no free seat, the server already flagged this in metadata —
+        // point them at billing instead of an invite that would just fail on seat limit.
         if (notif.type === 'workspace_access_request') {
+            if (meta.seatLimitReached) return { label: 'Upgrade plan', run: routeToBilling };
             return { label: 'Invite User', run: () => window._inviteFromAccessRequest?.(meta.requestingEmail, notif.id) };
         }
         // AI media ready — deep-link straight to the generated asset in My Content.
@@ -362,7 +365,9 @@ window.initNotifications = async function() {
         // AC2.2/AC2.3: sort by priority weight, then newest first. On the action tab, unresolved
         // items stay above resolved ones, so critical_action (priority 1) is pinned to the very
         // top until its completion criteria are met.
-        const byCreated = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
+        // id as tiebreaker: rows can share an identical createdAt (e.g. created in the same
+        // DB transaction), so date alone doesn't reliably keep the newest item first.
+        const byCreated = (a, b) => new Date(b.createdAt) - new Date(a.createdAt) || (b.id - a.id);
         if (activeTab === 'action') {
             list.sort((a, b) => (isResolved(a) ? 1 : 0) - (isResolved(b) ? 1 : 0) || prioOf(a) - prioOf(b) || byCreated(a, b));
         } else {

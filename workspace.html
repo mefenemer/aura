@@ -7,6 +7,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Workspace | Be More Swan</title>
   <link href="./style.css" rel="stylesheet">
+  <!-- Markdown rendering for the in-workspace Help Center article reader (merged from help.html) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+  <script src="./explainers.js?v=20260701-media-sources" defer></script>
   <link rel="icon" href="/favicon/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/favicon/apple-icon.png">
   <link rel="manifest" href="/favicon/manifest.json">
@@ -124,6 +128,11 @@ async function submitDpaAcceptance(btn) {
         const assistantId = btn.dataset.assistantId;
         if (assistantId && typeof window.loadAssistantDetail === 'function') {
             window.loadAssistantDetail(assistantId);
+        } else if (typeof window.renderMyAgreements === 'function') {
+            // Reached from My Account → My Agreements: re-render in place (no full reload, which
+            // would drop the user out of the settings view) so the row flips to "Accepted" and
+            // the wizard's compliance step can advance.
+            window.renderMyAgreements();
         } else {
             window.location.reload();
         }
@@ -207,6 +216,9 @@ async function submitTosAcceptance(btn) {
         if (!res.ok) throw new Error('Failed');
         const modal = document.getElementById('modal-tos-required');
         if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+        // Refresh the My Agreements tab (if open) so the row flips to "Accepted" and the
+        // wizard's compliance step advances once everything is accepted.
+        window.renderMyAgreements?.();
     } catch {
         btn.disabled = false;
         btn.textContent = 'Accept Terms & Continue';
@@ -603,7 +615,7 @@ window.showComplianceModals = function showComplianceModals(force) {
         </div>
       </div>
       <div id="post-review-buttons" class="grid grid-cols-2 gap-2">
-        <button onclick="rqReviewApprove()" class="col-span-2 py-3 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Approve — let the assistant schedule it</button>
+        <button id="post-review-approve-btn" onclick="rqReviewApprove()" class="col-span-2 py-3 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition cursor-pointer">Approve — let the assistant schedule it</button>
         <button onclick="rqReviewAddMedia()" class="col-span-2 py-2.5 text-xs font-bold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           Add or change image
@@ -712,16 +724,21 @@ window.showComplianceModals = function showComplianceModals(force) {
   // US2 AC2.3: workspace owner invites the requester into their org (reuses the member-invite
   // flow, so billing stays consolidated). Triggered from the suggested_action notification CTA.
   window._inviteFromAccessRequest = async function (email, notifId) {
-    if (!email) { alert('Could not determine which user to invite.'); return; }
-    if (!confirm(`Invite ${email} to your workspace? They'll join your team and your billing stays consolidated.`)) return;
-    try {
-      const r = await fetch('/.netlify/functions/invite-member', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) { alert(d.error || 'Could not send the invite.'); return; }
-      window.showToast?.(`Invite sent to ${email}.`);
-    } catch { alert('Network error — please try again.'); }
+    if (!email) { window.showToast?.('Could not determine which user to invite.', { icon: '⚠️' }); return; }
+    window.showConfirmModal(
+      `Invite ${email} to your workspace? They'll join your team and your billing stays consolidated.`,
+      async () => {
+        try {
+          const r = await fetch('/.netlify/functions/invite-member', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { window.showToast?.(d.error || 'Could not send the invite.', { icon: '⚠️' }); return; }
+          window.showToast?.(`Invite sent to ${email}.`, { icon: '✅' });
+        } catch { window.showToast?.('Network error — please try again.', { icon: '⚠️' }); }
+      },
+      { title: 'Invite to workspace?', confirmLabel: 'Yes, send invite', cancelLabel: 'Cancel' }
+    );
   };
 </script>
 
@@ -813,6 +830,19 @@ window.showComplianceModals = function showComplianceModals(force) {
 
     <!-- My reports list -->
     <div id="ri-panel-mine" class="hidden p-6 overflow-y-auto">
+      <div class="flex items-center justify-between mb-3">
+        <label for="ri-status-filter" class="text-xs font-semibold text-gray-500">Filter by status</label>
+        <select id="ri-status-filter" onchange="window.riFilterReports(this.value)"
+          class="border border-gray-200 rounded-lg px-2 py-1 text-xs font-semibold text-gray-700 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+          <option value="all">All statuses</option>
+          <option value="fixed_ready_to_test">Fixed & Ready to Test</option>
+          <option value="reported">Reported</option>
+          <option value="fix_in_progress">Fix In Progress</option>
+          <option value="more_info_required">More Info Required</option>
+          <option value="roadmap">On Roadmap</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
       <div id="ri-my-list" class="space-y-3 text-sm text-gray-500">Loading…</div>
     </div>
   </div>
@@ -1189,6 +1219,14 @@ function formatCurrency(amount, currency) {
     if (typeof window.updateNotificationBadge === 'function') {
       window.updateNotificationBadge();
     }
+
+    // Issue #58: notifications (e.g. "issue fixed") are created server-side while the user
+    // is already on a page, but the badge was only ever fetched once at load — so new
+    // notifications never appeared until a manual refresh. Poll periodically, same cadence
+    // as the review-queue pending badge (_rqPollInterval below), to keep it live.
+    setInterval(() => {
+      if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
+    }, 60_000);
 // --- DYNAMIC HEADER HYDRATION ---
     async function loadHeaderProfile() {
       const nameEl = document.getElementById('header-user-name');
@@ -1208,6 +1246,7 @@ function formatCurrency(amount, currency) {
           if (nameEl) nameEl.textContent = fullName || 'Be More Swan User';
           if (emailEl) emailEl.textContent = profileData.email || '';
           window._currentUserEmail = profileData.email || '';
+          window._firstLoginWelcomeSeen = profileData.firstLoginWelcomeSeen ?? false;
 
           // US-I18N-1.2 SC1/SC2: apply user's saved language preference
           if (profileData.language && window.i18n) {
@@ -1281,12 +1320,13 @@ function formatCurrency(amount, currency) {
     // dev fallback only — on every Netlify deploy scripts/stamp-view-version.mjs
     // (build:version, see netlify.toml) overwrites it with the commit SHA, so the cache
     // busts automatically whenever a view changes. No manual bump required.
-    const VIEW_VERSION = '20260629-views';
+    const VIEW_VERSION = 'bb501d4e';
 
     // Consolidated path definitions mapping navigation links to standard modular components
     const routes = {
       'dashboard': { file: 'dashboard-content.html', title: '| Workspace Overview' },
       'assistants': { file: 'assistants-directory.html', title: '| My Assistants' },
+      'orchestrations': { file: 'orchestrations-content.html', title: '| Orchestrations' },
       'assistant-detail': { file: 'assistant-detail.html', title: '| Board Room' },
       'catalog': { file: 'assistant-catalogue.html', title: '| Hire Assistant' },
       'assets': { file: 'assets.html', title: '| Business Information' },
@@ -1306,6 +1346,7 @@ function formatCurrency(amount, currency) {
     const navLinks = {
       'dashboard': document.getElementById('nav-dashboard'),
       'assistants': document.getElementById('nav-assistants'),
+      'orchestrations': document.getElementById('nav-orchestrations'),
       'catalog': document.getElementById('nav-catalog'),
       'assets': document.getElementById('nav-assets'),
       'notifications': document.getElementById('nav-notifications'),
@@ -1320,6 +1361,13 @@ function formatCurrency(amount, currency) {
     async function loadView(routeKey, param = null) {
       const route = routes[routeKey];
       if (!route) return;
+
+      // Issue #43: Orchestrations is a future feature — block navigation entirely
+      // (deep links, command bar, "Manage in Orchestrations" CTA, etc.), not just the nav link.
+      if (routeKey === 'orchestrations') {
+        window.showToast('Orchestrations is coming soon!');
+        return;
+      }
 
       // ── US2 (AC2.1/2.2/2.3): Onboarding route guard (anti-snooping) ──
       // Catches deep links (?view=calendar) and any programmatic navigation into a
@@ -1490,6 +1538,10 @@ function formatCurrency(amount, currency) {
 
         if (routeKey === 'getting-started' && typeof window.initGettingStarted === 'function') {
           window.initGettingStarted();
+        }
+
+        if (routeKey === 'orchestrations' && typeof window.initOrchestrations === 'function') {
+          await window.initOrchestrations(loadView);
         }
 
         // Onboarding Wizard companion — refresh progress after any view loads so a step
@@ -1926,6 +1978,9 @@ function formatCurrency(amount, currency) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'acknowledge_ai_disclaimer' }),
         });
+        // Refresh the My Agreements tab (if open) so this row flips to "Accepted" and the
+        // wizard's compliance step advances once everything is accepted.
+        window.renderMyAgreements?.();
       } catch { /* best-effort */ }
     });
 
@@ -2098,6 +2153,10 @@ function formatCurrency(amount, currency) {
     function updateActiveNav(activeKey) {
       Object.values(navLinks).forEach(link => {
         if (!link) return;
+        // Issue #44: leave disabled/"Coming Soon" items (e.g. Orchestrations) alone —
+        // they carry their own permanent gray-400/cursor-not-allowed styling and must
+        // never be reset to the normal enabled nav-item classes.
+        if (link.dataset.comingSoon === '1') return;
         link.classList.remove('bg-emerald-50', 'text-emerald-700', 'font-semibold');
         link.classList.add('text-gray-600', 'hover:bg-gray-100', 'hover:text-gray-900', 'font-medium');
       });
@@ -2204,7 +2263,6 @@ function formatCurrency(amount, currency) {
       const link = navLinks[key];
       if (link) {
         link.addEventListener('click', async (e) => {
-          if (key === 'help') return; // opens /help.html in new tab via href
           e.preventDefault();
           // AC1.3: clicking a locked item does NOT navigate — just toasts.
           if (link.dataset.onboardingLocked === '1') {
@@ -3055,7 +3113,13 @@ function formatCurrency(amount, currency) {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ accepted: next }),
           });
-          if (r.ok) { if (saved) saved.classList.toggle('hidden', !next); window.SetupWizard?.onNavigate?.(); }
+          if (r.ok) {
+            if (saved) saved.classList.toggle('hidden', !next);
+            window.SetupWizard?.onNavigate?.();
+            // Re-render the agreements list so its completion check sees this acceptance and,
+            // if it's the last outstanding one, advances the wizard's compliance step.
+            window.renderMyAgreements?.();
+          }
           else paint(!next);
         } catch { paint(!next); }
       });
@@ -3068,18 +3132,31 @@ function formatCurrency(amount, currency) {
 
     // ── My Agreements tab: render the consolidated acceptance/consent records ──
     // Read view over /get-my-agreements. Review/accept actions REUSE the existing modals
-    // (showComplianceModals / checkDpaAcceptance / checkTosAcceptance / checkAiDisclaimerConsent);
-    // the plain-language AI/data agreement keeps its own toggle card (#compliance-card) below.
-    (async function initMyAgreements() {
+    // (checkDpaAcceptance / checkTosAcceptance / checkAiDisclaimerConsent); the plain-language
+    // AI/data agreement keeps its own toggle card (#compliance-card) below.
+    //
+    // Each row makes the user's standing unambiguous: a clear status badge + a single action.
+    //   · Not accepted        → "Review Now"  (primary button)
+    //   · Updated, re-accept   → "Review Now"  + "Action required" badge
+    //   · Accepted, current    → "Accepted — no further action" (no button)
+    // Every acceptance is timestamped; an expandable per-row audit log lists all dates/times.
+    //
+    // Exposed as window.renderMyAgreements so the acceptance handlers can re-render after a
+    // modal/toggle records a new acceptance — which is also where completion is detected and
+    // the Setup Wizard's compliance step (step 4) is auto-advanced.
+    window.renderMyAgreements = async function renderMyAgreements() {
       const list = document.getElementById('agreements-list');
       if (!list) return;
       const loading = document.getElementById('agreements-loading');
       const errorEl = document.getElementById('agreements-error');
 
-      const fmtDate = (iso) => {
+      const fmtDateTime = (iso) => {
         if (!iso) return null;
-        try { return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }
-        catch { return null; }
+        try {
+          return new Date(iso).toLocaleString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+          });
+        } catch { return null; }
       };
 
       // Per-key review handler — reuse the modals already wired up in this page.
@@ -3091,10 +3168,10 @@ function formatCurrency(amount, currency) {
       };
 
       const statusPill = (a) => {
-        if (a.scope === 'info') return '<span class="text-xs font-semibold text-gray-400">Reference</span>';
-        if (a.upToDate) return '<span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">✓ Up to date</span>';
-        if (a.acceptedAt) return '<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">Update available</span>';
-        return '<span class="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">Not yet accepted</span>';
+        if (a.scope === 'info') return '<span class="inline-flex items-center text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">Reference only</span>';
+        if (a.upToDate) return '<span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">✓ Accepted</span>';
+        if (a.acceptedAt) return '<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">⚠ Terms updated — acceptance required</span>';
+        return '<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">Action required — not yet accepted</span>';
       };
 
       try {
@@ -3103,33 +3180,57 @@ function formatCurrency(amount, currency) {
         const { agreements = [] } = await res.json();
         loading?.remove();
 
-        // ai_data is represented by the dedicated #compliance-card toggle below — skip it here.
+        // ai_data is represented by the dedicated #compliance-card toggle below — exclude it from
+        // the list, but keep it in the completion check (it gates the wizard's compliance step).
         const rows = agreements.filter(a => a.key !== 'ai_data');
         list.querySelectorAll('[data-agreement-row]').forEach(n => n.remove());
 
         rows.forEach((a) => {
-          const date = fmtDate(a.acceptedAt);
+          const needsAccept = a.scope !== 'info' && !a.upToDate;
           const meta = a.scope === 'info'
-            ? 'Always available to read.'
+            ? 'For your reference — always available to read.'
             : (a.acceptedAt
-                ? `Accepted ${a.acceptedVersion ? `v${a.acceptedVersion} · ` : ''}${date || ''}`.trim()
-                : 'No acceptance on record.');
-          const needsAccept = a.scope !== 'info' && !a.upToDate && reviewers[a.key];
+                ? `Accepted ${a.acceptedVersion ? `v${a.acceptedVersion} · ` : ''}${fmtDateTime(a.acceptedAt) || ''}`.trim()
+                : 'No acceptance on record yet.');
+          const history = Array.isArray(a.history) ? a.history : [];
+
+          // The right-hand action makes the user's required next step obvious.
+          let action;
+          if (a.scope === 'info') {
+            action = `<button type="button" data-review="${a.key}" class="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer">Review</button>`;
+          } else if (needsAccept) {
+            action = `<button type="button" data-review="${a.key}" class="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3.5 py-1.5 rounded-lg cursor-pointer">Review Now</button>`;
+          } else {
+            action = `<div class="flex items-center gap-3">
+                <span class="text-xs font-semibold text-emerald-700">Accepted — no further action</span>
+                <button type="button" data-review="${a.key}" class="text-xs font-medium text-gray-400 hover:text-emerald-700 hover:underline cursor-pointer">Review</button>
+              </div>`;
+          }
+
+          const historyHtml = history.length
+            ? `<button type="button" data-history-toggle class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-gray-600 cursor-pointer">
+                 <svg data-history-caret class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                 Acceptance history (${history.length})
+               </button>
+               <div data-history class="hidden mt-1.5 pl-3 space-y-1" style="border-left:2px solid #f3f4f6">
+                 ${history.map(h => `<p class="text-xs text-gray-500">Accepted ${h.version ? `v${h.version} · ` : ''}${fmtDateTime(h.acceptedAt) || ''}</p>`).join('')}
+               </div>`
+            : '';
 
           const row = document.createElement('div');
           row.dataset.agreementRow = a.key;
-          row.className = 'px-6 py-4 flex items-center justify-between gap-4';
+          row.className = 'px-6 py-4';
           row.innerHTML = `
-            <div class="min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <p class="text-sm font-semibold text-gray-900">${a.name}</p>
-                ${statusPill(a)}
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="text-sm font-semibold text-gray-900">${a.name}</p>
+                  ${statusPill(a)}
+                </div>
+                <p class="text-xs text-gray-500 mt-0.5">${meta}</p>
+                ${historyHtml}
               </div>
-              <p class="text-xs text-gray-500 mt-0.5">${meta}</p>
-            </div>
-            <div class="flex items-center gap-3 flex-shrink-0">
-              ${reviewers[a.key] ? `<button type="button" data-review="${a.key}" class="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer">Review</button>` : ''}
-              ${needsAccept ? `<button type="button" data-review="${a.key}" class="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg cursor-pointer">${a.acceptedAt ? 'Re-accept' : 'Accept'}</button>` : ''}
+              <div class="flex-shrink-0">${action}</div>
             </div>`;
           list.appendChild(row);
         });
@@ -3137,11 +3238,42 @@ function formatCurrency(amount, currency) {
         list.querySelectorAll('[data-review]').forEach((btn) => {
           btn.addEventListener('click', () => reviewers[btn.dataset.review]?.());
         });
+        list.querySelectorAll('[data-history-toggle]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const panel = btn.parentElement.querySelector('[data-history]');
+            const caret = btn.querySelector('[data-history-caret]');
+            const open = panel.classList.toggle('hidden') === false;
+            if (caret) caret.style.transform = open ? 'rotate(90deg)' : '';
+          });
+        });
+
+        // ── Completion: every required agreement accepted → advance the wizard's step 4 ──
+        // Includes the AI usage & data agreement (its own toggle card below), since that's what
+        // backs the wizard's compliance step. We only celebrate the transition from
+        // incomplete → complete, never a page that loads already-complete.
+        const required = agreements.filter(a => a.scope !== 'info');
+        const allComplete = required.length > 0 && required.every(a => a.upToDate);
+        if (window._agreementsPrevComplete === false && allComplete) {
+          window._onAgreementsComplete?.();
+        }
+        window._agreementsPrevComplete = allComplete;
       } catch {
         loading?.remove();
         errorEl?.classList.remove('hidden');
       }
-    })();
+    };
+
+    // Fired once when the user accepts the last outstanding agreement. Confirms step 4 is done
+    // and hands them straight to the next step in the Setup Wizard slide-over.
+    window._onAgreementsComplete = function _onAgreementsComplete() {
+      window.showToast?.('Step 4: Compliance & Data Use completed — next up: choose your assistant.', { icon: '✅', duration: 6000 });
+      window.fireConfetti?.();
+      // Re-sync the wizard (compliance now ticks) and open it so the next step is front-and-centre.
+      window.SetupWizard?.refresh?.();
+      setTimeout(() => window.SetupWizard?.open?.(), 500);
+    };
+
+    window.renderMyAgreements();
 
     // ── US8 AC2: re-open the setup wizard from My Account ──
     const resumeBtn = document.getElementById('resume-wizard-btn');
@@ -3263,7 +3395,7 @@ function formatCurrency(amount, currency) {
           </div>
 
           <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center gap-2 flex-wrap">
-              <button class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition cursor-pointer" onclick="window.routeToAssistantDetail('${assistant.id}')">Board Room &rarr;</button>
+              <button class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition cursor-pointer" onclick="window.routeToAssistantDetail('${assistant.id}')">View Details &rarr;</button>
               ${footerActions}
           </div>
       </div>`;
@@ -3548,7 +3680,7 @@ function formatCurrency(amount, currency) {
           </li>`;
         }).join('')}
       </ul>
-      <a href="/help.html" target="_blank" rel="noopener noreferrer"
+      <a href="#" onclick="event.preventDefault(); window.loadView && window.loadView('help');"
          class="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline">
         Read the getting-started guide &rarr;
       </a>`;
@@ -3778,7 +3910,7 @@ function formatCurrency(amount, currency) {
     // organisations.onboarding_completed once the 3 core steps are done, which is what
     // get-onboarding-status reads to unlock the gated nav items (review-queue/calendar/
     // my-content). No widget, and no "setup complete" toast — celebrating 3-of-9 here would
-    // disagree with the wizard's 9-step go-live, so that's left entirely to the wizard.
+    // disagree with the wizard's 8-step go-live, so that's left entirely to the wizard.
     try {
       await fetch('/.netlify/functions/get-onboarding-progress');
       document.getElementById('onboarding-widget-container')?.classList.add('hidden');
@@ -3812,6 +3944,24 @@ function formatCurrency(amount, currency) {
   window.initDashboard = async function() {
     await window._renderDashboardEngagement();
     await fetchAndRenderAssistants('dashboard-assistants-grid');
+
+    // Show "Welcome." for first-time visitors; "Welcome back." for returning users.
+    const welcomeEl = document.getElementById('dash-welcome-heading');
+    if (welcomeEl) {
+      if (!window._firstLoginWelcomeSeen) {
+        welcomeEl.textContent = 'Welcome.';
+        // Mark as seen so subsequent visits show "Welcome back."
+        window._firstLoginWelcomeSeen = true;
+        fetch('/.netlify/functions/update-profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fieldKey: 'firstLoginWelcomeSeen', value: true }),
+        }).catch(() => {});
+      } else {
+        welcomeEl.textContent = 'Welcome back.';
+      }
+    }
+
     // US1 AC1 — the setup wizard auto-slides in for users still onboarding when the
     // dashboard loads (unless they've collapsed it or already finished).
     if (window.SetupWizard && typeof window.SetupWizard.refresh === 'function') {
@@ -4086,11 +4236,17 @@ function rqRenderIdeaCard(idea) {
 
     let progress = '';
     if (idea.status === 'pending') {
-        progress = `<p class="text-xs text-gray-500">Waiting to be woven into an upcoming draft.</p>`;
+        progress = `<p class="text-xs text-gray-500">Waiting to be woven into an upcoming draft.</p>
+          <button onclick="ideaToggleEdit(${idea.id})" class="mt-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline cursor-pointer">Edit</button>
+          <button onclick="ideaDelete(${idea.id})" class="mt-1.5 ml-3 text-xs font-semibold text-red-600 hover:text-red-700 underline cursor-pointer">Delete</button>
+          <div class="rq-idea-edit-${idea.id} hidden mt-2">
+            <textarea id="rq-idea-input-${idea.id}" rows="2" maxlength="500" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300">${_rqEsc(idea.idea)}</textarea>
+            <div class="flex gap-2 mt-1"><button onclick="ideaSaveEdit(${idea.id})" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-lg cursor-pointer">Save</button><button onclick="ideaToggleEdit(${idea.id})" class="px-3 py-1.5 text-xs font-bold text-gray-500 cursor-pointer">Cancel</button></div>
+          </div>`;
     } else if (idea.status === 'in_review') {
         const cap = idea.postCaption ? `<p class="text-xs text-gray-600 mt-1 line-clamp-2 italic">"${_rqEsc(idea.postCaption)}"</p>` : '';
         progress = `<p class="text-xs text-gray-500">Built into a post — now awaiting your review.${cap ? '' : ''}</p>${cap}
-          <button onclick="rqOpenStatus('review')" class="mt-1.5 text-xs font-semibold text-violet-700 hover:text-violet-800 underline cursor-pointer">View in Review →</button>`;
+          ${idea.usedPostId ? `<button onclick="openPostReview(${idea.usedPostId})" class="mt-1.5 text-xs font-semibold text-violet-700 hover:text-violet-800 underline cursor-pointer">Review this post →</button>` : ''}`;
     } else if (idea.status === 'delivered') {
         const when = idea.postPublishDate ? new Date(idea.postPublishDate).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : null;
         const postState = idea.postStatus === 'published' ? 'Published' : (idea.postStatus === 'scheduled' ? 'Scheduled' : 'Approved');
@@ -4110,6 +4266,39 @@ function rqRenderIdeaCard(idea) {
       </div>
       ${progress}
     </div>`;
+}
+
+function ideaToggleEdit(id) {
+    document.querySelector(`.rq-idea-edit-${id}`)?.classList.toggle('hidden');
+}
+
+async function ideaSaveEdit(id) {
+    const idea = (document.getElementById(`rq-idea-input-${id}`) || {}).value?.trim();
+    if (!idea) { alert('Please describe your post idea.'); return; }
+    try {
+        const res = await fetch('/.netlify/functions/update-post-idea', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, idea }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(d.error || 'Could not save your idea.'); return; }
+        rqLoadItems();
+    } catch { alert('Network error — please try again.'); }
+}
+
+async function ideaDelete(id) {
+    if (!confirm('Delete this idea? This cannot be undone.')) return;
+    try {
+        const res = await fetch('/.netlify/functions/update-post-idea', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(d.error || 'Could not delete this idea.'); return; }
+        rqLoadItems();
+    } catch { alert('Network error — please try again.'); }
 }
 
 async function sdApprove(postId, action) {
@@ -4382,6 +4571,8 @@ function openPostReview(postId) {
     const when = post.publishDate ? new Date(post.publishDate).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
     document.getElementById('post-review-sub').textContent =
         `${(post.assistantName || 'Assistant')}${when ? ' · planned for ' + when : ''}`;
+    const approveBtn = document.getElementById('post-review-approve-btn');
+    if (approveBtn) approveBtn.textContent = `Approve — let ${post.assistantName || 'the assistant'} schedule it`;
 
     // Reviewable drafts get the action footer; archived (rejected) posts are read-only with a countdown.
     const reviewable = ['pending_approval', 'draft', 'in_review'].includes(post.status);
@@ -5764,6 +5955,8 @@ async function gpSubmitReject() {
 (function () {
   const modal = () => document.getElementById('modal-report-issue');
   let _pendingImage = null; // data URL of the attached screenshot
+  let _myReports = []; // last-fetched list, re-filtered client-side
+  let _myReportsFilter = 'fixed_ready_to_test'; // default: surface tickets ready for the user to re-test
 
   function show(el) { el.classList.remove('hidden'); el.classList.add('flex'); }
   function hide(el) { el.classList.add('hidden'); el.classList.remove('flex'); }
@@ -5774,6 +5967,7 @@ async function gpSubmitReject() {
     fixed_ready_to_test: ['Fixed & Ready to Test', 'bg-emerald-100 text-emerald-700'],
     more_info_required:  ['More Info Required', 'bg-amber-100 text-amber-800'],
     closed:              ['Closed', 'bg-gray-200 text-gray-500'],
+    roadmap:             ['On Roadmap', 'bg-violet-100 text-violet-700'],
   };
   const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -5863,17 +6057,38 @@ async function gpSubmitReject() {
     const list = document.getElementById('ri-my-list');
     if (!list) return;
     list.innerHTML = '<div class="text-gray-400 animate-pulse">Loading…</div>';
+    const select = document.getElementById('ri-status-filter');
+    if (select) select.value = _myReportsFilter;
     try {
       const res = await fetch('/.netlify/functions/issue-reports');
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { list.innerHTML = `<p class="text-red-600">${esc(d.error || 'Failed to load.')}</p>`; return; }
-      const issues = d.issues || [];
-      if (!issues.length) { list.innerHTML = '<p class="text-gray-400">You haven\'t reported any issues yet.</p>'; return; }
-      list.innerHTML = issues.map(renderIssueCard).join('');
+      _myReports = d.issues || [];
+      if (!_myReports.length) { list.innerHTML = '<p class="text-gray-400">You haven\'t reported any issues yet.</p>'; return; }
+      renderMyReportsList();
     } catch {
       list.innerHTML = '<p class="text-red-600">Network error — please try again.</p>';
     }
   }
+
+  function renderMyReportsList() {
+    const list = document.getElementById('ri-my-list');
+    if (!list) return;
+    const issues = _myReportsFilter === 'all'
+      ? _myReports
+      : _myReports.filter((i) => i.status === _myReportsFilter);
+    if (!issues.length) {
+      const [label] = STATUS_BADGE[_myReportsFilter] || [];
+      list.innerHTML = `<p class="text-gray-400">No reports with status "${esc(label || _myReportsFilter)}".</p>`;
+      return;
+    }
+    list.innerHTML = issues.map(renderIssueCard).join('');
+  }
+
+  window.riFilterReports = function (status) {
+    _myReportsFilter = status;
+    renderMyReportsList();
+  };
 
   function renderIssueCard(i) {
     const [label, cls] = STATUS_BADGE[i.status] || [i.statusLabel || i.status, 'bg-gray-100 text-gray-700'];
@@ -5902,7 +6117,7 @@ async function gpSubmitReject() {
     return `
       <div class="border border-gray-200 rounded-xl p-3">
         <div class="flex items-start justify-between gap-2">
-          <p class="text-sm font-semibold text-gray-800 line-clamp-2">${esc(i.description)}</p>
+          <p class="text-sm font-semibold text-gray-800 whitespace-pre-wrap">${esc(i.description)}</p>
           <span class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}">${esc(label)}</span>
         </div>
         <p class="text-[11px] text-gray-400 mt-1">#${i.id} · ${esc(i.sourceLocation || '—')} · ${date}${i.hasImage ? ' · 📎 screenshot' : ''}</p>
@@ -5978,7 +6193,7 @@ async function gpSubmitReject() {
     <div class="flex items-start justify-between gap-3 mb-3">
       <div>
         <h2 class="text-lg font-extrabold text-gray-900">Set up your assistant</h2>
-        <p id="setup-wizard-progress-label" class="text-xs font-semibold text-emerald-600 mt-0.5">Step 1 of 9</p>
+        <p id="setup-wizard-progress-label" class="text-xs font-semibold text-emerald-600 mt-0.5">Step 1 of 8</p>
       </div>
       <button type="button" id="setup-wizard-close" aria-label="Collapse setup guide"
               class="text-gray-400 hover:text-gray-700 transition shrink-0 cursor-pointer p-1 -m-1">
@@ -5992,7 +6207,7 @@ async function gpSubmitReject() {
   <!-- Step list / go-live state (filled by the controller) -->
   <div id="setup-wizard-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
   <div class="px-5 py-3 border-t border-gray-100">
-    <a href="/help.html" target="_blank" rel="noopener noreferrer"
+    <a href="#" onclick="event.preventDefault(); window.loadView && window.loadView('help');"
        class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">Need a hand? Read the setup guide &rarr;</a>
   </div>
 </aside>
@@ -6211,8 +6426,11 @@ async function gpSubmitReject() {
         return;
       }
 
-      // answer (with optional suggested view)
-      if (d.suggestView && window.loadView) {
+      // answer (with an optional "Take me there" or "Report an issue" follow-up)
+      if (d.suggestReportIssue && window.openReportIssue) {
+        showReply(`${reply}<div class="cmdbar-followup"><button type="button" class="cmdbar-go">Report an issue →</button></div>`);
+        result.querySelector('.cmdbar-go').onclick = () => { window.openReportIssue('new'); close(); };
+      } else if (d.suggestView && window.loadView) {
         showReply(`${reply}<div class="cmdbar-followup"><button type="button" class="cmdbar-go">Take me there →</button></div>`);
         result.querySelector('.cmdbar-go').onclick = () => { window.loadView(d.suggestView); close(); };
       } else {
@@ -6283,7 +6501,7 @@ async function gpSubmitReject() {
   // Secondary-onboarding (US8 AC3) lives in sessionStorage so it survives the full-page
   // hop to the standalone assistant onboarding wizard (onboarding-*.html) and back. MODE_KEY
   // flags an in-progress "add another assistant" journey; the SINCE_* ids baseline it so the
-  // backend scopes steps 6-9 to the new assistant only.
+  // backend scopes steps 6-8 to the new assistant only.
   const MODE_KEY = 'swan_wizard_mode';
   const SINCE_A_KEY = 'swan_wizard_since_assistant';
   const SINCE_D_KEY = 'swan_wizard_since_draft';
@@ -6313,6 +6531,70 @@ async function gpSubmitReject() {
     fab.style.display = show ? 'inline-flex' : 'none';
     const c = document.getElementById('setup-wizard-fab-count');
     if (c) c.textContent = (typeof remaining === 'number' && remaining > 0) ? `· ${remaining} left` : '';
+  }
+
+  // Sub-task CTA labels for the "Preparing your assistant" readiness checklist. The routing
+  // for each key lives in the click wiring below (agreements → My Account; the rest → the
+  // primary assistant's relevant tab).
+  const SUBSTEP_CTA = {
+    connections:    'Connect your tools',
+    disclosure:     'Set AI disclosure',
+    guardrails:     'Add guardrails',
+    brand_strategy: 'Complete onboarding',
+    tos:            'Review agreements',
+    dpa:            'Review agreements',
+    prohibited_use: 'Review agreements',
+    conformity:     'Review agreements',
+  };
+
+  // Render the Board Room readiness items as the nested sub-tasks of "Preparing your assistant",
+  // plus the inline Kick Off button once every required item is green.
+  function renderPreparingSubSteps(step) {
+    const subTick   = '<svg class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+    const subCircle = '<svg class="w-4 h-4 text-gray-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>';
+    const items = (step.subSteps || []).map(ss => `
+      <div class="flex items-start gap-2">
+        ${ss.done ? subTick : subCircle}
+        <div class="min-w-0 flex-1">
+          <span class="block text-xs font-semibold ${ss.done ? 'text-gray-400 line-through' : 'text-gray-700'}">${ss.label}${ss.required ? '' : ' <span class="font-normal text-gray-400">(recommended)</span>'}</span>
+          ${!ss.done ? `<button type="button" class="setup-wizard-substep mt-0.5 text-xs font-semibold text-emerald-600 hover:underline cursor-pointer" data-subkey="${ss.key}">${SUBSTEP_CTA[ss.key] || 'Open'} &rarr;</button>` : ''}
+        </div>
+      </div>`).join('');
+    // Kick Off appears only when the assistant is genuinely ready (provisioned + all required
+    // sub-tasks green). When the prep is done but provisioning is still finishing, show a brief
+    // "almost there" note instead so the button never 409s.
+    let footer = '';
+    if (step.subStepsReady) {
+      footer = '<button type="button" id="setup-wizard-kickoff" class="mt-3 w-full inline-flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl px-4 py-2.5 transition cursor-pointer">🚀 Initiate Kick Off</button>';
+    } else if (step.subStepsAllRequiredDone) {
+      footer = '<p class="mt-3 text-xs text-gray-500">Finishing setup — you\'ll be able to kick off in a moment.</p>';
+    }
+    return `<div class="mt-2 ml-10 mr-1 space-y-2 border-l border-gray-200 pl-3">${items}${footer}</div>`;
+  }
+
+  // "Onboard your assistant" is org-wide gated on every open onboarding draft (see
+  // computeOnboardingProgress) — surface exactly which draft(s) are still open, whose they are,
+  // and (for the caller's own) let them jump straight back in or cancel it, so the step never
+  // looks stuck with no explanation.
+  function renderBlockingDraftsSubSteps(step) {
+    const items = (step.blockingDrafts || []).map(bd => {
+      const when = new Date(bd.updatedAt).toLocaleDateString();
+      const actions = bd.isMine
+        ? `<div class="mt-1 flex items-center gap-3">
+             <button type="button" class="setup-wizard-draft-resume text-xs font-semibold text-emerald-600 hover:underline cursor-pointer" data-draft-id="${bd.id}">Resume setup &rarr;</button>
+             <button type="button" class="setup-wizard-draft-cancel text-xs font-semibold text-red-600 hover:underline cursor-pointer" data-draft-id="${bd.id}">Cancel setup</button>
+           </div>`
+        : `<span class="block text-xs text-gray-400 mt-0.5">Ask them to finish or cancel it, or manage it from My Team.</span>`;
+      return `
+        <div class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-gray-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>
+          <div class="min-w-0 flex-1">
+            <span class="block text-xs font-semibold text-gray-700">${bd.label} — started by ${bd.isMine ? 'you' : bd.ownerName} (${when})</span>
+            ${actions}
+          </div>
+        </div>`;
+    }).join('');
+    return `<div class="mt-2 ml-10 mr-1 space-y-2 border-l border-gray-200 pl-3">${items}</div>`;
   }
 
   function render(data) {
@@ -6348,6 +6630,18 @@ async function gpSubmitReject() {
       const locked = !s.done && (i + 1) > data.currentStep;
       const actionable = !locked && (s.view || s.key === 'plan');
       const num = `<span class="flex items-center justify-center w-7 h-7 rounded-full ${isCurrent ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'} font-bold text-sm shrink-0">${i + 1}</span>`;
+      // "Preparing your assistant" expands into the Board Room readiness checklist as in-drawer
+      // sub-tasks while it's the current step — so every outstanding kick-off item is visible
+      // here (no surprises at the Board Room) and the inline Kick Off can fire once all required
+      // sub-tasks are green.
+      // "Onboard your assistant" can look permanently stuck when a draft — the user's own or a
+      // colleague's — is still open somewhere in the org; break it down the same way so it's
+      // never a dead end.
+      const subHtml = (s.key === 'preparing' && isCurrent && !s.done && Array.isArray(s.subSteps) && s.subSteps.length)
+        ? renderPreparingSubSteps(s)
+        : (s.key === 'assistant_onboarding' && isCurrent && !s.done && Array.isArray(s.blockingDrafts) && s.blockingDrafts.length)
+        ? renderBlockingDraftsSubSteps(s)
+        : '';
       return `
         <li>
           <button type="button" data-key="${s.key}" data-view="${s.view || ''}" data-locked="${locked ? '1' : ''}" ${actionable ? '' : 'disabled'}
@@ -6359,8 +6653,9 @@ async function gpSubmitReject() {
               ${s.done ? '<span class="block text-xs text-emerald-600 font-semibold mt-0.5">Completed</span>' : ''}
               ${locked ? '<span class="block text-xs text-gray-400 mt-0.5">Complete the previous step to unlock</span>' : ''}
             </span>
-            ${(!s.done && actionable && s.view) ? '<span class="text-emerald-600 font-bold self-center shrink-0">&rarr;</span>' : ''}
+            ${(!s.done && actionable && s.view && !subHtml) ? '<span class="text-emerald-600 font-bold self-center shrink-0">&rarr;</span>' : ''}
           </button>
+          ${subHtml}
         </li>`;
     }).join('')}</ul>`;
 
@@ -6377,15 +6672,96 @@ async function gpSubmitReject() {
       }
       if (!view) return;
       btn.addEventListener('click', () => {
+        // The compliance step routes to My Account → "My Agreements" (NOT Profile Information),
+        // where the user reviews and accepts every outstanding agreement in one place. Accepting
+        // them all auto-advances the wizard (see _onAgreementsComplete in initMyAgreements).
+        if (key === 'compliance') {
+          Promise.resolve(window.loadView?.('settings')).then(() => {
+            window.activateSettingsTab?.('agreements');
+          });
+          return;
+        }
+        // "Preparing your assistant" acts ON the assistant being onboarded — clicking the row
+        // itself opens its Board Room. The granular sub-task buttons (rendered beneath) deep-link
+        // to the specific tab each readiness item needs. Falls back to the catalog only when no
+        // assistant exists yet (selection step not done).
+        if (key === 'preparing' && data.primaryAssistantId && window.routeToAssistantDetail) {
+          window.routeToAssistantDetail(data.primaryAssistantId);
+          return;
+        }
         // US1 AC2 — route the main area, but keep the drawer open as a companion.
         if (window.loadView) window.loadView(view);
-        // The compliance step is where the DPA / ToS / AI-disclaimer modals now live.
-        // They no longer auto-pop on login — they surface only when the user reaches
-        // this wizard step. Defer so the routed settings view has mounted first.
-        if (key === 'compliance' && typeof window.showComplianceModals === 'function') {
-          setTimeout(() => window.showComplianceModals(), 300);
-        }
       });
+    });
+
+    // Readiness sub-task deep-links (Preparing your assistant). Agreements (ToS/DPA/etc.) route
+    // to My Account → My Agreements; everything else to the primary assistant's relevant tab.
+    body.querySelectorAll('.setup-wizard-substep').forEach(btn => {
+      const subkey = btn.getAttribute('data-subkey');
+      btn.addEventListener('click', () => {
+        if (['tos', 'dpa', 'prohibited_use', 'conformity'].includes(subkey)) {
+          Promise.resolve(window.loadView?.('settings')).then(() => window.activateSettingsTab?.('agreements'));
+          return;
+        }
+        if (!data.primaryAssistantId || !window.routeToAssistantDetail) { window.loadView?.('catalog'); return; }
+        if (subkey === 'connections') window._assistantDetailInitialTab = 'platforms';
+        else if (subkey === 'disclosure' || subkey === 'guardrails') window._assistantDetailInitialTab = 'guardrails';
+        window.routeToAssistantDetail(data.primaryAssistantId);
+      });
+    });
+
+    // Blocking-draft actions ("Onboard your assistant" sub-tasks) — only ever offered for the
+    // caller's own draft (onboarding-draft.ts scopes both GET-by-id and DELETE to the caller's
+    // userId), so these can't silently no-op against a colleague's draft.
+    body.querySelectorAll('.setup-wizard-draft-resume').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const draftId = Number(btn.getAttribute('data-draft-id'));
+        try {
+          const r = await fetch(`/.netlify/functions/onboarding-draft?id=${draftId}`);
+          const d = r.ok ? (await r.json()).draft : null;
+          if (d) await window.loadView?.('assistant-setup', { kind: 'draft', draftId: d.id, onboardingPath: d.onboardingPath, displayName: d.displayName, currentStep: d.currentStep });
+        } catch { window.showToast?.('Could not open that setup. Please try again.'); }
+      });
+    });
+    body.querySelectorAll('.setup-wizard-draft-cancel').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const draftId = Number(btn.getAttribute('data-draft-id'));
+        window.showConfirmModal?.('Are you sure you want to cancel this setup? All progress will be lost.', async () => {
+          try {
+            const res = await fetch(`/.netlify/functions/onboarding-draft?id=${draftId}`, { method: 'DELETE' });
+            if (res.ok) { window.showToast?.('Setup cancelled.', { icon: '🗑️' }); refresh(); }
+            else window.showToast?.('Could not cancel setup. Please try again.');
+          } catch { window.showToast?.('Could not cancel setup. Please try again.'); }
+        });
+      });
+    });
+
+    // Inline Kick Off — activates the assistant without leaving the drawer (mirrors the Board
+    // Room kick-off in assistants.js). On success the wizard refreshes: go_live ticks and the
+    // drawer flips to the "Your assistant is live!" celebration.
+    const koBtn = document.getElementById('setup-wizard-kickoff');
+    if (koBtn) koBtn.addEventListener('click', async () => {
+      const pid = data.primaryAssistantId;
+      if (!pid) return;
+      koBtn.disabled = true;
+      const original = koBtn.textContent;
+      koBtn.textContent = 'Starting…';
+      try {
+        const res = await fetch(`/.netlify/functions/kickoff-assistant?id=${pid}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          alert(d.error || 'Could not start the assistant. Please complete the checklist and try again.');
+          koBtn.disabled = false; koBtn.textContent = original; return;
+        }
+        window.showToast?.('Your assistant is now working! 🚀', { icon: '🚀' });
+        window.fireConfetti?.();
+        refresh();
+      } catch {
+        alert('Network error — please try again.');
+        koBtn.disabled = false; koBtn.textContent = original;
+      }
     });
   }
 
@@ -6412,7 +6788,7 @@ async function gpSubmitReject() {
     try {
       let url = '/.netlify/functions/get-wizard-state';
       if (isAddMode()) {
-        // Scope steps 6-9 to the new assistant being added (past the captured baseline).
+        // Scope steps 6-8 to the new assistant being added (past the captured baseline).
         const sa = sessionStorage.getItem(SINCE_A_KEY) || '0';
         const sd = sessionStorage.getItem(SINCE_D_KEY) || '0';
         url += `?mode=new&sinceAssistantId=${encodeURIComponent(sa)}&sinceDraftId=${encodeURIComponent(sd)}`;
@@ -6432,7 +6808,7 @@ async function gpSubmitReject() {
     render(data);
 
     const collapsedPref = collapseStore.getItem(COLLAPSE_KEY) === '1';
-    const remaining = (data.total ?? 9) - (data.completedCount ?? 0);
+    const remaining = (data.total ?? 8) - (data.completedCount ?? 0);
 
     // Permanent hide once finished, or for users who completed the legacy onboarding —
     // they can still re-open from My Account (US8 AC2).
@@ -6444,8 +6820,12 @@ async function gpSubmitReject() {
       open();
       return;
     }
-    // Otherwise reflect current open/collapsed state without forcing anything open.
-    if (!isOpen) showFab(!data.allDone && !data.dismissed && collapsedPref, remaining);
+    // Otherwise reflect current state without forcing anything open. The pill means
+    // "onboarding still pending but the drawer is closed", so show it whenever work
+    // remains and the drawer isn't open — not only after an explicit collapse. This is
+    // what makes the pill survive full-page reloads and landings on non-dashboard views,
+    // where the drawer was never auto-opened (auto-open only fires from initDashboard).
+    if (!isOpen) showFab(!data.allDone && !data.dismissed, remaining);
   }
 
   function open() {
@@ -6458,7 +6838,7 @@ async function gpSubmitReject() {
   function collapse() {
     collapseStore.setItem(COLLAPSE_KEY, '1');
     setOpen(false);
-    const remaining = lastData ? ((lastData.total ?? 9) - (lastData.completedCount ?? 0)) : 0;
+    const remaining = lastData ? ((lastData.total ?? 8) - (lastData.completedCount ?? 0)) : 0;
     // Show the Resume pill only while there's still onboarding to do (US1 AC3).
     showFab(!!(lastData && !lastData.allDone && !lastData.dismissed), remaining);
   }
@@ -6467,14 +6847,21 @@ async function gpSubmitReject() {
   // completed on the page just visited ticks (and celebrates) when the user returns,
   // but never force-opens a collapsed/finished drawer.
   function onNavigate() {
-    if (isOpen || collapseStore.getItem(COLLAPSE_KEY) === '1') refresh();
+    // Re-sync after every SPA navigation so the Resume pill (or open drawer) stays correct no
+    // matter where the user landed — previously this only ran when the drawer was already open
+    // or explicitly collapsed, so a closed-but-not-collapsed wizard (e.g. after a full-page
+    // reload, or landing on a non-dashboard view) never resurfaced its pill. refresh() carries
+    // no autoOpen, so it never force-opens; it just shows the pill when work remains. Skip only
+    // once onboarding is finished/dismissed (no pill needed) to avoid re-fetching on every nav.
+    if (lastData && (lastData.allDone || lastData.dismissed) && !isOpen) return;
+    refresh();
   }
 
   // US8 AC3 — secondary onboarding. An existing user adding another assistant re-opens the
   // same drawer with the global steps (plan/business/profile/compliance) already ticked and
-  // the assistant-specific steps 6-9 genuinely reset for the NEW assistant. We baseline on
+  // the assistant-specific steps 6-8 genuinely reset for the NEW assistant. We baseline on
   // the current max assistant/draft ids and hand them to the backend (via fetchState), which
-  // scopes 6-9 to entities created past that baseline — so the new journey ticks 7-9
+  // scopes 6-8 to entities created past that baseline — so the new journey ticks 7-8
   // independently of any existing live assistants, and the state survives the full-page hop
   // to the standalone onboarding wizard.
   async function openForNewAssistant() {
@@ -6492,7 +6879,7 @@ async function gpSubmitReject() {
     sessionStorage.setItem(SINCE_D_KEY, String(base?.maxDraftId ?? 0));
     // Reset celebration/diff baselines so the fresh journey is tracked from scratch.
     last = null; celebratedGoLive = false;
-    await refresh();   // now scoped to the new assistant (steps 6-9 reset)
+    await refresh();   // now scoped to the new assistant (steps 6-8 reset)
     open();
     if (window.loadView) window.loadView('catalog');
   }

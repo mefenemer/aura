@@ -199,6 +199,7 @@ function _assetRow(asset, sec) {
     const icon = _typeIcon(asset.assetType, asset.mimeType);
     const date = new Date(asset.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     const fileSize = asset.fileSize ? _formatBytes(asset.fileSize) : '';
+    const source = _sourceInfo(asset);
 
     // Actions depend on status
     let actions = '';
@@ -251,11 +252,16 @@ function _assetRow(asset, sec) {
              </span>
            </span>`
         : '';
+    // Corner chip on the thumbnail so ownership/source reads at a glance, without
+    // having to read the row text (the ask in issue #54).
+    const sourceChip = source
+        ? `<span title="${source.label}" class="absolute bottom-0 right-1 w-4 h-4 rounded-full ${source.chipClass} shadow flex items-center justify-center pointer-events-none">${source.icon}</span>`
+        : '';
     const thumbInner = (asset.assetType === 'image' && asset.storageUrl)
-        ? `<img src="${asset.storageUrl}" alt="" class="w-full h-full object-cover rounded-lg">${playOverlay}`
+        ? `<img src="${asset.storageUrl}" alt="" class="w-full h-full object-cover rounded-lg">${playOverlay}${sourceChip}`
         : (asset.assetType === 'video' && asset.storageUrl)
-            ? `<video src="${asset.storageUrl}" class="w-full h-full object-cover rounded-lg" preload="metadata" muted playsinline></video>${playOverlay}`
-            : `<div class="w-full h-full flex items-center justify-center text-gray-400">${icon}</div>${playOverlay}`;
+            ? `<video src="${asset.storageUrl}" class="w-full h-full object-cover rounded-lg" preload="metadata" muted playsinline></video>${playOverlay}${sourceChip}`
+            : `<div class="w-full h-full flex items-center justify-center text-gray-400">${icon}</div>${playOverlay}${sourceChip}`;
     const tile = canView
         ? `<button type="button" onclick="window._mcViewAsset(${asset.id})" title="View"
              class="relative w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200 cursor-pointer hover:ring-2 hover:ring-emerald-400 transition">${thumbInner}</button>`
@@ -275,6 +281,7 @@ function _assetRow(asset, sec) {
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
           <p class="text-sm font-bold text-gray-900 truncate">${_escHtml(asset.name)}</p>
+          ${source ? `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${source.badgeClass}">${source.label}</span>` : ''}
           ${scheduledBadge}
         </div>
         <p class="text-xs text-gray-400 mt-0.5">${_typeLabel(asset.assetType)}${fileSize ? ' · ' + fileSize : ''} · ${date}</p>
@@ -976,6 +983,36 @@ function _formatBytes(bytes) {
 
 function _typeLabel(type) {
     return { image: 'Image', video: 'Video', link: 'Link' }[type] || type;
+}
+
+// Which of {your upload, AI-sourced, AI-generated} an asset is, for the badges in
+// _assetRow. Driven by contentAssets.provider (US3 AC3.2 / Epic 1 AI Media Generation):
+// 'fal' = generated, 'pexels' (or any other stock provider) = sourced, null = user upload.
+// Only shown for visual assets — link assets are always user-provided, so no badge adds value.
+function _sourceInfo(asset) {
+    if (asset.assetType !== 'image' && asset.assetType !== 'video') return null;
+    if (asset.provider === 'fal') {
+        return {
+            label: 'AI Generated',
+            badgeClass: 'bg-pink-50 text-pink-700 border-pink-200',
+            chipClass: 'bg-pink-500',
+            icon: `<svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2l1.6 4.8L16 8.4l-4.4 1.6L10 15l-1.6-5-4.4-1.6 4.4-1.6L10 2z"/></svg>`,
+        };
+    }
+    if (asset.provider) {
+        return {
+            label: 'Sourced by Assistant',
+            badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+            chipClass: 'bg-blue-500',
+            icon: `<svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M19 11a8 8 0 11-16 0 8 8 0 0116 0z"/></svg>`,
+        };
+    }
+    return {
+        label: 'Your Upload',
+        badgeClass: 'bg-gray-50 text-gray-600 border-gray-200',
+        chipClass: 'bg-gray-500',
+        icon: `<svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>`,
+    };
 }
 
 function _typeIcon(type) {

@@ -8,7 +8,7 @@
 // Schedule: "0 7 * * *" (07:00 UTC daily), after draft-horizon-fill (06:00). Also POSTable for tests.
 
 import { Handler } from '@netlify/functions';
-import { and, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, sql, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import {
     aiAssistants, masterAssistants, scheduledPosts, scheduledPostAssets,
@@ -20,6 +20,7 @@ import { holdAutonomousCredits, settleHold, IMAGE_CREDIT_COST } from '../../src/
 import { FalContentPolicyError } from '../../src/lib/fal-gateway';
 import { resolveMediaForPost } from '../../src/utils/media-resolver';
 import { recordPostedAssets } from '../../src/utils/pexels';
+import { SMM_ROLE_KEYS } from '../../src/constants/roles';
 
 const PLATFORM = 'instagram';        // only Instagram has a live publisher today
 const ASPECT = '4:5' as const;       // Instagram feed-friendly
@@ -81,7 +82,7 @@ export const handler: Handler = async (event) => {
         .where(and(
             eq(aiAssistants.isActive, true),
             eq(aiAssistants.autonomousMediaEnabled, true),
-            eq(masterAssistants.roleKey, 'social_media_manager'),
+            inArray(masterAssistants.roleKey, SMM_ROLE_KEYS),
         ));
 
     let drafted = 0, skippedNoGap = 0, failed = 0, exhausted = 0;

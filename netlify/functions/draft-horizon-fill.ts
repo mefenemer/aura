@@ -9,10 +9,11 @@
 // generation queue so the user always has content N days ahead.
 
 import { Handler } from '@netlify/functions';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
 import { aiAssistants, masterAssistants } from '../../db/schema';
 import { enqueueScheduleGapFill } from '../../src/utils/schedule-gap-fill';
+import { SMM_ROLE_KEYS } from '../../src/constants/roles';
 
 export const handler: Handler = async (event) => {
     // Allow both scheduled invocations and manual POST for testing
@@ -31,17 +32,18 @@ export const handler: Handler = async (event) => {
             name: aiAssistants.name,
             onboardingContext: aiAssistants.onboardingContext,
             draftHorizonDays: aiAssistants.draftHorizonDays,
+            configuration: aiAssistants.configuration,
         })
         .from(aiAssistants)
         .innerJoin(masterAssistants, eq(aiAssistants.masterAssistantId, masterAssistants.id))
         .where(and(
             eq(aiAssistants.isActive, true),
-            eq(masterAssistants.roleKey, 'social_media_manager'),
+            inArray(masterAssistants.roleKey, SMM_ROLE_KEYS),
         ));
 
     const now = new Date();
     let jobsEnqueued = 0;
-    const skipped: Record<string, number> = { on_demand: 0, no_blueprint: 0, blocking_gaps: 0, fully_covered: 0 };
+    const skipped: Record<string, number> = { on_demand: 0, no_blueprint: 0, blocking_gaps: 0, fully_covered: 0, empty_library_skipped: 0 };
 
     for (const assistant of smmAssistants) {
         try {
