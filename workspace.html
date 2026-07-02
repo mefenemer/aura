@@ -4115,7 +4115,15 @@ function rqOpenStatus(statusKey, btn) {
     });
     const active = btn || document.querySelector(`.rq-col[data-status="${statusKey}"]`);
     if (active) { active.classList.add('border-b-2', 'border-emerald-600', 'text-emerald-700'); active.classList.remove('text-gray-500'); }
-    rqRenderGroups(statusKey);
+    return rqRenderGroups(statusKey);
+}
+
+// Ideas tab "Review this draft →": jump straight to the Review column AND pop the specific
+// draft's mock-up modal, instead of leaving the user to hunt for it among the Posts group
+// (the vague tab-switch was the source of the "I don't know how to review it" feedback).
+async function rqViewIdeaDraft(postId) {
+    await rqOpenStatus('review');
+    if (postId) openPostReview(postId);
 }
 
 async function rqRenderGroups(statusKey) {
