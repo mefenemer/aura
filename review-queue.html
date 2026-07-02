@@ -18,18 +18,18 @@
     <!-- Lifecycle columns -->
     <div class="flex gap-1 px-4 pt-3 border-b border-gray-100 overflow-x-auto">
       <button class="rq-col px-4 py-2 text-sm font-semibold rounded-t border-b-2 border-emerald-600 text-emerald-700 whitespace-nowrap"
-        data-status="review" onclick="rqOpenStatus('review', this)">
+        data-status="review" onclick="_rqSafeOpenStatus('review', this)">
         Review
         <span id="rq-col-count-review" class="ml-1 bg-amber-100 text-amber-700 text-xs px-1.5 py-0.5 rounded-full hidden"></span>
       </button>
       <button class="rq-col px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap"
-        data-status="approved" onclick="rqOpenStatus('approved', this)">Approved</button>
+        data-status="approved" onclick="_rqSafeOpenStatus('approved', this)">Approved</button>
       <button class="rq-col px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap"
-        data-status="scheduled" onclick="rqOpenStatus('scheduled', this)">Scheduled</button>
+        data-status="scheduled" onclick="_rqSafeOpenStatus('scheduled', this)">Scheduled</button>
       <button class="rq-col px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap"
-        data-status="posted" onclick="rqOpenStatus('posted', this)">Posted</button>
+        data-status="posted" onclick="_rqSafeOpenStatus('posted', this)">Posted</button>
       <button class="rq-col px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-t whitespace-nowrap"
-        data-status="archived" onclick="rqOpenStatus('archived', this)">Archived</button>
+        data-status="archived" onclick="_rqSafeOpenStatus('archived', this)">Archived</button>
     </div>
 
     <!-- Grouped, collapsible content -->
@@ -40,6 +40,15 @@
 
 <script>
 (function initReviewQueuePage() {
-  if (typeof rqOpenStatus === 'function') rqOpenStatus('review', document.querySelector('.rq-col[data-status="review"]'));
+  // rqOpenStatus lives in workspace.html's main script, which normally finishes loading
+  // well before this view is ever reachable — but this view's own <script> is re-executed
+  // synchronously right after its markup is injected (see loadView() in workspace.html),
+  // so on a slow/first load there's a narrow window where the tab buttons above could be
+  // clicked before that global exists, throwing "rqOpenStatus is not defined" out of the
+  // onclick handler. Route clicks through this always-defined wrapper instead.
+  window._rqSafeOpenStatus = function (statusKey, btn) {
+    if (typeof rqOpenStatus === 'function') rqOpenStatus(statusKey, btn);
+  };
+  window._rqSafeOpenStatus('review', document.querySelector('.rq-col[data-status="review"]'));
 })();
 </script>
