@@ -188,6 +188,26 @@ async function ackResume(ok, message) {
 const SQL_START = '---SQL-MIGRATION-START---';
 const SQL_END = '---SQL-MIGRATION-END---';
 
+// The ticket thread as prompt lines. On retries this carries the reporter's
+// "why the previous fix didn't work" feedback plus the earlier attempt's summary —
+// the most important context the fixer has, so it must not be dropped.
+function threadLines(issue) {
+  const thread = Array.isArray(issue.thread) ? issue.thread.filter((m) => m && m.body) : [];
+  if (thread.length === 0) return [];
+  return [
+    ``,
+    `--- TICKET THREAD (oldest first; 'user' = the reporter, 'admin' = the team/AI) ---`,
+    `The thread may include previous fix attempts and the reporter's feedback on why a fix`,
+    `failed testing. Treat the LATEST reporter feedback as the current problem statement —`,
+    `do not repeat an approach the thread says already failed.`,
+    ...thread.map((m) => {
+      const when = m.createdAt ? ` @ ${m.createdAt}` : '';
+      const moved = m.status ? ` [status → ${m.status}]` : '';
+      return `[${m.authorType}${when}]${moved}\n${m.body}`;
+    }),
+  ];
+}
+
 function buildPrompt(issue) {
   return [
     `You are an autonomous developer fixing a bug reported by a user of the Aura / "Be More Swan" app.`,
@@ -212,6 +232,7 @@ function buildPrompt(issue) {
     ``,
     `Description:`,
     issue.description || '(no description provided)',
+    ...threadLines(issue),
   ].filter(Boolean).join('\n');
 }
 

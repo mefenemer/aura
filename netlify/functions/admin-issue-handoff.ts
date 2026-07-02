@@ -84,6 +84,21 @@ export const handler: Handler = async (event) => {
             .select({ email: users.email, firstName: users.firstName, lastName: users.lastName })
             .from(users).where(eq(users.id, issue.userId)).limit(1);
 
+        // The ticket thread. On a retry the reporter's "why the fix didn't work" comments
+        // (and the previous attempt's summary) live here — without them the fixer would
+        // regenerate the exact fix that already failed testing.
+        const thread = await db
+            .select({
+                authorType: issueReportMessages.authorType,
+                body: issueReportMessages.body,
+                status: issueReportMessages.status,
+                createdAt: issueReportMessages.createdAt,
+            })
+            .from(issueReportMessages)
+            .where(eq(issueReportMessages.issueId, next.id))
+            .orderBy(asc(issueReportMessages.createdAt))
+            .limit(50);
+
         return json(200, {
             issue: {
                 id: issue.id,
@@ -96,6 +111,7 @@ export const handler: Handler = async (event) => {
                 createdAt: issue.createdAt,
                 reporterName: [reporter?.firstName, reporter?.lastName].filter(Boolean).join(' ') || reporter?.email || `User #${issue.userId}`,
                 reporterEmail: reporter?.email || null,
+                thread,
             },
         });
     }
