@@ -8,7 +8,7 @@ import { HandlerEvent } from '@netlify/functions';
 import { eq, and, gte, count } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/client';
-import { users, userProfiles, taskRuns, plans, masterPlans, userOrganisations } from '../../db/schema';
+import { users, userProfiles, taskRuns, scheduledPosts, plans, masterPlans, userOrganisations } from '../../db/schema';
 import { getTimeMultipliers } from '../../src/utils/platform-config';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -51,25 +51,48 @@ export const handler = async (event: HandlerEvent) => {
     }
 
     try {
-        // SC6: Count completed tasks in the period
-        const [{ taskCount }] = await db
-            .select({ taskCount: count() })
+        // Resolve the user's organisation once — task/post activity is org-wide
+        // (created by any teammate or by an assistant acting on the org's behalf),
+        // not scoped to the single logged-in user.
+        const [membership] = await db
+            .select({ organisationId: userOrganisations.organisationId })
+            .from(userOrganisations)
+            .where(eq(userOrganisations.userId, userId));
+        const organisationId = membership?.organisationId ?? null;
+
+        // SC6: Count completed task runs and drafted/scheduled posts in the period.
+        // Real assistant work (e.g. the social media assistant) is recorded in
+        // scheduled_posts — task_runs alone is near-always empty for that flow, which
+        // is why this widget previously showed zero despite an assistant being active
+        // (see get-assistant-metrics.ts, which already reads from scheduled_posts).
+        const [{ taskRunCount }] = organisationId ? await db
+            .select({ taskRunCount: count() })
             .from(taskRuns)
             .where(and(
-                eq(taskRuns.userId, userId),
+                eq(taskRuns.organisationId, organisationId),
                 eq(taskRuns.status, 'completed'),
                 gte(taskRuns.createdAt, periodStart)
-            ));
+            )) : [{ taskRunCount: 0 }];
 
-        const completedTasks = Number(taskCount);
+        const [{ postCount }] = organisationId ? await db
+            .select({ postCount: count() })
+            .from(scheduledPosts)
+            .where(and(
+                eq(scheduledPosts.organisationId, organisationId),
+                gte(scheduledPosts.createdAt, periodStart)
+            )) : [{ postCount: 0 }];
 
-        // SC1: minutes saved per completed task — admin-configurable via
-        // gamification.time_multipliers, shared with the dashboard "Hours Saved"
-        // widget (get-time-saved.ts) so both views stay consistent.
-        const avgTaskDurationMinutes = (await getTimeMultipliers()).tasks_completed;
+        const completedTasks = Number(taskRunCount) + Number(postCount);
 
-        // SC1: hours saved = taskCount × avgDuration(min) / 60
-        const hoursSaved = parseFloat(((completedTasks * avgTaskDurationMinutes) / 60).toFixed(1));
+        // SC1: minutes saved per item — admin-configurable via gamification.time_multipliers,
+        // shared with the dashboard "Hours Saved" widget (get-time-saved.ts) so both views
+        // stay consistent. Task runs and drafted posts use their own multiplier.
+        const mult = await getTimeMultipliers();
+        const totalMinutes = Number(taskRunCount) * mult.tasks_completed + Number(postCount) * mult.content_drafted;
+        const avgTaskDurationMinutes = completedTasks > 0 ? totalMinutes / completedTasks : mult.tasks_completed;
+
+        // SC1: hours saved = total minutes / 60
+        const hoursSaved = parseFloat((totalMinutes / 60).toFixed(1));
 
         // Get hourly rate from profile preferences
         const [profile] = await db
@@ -83,19 +106,14 @@ export const handler = async (event: HandlerEvent) => {
         const gbpSaved = hourlyRate ? parseFloat((hoursSaved * hourlyRate).toFixed(2)) : null;
 
         // Get plan cost for break-even calculation (SC2/SC3)
-        const [user] = await db
-            .select({ organisationId: userOrganisations.organisationId })
-            .from(userOrganisations)
-            .where(eq(userOrganisations.userId, userId));
-
         let planCostGbp: number | null = null;
         let currency = 'GBP';
-        if (user?.organisationId) {
+        if (organisationId) {
             const [plan] = await db
                 .select({ monthlyPriceGbp: masterPlans.monthlyPriceGbp })
                 .from(plans)
                 .innerJoin(masterPlans, eq(plans.masterPlanId, masterPlans.id))
-                .where(and(eq(plans.organisationId, user.organisationId), eq(plans.status, 'active')))
+                .where(and(eq(plans.organisationId, organisationId), eq(plans.status, 'active')))
                 .limit(1);
             if (plan?.monthlyPriceGbp) {
                 planCostGbp = parseFloat(String(plan.monthlyPriceGbp));

@@ -13,6 +13,7 @@ import { getDb } from '../../db/client';
 import { users, scheduledPosts, contentAssets, contentProvenance, userOrganisations } from '../../db/schema';
 import { createHmac, createHash, randomUUID } from 'crypto';
 import { propagateAssetStatuses } from './content-assets';
+import { resolveAssetDisplayUrl } from '../../src/utils/social-publish';
 import { requireOnboarding } from '../../src/utils/onboarding-guard';
 import { isServiceAllowedForAssistant } from '../../src/utils/connection-map';
 import { resolveAssistantRole } from '../../src/utils/assistant-role';
@@ -63,11 +64,18 @@ export const handler: Handler = async (event) => {
                         name: contentAssets.name,
                         assetType: contentAssets.assetType,
                         storageUrl: contentAssets.storageUrl,
+                        storageKey: contentAssets.storageKey,
                         externalUrl: contentAssets.externalUrl,
                         mimeType: contentAssets.mimeType,
                     }).from(contentAssets)
                       .where(eq(contentAssets.userId, userId));
                     assets = assets.filter(a => assetIds.includes(a.id));
+                    // Resolve a displayable URL for R2-stored assets (storageUrl is null
+                    // until presigned) — otherwise the calendar panel shows "Media placeholder".
+                    assets = await Promise.all(assets.map(async a => ({
+                        ...a,
+                        storageUrl: await resolveAssetDisplayUrl(a),
+                    })));
                 }
 
                 return { statusCode: 200, body: JSON.stringify({ post, assets }) };

@@ -6,6 +6,7 @@ import type { getDb } from '../../db/client';
 import { users, notifications, issueReports, issueReportMessages } from '../../db/schema';
 import { sendEmail } from './email';
 import { resolveBaseUrl } from './base-url';
+import { isEmailAllowedForUser } from './notification-email-gate';
 
 type Db = ReturnType<typeof getDb>;
 
@@ -124,7 +125,8 @@ export async function notifyIssueUser(
         metadata: { issueId, status },
     }).catch((e) => console.error('[issue-reports] notification insert failed:', e?.message || e));
 
-    // Email the user too.
+    // Email the user too — subject to their notification preferences.
+    if (!(await isEmailAllowedForUser(userId, 'issue_update'))) return;
     const [u] = await db.select({ email: users.email, firstName: users.firstName })
         .from(users).where(eq(users.id, userId)).limit(1);
     if (!u?.email) return;
