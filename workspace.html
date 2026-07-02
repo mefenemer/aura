@@ -2151,6 +2151,10 @@ function formatCurrency(amount, currency) {
     function updateActiveNav(activeKey) {
       Object.values(navLinks).forEach(link => {
         if (!link) return;
+        // Issue #44: leave disabled/"Coming Soon" items (e.g. Orchestrations) alone —
+        // they carry their own permanent gray-400/cursor-not-allowed styling and must
+        // never be reset to the normal enabled nav-item classes.
+        if (link.dataset.comingSoon === '1') return;
         link.classList.remove('bg-emerald-50', 'text-emerald-700', 'font-semibold');
         link.classList.add('text-gray-600', 'hover:bg-gray-100', 'hover:text-gray-900', 'font-medium');
       });
