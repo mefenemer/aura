@@ -3258,21 +3258,36 @@ window._saveAutonomousMediaCap = async function () {
     const cap = parseInt(input?.value, 10);
     if (!Number.isFinite(cap) || cap < 0) { input.value = _autonomousMediaCap; return; }
 
-    let confirmOverage = false;
+    const commit = async (confirmOverage) => {
+        try {
+            const data = await _setAutonomousMedia({ monthlyCap: cap, confirmOverage });
+            _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? cap;
+            _applyAutonomousMediaUi();
+        } catch (e) { alert('Could not update the cap: ' + e.message); input.value = _autonomousMediaCap; }
+    };
+
     if (cap > _planMonthlyCredits) {
-        confirmOverage = confirm(
-            `Your plan includes ${_planMonthlyCredits} AI credits per month. Setting this assistant's ` +
+        const message = `Your plan includes ${_planMonthlyCredits} AI credits per month. Setting this assistant's ` +
             `cap to ${cap} means it may use up to ${cap - _planMonthlyCredits} credits beyond your plan's ` +
-            `allowance, which will be charged as additional usage. Continue?`
-        );
-        if (!confirmOverage) { input.value = _autonomousMediaCap; return; }
+            `allowance, which will be charged as additional usage. Continue?`;
+        const opts = {
+            title: 'Extra usage will be charged',
+            confirmLabel: 'Yes, continue',
+            cancelLabel: 'Cancel',
+            confirmColor: '#ff007f',
+            onCancel: () => { input.value = _autonomousMediaCap; },
+        };
+        if (window.showConfirmModal) {
+            window.showConfirmModal(message, () => commit(true), opts);
+        } else if (confirm(message)) {
+            await commit(true);
+        } else {
+            input.value = _autonomousMediaCap;
+        }
+        return;
     }
 
-    try {
-        const data = await _setAutonomousMedia({ monthlyCap: cap, confirmOverage });
-        _autonomousMediaCap = data.autonomousMediaMonthlyCap ?? cap;
-        _applyAutonomousMediaUi();
-    } catch (e) { alert('Could not update the cap: ' + e.message); input.value = _autonomousMediaCap; }
+    await commit(false);
 };
 
 // ── Media Source Selection ──────────────────────────────────────────
