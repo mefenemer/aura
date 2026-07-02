@@ -82,13 +82,25 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
           <span id="profile-btn-label">Assistant Profile</span>
         </button>
-        <button id="btn-toggle-status" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl transition-colors shadow-sm cursor-pointer" type="button">
-          Pause Assistant
-        </button>
-        <!-- US6 AC5.1: Safe Archiving — permanent end-of-life action -->
-        <button id="btn-archive-assistant" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-xl transition-colors shadow-sm cursor-pointer" type="button">
-          Archive
-        </button>
+        <!-- Issue #65: Pause/Archive are state-changing (and Archive is irreversible), so they're
+             tucked behind a "More actions" menu rather than sitting flush against Review Progress /
+             Assistant Profile where they were too easy to click by mistake. -->
+        <div class="relative shrink-0 ml-1 pl-2 border-l border-gray-200">
+          <button id="btn-more-actions" type="button" aria-haspopup="true" aria-expanded="false" title="More actions"
+            class="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z"/></svg>
+          </button>
+          <div id="more-actions-menu" class="hidden absolute right-0 top-full mt-2 w-52 bg-white rounded-xl border border-gray-200 shadow-lg py-1.5 z-20">
+            <button id="btn-toggle-status" class="w-full text-left px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 cursor-pointer" type="button">
+              Pause Assistant
+            </button>
+            <div class="my-1 border-t border-gray-100"></div>
+            <!-- US6 AC5.1: Safe Archiving — permanent end-of-life action -->
+            <button id="btn-archive-assistant" class="w-full text-left px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 cursor-pointer" type="button">
+              Archive
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1548,6 +1560,24 @@
 </div>
 
 <script>
+// Issue #65: header "More actions" menu (Pause Assistant / Archive) — click to toggle,
+// close on outside click, Escape, or once a menu item is chosen.
+(function () {
+  const moreBtn = document.getElementById('btn-more-actions');
+  const menu = document.getElementById('more-actions-menu');
+  if (!moreBtn || !menu) return;
+  const closeMenu = () => { menu.classList.add('hidden'); moreBtn.setAttribute('aria-expanded', 'false'); };
+  moreBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = !menu.classList.contains('hidden');
+    if (isOpen) closeMenu();
+    else { menu.classList.remove('hidden'); moreBtn.setAttribute('aria-expanded', 'true'); }
+  });
+  menu.addEventListener('click', (e) => { if (e.target.closest('button')) closeMenu(); });
+  document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== moreBtn) closeMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+})();
+
 // US-AUD-4.2.1 SC4: Revoke all connections for the org
 window._revokeAllConnections = function () {
   document.getElementById('modal-revoke-all').classList.remove('hidden');
