@@ -8,10 +8,50 @@ import { Handler } from '@netlify/functions';
 import jwt from 'jsonwebtoken';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { users, contentAssets, userOrganisations } from '../../db/schema';
+import { users, contentAssets, userOrganisations, scheduledPosts } from '../../db/schema';
 import { resolveAssetDisplayUrl } from '../../src/utils/social-publish';
 
 const jwtSecret = process.env.JWT_SECRET;
+
+// Draft/scheduled statuses that still need their media — matches the Review Queue's
+// "pending" tab. Posts that are already published/rejected/cancelled don't need a flag.
+const ACTIVE_POST_STATUSES = ['draft', 'pending_approval', 'in_review', 'approved', 'scheduled'];
+
+type AssetUsage = { id: number; platform: string; publishDate: Date; status: string };
+
+// content_assets has no FK back to the posts that use it — scheduledPosts.contentAssetIds is a
+// plain jsonb array (see db/schema.ts). Look it up by value so My Content can warn before a
+// delete, and content-assets DELETE can flag the Review Queue afterwards (Issue #55).
+async function findActivePostsByAsset(
+    db: any,
+    orgId: number | null | undefined,
+    assetIds: number[],
+): Promise<Map<number, AssetUsage[]>> {
+    const usage = new Map<number, AssetUsage[]>();
+    if (!orgId || assetIds.length === 0) return usage;
+
+    const posts = await db.select({
+        id: scheduledPosts.id,
+        platform: scheduledPosts.platform,
+        publishDate: scheduledPosts.publishDate,
+        status: scheduledPosts.status,
+        contentAssetIds: scheduledPosts.contentAssetIds,
+    }).from(scheduledPosts).where(and(
+        eq(scheduledPosts.organisationId, orgId),
+        inArray(scheduledPosts.status, ACTIVE_POST_STATUSES),
+    ));
+
+    for (const post of posts) {
+        const linkedIds: number[] = Array.isArray(post.contentAssetIds) ? post.contentAssetIds : [];
+        for (const assetId of linkedIds) {
+            if (!assetIds.includes(assetId)) continue;
+            const list = usage.get(assetId) || [];
+            list.push({ id: post.id, platform: post.platform, publishDate: post.publishDate, status: post.status });
+            usage.set(assetId, list);
+        }
+    }
+    return usage;
+}
 
 // ── Be More Swan Safe Content Benchmark ───────────────────────────────────────────────
 // Runs a safety check on a newly uploaded asset.
@@ -181,10 +221,14 @@ export const handler: Handler = async (event) => {
                 return { ...r, storageUrl: await resolveAssetDisplayUrl(r) };
             }));
 
+            // Issue #55: tell the client which active drafts/scheduled posts use each asset, so
+            // the delete-confirmation modal can warn before an in-use asset is removed.
+            const usageMap = await findActivePostsByAsset(db, orgId, enriched.map(r => r.id));
+
             enriched.forEach(r => {
                 if (r.purgedAt) return; // hide physically purged records
                 const bucket = grouped[r.status] ?? [];
-                bucket.push(r);
+                bucket.push({ ...r, usedInPosts: usageMap.get(r.id) || [] });
                 grouped[r.status] = bucket;
             });
 
@@ -314,12 +358,27 @@ export const handler: Handler = async (event) => {
                 .where(and(eq(contentAssets.id, assetId), eq(contentAssets.userId, userId)));
             if (!existing) return { statusCode: 404, body: JSON.stringify({ error: 'Asset not found.' }) };
 
+            // Issue #55: this asset may be attached to a draft/scheduled post via the deprecated
+            // contentAssetIds jsonb array (no FK, so deletion can't cascade or warn on its own).
+            // Flag any such post so the Review Queue surfaces it and offers to source new media.
+            const usageMap = await findActivePostsByAsset(db, existing.organisationId, [assetId]);
+            const affectedPosts = usageMap.get(assetId) || [];
+            if (affectedPosts.length > 0) {
+                await db.update(scheduledPosts)
+                    .set({
+                        mediaMissing: true,
+                        mediaMissingNote: `"${existing.name}" was deleted from My Content and needs to be replaced.`,
+                        updatedAt: new Date(),
+                    })
+                    .where(inArray(scheduledPosts.id, affectedPosts.map(p => p.id)));
+            }
+
             // Delete the physical file from S3 before removing the DB row, so we never
             // leave an orphaned object behind (storage leak + GDPR erasure gap).
             await deleteStorageObject(existing.storageKey);
 
             await db.delete(contentAssets).where(eq(contentAssets.id, assetId));
-            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+            return { statusCode: 200, body: JSON.stringify({ success: true, affectedPosts }) };
         }
 
         return { statusCode: 405, body: 'Method Not Allowed' };

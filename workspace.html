@@ -554,6 +554,7 @@ window.showComplianceModals = function showComplianceModals(force) {
     </div>
     <!-- Body: platform mock-up -->
     <div class="flex-1 overflow-y-auto bg-gray-50 px-4 py-5">
+      <div id="post-review-media-alert" class="hidden mb-4 text-xs rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-red-700"></div>
       <div id="post-review-body"></div>
       <div id="post-review-archive" class="hidden mt-4 text-xs"></div>
     </div>
@@ -4213,6 +4214,7 @@ function rqRenderSocialCard(draft) {
         <p class="text-xs text-gray-500 truncate">${_rqEsc(draft.assistantName || 'AI Assistant')} · ${ago}</p>
         ${draft.caption ? `<p class="text-xs text-gray-600 truncate mt-0.5 ${isArchived ? 'line-through opacity-60' : ''}">${_rqEsc(draft.caption)}</p>` : ''}
       </div>
+      ${draft.mediaMissing ? '<span class="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full border bg-red-50 border-red-200 text-red-700">⚠ Media deleted</span>' : ''}
       ${statusChip}
       <svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
     </div>`;
@@ -4568,6 +4570,20 @@ function openPostReview(postId) {
     _rqReviewPostId = postId;
 
     document.getElementById('post-review-body').innerHTML = renderPlatformMockup(post);
+
+    // Issue #55: the image/video attached to this post was deleted from My Content — prompt
+    // the user to source a replacement rather than let it silently ship with no media.
+    const mediaAlert = document.getElementById('post-review-media-alert');
+    const reviewableForMedia = ['pending_approval', 'draft', 'in_review', 'approved', 'scheduled'].includes(post.status);
+    if (post.mediaMissing && reviewableForMedia) {
+        mediaAlert.innerHTML = `<p class="font-semibold">⚠️ Media deleted</p>
+          <p class="mt-0.5">${_rqEsc(post.mediaMissingNote || 'The media attached to this post was deleted from My Content.')}</p>
+          <button onclick="rqReviewOpenMediaOnly()" class="mt-2 py-1.5 px-3 text-xs font-bold border border-red-400 text-red-700 hover:bg-red-100 rounded-lg cursor-pointer">Source new media</button>`;
+        mediaAlert.classList.remove('hidden');
+    } else {
+        mediaAlert.classList.add('hidden');
+    }
+
     const when = post.publishDate ? new Date(post.publishDate).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
     document.getElementById('post-review-sub').textContent =
         `${(post.assistantName || 'Assistant')}${when ? ' · planned for ' + when : ''}`;
@@ -4661,6 +4677,14 @@ function rqReviewAddMedia() {
 function rqReviewMediaDone() {
     _rqRestoreMediaPanel();
     rqReviewToggle();
+    // Issue #55: sourcing new media (own/stock/AI) resolves the "media deleted" flag server-side —
+    // reflect that immediately rather than waiting for the next full list refresh.
+    const id = _rqReviewPostId;
+    const post = id != null ? _rqPostCache[id] : null;
+    if (post && post.mediaMissing) {
+        post.mediaMissing = false;
+        document.getElementById('post-review-media-alert')?.classList.add('hidden');
+    }
 }
 
 // Show one inline form (amend/changes/reject/media/reschedule) and hide the primary buttons; no arg → buttons.
@@ -4773,6 +4797,13 @@ function rqReviewOpenRescheduleOnly() {
     // For scheduled/approved posts the actions footer is hidden — reveal it and go straight to reschedule.
     document.getElementById('post-review-actions').classList.remove('hidden');
     rqReviewToggle('reschedule');
+}
+
+// Issue #55: the "Source new media" button on the media-deleted banner needs the same treatment —
+// for scheduled/approved posts the actions footer (which hosts the media panel) is hidden by default.
+function rqReviewOpenMediaOnly() {
+    document.getElementById('post-review-actions').classList.remove('hidden');
+    rqReviewAddMedia();
 }
 
 async function rqReviewReschedule() {

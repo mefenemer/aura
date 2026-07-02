@@ -64,7 +64,10 @@ export const handler: Handler = async (event) => {
     // Swap the attached media: drop the old junction rows, attach the new asset.
     await db.delete(scheduledPostAssets).where(eq(scheduledPostAssets.scheduledPostId, postId));
     await db.insert(scheduledPostAssets).values({ scheduledPostId: postId, contentAssetId: assetId, position: 0 }).onConflictDoNothing();
-    await db.update(scheduledPosts).set({ contentAssetIds: [assetId] }).where(eq(scheduledPosts.id, postId));
+    // Issue #55: regenerating media resolves any "media deleted" flag from the Review Queue.
+    await db.update(scheduledPosts)
+        .set({ contentAssetIds: [assetId], mediaMissing: false, mediaMissingNote: null })
+        .where(eq(scheduledPosts.id, postId));
 
     const [asset] = await db.select({ storageKey: contentAssets.storageKey, externalUrl: contentAssets.externalUrl })
         .from(contentAssets).where(eq(contentAssets.id, assetId)).limit(1);

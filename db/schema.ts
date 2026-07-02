@@ -1480,6 +1480,11 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   // (e.g. "Drafted to fill a 3-day gap in your Instagram schedule").
   generationReason: text("generation_reason"),
   conflictNotice: text("conflict_notice"),              // set when context prompt conflicted with a strict rule
+  // Issue #55: set when a content asset attached to this post was deleted from My Content
+  // (contentAssetIds is a plain jsonb array with no FK, so deletion can't cascade — this flags
+  // the Review Queue instead so the user/assistant can source replacement media).
+  mediaMissing: boolean("media_missing").notNull().default(false),
+  mediaMissingNote: text("media_missing_note"),
   generatedAt: timestamp("generated_at"),
   // US-SMM-3.4.1: On-demand generation trigger type
   triggerType: text("trigger_type"),                       // 'on_demand' | 'scheduled' | null
