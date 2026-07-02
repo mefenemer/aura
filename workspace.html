@@ -1039,29 +1039,53 @@ function formatCurrency(amount, currency) {
   }).format(parseFloat(amount));
 }
 
-  async function loadSidebar(placeholderId) {
-    const paths = ["./components/sidebar.html", "./sidebar.html"];
-    for (let path of paths) {
-      try {
-        // Same stale-cache trap as view partials (see VIEW_VERSION below): browsers
-        // cache this raw fetch aggressively, so a deploy that edits the sidebar can
-        // leave users on an old cached copy (e.g. #45 — a removed nav link kept
-        // showing up) until the cache-buster changes.
-        const response = await fetch(`${path}?v=${VIEW_VERSION}`);
-        if (response.ok) {
-          const container = document.getElementById(placeholderId);
-          container.innerHTML = await response.text();
+  // Cache-buster for dynamically fetched view partials. Browsers cache the raw
+  // ./*.html partials aggressively, so after a deploy users can be served a stale
+  // view (e.g. the dashboard without the latest widgets). This literal is the local
+  // dev fallback only — on every Netlify deploy scripts/stamp-view-version.mjs
+  // (build:version, see netlify.toml) overwrites it with the commit SHA, so the cache
+  // busts automatically whenever a view changes. No manual bump required.
+  // Top-level scope on purpose: both loadSidebar (top-level) and the DOMContentLoaded
+  // router below use it — declaring it inside the handler made loadSidebar throw.
+  const VIEW_VERSION = 'bb501d4e';
 
-          const aside = container.querySelector('aside');
-          if (aside) {
-            aside.classList.remove('hidden', 'md:flex');
-            aside.classList.add('flex', 'w-full');
-          }
-          return;
-        }
-      } catch (e) { }
+  async function loadSidebar(placeholderId) {
+    const container = document.getElementById(placeholderId);
+    if (!container) {
+      console.error(`Error: sidebar placeholder #${placeholderId} not found in DOM`);
+      return;
     }
-    console.error("Error: Could not locate sidebar.html");
+    const paths = ["./components/sidebar.html", "./sidebar.html"];
+    const failures = [];
+    for (let path of paths) {
+      // Two attempts per path: the sidebar is load-bearing for navigation, so ride out
+      // a transient network blip (mid-deploy, flaky connection) rather than fail the page.
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          // Same stale-cache trap as view partials (see VIEW_VERSION above): browsers
+          // cache this raw fetch aggressively, so a deploy that edits the sidebar can
+          // leave users on an old cached copy (e.g. #45 — a removed nav link kept
+          // showing up) until the cache-buster changes.
+          const response = await fetch(`${path}?v=${VIEW_VERSION}`);
+          if (response.ok) {
+            container.innerHTML = await response.text();
+
+            const aside = container.querySelector('aside');
+            if (aside) {
+              aside.classList.remove('hidden', 'md:flex');
+              aside.classList.add('flex', 'w-full');
+            }
+            return;
+          }
+          failures.push(`${path}: HTTP ${response.status}`);
+          break; // non-ok status won't change on retry; move to the next path
+        } catch (e) {
+          failures.push(`${path} (attempt ${attempt}): ${e.message}`);
+          if (attempt < 2) await new Promise(r => setTimeout(r, 500));
+        }
+      }
+    }
+    console.error(`Error: Could not load sidebar.html — ${failures.join('; ')}`);
   }
 
   // Welcome chime: play Aurora.mp3 every time the workspace loads. Kept in its own
@@ -1318,14 +1342,6 @@ function formatCurrency(amount, currency) {
     if(mobileOverlay) {
       mobileOverlay.addEventListener('click', closeMobileMenu);
     }
-
-    // Cache-buster for dynamically fetched view partials. Browsers cache the raw
-    // ./*.html partials aggressively, so after a deploy users can be served a stale
-    // view (e.g. the dashboard without the latest widgets). This literal is the local
-    // dev fallback only — on every Netlify deploy scripts/stamp-view-version.mjs
-    // (build:version, see netlify.toml) overwrites it with the commit SHA, so the cache
-    // busts automatically whenever a view changes. No manual bump required.
-    const VIEW_VERSION = 'bb501d4e';
 
     // Consolidated path definitions mapping navigation links to standard modular components
     const routes = {
