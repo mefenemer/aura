@@ -1,8 +1,13 @@
 // netlify/functions/set-autonomous-media.ts
 // Epic 2 US5: toggle a per-assistant autonomous media-suggestions setting + monthly credit cap.
 //
-// PATCH { assistantId, enabled?, monthlyCap? }  → { autonomousMediaEnabled, autonomousMediaMonthlyCap }
+// PATCH { assistantId, enabled?, monthlyCap?, confirmOverage? }
+//   → { autonomousMediaEnabled, autonomousMediaMonthlyCap }
 //   Auth: aura_session cookie; caller must belong to the assistant's organisation.
+//
+// The cap is bounded by the org's plan (monthly_ai_credits). Raising it above the plan's included
+// allowance means the assistant may spend credits the plan doesn't cover, so that requires the
+// caller to pass confirmOverage:true (the UI shows a confirmation dialog first) — see issue #64.
 
 import { Handler } from '@netlify/functions';
 import { and, eq } from 'drizzle-orm';
@@ -10,6 +15,7 @@ import { getDb } from '../../db/client';
 import { aiAssistants } from '../../db/schema';
 import { requireTenant } from '../../src/utils/tenant';
 import { normalizeMediaSources } from '../../src/utils/media-sources';
+import { monthlyAllowance } from '../../src/utils/ai-credits';
 
 const MAX_CAP = 100000;
 
@@ -20,7 +26,7 @@ export const handler: Handler = async (event) => {
     const ctx = await requireTenant(event, db);
     if ('error' in ctx) return ctx.error;
 
-    let body: { assistantId?: number; enabled?: boolean; monthlyCap?: number; mediaSources?: unknown };
+    let body: { assistantId?: number; enabled?: boolean; monthlyCap?: number; confirmOverage?: boolean; mediaSources?: unknown };
     try { body = JSON.parse(event.body || '{}'); }
     catch { return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON.' }) }; }
 
@@ -41,6 +47,16 @@ export const handler: Handler = async (event) => {
         const cap = Math.floor(Number(body.monthlyCap));
         if (!Number.isFinite(cap) || cap < 0 || cap > MAX_CAP) {
             return { statusCode: 400, body: JSON.stringify({ error: `monthlyCap must be between 0 and ${MAX_CAP}.` }) };
+        }
+        const planAllowance = await monthlyAllowance(db, ctx.organisationId);
+        if (cap > planAllowance && !body.confirmOverage) {
+            return {
+                statusCode: 409,
+                body: JSON.stringify({
+                    error: 'confirm_overage_required',
+                    planMonthlyCredits: planAllowance,
+                }),
+            };
         }
         patch.autonomousMediaMonthlyCap = cap;
     }
