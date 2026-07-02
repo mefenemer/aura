@@ -1329,7 +1329,6 @@ function formatCurrency(amount, currency) {
       'my-content': { file: 'my-content.html', title: '| My Content' },
       'calendar': { file: 'calendar.html', title: '| Content Calendar' },
       'referral': { file: 'referral-content.html', title: '| Refer a Friend' },
-      'feature-requests': { file: 'feature-requests-content.html', title: '| Feature Requests' },
       'review-queue': { file: 'review-queue.html', title: '| Review Queue' },
       'assistant-setup': { file: 'assistant-setup-checklist.html', title: '| Assistant Setup' },
       'getting-started': { file: 'getting-started.html', title: '| Getting Started' }
@@ -1348,7 +1347,6 @@ function formatCurrency(amount, currency) {
       'my-content': document.getElementById('nav-my-content'),
       'calendar': document.getElementById('nav-calendar'),
       'referral': document.getElementById('nav-referral'),
-      'feature-requests': document.getElementById('nav-feature-requests'),
       'review-queue': document.getElementById('nav-review-queue')
     };
 
@@ -1532,10 +1530,6 @@ function formatCurrency(amount, currency) {
 
         if (routeKey === 'getting-started' && typeof window.initGettingStarted === 'function') {
           window.initGettingStarted();
-        }
-
-        if (routeKey === 'feature-requests' && typeof window.initFeatureRequests === 'function') {
-          await window.initFeatureRequests();
         }
 
         if (routeKey === 'orchestrations' && typeof window.initOrchestrations === 'function') {
