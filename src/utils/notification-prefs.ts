@@ -125,6 +125,13 @@ export const PREF_CATEGORIES: PrefCategory[] = [
         types: ['new_role_availability'],
     },
     {
+        key: 'issues_feature_requests',
+        label: 'Issues & Feature Requests',
+        description: 'Updates on issues you reported and feature requests you submitted or backed.',
+        inApp: ON, email: ON,
+        types: ['issue_update', 'feature_status_change', 'feature_released'],
+    },
+    {
         key: 'product_updates',
         label: 'Product, Milestones & Support',
         description: 'Milestones, referrals, support replies, and product announcements.',
