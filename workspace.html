@@ -3500,20 +3500,21 @@ function formatCurrency(amount, currency) {
     const title   = opts.title   || 'Cancel setup?';
     const confirm = opts.confirmLabel || 'Yes, delete draft';
     const cancel  = opts.cancelLabel  || 'Keep editing';
+    const confirmBg = opts.confirmColor || '#dc2626';
     overlay.innerHTML = `
       <div style="background:#fff;border-radius:1rem;max-width:24rem;width:100%;padding:1.5rem;box-shadow:0 20px 50px rgba(0,0,0,.25);">
         <h3 style="font-size:1.05rem;font-weight:700;color:#111827;margin:0 0 .5rem;">${title}</h3>
         <p style="font-size:.875rem;color:#4b5563;margin:0 0 1.25rem;line-height:1.5;">${message}</p>
         <div style="display:flex;gap:.5rem;justify-content:flex-end;">
           <button id="acm-cancel" style="cursor:pointer;font-size:.875rem;font-weight:600;color:#374151;background:#fff;border:1px solid #d1d5db;padding:.5rem .9rem;border-radius:.6rem;">${cancel}</button>
-          <button id="acm-confirm" style="cursor:pointer;font-size:.875rem;font-weight:600;color:#fff;background:#dc2626;border:none;padding:.5rem .9rem;border-radius:.6rem;">${confirm}</button>
+          <button id="acm-confirm" style="cursor:pointer;font-size:.875rem;font-weight:600;color:#fff;background:${confirmBg};border:none;padding:.5rem .9rem;border-radius:.6rem;">${confirm}</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
-    const close = () => overlay.remove();
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    overlay.querySelector('#acm-cancel').addEventListener('click', close);
-    overlay.querySelector('#acm-confirm').addEventListener('click', async () => { close(); await onConfirm(); });
+    const close = (cancelled) => { overlay.remove(); if (cancelled && opts.onCancel) opts.onCancel(); };
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(true); });
+    overlay.querySelector('#acm-cancel').addEventListener('click', () => close(true));
+    overlay.querySelector('#acm-confirm').addEventListener('click', async () => { close(false); await onConfirm(); });
   };
 
   async function _deleteDraft(draftId) {
